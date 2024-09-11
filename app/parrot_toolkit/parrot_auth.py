@@ -79,7 +79,7 @@ def check_login(cookie_name):
                 st.session_state['logged_in'] = True
                 st.session_state['username'] = user.username
                 st.session_state['user_id'] = user.user_id
-                st.session_state['human'] = user.name + ' - '
+                st.session_state['human'] = user.name.split()[0] + ' - '
                 st.session_state['language'] = user.language
             else:
                 reset_login_status()

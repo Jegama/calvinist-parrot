@@ -1,5 +1,4 @@
 import streamlit as st
-from PIL import Image
 import parrot_ai.bible_commentaries as btk
 
 # Setting up the language
@@ -15,7 +14,6 @@ if st.session_state['language'] in ['Español', 'Spanish']:
 else:
     from parrot_toolkit.english_text import *
 
-parrot_icon = Image.open("app/calvinist_parrot.ico")
 clear_button = st.sidebar.button(CLEAR_CHAT)
 
 st.sidebar.divider()
@@ -42,7 +40,7 @@ if clear_button:
     st.session_state["query_engine"] = None
 
 for msg in st.session_state["helper_messages"]:
-    avatar_ = "🧑‍💻" if msg["role"] == "user" else parrot_icon
+    avatar_ = "🧑‍💻" if msg["role"] == "user" else "🦉"
     st.chat_message(msg["role"], avatar=avatar_).write(msg["content"])
     if "sources" in msg.keys():
         with st.expander(SH_EXPANDER):
@@ -59,20 +57,20 @@ if prompt:
         with st.spinner(SH_SPINNER):
             st.session_state.check = btk.check_input(prompt)
         if st.session_state.check is None:
-            st.chat_message("assistant", avatar=parrot_icon).write(SH_CHECK_NONE)
+            st.chat_message("assistant", avatar="🦉").write(SH_CHECK_NONE)
             st.session_state["helper_messages"].append({"role": "assistant", "content": SH_CHECK_NONE})
         else:
-            st.chat_message("assistant", avatar=parrot_icon).write(st.session_state.check)
+            st.chat_message("assistant", avatar="🦉").write(st.session_state.check)
             with st.spinner(SH_CHECK_INDEXING):
                 text_ref = st.session_state.check.split(" - ")[-1].replace("  \n\n", "")
                 st.session_state["query_engine"] = btk.generate_query_index(text_ref)
-            st.chat_message("assistant", avatar=parrot_icon).write(SH_CHECK_SUCCESS)
+            st.chat_message("assistant", avatar="🦉").write(SH_CHECK_SUCCESS)
             st.session_state["helper_messages"].append({"role": "assistant", "content": st.session_state.check})
             st.session_state["helper_messages"].append({"role": "assistant", "content": SH_CHECK_SUCCESS})
     else:
         with st.spinner(SH_SPINNER_QUERY):
             response = st.session_state["query_engine"].query(prompt)
-        st.chat_message("assistant", avatar=parrot_icon).write(response.response)
+        st.chat_message("assistant", avatar="🦉").write(response.response)
         with st.expander(SH_EXPANDER):
             for n, source in enumerate(response.source_nodes):
                 st.write(f"  \n{SH_EXPANDER_SOURCE} {n+1}:  \n\t{source.text}")
