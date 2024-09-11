@@ -18,6 +18,8 @@ This project wouldn't be possible without the following resources:
 
 ## Version History
 
+- Sept 11th 2024 update: Added a new quick QA feature in the home page. You can now ask quick questions to the Calvinist Parrot, no login required.
+- Aug 2024 update: The Calvinist Parrot is now available on Instagram! You can chat with the Lite version of the Calvinist Parrot on Instagram. [Calvinist Parrot Lite](https://aistudio.instagram.com/ai/1182100252914420/?utm_source=share)
 - July 2024 update: Please welcome the Spanish version of the Calvinist Parrot! [El Loro Calvinista](https://lorocalvinista.com/)
 - June 2024 update: v2.7 The CCEL tool is back! And the CCEL Librarian joined the main chat too.
 - Mar 2024 update: v2.4 is out! New sermon review tool is up! You can now review sermons using Bryan Chappell's evaluation framework from his book, Christ-Centered Preaching.

@@ -10,6 +10,15 @@ As an AI-driven application, I provide with multiple tools that gather informati
 While I can't use the ESV due to restrictions, we rely on the Berean Standard Bible ([BSB](https://berean.bible/)) for our primary translation. Learn more about the BSB [here](https://copy.church/initiatives/bibles/) and join us in discovering the richness of its text.\
 """
 
+QUICK_CHAT_TITLE = "Quick Chat"
+
+QUICK_CHAT_INTRO = """\
+We can start right away! If you have a quick question? This version uses a GPT-4o-mini Fine Tuned with the Baptist Catechism to generate responses. Feel free to ask me anything!
+"""
+QC_BUTTON = "Ask"
+QC_FOLLOW_UP = "Please elaborate"
+QC_RESET = "New Question"
+
 HOME_MENU_INTRO = """\
 Explore the tools available on the left menu:
 
@@ -21,10 +30,12 @@ Explore the tools available on the left menu:
 """
 
 HOME_FOOTER = """\
-- Feb 2024 update: Due to lack of funding, I'm depricating the "Main Chat" since the cost to maintain the CCEL index is too high. I'm sorry for the inconvenience. I'll keep the "Study Helper" and "Devotionals" tools available. I'm also working on a new tool to help you study the Bible. Stay tuned!
-- Mar 2024 update: New sermon review tool is up! You can now review sermons using Bryan Chappell's evaluation framework from his book, Christ-Centered Preaching.
+- Sept 2024 update: Added a new quick QA feature in the home page. You can now ask quick questions to the Calvinist Parrot, no login required.
+- Aug 2024 update: If you have Instagram, you can have a quick chat with my Lite version at [Calvinist Parrot Lite](https://aistudio.instagram.com/ai/1182100252914420/?utm_source=share)
+- July 2024 update: Please welcome the Spanish version of the Calvinist Parrot! 
+    - [El Loro Calvinista](https://lorocalvinista.com/)
 - June 2024 update: The CCEL tool is back!
-- July 2024 update: Please welcome the Spanish version of the Calvinist Parrot! [El Loro Calvinista](https://lorocalvinista.com/)
+- Mar 2024 update: New sermon review tool is up! You can now review sermons using Bryan Chappell's evaluation framework from his book, Christ-Centered Preaching.
 
 Fair warning: Session management is a bit wonky. I'm working on it. iOS doesn't play very well with sessions. I'm sorry for the inconvenience.
 
