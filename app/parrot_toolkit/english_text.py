@@ -22,7 +22,9 @@ QC_RESET = "New Question"
 HOME_MENU_INTRO = """\
 Explore the tools available on the left menu:
 
-- **Calvinist Parrot**: Engage in discussions and questions from a Reformed perspective on the Bible. Parrot, Calvin, and a CCEL Librarian are here to help you learn and grow in your understanding of Scripture.
+- **Calvinist Parrot**: Engage in discussions and questions from a Reformed perspective on the Bible. 
+    - Main mode: Parrot, Calvin, and a CCEL Librarian are here to help you learn and grow in your understanding of Scripture.
+    - Brief mode: Access a simplified version of the main mode without logging in. You will be able to talk with Parrot and Calvin.
 - **CCEL**: Dive into the treasures of the [Christian Classics Ethereal Library](https://ccel.org) for timeless Christian writings.
 - **Study Helper**: Access commentaries from [Bible Hub](https://biblehub.com/commentaries) to enrich your study of Scripture.
 - **Devotionals**: Start or end your day with AI-generated morning and evening reflections for comfort and inspiration.
@@ -30,8 +32,11 @@ Explore the tools available on the left menu:
 """
 
 HOME_FOOTER = """\
-- Sept 2024 update: Added a new quick QA feature in the home page. You can now ask quick questions to the Calvinist Parrot, no login required.
-- Aug 2024 update: If you have Instagram, you can have a quick chat with my Lite version at [Calvinist Parrot Lite](https://aistudio.instagram.com/ai/1182100252914420/?utm_source=share)
+- Sept 2024 updates: 
+    - Added a new quick QA feature in the home page. You can now ask quick questions to the Calvinist Parrot, no login required.
+    - The Main parrot now has a brief mode. You can access it without login in too! To access the main mode, please log in.
+- Aug 2024 update: If you have Instagram, you can have a quick chat with my Lite version at:
+    - [Calvinist Parrot Lite](https://aistudio.instagram.com/ai/1182100252914420/?utm_source=share)
 - July 2024 update: Please welcome the Spanish version of the Calvinist Parrot! 
     - [El Loro Calvinista](https://lorocalvinista.com/)
 - June 2024 update: The CCEL tool is back!
@@ -67,6 +72,12 @@ CONSULTED_SOURCES = "📚 **Counsulted Sources**"
 CHAT_FIRST_MESSAGE = "What theological questions do you have?"
 CHAT_PLACESHOLDER = "What is predestination?"
 CHAT_NOT_LOGGED = "Please use the sidebar to log in or register."
+
+chat_modes = ["Main", "Brief"]
+
+PAROT_BRIEF_ONLY_HEADER = "Brief Mode - To access other modes please log in."
+PARROT_BRIEF_HEADER = "Brief Mode"
+PARROT_MAIN_HEADER = "Main Mode"
 
 # Errors
 ERROR_CREATING_CONVERSATION = "Error updating or creating conversation"

@@ -2,7 +2,7 @@ import streamlit as st
 from PIL import Image
 
 from parrot_toolkit.sql_models import ConversationHistory
-from parrot_ai.core.prompts import PARROT_SYS_PROMPT, CALVIN_SYS_PROMPT_CHAT
+from parrot_ai.core.prompts import PARROT_SYS_PROMPT_MAIN, PARROT_SYS_PROMPT_BRIEF, CALVIN_SYS_PROMPT_CHAT_MAIN, CALVIN_SYS_PROMPT_CHAT_BRIEF
 from parrot_ai import chat_functions
 from parrot_ai import ccel_index as ccel
 
@@ -88,17 +88,18 @@ def interactWithAgents(question):
     # Add the response to the conversation history
     update_status({"role": "calvin", "content": answer})
 
-    # Get response from the Librarian
-    librarian_message = ccel.generate_query_4_ccel_agent(st.session_state["parrot_messages"])
-    with st.spinner("Consulting the Librarian..."):
-        librarian_response = st.session_state["ccel_agent"].query(librarian_message)
+    if st.session_state["parrot_type"] in ["Main", "Principal"]:
+        # Get response from the Librarian
+        librarian_message = ccel.generate_query_4_ccel_agent(st.session_state["parrot_messages"])
+        with st.spinner("Consulting the Librarian..."):
+            librarian_response = st.session_state["ccel_agent"].query(librarian_message)
 
-    st.chat_message("CCEL Librarian", avatar="👨‍🏫").write(librarian_response.response)
-    with st.expander(f"📚 **Counsulted Sources**"):
-        consulted_sources = ccel.parse_source_nodes(librarian_response.source_nodes)
-        ccel.display_consulted_sources(consulted_sources)
+        st.chat_message("CCEL Librarian", avatar="👨‍🏫").write(librarian_response.response)
+        with st.expander(f"📚 **Counsulted Sources**"):
+            consulted_sources = ccel.parse_source_nodes(librarian_response.source_nodes)
+            ccel.display_consulted_sources(consulted_sources)
 
-    update_status({"role": "librarian", "content": librarian_response.response, "consulted_sources": consulted_sources})
+        update_status({"role": "librarian", "content": librarian_response.response, "consulted_sources": consulted_sources})
 
     # Get the response from the Parrot
     with st.chat_message("parrot", avatar=parrot):
@@ -114,20 +115,21 @@ def interactWithAgents(question):
     # Add the response to the conversation history
     update_status({"role": "parrot", "content": answer})
 
-    # Generate a conversation name if it's a new conversation
-    if st.session_state['new_conversation']:
-        conversation_name = chat_functions.generate_conversation_name(st.session_state["parrot_messages"])
-        if conversation_name:
-            st.session_state['new_conversation'] = False
-            st.session_state['conversation_name'] = conversation_name
+    if st.session_state['logged_in']:
+        # Generate a conversation name if it's a new conversation
+        if st.session_state['new_conversation']:
+            conversation_name = chat_functions.generate_conversation_name(st.session_state["parrot_messages"])
+            if conversation_name:
+                st.session_state['new_conversation'] = False
+                st.session_state['conversation_name'] = conversation_name
 
-    # Save conversation history 
-    chat_functions.create_or_update_conversation(
-        ConversationHistory, 
-        st.session_state['user_id'], 
-        st.session_state['conversation_name'], 
-        st.session_state["parrot_messages"]
-    )
+        # Save conversation history 
+        chat_functions.create_or_update_conversation(
+            ConversationHistory, 
+            st.session_state['user_id'], 
+            st.session_state['conversation_name'], 
+            st.session_state["parrot_messages"]
+        )
     
     st.rerun()
 
@@ -135,7 +137,11 @@ def interactWithAgents(question):
 def reset_status():
     st.session_state['new_conversation'] = True
     st.session_state["parrot_messages"] = [{"role": "parrot", "content": CHAT_FIRST_MESSAGE}] # What the user sees in the UI
-    st.session_state["parrot_conversation_history"] = [{"role": "system", "content": PARROT_SYS_PROMPT}] # What is send to the Parrot
-    st.session_state["calvin_conversation_history"] = [{"role": "system", "content": CALVIN_SYS_PROMPT_CHAT}] # What is send to Calvin
+    if st.session_state['parrot_type'] == 'Brief':
+        st.session_state["parrot_conversation_history"] = [{"role": "system", "content": PARROT_SYS_PROMPT_BRIEF}] # What is send to the Parrot
+        st.session_state["calvin_conversation_history"] = [{"role": "system", "content": CALVIN_SYS_PROMPT_CHAT_BRIEF}] # What is send to Calvin
+    else:
+        st.session_state["parrot_conversation_history"] = [{"role": "system", "content": PARROT_SYS_PROMPT_MAIN}] # What is send to the Parrot
+        st.session_state["calvin_conversation_history"] = [{"role": "system", "content": CALVIN_SYS_PROMPT_CHAT_MAIN}] # What is send to Calvin
     st.session_state["ccel_agent"] = ccel.create_ccel_agent() # Erase the CCEL agent state
     st.rerun()

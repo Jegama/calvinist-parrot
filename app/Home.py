@@ -101,13 +101,13 @@ def homepage():
     st.markdown(HOME_FOOTER, unsafe_allow_html=True)
 
 
-home = st.Page(homepage, title=f"{pages[0]} v2.8", icon="🦜")
+home = st.Page(homepage, title="Home", icon=":material/home:")
 
 login_page = st.Page("directory/parrot_login.py", title=pages[5], icon=":material/login:")
 register_page = st.Page("directory/parrot_register.py", title=pages[6], icon=":material/assignment_ind:")
 logout_page = st.Page(auth.logout, title=pages[7], icon=":material/logout:")
 
-v2_parrot = st.Page("directory/Parrot.py", title=pages[0], icon="🦜")
+v2_parrot = st.Page("directory/Parrot.py", title=f"{pages[0]} v2.8", icon="🦜")
 ccel_page = st.Page("directory/CCEL.py", title="CCEL", icon="📚")
 study_helper = st.Page("directory/Study_Helper.py", title=pages[1], icon="📖")
 devotionals = st.Page("directory/Devotional.py", title=pages[2], icon="📜")
@@ -137,7 +137,7 @@ if st.session_state['logged_in']:
 else:
     pg = st.navigation(
         {
-            "Main": [home, login_page, register_page],
+            "Main": [home, v2_parrot, login_page, register_page],
             "Tools": nav_tools,
             "Other": [devotionals]
         }
