@@ -21,7 +21,9 @@ QC_RESET = "Nueva Pregunta"
 HOME_MENU_INTRO = """\
 Explora las herramientas disponibles en el menú de la izquierda:
 
-- **Loro Calvinista**: Participa en discusiones y preguntas sobre la Biblia desde una perspectiva Reformada. El Loro, Calvino y un Bibliotecario de la CCEL están aquí para ayudarte a aprender y crecer en tu entendimiento de las Escrituras.
+- **Loro Calvinista**: Participa en discusiones y preguntas sobre la Biblia desde una perspectiva Reformada. 
+    - Modo Principal: El Loro, Calvino y un Bibliotecario de la CCEL están aquí para ayudarte a aprender y crecer en tu entendimiento de las Escrituras.
+    - Modo Breve: Accede a una versión simplificada del modo principal sin iniciar sesión. Podrás hablar con el Loro y Calvino.
 - **CCEL**: Sumérgete en los tesoros de la [Biblioteca Etérea de Clásicos Cristianos](https://ccel.org) para escritos cristianos atemporales.
 - **Asistente de Estudio**: Accede a comentarios de [Bible Hub](https://biblehub.com/commentaries) para enriquecer tu estudio de las Escrituras.
 - **Devocionales**: Comienza o termina tu día con reflexiones matutinas y vespertinas generadas por IA para consuelo e inspiración.
@@ -29,8 +31,11 @@ Explora las herramientas disponibles en el menú de la izquierda:
 # - **Revisión de Sermones**: Evalúa tus sermones utilizando el marco de predicación centrada en Cristo de Bryan Chappell.\
 
 HOME_FOOTER = """\
-- Actualización de septiembre de 2024: Se ha añadido una nueva función de preguntas y respuestas rápidas en la página de inicio. Ahora puedes hacer preguntas rápidas al Loro Calvinista, no se requiere inicio de sesión.
-- Actualización de agosto de 2024: Si tienes Instagram, puedes tener una charla rápida con mi versión Llama en [Loro Calvinista IG](https://aistudio.instagram.com/ai/1182100252914420/?utm_source=share)
+- Actualizaciones de septiembre de 2024: 
+    - Se ha añadido una nueva función de preguntas y respuestas rápidas en la página de inicio. Ahora puedes hacer preguntas rápidas al Loro Calvinista, no se requiere inicio de sesión.
+    - El Loro principal ahora tiene un modo breve. ¡Puedes acceder a él sin iniciar sesión también! Para acceder al modo principal, por favor inicia sesión.
+- Actualización de agosto de 2024: Si tienes Instagram, puedes tener una charla rápida con mi versión Llama en:
+    - [Loro Calvinista IG](https://aistudio.instagram.com/ai/1182100252914420/?utm_source=share)
 - Actualización de julio de 2024: ¡Por favor, da la bienvenida a la versión en español del Loro Calvinista! 
     - [El Loro Calvinista](https://lorocalvinista.com/). La version original en inglés es [Calvinist Parrot](https://calvinistparrot.com/)
 - Actualización de junio de 2024: ¡La herramienta de CCEL está de vuelta!
@@ -65,6 +70,12 @@ CONSULTED_SOURCES = "📚 **Fuentes Consultadas**"
 CHAT_FIRST_MESSAGE = "¿Qué preguntas teológicas tienes?"
 CHAT_PLACESHOLDER = "¿Qué es la predestinación?"
 CHAT_NOT_LOGGED = "Por favor, use la barra lateral para iniciar sesión o registrarse."
+
+chat_modes = ["Principal", "Breve"]
+
+PAROT_BRIEF_ONLY_HEADER = "Modo Breve - Para acceder a otros modos, por favor inicie sesión."
+PARROT_BRIEF_HEADER = "Modo Breve"
+PARROT_MAIN_HEADER = "Modo Principal"
 
 # Errores
 ERROR_CREATING_CONVERSATION = "Error al actualizar o crear conversación"

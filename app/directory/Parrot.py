@@ -13,10 +13,6 @@ calvin = Image.open("app/calvin.ico")
 if "logged_in" not in st.session_state:
     auth.check_login()
 
-# Check if the user is logged in
-if "logged_in" not in st.session_state:
-    auth.check_login()
-
 # Setting up the language
 if 'language' not in st.session_state:
     if st.session_state['logged_in'] == False:
@@ -51,6 +47,25 @@ if "parrot_messages" not in st.session_state:
 
 if st.session_state['logged_in']:
     st.sidebar.write(f"{LOGGED_AS} {st.session_state['username']}")
+
+    if st.session_state["parrot_type"] in ["Main", "Principal"]:
+        index_ = 0
+        st.write(PARROT_MAIN_HEADER)
+    else:
+        index_ = 1
+        st.write(PARROT_BRIEF_HEADER)
+
+    parrot_type_dropdown = st.sidebar.radio(
+        "Select Parrot Type", 
+        options=chat_modes, 
+        key="parrot_type_dropdown", 
+        index=index_, 
+    )
+
+    if st.session_state["parrot_type"] != parrot_type_dropdown:
+        st.session_state["parrot_type"] = parrot_type_dropdown
+        reset_status()
+
     st.sidebar.subheader(CHAT_HIST)
     with st.container():
         chat_functions.load_conversation_history(
@@ -59,29 +74,27 @@ if st.session_state['logged_in']:
             'parrot_messages'
         )
 else:
+    st.write(PAROT_BRIEF_ONLY_HEADER)
     st.sidebar.write(NOT_LOGGED)
 
 # Main content
-if st.session_state['logged_in']:
-    for msg in st.session_state["parrot_messages"]:
-        if msg["role"] == "parrot":
-            avatar = parrot
-        elif msg["role"] == "calvin":
-            avatar = calvin
-        elif msg["role"] == "librarian":
-            avatar = "👨‍🏫"
-        else:
-            avatar = "🧑‍💻"
-        st.chat_message(msg["role"], avatar=avatar).write(msg["content"])
-        if "consulted_sources" in msg.keys():
-            with st.expander(CONSULTED_SOURCES):
-                display_consulted_sources(msg["consulted_sources"])
+for msg in st.session_state["parrot_messages"]:
+    if msg["role"] == "parrot":
+        avatar = parrot
+    elif msg["role"] == "calvin":
+        avatar = calvin
+    elif msg["role"] == "librarian":
+        avatar = "👨‍🏫"
+    else:
+        avatar = "🧑‍💻"
+    st.chat_message(msg["role"], avatar=avatar).write(msg["content"])
+    if "consulted_sources" in msg.keys():
+        with st.expander(CONSULTED_SOURCES):
+            display_consulted_sources(msg["consulted_sources"])
 
-    if prompt := st.chat_input(placeholder=CHAT_PLACESHOLDER):
-        st.chat_message("user", avatar="🧑‍💻").write(prompt)
-        st.session_state["parrot_messages"].append(
-            {"role": "user", "avatar": "🧑‍💻", "content": prompt}
-        )
-        interactWithAgents(prompt)
-else:
-    st.write(CHAT_NOT_LOGGED)
+if prompt := st.chat_input(placeholder=CHAT_PLACESHOLDER):
+    st.chat_message("user", avatar="🧑‍💻").write(prompt)
+    st.session_state["parrot_messages"].append(
+        {"role": "user", "avatar": "🧑‍💻", "content": prompt}
+    )
+    interactWithAgents(prompt)

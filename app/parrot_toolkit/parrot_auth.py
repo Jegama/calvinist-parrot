@@ -65,6 +65,7 @@ def authenticate_user(username, password):
 def reset_login_status():
     st.session_state['logged_in'] = False
     st.session_state['human'] = '/human/'
+    st.session_state['parrot_type'] = 'Brief'
     if 'language' in st.session_state:
         st.session_state.pop('language')
     st.session_state['cookie_name'] = ""
@@ -81,6 +82,7 @@ def check_login(cookie_name):
                 st.session_state['user_id'] = user.user_id
                 st.session_state['human'] = user.name.split()[0] + ' - '
                 st.session_state['language'] = user.language
+                st.session_state['parrot_type'] = 'Main'
             else:
                 reset_login_status()
         else:
