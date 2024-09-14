@@ -1,51 +1,16 @@
+
+# Página de Inicio
 HOME_TITLE = "¡Bienvenido al Loro Calvinista!"
 
-HOME_INTRO = """\
-¡Bienvenido! Estoy aquí para guiarte a través de la Biblia desde una perspectiva Reformada. Siéntete libre de preguntarme cualquier cosa sobre las Escrituras, y te proporcionaré información basada en mi conocimiento y entendimiento como Bautista Reformado.
-
-Como una aplicación impulsada por IA, proporciono múltiples herramientas que recopilan información de fuentes como la [Biblioteca Etérea de Clásicos Cristianos](https://ccel.org) y [Bible Hub](https://biblehub.com/commentaries) para enriquecer tu tiempo en la Biblia.
-
-Aunque no puedo usar la ESV debido a restricciones, confiamos en la Biblia Estándar Berea ([BSB](https://berean.bible/)) como nuestra traducción principal. Aprende más sobre la BSB [aquí](https://copy.church/initiatives/bibles/) y únete a nosotros en el descubrimiento de la riqueza de su texto.\
-"""
-
-QUICK_CHAT_TITLE = "Chat Rápido"
-
 QUICK_CHAT_INTRO = """\
-¡Podemos empezar de inmediato! ¿Tienes una pregunta rápida? Esta versión utiliza un GPT-4o-mini Ajustado con el Catecismo Bautista para generar respuestas. ¡Siéntete libre de preguntarme cualquier cosa!
+¡Podemos empezar de inmediato! ¿Tienes una pregunta rápida? 
+
+Para acceder más herramientas, por favor mira el menú en el lado izquierdo.
 """
 
 QC_BUTTON = "Preguntar"
 QC_FOLLOW_UP = "Por favor, elabora"
 QC_RESET = "Nueva Pregunta"
-
-HOME_MENU_INTRO = """\
-Explora las herramientas disponibles en el menú de la izquierda:
-
-- **Loro Calvinista**: Participa en discusiones y preguntas sobre la Biblia desde una perspectiva Reformada. 
-    - Modo Principal: El Loro, Calvino y un Bibliotecario de la CCEL están aquí para ayudarte a aprender y crecer en tu entendimiento de las Escrituras.
-    - Modo Breve: Accede a una versión simplificada del modo principal sin iniciar sesión. Podrás hablar con el Loro y Calvino.
-- **CCEL**: Sumérgete en los tesoros de la [Biblioteca Etérea de Clásicos Cristianos](https://ccel.org) para escritos cristianos atemporales.
-- **Asistente de Estudio**: Accede a comentarios de [Bible Hub](https://biblehub.com/commentaries) para enriquecer tu estudio de las Escrituras.
-- **Devocionales**: Comienza o termina tu día con reflexiones matutinas y vespertinas generadas por IA para consuelo e inspiración.
-"""
-# - **Revisión de Sermones**: Evalúa tus sermones utilizando el marco de predicación centrada en Cristo de Bryan Chappell.\
-
-HOME_FOOTER = """\
-- Actualizaciones de septiembre de 2024: 
-    - Se ha añadido una nueva función de preguntas y respuestas rápidas en la página de inicio. Ahora puedes hacer preguntas rápidas al Loro Calvinista, no se requiere inicio de sesión.
-    - El Loro principal ahora tiene un modo breve. ¡Puedes acceder a él sin iniciar sesión también! Para acceder al modo principal, por favor inicia sesión.
-- Actualización de agosto de 2024: Si tienes Instagram, puedes tener una charla rápida con mi versión Llama en:
-    - [Loro Calvinista IG](https://aistudio.instagram.com/ai/1182100252914420/?utm_source=share)
-- Actualización de julio de 2024: ¡Por favor, da la bienvenida a la versión en español del Loro Calvinista! 
-    - [El Loro Calvinista](https://lorocalvinista.com/). La version original en inglés es [Calvinist Parrot](https://calvinistparrot.com/)
-- Actualización de junio de 2024: ¡La herramienta de CCEL está de vuelta!
-
-Advertencia: La gestión de sesiones es un poco irregular. Estoy trabajando en ello. iOS no se lleva muy bien con las sesiones. Lo siento por las molestias.
-
-¡Todavía estoy aprendiendo, así que por favor ten paciencia conmigo! Siempre estoy buscando mejorar, así que si tienes algún comentario, <a href='mailto:jesus@jgmancilla.com'>por favor házmelo saber</a>
-
-También soy de código abierto, así que si estás interesado en contribuir a mi desarrollo, visita mi [GitHub](https://github.com/Jegama/calvinist-parrot)\
-"""
 
 pages = [
     "Loro Calvinista",
@@ -55,8 +20,50 @@ pages = [
     "Estudios Bíblicos",
     "Iniciar sesión",
     "Registrarse",
-    "Cerrar sesión"
+    "Cerrar sesión",
+    "Acerca De"
 ]
+
+# Página Acerca De
+ABOUT_TITLE = "Acerca del Loro Calvinista"
+
+ABOUT_INTRO = """\
+¡Bienvenido! Estoy aquí para guiarte a través de la Biblia desde una perspectiva Reformada. Siéntete libre de preguntarme cualquier cosa sobre las Escrituras. Proporcionaré perspectivas basadas en mi conocimiento y comprensión como Bautista Reformado.
+
+Como una aplicación impulsada por IA, ofrezco múltiples herramientas que recopilan información de fuentes como la [Biblioteca Cristiana de Clásicos Etéreos](https://ccel.org) y [Bible Hub](https://biblehub.com/commentaries) para enriquecer tu tiempo en la Biblia.
+
+No puedo usar la ESV debido a restricciones. Por lo tanto, confiamos en la Biblia Estándar Berea ([BSB](https://berean.bible/)) como nuestra traducción principal. Aprende más sobre la BSB [aquí](https://copy.church/initiatives/bibles/) y únete a nosotros en el descubrimiento de la riqueza de su texto.\
+"""
+
+ABOUT_MENU_INTRO = """\
+Explora las herramientas disponibles en el menú de la izquierda:
+
+- **Loro Calvinista**: Participa en discusiones y preguntas desde una perspectiva Reformada sobre la Biblia.
+    - Modo principal: El Loro, Calvino y un Bibliotecario de CCEL están aquí para ayudarte a aprender y profundizar tu comprensión de las Escrituras.
+    - Modo breve: Puedes acceder a una versión simplificada del modo principal sin iniciar sesión. Puedes hablar con el Loro y Calvino.
+- **CCEL**: Para escritos cristianos eternos, sumérgete en los tesoros de la [Biblioteca Cristiana de Clásicos Etéreos](https://ccel.org).
+- **Asistente de Estudio**: Accede a comentarios de [Bible Hub](https://biblehub.com/commentaries) para enriquecer tu estudio de las Escrituras.
+- **Devocionales**: Comienza o termina tu día con reflexiones matutinas y vespertinas generadas por IA para consuelo e inspiración.
+- **Revisión de Sermones**: Evalúa tus sermones utilizando el marco de "Predicación Centrada en Cristo" de Bryan Chappell.\
+"""
+
+ABOUT_FOOTER = """\
+- Actualizaciones de septiembre de 2024:
+    - Hemos añadido una nueva función de preguntas y respuestas rápidas en la página de inicio. Ahora puedes hacer preguntas rápidas al Loro Calvinista, sin necesidad de iniciar sesión.
+    - El Loro Principal ahora tiene un modo breve. ¡También puedes acceder a él sin iniciar sesión! Para acceder al modo principal, por favor inicia sesión.
+- Actualización de agosto de 2024: Si tienes Instagram, puedes tener una conversación rápida con mi versión Lite en:
+    - [Loro Calvinista Lite](https://aistudio.instagram.com/ai/1182100252914420/?utm_source=share)
+- Actualización de julio de 2024: ¡Por favor da la bienvenida a la versión en español del Loro Calvinista!
+    - [El Loro Calvinista](https://lorocalvinista.com/)
+- Actualización de junio de 2024: ¡La herramienta CCEL ha vuelto!
+- Actualización de marzo de 2024: ¡La nueva herramienta de revisión de sermones está disponible! Ahora puedes revisar sermones utilizando el marco de evaluación de Bryan Chappell de su libro "Predicación Centrada en Cristo".
+
+Advertencia: La gestión de sesiones es un poco inestable. Estoy trabajando en ello. iOS no se lleva muy bien con las sesiones. Lamento las molestias.
+
+¡Sigo aprendiendo, así que por favor ten paciencia conmigo! Siempre busco mejorar, así que si tienes algún comentario, <a href='mailto:jesus@jgmancilla.com'>por favor, házmelo saber</a>
+
+También soy de código abierto, así que si estás interesado en contribuir a mi desarrollo, visita mi [GitHub](https://github.com/Jegama/calvinist-parrot)\
+"""
 
 # Menú lateral
 CLEAR_CHAT = "Nueva Conversación"

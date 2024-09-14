@@ -2,52 +2,16 @@
 # Home page
 HOME_TITLE = "Welcome to the Calvinist Parrot!"
 
-HOME_INTRO = """\
-Welcome! I'm here to guide you through the Bible from a Reformed perspective. Feel free to ask me anything about Scripture, and I'll provide insights based on my knowledge and understanding as a Reformed Baptist.
-
-As an AI-driven application, I provide with multiple tools that gather information from sources like the [Christian Classics Ethereal Library](https://ccel.org) and [Bible Hub](https://biblehub.com/commentaries) to enhance your time in the Bible.
-
-While I can't use the ESV due to restrictions, we rely on the Berean Standard Bible ([BSB](https://berean.bible/)) for our primary translation. Learn more about the BSB [here](https://copy.church/initiatives/bibles/) and join us in discovering the richness of its text.\
-"""
-
-QUICK_CHAT_TITLE = "Quick Chat"
-
 QUICK_CHAT_INTRO = """\
-We can start right away! If you have a quick question? This version uses a GPT-4o-mini Fine Tuned with the Baptist Catechism to generate responses. Feel free to ask me anything!
+We can start right away! Do you have a quick question?
+
+To access more tools, please look at the menu on the left side.
 """
 QC_BUTTON = "Ask"
 QC_FOLLOW_UP = "Please elaborate"
 QC_RESET = "New Question"
 
-HOME_MENU_INTRO = """\
-Explore the tools available on the left menu:
-
-- **Calvinist Parrot**: Engage in discussions and questions from a Reformed perspective on the Bible. 
-    - Main mode: Parrot, Calvin, and a CCEL Librarian are here to help you learn and grow in your understanding of Scripture.
-    - Brief mode: Access a simplified version of the main mode without logging in. You will be able to talk with Parrot and Calvin.
-- **CCEL**: Dive into the treasures of the [Christian Classics Ethereal Library](https://ccel.org) for timeless Christian writings.
-- **Study Helper**: Access commentaries from [Bible Hub](https://biblehub.com/commentaries) to enrich your study of Scripture.
-- **Devotionals**: Start or end your day with AI-generated morning and evening reflections for comfort and inspiration.
-- **Sermon Review**: Evaluate your sermons using Bryan Chappell's Christ-Centered Preaching framework.\
-"""
-
-HOME_FOOTER = """\
-- Sept 2024 updates: 
-    - Added a new quick QA feature in the home page. You can now ask quick questions to the Calvinist Parrot, no login required.
-    - The Main parrot now has a brief mode. You can access it without login in too! To access the main mode, please log in.
-- Aug 2024 update: If you have Instagram, you can have a quick chat with my Lite version at:
-    - [Calvinist Parrot Lite](https://aistudio.instagram.com/ai/1182100252914420/?utm_source=share)
-- July 2024 update: Please welcome the Spanish version of the Calvinist Parrot! 
-    - [El Loro Calvinista](https://lorocalvinista.com/)
-- June 2024 update: The CCEL tool is back!
-- Mar 2024 update: New sermon review tool is up! You can now review sermons using Bryan Chappell's evaluation framework from his book, Christ-Centered Preaching.
-
-Fair warning: Session management is a bit wonky. I'm working on it. iOS doesn't play very well with sessions. I'm sorry for the inconvenience.
-
-I'm still learning, so please be patient with me! I'm always looking to improve, so if you have any feedback, <a href='mailto:jesus@jgmancilla.com'>please let me know</a>
-
-I'm also open source, so if you're interested in contributing to my development, check out my [GitHub](https://github.com/Jegama/calvinist-parrot)\
-"""
+QUOTED_VERSES = "📜 **Quoted Verses**"
 
 pages = [
     "Calvinist Parrot",
@@ -57,8 +21,51 @@ pages = [
     "Bible Studies",
     "Log in",
     "Register",
-    "Log out"
+    "Log out",
+    "About"
 ]
+
+# About Page
+ABOUT_TITLE = "About the Calvinist Parrot"
+
+ABOUT_INTRO = """\
+Welcome! I'm here to guide you through the Bible from a Reformed perspective. Feel free to ask me anything about Scripture. I'll provide insights based on my knowledge and understanding as a Reformed Baptist.
+
+As an AI-driven application, I provide multiple tools that gather information from sources like the [Christian Classics Ethereal Library](https://ccel.org) and [Bible Hub](https://biblehub.com/commentaries) to enhance your time in the Bible.
+
+I can't use the ESV due to restrictions. Therefore, we rely on the Berean Standard Bible ([BSB](https://berean.bible/)) for our primary translation. Learn more about the BSB [here](https://copy.church/initiatives/bibles/) and join us in discovering the richness of its text.\
+"""
+
+ABOUT_MENU_INTRO = """\
+Explore the tools available on the left menu:
+
+- **Calvinist Parrot**: Engage in discussions and questions from a Reformed perspective on the Bible. 
+    - Main mode: Parrot, Calvin, and a CCEL Librarian are here to help you learn and grow your understanding of Scripture.
+    - Brief mode: You can access a simplified version of the main mode without logging in. You can talk with Parrot and Calvin.
+- **CCEL**: For timeless Christian writings, dive into the treasures of the [Christian Classics Ethereal Library](https://ccel.org).
+- **Study Helper**: Access commentaries from [Bible Hub](https://biblehub.com/commentaries) to enrich your study of Scripture.
+- **Devotionals**: Start or end your day with AI-generated morning and evening reflections for comfort and inspiration.
+- **Sermon Review**: Evaluate your sermons using Bryan Chappell's Christ-Centered Preaching framework.\
+"""
+
+ABOUT_FOOTER = """\
+- Sept 2024 updates: 
+    - We have added a new quick QA feature to the home page. You can now ask quick questions to the Calvinist Parrot, with no login required.
+    - The Main parrot now has a brief mode. You can access it without logging in, too! To access the main mode, please log in.
+- Aug 2024 update: If you have Instagram, you can have a quick chat with my Lite version at:
+    - [Calvinist Parrot Lite](https://aistudio.instagram.com/ai/1182100252914420/?utm_source=share)
+- July 2024 update: Please welcome the Spanish version of the Calvinist Parrot! 
+    - [El Loro Calvinista](https://lorocalvinista.com/)
+- June 2024 update: The CCEL tool is back!
+- Mar 2024 update: The new sermon review tool is up! You can now review sermons using Bryan Chappell's evaluation framework from his book Christ-Centered Preaching.
+
+Fair warning: Session management is a bit wonky. I'm working on it. iOS doesn't play very well with sessions. I'm sorry for the inconvenience.
+
+I'm still learning, so please be patient with me! I'm always looking to improve, so if you have any feedback, <a href='mailto:jesus@jgmancilla.com'>please let me know</a>
+
+I'm also open source, so if you're interested in contributing to my development, check out my [GitHub](https://github.com/Jegama/calvinist-parrot)\
+"""
+
 
 # Side menu
 CLEAR_CHAT = "New Conversation"

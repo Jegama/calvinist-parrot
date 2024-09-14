@@ -1,7 +1,6 @@
 import streamlit as st
 from PIL import Image
 import re, os, datetime
-import pandas as pd
 import google_connector as gc
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime as dt
@@ -61,16 +60,6 @@ def get_response(messages_list, model_to_use = gpt_model, stream=True):
         temperature = 0
     )
     return response
-
-def generate_followup_prompt(question, first_answer):
-    followup_prompt = f"""\
-The user asked the following question: {question}
-
-And a GPT-4o-mini Fine Tuned with the Baptist Catechism answered: {first_answer}
-
-Please review the answer and elaborate on it. You can add more information, or correct any mistakes. Remember to keep the conversation in line with the 1689 London Baptist Confession of Faith. Acknowledge what the other response, and help the user understant the concept better.
-"""
-    return followup_prompt
 
 def extractQuestions(text):
     pattern = r"\/\/(.*?)\/\/"
