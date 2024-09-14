@@ -121,6 +121,19 @@ class BibleStudies(Base):
 
     user = relationship("User", back_populates="bible_studies")
 
+
+class ChainReasoning(Base):
+    __tablename__ = 'chain_reasoning'
+    chain_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_question = Column(Text, nullable=False)
+    reformatted_question = Column(Text)
+    category = Column(String)
+    subcategory = Column(String)
+    issue_type = Column(String)
+    reviewed_answer = Column(Text)
+    timestamp = Column(DateTime, default=dt.now(datetime.UTC))
+
+
 class Devotionals(Base):
     __tablename__ = 'devotionals'
     devotionals_id = Column(String, primary_key=True)

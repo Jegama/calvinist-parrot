@@ -84,13 +84,13 @@ def get_text_ui(verse):
             temp_ref = bible.format_scripture_references(temp)
             try:
                 verse_text, version, bible_book = get_local_verse_text(temp_ref, st.session_state['language'])
-                text_out += f'{verse_text}  \n'
+                text_out += f'{verse_text} '
             except Exception as e:
-                text_out += f'{bible.get_verse_text(j)}  \n'
+                text_out += f'{bible.get_verse_text(j)}  '
                 version = 'ASV'
         text_out = text_out[:-1]
         if st.session_state['language'] in ['Español', 'Spanish']:
             reference_out = f"{bible_book} {reference_out.split(' ')[-1]}"
-        text_out += f' - {reference_out} ({version})'
+        text_out += f' - {reference_out} ({version}) \n'
 
     return text_out, version, reference_out
