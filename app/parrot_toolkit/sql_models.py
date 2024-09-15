@@ -131,8 +131,21 @@ class ChainReasoning(Base):
     subcategory = Column(String)
     issue_type = Column(String)
     reviewed_answer = Column(Text)
+    language = Column(String)
     timestamp = Column(DateTime, default=dt.now(datetime.UTC))
 
+class ConversationsCategories(Base):
+    __tablename__ = 'conversations_categories'
+    conversation_category_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_question = Column(Text, nullable=False)
+    reformatted_question = Column(Text)
+    category = Column(String)
+    subcategory = Column(String)
+    issue_type = Column(String)
+    reviewed_answer = Column(Text)
+    language = Column(String)
+    parrot_type = Column(String)
+    timestamp = Column(DateTime, default=dt.now(datetime.UTC))
 
 class Devotionals(Base):
     __tablename__ = 'devotionals'

@@ -220,5 +220,19 @@
       "Identifying Gifts",
       "Utilizing Gifts in the Church"
     ]
+  },
+  "Non-Biblical Questions": {
+    "General Inquiries": [
+      "Questions unrelated to biblical or theological topics but are general in nature"
+    ],
+    "Irrelevant Content": [
+      "Nonsensical or off-topic questions that don't fit any meaningful category"
+    ],
+    "Inappropriate Content": [
+      "Questions containing offensive language, harassment, or content that violates community guidelines"
+    ],
+    "Spam or Promotional Material": [
+      "Content intended to advertise/sell products, services, or external websites unrelated to the app's purpose"
+    ]
   }
 }

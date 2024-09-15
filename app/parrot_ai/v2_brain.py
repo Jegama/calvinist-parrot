@@ -1,13 +1,31 @@
 import streamlit as st
 from PIL import Image
+from openai import OpenAI
+client = OpenAI()
 
-from parrot_toolkit.sql_models import ConversationHistory
-from parrot_ai.core.prompts import PARROT_SYS_PROMPT_MAIN, PARROT_SYS_PROMPT_BRIEF, CALVIN_SYS_PROMPT_CHAT_MAIN, CALVIN_SYS_PROMPT_CHAT_BRIEF
+from parrot_toolkit.sql_models import ConversationHistory, ConversationsCategories
+import google_connector as gc
+from sqlalchemy.orm import sessionmaker
+from parrot_ai.core.prompts import PARROT_SYS_PROMPT_MAIN, PARROT_SYS_PROMPT_BRIEF, CALVIN_SYS_PROMPT_CHAT_MAIN, CALVIN_SYS_PROMPT_CHAT_BRIEF, CATEGORIZING_SYS_PROMPT, n_shoot_examples
 from parrot_ai import chat_functions
 from parrot_ai import ccel_index as ccel
 
+
+def categorize_parrot_question(messages_list, model_to_use = "gpt-4o-mini"):
+    response = client.chat.completions.create(
+        model=model_to_use,
+        messages=messages_list,
+        response_format={ "type": "json_object" },
+        temperature = 0
+    )
+    temp = response.choices[0].message.content
+    categorization = eval(temp)
+    return categorization
+
 parrot = Image.open("app/calvinist_parrot.ico")
 calvin = Image.open("app/calvin.ico")
+pool = gc.connect_with_connector('parrot_db')
+SessionLocal = sessionmaker(bind=pool)
 
 # Setting up the language
 if 'language' not in st.session_state:
@@ -59,7 +77,8 @@ def load_selected_conversation():
 def interactWithAgents(question):
     st.session_state["parrot_conversation_history"].append({"role": "user", "content": f'{st.session_state["human"]} - {question}'})
     st.session_state["calvin_conversation_history"].append({"role": "user", "content": f'{st.session_state["human"]} - {question}'})
-    
+    categorization_prompt = [{"role": "system", "content": CATEGORIZING_SYS_PROMPT}]  + n_shoot_examples + [{"role": "user", "content": question}]
+
     # Get the response from the Parrot
     with st.chat_message("parrot", avatar=parrot):
         answer = ''
@@ -100,6 +119,9 @@ def interactWithAgents(question):
             ccel.display_consulted_sources(consulted_sources)
 
         update_status({"role": "librarian", "content": librarian_response.response, "consulted_sources": consulted_sources})
+        parrot_type = "Main"
+    else:
+        parrot_type = "Brief"
 
     # Get the response from the Parrot
     with st.chat_message("parrot", avatar=parrot):
@@ -114,6 +136,29 @@ def interactWithAgents(question):
 
     # Add the response to the conversation history
     update_status({"role": "parrot", "content": answer})
+
+    categories = categorize_parrot_question(categorization_prompt)
+    categories["reviewed_answer"] = answer
+
+    # save categories to the database
+    session = SessionLocal()
+    try:
+        conversation_categories = ConversationsCategories(
+            user_question = question,
+            reformatted_question = categories["reformatted_question"],
+            category = categories["category"],
+            subcategory = categories["subcategory"],
+            issue_type = categories["issue_type"],
+            reviewed_answer = categories["reviewed_answer"],
+            language = st.session_state['language'],
+            parrot_type = parrot_type
+        )
+        session.add(conversation_categories)
+        session.commit()
+    except Exception as e:
+        st.error(e)
+    finally:
+        session.close()
 
     if st.session_state['logged_in']:
         # Generate a conversation name if it's a new conversation

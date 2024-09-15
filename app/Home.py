@@ -33,6 +33,9 @@ def update_question():
     # This function will be triggered on text input changes
     st.session_state["question"] = st.session_state["input_question"]
 
+if "reviewed_answer" not in st.session_state or "refuse" not in st.session_state:
+    cr.reset_chain()
+
 def homepage():
 
     st.image("https://cultofthepartyparrot.com/parrots/hd/calvinist_parrot.gif",width=100)
@@ -44,10 +47,11 @@ def homepage():
                   placeholder=CHAT_PLACESHOLDER, on_change=update_question)
 
     if st.session_state["reviewed_answer"] != "":
-        with st.expander("Suggested Answers"):
-            col1, col2 = st.columns(2)
-            col1.write(st.session_state["first_answer"])
-            col2.write(st.session_state["second_answer"])
+        with st.expander("Counsel of Three"):
+            col1, col2, col3 = st.columns(3)
+            col1.write(f"**Agent A:** {st.session_state['first_answer']}")
+            col2.write(f"**Agent B:** {st.session_state['second_answer']}")
+            col3.write(f"**Agent C:** {st.session_state['third_answer']}")
 
         st.info(st.session_state["reviewed_answer"])
         references = re.findall(r'\((.*?)\)', st.session_state["reviewed_answer"])
@@ -62,6 +66,10 @@ def homepage():
         if st.session_state["follow_up"] != "":
             st.write(st.session_state["follow_up"])
 
+        if st.button(QC_RESET):
+            cr.reset_chain()
+    elif st.session_state["refuse"]:
+        st.info(st.session_state["refuse_answer"])
         if st.button(QC_RESET):
             cr.reset_chain()
     else:
