@@ -3,11 +3,10 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+  } from "@/components/ui/popover";  
 import { parseReference, ParsedReference } from '@/utils/parseReference';
 import { getBookId } from '@/utils/bookMappings';
 import {
@@ -134,15 +133,13 @@ export function BibleVerse({ reference }: BibleVerseProps) {
   };
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="underline cursor-help">{reference}</span>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p className="max-w-xs whitespace-pre-wrap">{verseText}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Popover>
+      <PopoverTrigger asChild>
+        <span className="underline cursor-pointer">{reference}</span>
+      </PopoverTrigger>
+      <PopoverContent>
+        <p className="max-w-xs whitespace-pre-wrap">{verseText}</p>
+      </PopoverContent>
+    </Popover>
   );
 }
