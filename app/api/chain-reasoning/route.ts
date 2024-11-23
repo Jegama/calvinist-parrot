@@ -5,8 +5,8 @@ import {
   QUICK_CHAT_SYS_PROMPT, 
   CALVIN_QUICK_SYS_PROMPT,
   reasoning_prompt,
-  answer_prompt,
-  follow_up_prompt
+  answer_prompt
+  // follow_up_prompt
 } from '@/lib/prompts'
 
 const openai = new OpenAI({
