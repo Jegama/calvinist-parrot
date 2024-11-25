@@ -1,7 +1,10 @@
+// api/chain-reasoning/route.ts
+
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { 
   CATEGORIZING_SYS_PROMPT, 
+  n_shot_examples,
   QUICK_CHAT_SYS_PROMPT, 
   CALVIN_QUICK_SYS_PROMPT,
   reasoning_prompt,
@@ -21,12 +24,15 @@ export async function POST(req: Request) {
   const { question } = await req.json()
 
   // Step 1: Categorize
+  const message_list: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    {role: "system", content: CATEGORIZING_SYS_PROMPT},
+    ...n_shot_examples,
+    { role: "user", content: question }
+  ]
+
   const categorizationResponse = await openai.chat.completions.create({
     model: mini_model,
-    messages: [
-      { role: "system", content: CATEGORIZING_SYS_PROMPT },
-      { role: "user", content: question }
-    ],
+    messages: message_list,
     response_format: { type: "json_object" },
     temperature: 0
   })
@@ -52,7 +58,7 @@ export async function POST(req: Request) {
         { role: "system", content: QUICK_CHAT_SYS_PROMPT },
         { role: "user", content: reasoningPrompt }
       ],
-      temperature: 0.7
+      temperature: 1
     }),
     openai.chat.completions.create({
       model: mini_model,
@@ -60,7 +66,7 @@ export async function POST(req: Request) {
         { role: "system", content: QUICK_CHAT_SYS_PROMPT },
         { role: "user", content: reasoningPrompt }
       ],
-      temperature: 0.7
+      temperature: 1
     }),
     openai.chat.completions.create({
       model: mini_model,
@@ -68,7 +74,7 @@ export async function POST(req: Request) {
         { role: "system", content: CALVIN_QUICK_SYS_PROMPT },
         { role: "user", content: reasoningPrompt }
       ],
-      temperature: 0.7
+      temperature: 1
     })
   ])
 

@@ -1,9 +1,11 @@
+// app/page.tsx
+
 "use client"
 
-import React, { useState } from "react"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import React, { useState } from "react";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -11,10 +13,18 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Loader2 } from 'lucide-react'
-import { BibleVerse } from "@/components/BibleVerse"
+} from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Loader2 } from "lucide-react";
+import { VerseRenderer } from "@/components/VerseRenderer";
+import { BibleCommentary } from "@/components/BibleCommentary";
+import { extractReferences } from "@/utils/bibleUtils";
+import { BackToTop } from '@/components/BackToTop';
 
 interface ChainReasoningResult {
   first_answer: string;
@@ -25,14 +35,14 @@ interface ChainReasoningResult {
 }
 
 export default function Home() {
-  const [question, setQuestion] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [result, setResult] = useState<ChainReasoningResult | null>(null)
+  const [question, setQuestion] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState<ChainReasoningResult | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setResult(null)
+    e.preventDefault();
+    setIsLoading(true);
+    setResult(null);
     try {
       const response = await fetch("/api/chain-reasoning", {
         method: "POST",
@@ -40,36 +50,14 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ question }),
-      })
-      const data = await response.json()
-      setResult(data)
+      });
+      const data = await response.json();
+      setResult(data);
     } catch (error) {
-      console.error("Error:", error)
+      console.error("Error:", error);
     }
-    setIsLoading(false)
-  }
-
-  const renderVerses = (text: string) => {
-    const parts = text.split(/(\([^)]+\))/g); // Splits text at parenthetical expressions
-    return parts.map((part, index) => {
-      if (part.startsWith('(') && part.endsWith(')')) {
-        const references = part.slice(1, -1).split(/;\s*/); // Split on semicolons only
-        return (
-          <span key={index}>
-            (
-            {references.map((reference, rIndex) => (
-              <React.Fragment key={rIndex}>
-                {rIndex > 0 && '; '}
-                <BibleVerse reference={reference.trim()} />
-              </React.Fragment>
-            ))}
-            )
-          </span>
-        );
-      }
-      return part;
-    });
-  };  
+    setIsLoading(false);
+  };
 
   return (
     <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center p-4">
@@ -90,21 +78,16 @@ export default function Home() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input 
-              placeholder="Enter your question here..." 
+            <Input
+              placeholder="Enter your question here..."
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
             />
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Thinking...
-                </>
-              ) : (
-                "Ask the Parrot"
-              )}
-            </Button>
+            {!isLoading && (
+              <Button type="submit" className="w-full">
+                Ask the Parrot
+              </Button>
+            )}
           </form>
         </CardContent>
         {isLoading && (
@@ -122,16 +105,32 @@ export default function Home() {
                 <AccordionTrigger>Counsel of Three</AccordionTrigger>
                 <AccordionContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div><strong>Agent A:</strong> {renderVerses(result.first_answer)}</div>
-                    <div><strong>Agent B:</strong> {renderVerses(result.second_answer)}</div>
-                    <div><strong>Agent C:</strong> {renderVerses(result.third_answer)}</div>
+                    <div>
+                      <strong>Agent A:</strong>{" "}
+                      <VerseRenderer text={result.first_answer} />
+                    </div>
+                    <div>
+                      <strong>Agent B:</strong>{" "}
+                      <VerseRenderer text={result.second_answer} />
+                    </div>
+                    <div>
+                      <strong>Agent C:</strong>{" "}
+                      <VerseRenderer text={result.third_answer} />
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
             <div className="mt-4">
               <h3 className="font-semibold">Final Answer:</h3>
-              <p>{renderVerses(result.reviewed_answer)}</p>
+              <p>
+                <VerseRenderer text={result.reviewed_answer} />
+              </p>
+            </div>
+            <div className="w-full mt-4">
+              {extractReferences(result.reviewed_answer).map((reference, index) => (
+                <BibleCommentary key={index} reference={reference} />
+              ))}
             </div>
           </CardFooter>
         )}
@@ -144,7 +143,7 @@ export default function Home() {
           </CardFooter>
         )}
       </Card>
+      <BackToTop />
     </main>
-  )
+  );
 }
-
