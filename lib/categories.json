@@ -1,0 +1,238 @@
+{
+  "Theology": {
+    "Doctrine of God (Theology Proper)": [
+      "Attributes of God (Omniscience, Omnipotence, Omnipresence)",
+      "Trinity",
+      "Sovereignty and Providence"
+    ],
+    "Christology": [
+      "Deity and Humanity of Christ",
+      "Atonement",
+      "Resurrection"
+    ],
+    "Pneumatology": [
+      "Holy Spirit's Role",
+      "Spiritual Gifts",
+      "Fruit of the Spirit"
+    ],
+    "Soteriology": [
+      "Salvation",
+      "Justification",
+      "Sanctification",
+      "Election and Predestination"
+    ],
+    "Ecclesiology": [
+      "Nature of the Church",
+      "Church Leadership (Pastors, Elders, Deacons)",
+      "Ordinances (Baptism, Lord's Supper)"
+    ],
+    "Eschatology": [
+      "End Times",
+      "Second Coming of Christ",
+      "Heaven and Hell"
+    ],
+    "Anthropology": [
+      "Nature of Humanity",
+      "Image of God",
+      "Original Sin"
+    ],
+    "Hamartiology": [
+      "Nature of Sin",
+      "Consequences of Sin"
+    ],
+    "Bibliology": [
+      "Inspiration of Scripture",
+      "Canon of the Bible",
+      "Interpretation Methods"
+    ]
+  },
+  "Practical Christian Living": {
+    "Spiritual Disciplines": [
+      "Prayer",
+      "Fasting",
+      "Bible Study"
+    ],
+    "Worship": [
+      "Corporate Worship",
+      "Personal Devotion",
+      "Music and Arts in Worship"
+    ],
+    "Stewardship": [
+      "Tithing and Offerings",
+      "Time Management",
+      "Talents and Gifts"
+    ],
+    "Evangelism and Missions": [
+      "Personal Witnessing",
+      "Missionary Work",
+      "Apologetics"
+    ],
+    "Ethics and Morality": [
+      "Sexual Ethics",
+      "Honesty and Integrity",
+      "Social Justice Issues"
+    ],
+    "Family and Relationships": [
+      "Marriage",
+      "Parenting",
+      "Community Relationships"
+    ]
+  },
+  "Church Practices": {
+    "Ordinances": [
+      "Believer's Baptism",
+      "Communion Practices"
+    ],
+    "Church Governance": [
+      "Congregational Polity",
+      "Roles of Church Officers"
+    ],
+    "Church Membership": [
+      "Joining the Church",
+      "Membership Responsibilities"
+    ],
+    "Church Discipline": [
+      "Restoration Processes",
+      "Accountability"
+    ]
+  },
+  "Bible Interpretation": {
+    "Hermeneutics": [
+      "Literal vs. Allegorical Interpretation",
+      "Contextual Analysis"
+    ],
+    "Exegesis of Specific Passages": [
+      "Difficult Verses",
+      "Parables"
+    ],
+    "Bible Translations": [
+      "Translation Differences",
+      "Choosing a Bible Version"
+    ]
+  },
+  "Apologetics and Worldview": {
+    "Defense of the Faith": [
+      "Existence of God",
+      "Problem of Evil"
+    ],
+    "Comparative Religion": [
+      "Christianity vs. Other Faiths",
+      "Cults and Heresies"
+    ],
+    "Science and Faith": [
+      "Creation vs. Evolution",
+      "Miracles"
+    ]
+  },
+  "Church History": {
+    "Early Church": [
+      "Apostolic Age",
+      "Church Fathers"
+    ],
+    "Reformation": [
+      "Martin Luther",
+      "Protestant Doctrines"
+    ],
+    "Baptist Heritage": [
+      "Origins of the Baptist Movement",
+      "Significant Figures"
+    ]
+  },
+  "Counseling and Personal Issues": {
+    "Emotional Well-being": [
+      "Anxiety and Depression",
+      "Grief Counseling"
+    ],
+    "Addiction": [
+      "Substance Abuse",
+      "Behavioral Addictions"
+    ],
+    "Life Decisions": [
+      "Career Choices",
+      "Financial Planning"
+    ]
+  },
+  "Contemporary Issues": {
+    "Social Issues": [
+      "Racism",
+      "Poverty",
+      "Immigration"
+    ],
+    "Bioethics": [
+      "Abortion",
+      "Euthanasia"
+    ],
+    "Gender and Sexuality": [
+      "LGBTQ+ Topics",
+      "Gender Roles"
+    ],
+    "Environmental Stewardship": [
+      "Creation Care",
+      "Climate Change"
+    ]
+  },
+  "Spiritual Warfare": {
+    "Angels and Demons": [
+      "Nature of Angels",
+      "Demonic Influence"
+    ],
+    "Armor of God": [
+      "Spiritual Protection",
+      "Overcoming Temptation"
+    ]
+  },
+  "Denominational Distinctives": {
+    "Baptist Principles": [
+      "Autonomy of the Local Church",
+      "Priesthood of Believers"
+    ],
+    "Ordinances": [
+      "Symbolism in Baptism",
+      "Memorial View of Communion"
+    ]
+  },
+  "Worship and Music": {
+    "Music Styles": [
+      "Traditional Hymns",
+      "Contemporary Worship"
+    ],
+    "Worship Practices": [
+      "Liturgy",
+      "Use of Instruments"
+    ]
+  },
+  "Education and Discipleship": {
+    "Bible Studies": [
+      "Group Studies",
+      "Personal Devotions"
+    ],
+    "Teaching Methods": [
+      "Sunday School",
+      "Online Resources"
+    ]
+  },
+  "Leadership and Service": {
+    "Ministry Opportunities": [
+      "Volunteer Roles",
+      "Leadership Training"
+    ],
+    "Spiritual Gifts": [
+      "Identifying Gifts",
+      "Utilizing Gifts in the Church"
+    ]
+  },
+  "Non-Biblical Questions": {
+    "General Inquiries": [
+      "Questions unrelated to biblical or theological topics but are general in nature"
+    ],
+    "Irrelevant Content": [
+      "Nonsensical or off-topic questions that don't fit any meaningful category"
+    ],
+    "Inappropriate Content": [
+      "Questions containing offensive language, harassment, or content that violates community guidelines"
+    ],
+    "Spam or Promotional Material": [
+      "Content intended to advertise/sell products, services, or external websites unrelated to the app's purpose"
+    ]
+  }
+}

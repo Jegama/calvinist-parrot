@@ -79,7 +79,7 @@ export function BibleVerse({ reference }: BibleVerseProps) {
           (item): item is ChapterVerse => item.type === 'verse' && item.number === i
         );
         if (verse) {
-          verseTexts.push(`${i}: ${verse.content.map(extractText).join('')}`);
+          verseTexts.push(`${i}: ${verse.content.map(extractText).join(' ')}`);
         }
       }
     } else if (Array.isArray(verses)) {
@@ -89,7 +89,7 @@ export function BibleVerse({ reference }: BibleVerseProps) {
           (item): item is ChapterVerse => item.type === 'verse' && item.number === v
         );
         if (verse) {
-          verseTexts.push(`${v}: ${verse.content.map(extractText).join('')}`);
+          verseTexts.push(`${v}: ${verse.content.map(extractText).join(' ')}`);
         }
       });
     } else {
@@ -99,13 +99,13 @@ export function BibleVerse({ reference }: BibleVerseProps) {
           (item): item is ChapterVerse => item.type === 'verse' && item.number === verses
         );
         if (verse) {
-          verseTexts.push(`${verses}: ${verse.content.map(extractText).join('')}`);
+          verseTexts.push(`${verses}: ${verse.content.map(extractText).join(' ')}`);
         }
       } else {
         // Whole chapter
         const allVerses = content.filter((item): item is ChapterVerse => item.type === 'verse');
         verseTexts = allVerses.map(
-          (verseItem) => `${verseItem.number}: ${verseItem.content.map(extractText).join('')}`
+          (verseItem) => `${verseItem.number}: ${verseItem.content.map(extractText).join(' ')}`
         );
       }
     }

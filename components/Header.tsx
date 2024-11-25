@@ -1,3 +1,5 @@
+// app/components/Header.tsx
+
 import Link from "next/link"
 // import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -13,9 +15,9 @@ export function Header() {
             </span>
           </Link>
           <nav className="flex items-center space-x-6 text-sm font-medium">
-            {/* <Link href="/about">About</Link>
-            <Link href="/dashboard">Dashboard</Link>
-            <Link href="/devotionals">Devotionals</Link> */}
+            {/* <Link href="/main-chat">Chat</Link>
+            <Link href="/devotionals">Devotionals</Link>
+            <Link href="/about">About</Link> */}
           </nav>
         </div>
         <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
