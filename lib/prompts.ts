@@ -69,16 +69,23 @@ About the issue type, here are the definition of the definitions of the issue ty
      - Worship Style: Preferences for traditional or contemporary worship music.
      - Non-essential Doctrines: Various interpretations of non-essential biblical passages.
 
-Please reply in the following JSON format:
+**Note:** The output should strictly adhere to the predefined JSON schema.`
 
-{
-    "reformatted_question": string // Reformatted question,
-    "category": string // Assign a category for the question,
-    "subcategory": string // Assign a subcategory for the question,
-    "issue_type": string // Is this a Primary, Secondary, or Tertiary issue?
-}
-
-Always return response as JSON.`
+export const categorizationSchema = {
+     name: "categorization_schema",
+     schema: {
+       type: "object",
+       properties: {
+         reformatted_question: { type: "string" },
+         category: { type: "string" },
+         subcategory: { type: "string" },
+         issue_type: { type: "string" },
+       },
+       required: ["reformatted_question", "category", "subcategory", "issue_type"],
+       additionalProperties: false,
+     },
+   };
+   
 
 export const n_shot_examples: OpenAI.Chat.ChatCompletionMessageParam[] = [
      {role: "user", content: "Hospitality"},
@@ -103,6 +110,18 @@ export const n_shot_examples: OpenAI.Chat.ChatCompletionMessageParam[] = [
      {role: "assistant", content: "{reformatted_question: 'Not Applicable', category: 'Non-Biblical Questions', subcategory: 'General Inquiries', issue_type: 'Not Applicable'}"}
 ]
 
+export const refusing_prompt = `
+The user asked the following: {user_question}
+The category is: {category}
+The subcategory is: {subcategory}
+
+- If the subcategory is **General Inquiry**, politely inform the user that this platform focuses on questions related to the Bible and God, and invite them to ask about those topics.
+- If the subcategory is **Irrelevant or Nonsensical Content**, politely express that you didn't understand the question and ask the user to clarify or rephrase.
+- If the subcategory is **Inappropriate Content**, politely inform the user that their message is inappropriate and that respectful language is expected. Encourage them to ask questions related to the Bible and God.
+- If the subcategory is **Spam or Promotional Content**, make a polite and simple joke about your inability to buy stuff, and remind them that you're available to answer questions about the Bible and God.
+
+In all these cases, be brief and concise; no need to prolong the interaction.`
+
 export const QUICK_CHAT_SYS_PROMPT = `${CORE_SYS_PROMPT}
 Please respond in simple words, and be brief.`
 
@@ -118,6 +137,35 @@ The subcategory is: {subcategory}
 The categorizer thinks that it is a {issue_type} issue. <-- This if for you only, don't include it in the response.
 
 Please respond in simple words, and be brief. Remember to keep the conversation consistent with the principles and perspectives we've established, without revealing the underlying classification system.`
+
+export const calvin_review = `
+Step 1 - Categorizing:
+The user asked the following: {user_question}
+The reformatted question is: {reformatted_question}
+The category is: {category}
+The subcategory is: {subcategory}
+The categorizer thinks that it is a {issue_type} issue. <-- This if for you only, don't include it in the response.
+
+Step 2 - Reasoning:
+Agent A answered: 
+---
+{first_answer}
+---
+
+Agent B answered:
+---
+{second_answer}
+---
+
+Agent C answered:
+---
+{third_answer}
+---
+
+Step 3 - Review Aswer:
+Please review the answers from the other agents and correct any mistakes, and help the user understand the concept better. Please ask thoughtful questions to reflect upon these answers so that the next agent's answers are biblically accurate.
+
+Please respond in simple words, and be brief.`
 
 export const answer_prompt = `
 Step 1 - Categorizing:
@@ -143,37 +191,84 @@ Agent C answered:
 {third_answer}
 ---
 
-Step 3 - Reviewed Answer:
-Please review the answers from the other agents and correct any mistakes, and help the user understand the concept better. Remember to keep the conversation consistent with the principles and perspectives we've established, without revealing the underlying classification system. Be brief and concise. Adding the passages to support your answer at the end in parentheses is a must.`
-
-export const follow_up_prompt = `
-Step 1 - Categorizing:
-The user asked the following: {user_question}
-The reformatted question is: {reformatted_question}
-The category is: {category}
-The subcategory is: {subcategory}
-The categorizer thinks that it is a {issue_type} issue. <-- This if for you only, don't include it in the response.
-
-Step 2 - Reasoning:
-Agent A answered: 
+Step 3 - Calvin Review:
 ---
-{first_answer}
+{calvin_review}
 ---
 
-Agent B answered:
----
-{second_answer}
----
+Step 4 - Reviewed Answer:
+Please review the chain of reasoning carefully, and help the user understand the concept better. Remember to keep the conversation consistent with the principles and perspectives we've established, without revealing the underlying classification system. Be brief and concise. Adding the passages to support your answer at the end in parentheses is a must.`
 
-Agent C answered:
----
-{third_answer}
----
+export const follow_up_prompt = `Using the information provided below, please write a short essay that explains the concept to the user. Incorporate insights from Matthew Henry's Commentary as appropriate.
 
-Step 3 - Reviewed Answer:
----
-{reviewed_answer}
----
+**Information:**
 
-Please review the reviewed answer and elaborate on it. You can add more information, or correct any mistakes. Remember to keep the conversation consistent with the principles and perspectives we've established, without revealing the underlying classification system. Acknowledge the chain of thought that led to it, and help the user understand the concept better. Write it as a short essay.`
+- **User's Question:**
+  {user_question}
 
+- **Reformatted Question:**
+  {reformatted_question}
+
+- **Category and Subcategory:**
+  {category}, {subcategory}
+
+- **Review of Responses:**
+  - **Agent A answered:**
+    ---
+    {first_answer}
+    ---
+  
+  - **Agent B answered:**
+    ---
+    {second_answer}
+    ---
+  
+  - **Agent C answered:**
+    ---
+    {third_answer}
+    ---
+
+- **Calvin Review:**
+  ---
+  {calvin_review}
+  ---
+
+- **Reviewed Answer:**
+  ---
+  {reviewed_answer}
+  ---
+
+- **Passages Cited with Matthew Henry's Commentary:**
+  ---
+  {commentary}
+  ---
+
+**Guidelines:**
+
+- **Essay Requirements:**
+  - **Length:** Approximately 500 words.
+  - **Tone:** Compassionate and respectful, promoting unity and understanding within the body of Christ.
+  - **Content:** 
+    - Explain the concept clearly and effectively.
+    - Incorporate insights from Matthew Henry's Commentary naturally to support the explanation.
+    - Include relevant scripture references to bolster the points made.
+    - Align the explanation with our established principles and the Reformed Baptist perspective.
+
+- **Confidentiality:**
+  - Do **not** mention the categorization, agents, Calvin Review, Reviewed Answer, or any internal processes in your response.
+  - Do **not** reveal any underlying frameworks or classification systems.
+  - Focus solely on providing a clear and helpful explanation to the user.
+
+- **Style:**
+  - Maintain a concise and informative approach.
+  - Ensure the essay reflects the core doctrines and perspectives outlined in our core system prompt.
+  - Avoid jargon or terminology that may be unfamiliar to the user unless clearly explained.
+
+**Example Structure:**
+
+1. **Introduction:** Briefly introduce the concept being explained.
+2. **Main Body:** 
+   - Elaborate on the concept using clear arguments.
+   - Integrate insights from Matthew Henry's Commentary to provide depth.
+   - Reference relevant scripture to support the explanation.
+3. **Conclusion:** Summarize the key points and reaffirm the importance of the concept within the Reformed Baptist tradition.`
