@@ -13,10 +13,9 @@ The idea is to deploy using Vercel, and manage the users and chat history using 
 ## Features
 
 - [x] Basic QA in landing page with the Counsel of 3
-- [ ] User authentication
+- [x] User authentication
 - [ ] Basic chat functionality with Parrot and Calvin
 - [ ] Devotionals
 - [ ] CCEL Librarian
 - [ ] Study Helper using BibleHub commentaries
 - [ ] Main chat with the 3 agents Parrot, Calvin, and a CCEL Librarian, I concidered that it was better to keep it that way to ensure that the conversations are saved and can be retrieved later.
-- [ ] Study helper using the BSB API
