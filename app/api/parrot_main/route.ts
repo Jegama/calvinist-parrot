@@ -1,8 +1,8 @@
-// api/elaborate/route.ts
+// api/parrot_main/route.ts
 
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
-import { CORE_SYS_PROMPT, follow_up_prompt } from "@/lib/prompts";
+import { CORE_SYS_PROMPT } from "@/lib/prompts";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -12,14 +12,7 @@ const main_model = "gpt-4o-mini";
 
 export async function POST(req: NextRequest) {
   const {
-    question,
-    categorization,
-    first_answer,
-    second_answer,
-    third_answer,
-    calvin_review,
-    reviewed_answer,
-    commentary,
+    question
   } = await req.json();
 
   const encoder = new TextEncoder();
@@ -27,28 +20,13 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        // Prepare the prompt
-        const prompt = follow_up_prompt
-          .replace("{user_question}", question)
-          .replace("{reformatted_question}", categorization.reformatted_question)
-          .replace("{category}", categorization.category)
-          .replace("{subcategory}", categorization.subcategory)
-          .replace("{issue_type}", categorization.issue_type)
-          .replace("{first_answer}", first_answer)
-          .replace("{second_answer}", second_answer)
-          .replace("{third_answer}", third_answer)
-          .replace("{calvin_review}", calvin_review)
-          .replace("{reviewed_answer}", reviewed_answer)
-          .replace("{commentary}", commentary);
-
-        console.log("Prompt:", prompt);
 
         // Call OpenAI API with streaming
         const response = await openai.chat.completions.create({
           model: main_model,
           messages: [
             { role: "system", content: CORE_SYS_PROMPT },
-            { role: "user", content: prompt },
+            { role: "user", content: question },
           ],
           temperature: 0,
           stream: true,
@@ -58,7 +36,7 @@ export async function POST(req: NextRequest) {
         for await (const part of response) {
           const content = part.choices[0]?.delta?.content || "";
           controller.enqueue(
-            encoder.encode(JSON.stringify({ type: "elaborated_answer", content }) + "\n")
+            encoder.encode(JSON.stringify({ type: "parrot_answer", content }) + "\n")
           );
         }
       } catch (error) {
