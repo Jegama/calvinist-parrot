@@ -1,6 +1,7 @@
 // api/chain-reasoning/route.ts
 
 // import { NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
 import OpenAI from 'openai'
 import { 
   CATEGORIZING_SYS_PROMPT, 
@@ -12,7 +13,6 @@ import {
   reasoning_prompt,
   calvin_review,
   answer_prompt
-  // follow_up_prompt
 } from '@/lib/prompts'
 
 const openai = new OpenAI({
@@ -24,7 +24,7 @@ const main_model = "gpt-4o"
 const mini_model = "gpt-4o-mini"
 
 export async function POST(req: Request) {
-  const { question } = await req.json();
+  const { question, userId } = await req.json();
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -74,10 +74,25 @@ export async function POST(req: Request) {
           stream: true
         })
 
+        let refusal_respnse = ''
+
         for await (const part of refuseResponse) {
           const content = part.choices[0]?.delta?.content || '';
+          refusal_respnse += content;
           controller.enqueue(encoder.encode(JSON.stringify({ type: 'refusal', content }) + '\n'));
         }
+
+        await prisma.questionHistory.create({
+          data: {
+            question,
+            category: categorization.category,
+            subcategory: categorization.subcategory,
+            issue_type: categorization.issue_type,
+            reviewed_answer: refusal_respnse
+          }
+        })
+
+        console.log('Refusal response:', refusal_respnse)
 
         controller.close();
         return;
@@ -185,11 +200,25 @@ export async function POST(req: Request) {
         temperature: 0,
         stream: true
       })
+
+      let finalAnswer = ''
     
       for await (const part of reviewResponse) {
         const content = part.choices[0]?.delta?.content || '';
+        finalAnswer += content;
         controller.enqueue(encoder.encode(JSON.stringify({ type: 'reviewed_answer', content }) + '\n'));
       }
+
+      await prisma.questionHistory.create({
+        data: {
+          question,
+          category: categorization.category,
+          subcategory: categorization.subcategory,
+          issue_type: categorization.issue_type,
+          reviewed_answer: finalAnswer,
+          userId: userId
+        }
+      })
 
       controller.close();
 
