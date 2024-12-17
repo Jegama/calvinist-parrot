@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
@@ -28,6 +28,10 @@ type ChatListItem = {
   conversationName: string;
 };
 
+type DataEvent =
+  | { type: 'info' | 'done' }
+  | { type: 'parrot' | 'calvin' | 'parrot_final'; content: string };
+
 export default function ChatPage() {
   const params = useParams() as { chatId: string };
   const [chat, setChat] = useState<Chat | null>(null);
@@ -39,7 +43,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [sending, setSending] = useState(false);
 
-  async function fetchChat() {
+  const fetchChat = useCallback(async () => {
     try {
       const response = await fetch(`/api/parrot-chat?chatId=${params.chatId}`);
       if (!response.ok) {
@@ -52,16 +56,16 @@ export default function ChatPage() {
       console.error("Error fetching chat:", error);
       setErrorMessage("An error occurred while fetching the chat.");
     }
-  }
+  }, [params.chatId]);
 
-  async function fetchChats() {
+  const fetchChats = useCallback(async () => {
     if (!userId) return;
     const res = await fetch(`/api/user-chats?userId=${userId}`);
     if (res.ok) {
       const data = await res.json();
       setChats(data.chats);
     }
-  }
+  }, [userId]);
 
   useEffect(() => {
     (async () => {
@@ -79,11 +83,11 @@ export default function ChatPage() {
     if (params.chatId) {
       fetchChat();
     }
-  }, [params.chatId]);
+  }, [params.chatId, fetchChat]);
 
   useEffect(() => {
     fetchChats();
-  }, [userId]);
+  }, [userId, fetchChats]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -139,7 +143,7 @@ export default function ChatPage() {
 
       for (const line of lines) {
         if (!line.trim()) continue;
-        let data: any;
+        let data: DataEvent;
         try {
           data = JSON.parse(line);
         } catch (e) {
@@ -165,7 +169,7 @@ export default function ChatPage() {
             setSending(false);
             return;
           default:
-            console.warn("Unknown event type:", data.type);
+              console.warn("Unknown event type");
         }
       }
     }

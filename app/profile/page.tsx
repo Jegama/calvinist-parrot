@@ -18,9 +18,15 @@ import { MarkdownWithBibleVerses } from '@/components/MarkdownWithBibleVerses';
 
 type AppwriteUser = Models.User<Models.Preferences>;
 
+type Question = {
+  id: string;
+  question: string;
+  reviewed_answer: string;
+};
+
 export default function ProfilePage() {
   const [user, setUser] = useState<AppwriteUser | null>(null);
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const router = useRouter();
 
   useEffect(() => {
