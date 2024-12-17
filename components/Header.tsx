@@ -7,7 +7,13 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { account } from "@/utils/appwrite";
-
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Models } from "appwrite";
 
 type AppwriteUser = Models.User<Models.Preferences>;
@@ -16,7 +22,6 @@ export function Header() {
   const [user, setUser] = useState<AppwriteUser | null>(null);
 
   useEffect(() => {
-    // Attempt to fetch the logged-in user
     const getUser = async () => {
       try {
         const currentUser = await account.get();
@@ -30,21 +35,47 @@ export function Header() {
   }, []);
 
   return (
-    <header className="w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-14 items-center justify-between">
-        <div className="mr-4 hidden md:flex">
-          <Link href="/" className="mr-6 flex items-center space-x-2">
-            <span className="hidden font-bold sm:inline-block">
-              Calvinist Parrot
-            </span>
+    <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 py-2">
+      <div className="container mx-auto flex h-14 items-center">
+        {/* Left side: Logo and Navigation */}
+        <div className="flex items-center space-x-2">
+          <Link href="/" className="flex items-center space-x-2">
+            <span className="font-bold">Calvinist Parrot</span>
           </Link>
-          <nav className="flex items-center space-x-6 text-sm font-medium">
-            {/* <Link href="/main-chat">Chat</Link>
-            <Link href="/devotionals">Devotionals</Link>
+
+          {/* Desktop Navigation (visible on md and above) */}
+          <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+            <Link href="/main-chat">New Chat</Link>
+            {/* <Link href="/devotionals">Devotionals</Link>
             <Link href="/about">About</Link> */}
           </nav>
+
+          {/* Mobile Dropdown (hidden on md and above) */}
+          <div className="md:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <DropdownMenuLabel>More</DropdownMenuLabel>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem>
+                  <Link href="/main-chat">New Chat</Link>
+                </DropdownMenuItem>
+                {/* <DropdownMenuItem>
+                  <Link href="/devotionals">Devotionals</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link href="/about">About</Link>
+                </DropdownMenuItem> */}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-        <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
+
+        {/* Spacer to push the right side to the opposite end */}
+        <div className="flex-1" />
+
+        {/* Right side: Theme toggle and user session actions */}
+        <div className="flex items-center space-x-2">
           <ThemeToggle />
           {user ? (
             // If logged in, show the user's name linking to profile

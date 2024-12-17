@@ -1,0 +1,44 @@
+// prisma/schema.prisma
+
+// Always use  `npx prisma migrate dev` to apply changes to the database
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model questionHistory {
+  id             String  @id @default(cuid())
+  question       String
+  category       String
+  subcategory    String
+  issue_type     String
+  reviewed_answer String
+  userId         String?
+  createdAt      DateTime @default(now())
+}
+
+model chatHistory {
+  id              String    @id @default(cuid())
+  userId          String
+  conversationName String
+  category        String
+  subcategory     String
+  issue_type      String
+  messages        chatMessage[] @relation("ChatMessages")
+  createdAt       DateTime  @default(now())
+  modifiedAt      DateTime  @updatedAt
+}
+
+model chatMessage {
+  id        String       @id @default(cuid())
+  chatId    String
+  chat      chatHistory  @relation(fields: [chatId], references: [id], name: "ChatMessages")
+  sender    String       // 'user' or 'assistant'
+  content   String
+  timestamp DateTime     @default(now())
+}

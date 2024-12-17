@@ -2,7 +2,7 @@
 
 "use client"
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,10 @@ import { MarkdownWithBibleVerses } from '@/components/MarkdownWithBibleVerses';
 import { BibleCommentary } from "@/components/BibleCommentary";
 import { extractReferences } from "@/utils/bibleUtils";
 import { BackToTop } from '@/components/BackToTop';
+
+import { account } from "@/utils/appwrite";
+import { Models } from "appwrite";
+type AppwriteUser = Models.User<Models.Preferences>;
 
 interface ChainReasoningResult {
   first_answer: string;
@@ -52,6 +56,21 @@ export default function Home() {
   const [isSynthesisStarted, setIsSynthesisStarted] = useState(false);
   const [isElaborating, setIsElaborating] = useState(false);
   const [commentaryTexts, setCommentaryTexts] = useState<{ [key: string]: string }>({});
+  const [user, setUser] = useState<AppwriteUser | null>(null);
+
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const currentUser = await account.get();
+        setUser(currentUser);
+      } catch {
+        setUser(null);
+      }
+    };
+    getUser();
+  }, []);
+
+  const userId = user?.$id;
 
   const handleReset = () => {
     setQuestion("");
@@ -85,7 +104,7 @@ export default function Home() {
       const response = await fetch("/api/chain-reasoning", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, userId }),
       });
       if (!response.ok) throw new Error('Network response was not ok');
   

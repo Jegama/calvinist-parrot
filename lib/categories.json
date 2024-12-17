@@ -65,7 +65,10 @@
     "Evangelism and Missions": [
       "Personal Witnessing",
       "Missionary Work",
-      "Apologetics"
+      "Apologetics",
+      "Cross-Cultural Missions",
+      "Global Church Movements",
+      "Christianity in Diverse Cultural Contexts"
     ],
     "Ethics and Morality": [
       "Sexual Ethics",
@@ -110,14 +113,44 @@
       "Choosing a Bible Version"
     ]
   },
+  "Biblical Background and Study Aids": {
+    "Biblical Languages": [
+      "Greek",
+      "Hebrew",
+      "Aramaic"
+    ],
+    "Biblical Geography and Archaeology": [
+      "Ancient Near East Geography",
+      "Archaeological Evidence for Biblical Events",
+      "Historical Sites in Israel"
+    ],
+    "Historical and Cultural Context": [
+      "Jewish Customs in the Time of Jesus",
+      "Greco-Roman World",
+      "Ancient Near Eastern Cultures"
+    ]
+  },
   "Apologetics and Worldview": {
     "Defense of the Faith": [
       "Existence of God",
       "Problem of Evil"
     ],
-    "Comparative Religion": [
-      "Christianity vs. Other Faiths",
-      "Cults and Heresies"
+    "Interfaith and World Religions": [
+      "Judaism",
+      "Islam",
+      "Hinduism",
+      "Buddhism",
+      "Eastern Orthodox and Oriental Orthodox Traditions",
+      "Cults and Heresies",
+      "Approaches to Interfaith Conversations",
+      "Religious Pluralism",
+      "Understanding Different Worldviews"
+    ],
+    "Philosophy of Religion": [
+      "Existence of God (Philosophical Arguments)",
+      "Faith and Reason",
+      "Natural Theology",
+      "Moral Philosophy and Theology"
     ],
     "Science and Faith": [
       "Creation vs. Evolution",
@@ -136,6 +169,14 @@
     "Baptist Heritage": [
       "Origins of the Baptist Movement",
       "Significant Figures"
+    ],
+    "Historical Theology": [
+      "Development of Doctrines Over Time",
+      "Patristic Era",
+      "Medieval Theology",
+      "Reformation and Post-Reformation Movements",
+      "Modern Theology",
+      "Creeds, Confessions, and Catechisms"
     ]
   },
   "Counseling and Personal Issues": {
@@ -169,6 +210,21 @@
     "Environmental Stewardship": [
       "Creation Care",
       "Climate Change"
+    ]
+  },
+  "Cultural Engagement": {
+    "Christianity and the Arts": [
+      "Film",
+      "Literature",
+      "Visual Arts"
+    ],
+    "Politics and Public Theology": [
+      "Christian Political Thought",
+      "Civic Responsibility"
+    ],
+    "Media and Technology": [
+      "Ethical Use of Social Media",
+      "Digital Ministry"
     ]
   },
   "Spiritual Warfare": {
@@ -209,6 +265,26 @@
     "Teaching Methods": [
       "Sunday School",
       "Online Resources"
+    ],
+    "Spiritual Formation and Discipleship Models": [
+      "Classic Spiritual Disciplines",
+      "Holistic Discipleship Approaches",
+      "Monastic Traditions"
+    ],
+    "Mentoring and Coaching in Christian Growth": [
+      "One-on-One Discipleship",
+      "Mentorship Programs in Churches",
+      "Accountability Partnerships"
+    ],
+    "Youth and Children’s Ministry": [
+      "Sunday School Curricula",
+      "Youth Group Activities",
+      "Vacation Bible School"
+    ],
+    "Men’s and Women’s Ministry": [
+      "Men’s Bible Study Groups",
+      "Women’s Retreats",
+      "Gender-Specific Discipleship"
     ]
   },
   "Leadership and Service": {
@@ -219,6 +295,26 @@
     "Spiritual Gifts": [
       "Identifying Gifts",
       "Utilizing Gifts in the Church"
+    ],
+    "Pastoral Care and Counseling Techniques": [
+      "Active Listening",
+      "Pastoral Visitation",
+      "Referrals to Professional Counselors"
+    ],
+    "Preaching and Homiletics": [
+      "Expository Preaching",
+      "Topical Sermons",
+      "Use of Illustrations"
+    ],
+    "Conflict Resolution and Mediation in the Church": [
+      "Mediation Approaches",
+      "Church Discipline Practices",
+      "Peacemaking Teams"
+    ],
+    "Church Administration and Management": [
+      "Budgeting and Financial Oversight",
+      "Volunteer Coordination",
+      "Facilities Management"
     ]
   },
   "Non-Biblical Questions": {
