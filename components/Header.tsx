@@ -46,8 +46,8 @@ export function Header() {
           {/* Desktop Navigation (visible on md and above) */}
           <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
             <Link href="/main-chat">New Chat</Link>
-            {/* <Link href="/devotionals">Devotionals</Link>
-            <Link href="/about">About</Link> */}
+            {/* <Link href="/devotionals">Devotionals</Link> */}
+            <Link href="/about">About</Link>
           </nav>
 
           {/* Mobile Dropdown (hidden on md and above) */}
