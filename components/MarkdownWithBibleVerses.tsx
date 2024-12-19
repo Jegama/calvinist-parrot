@@ -77,6 +77,11 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
   const customComponents: Components = {
     ...MarkdownComponents,
     p: ({ children }) => <p className="mb-4">{renderWithBibleVerses(children)}</p>,
+    a: ({ href, children }) => (
+      <a href={href} className="underline hover:text-blue-600" target="_blank" rel="noopener noreferrer">
+        {children}
+      </a>
+    ),
   };
 
   return <ReactMarkdown components={customComponents}>{content}</ReactMarkdown>;

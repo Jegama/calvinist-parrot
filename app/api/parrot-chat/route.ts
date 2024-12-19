@@ -92,139 +92,171 @@ export async function POST(request: Request) {
   if (chatId && message) {
     const stream = new ReadableStream({
       async start(controller) {
+        // Helper function to send errors to client
+        const sendError = (error: Error | unknown, stage: string) => {
+          console.error(`Error during ${stage}:`, error);
+          controller.enqueue(encoder.encode(JSON.stringify({ 
+            type: 'error', 
+            stage, 
+            message: 'An error occurred, but continuing conversation...' 
+          }) + '\n'));
+        };
+
+        // Message accumulator to avoid repeated DB fetches
+        let conversationMessages: { sender: string; content: string }[] = [];
+
         try {
-          // Immediately send a startup message
-          controller.enqueue(encoder.encode(JSON.stringify({ type: 'info', message: 'Streaming started...' }) + '\n'));
-
-          // Save the user message
-          await prisma.chatMessage.create({
-            data: { chatId, sender: 'user', content: message },
-          });
-
+          // Fetch initial messages only once
           const previousMessages = await prisma.chatMessage.findMany({
             where: { chatId },
             orderBy: { timestamp: 'asc' },
           });
-
-          const parrotMessages = previousMessages.map((msg) => ({
+          
+          conversationMessages = previousMessages.map(msg => ({
             sender: msg.sender,
             content: msg.content,
           }));
 
-          // Step 1: Parrot's answer
-          const parrotHistoryForParrot = buildParrotHistory(parrotMessages);
-          const parrotCompletion = await openai.chat.completions.create({
-            model: mini_model,
-            messages: parrotHistoryForParrot,
-            temperature: 0,
-            stream: true,
+          // Add and save user message
+          const userMessage = { sender: 'user', content: message };
+          conversationMessages.push(userMessage);
+          await prisma.chatMessage.create({
+            data: { chatId, sender: 'user', content: message },
           });
 
+          // Step 1: Parrot's answer
           let parrotReply = '';
-          for await (const part of parrotCompletion) {
-            const content = part.choices[0]?.delta?.content || '';
-            if (content) {
-              parrotReply += content;
-              controller.enqueue(encoder.encode(JSON.stringify({ type: 'parrot', content }) + '\n'));
+          try {
+            const parrotHistoryForParrot = buildParrotHistory(conversationMessages);
+            const parrotCompletion = await openai.chat.completions.create({
+              model: mini_model,
+              messages: parrotHistoryForParrot,
+              temperature: 0,
+              stream: true,
+            });
+
+            for await (const part of parrotCompletion) {
+              const content = part.choices[0]?.delta?.content || '';
+              if (content) {
+                parrotReply += content;
+                controller.enqueue(encoder.encode(JSON.stringify({ type: 'parrot', content }) + '\n'));
+              }
             }
+
+            await prisma.chatMessage.create({
+              data: { chatId, sender: 'parrot', content: parrotReply },
+            });
+            conversationMessages.push({ sender: 'parrot', content: parrotReply });
+          } catch (error) {
+            sendError(error, 'parrot_response');
+            parrotReply = "I apologize, but I'm having trouble responding. Calvin, please help human.";
+            await prisma.chatMessage.create({
+              data: { chatId, sender: 'parrot', content: parrotReply },
+            });
+            conversationMessages.push({ sender: 'parrot', content: parrotReply });
           }
-          
-          // Save Parrot's reply
-          await prisma.chatMessage.create({
-            data: { chatId, sender: 'parrot', content: parrotReply },
-          });
 
           // Step 2: Calvin's feedback
-          const messagesAfterParrot = await prisma.chatMessage.findMany({ where: { chatId }, orderBy: { timestamp: 'asc' } });
-          const calvinHistory = buildCalvinHistory(messagesAfterParrot);
-
-          const calvinCompletion = await openai.chat.completions.create({
-            model: mini_model,
-            messages: calvinHistory,
-            temperature: 0,
-            stream: true,
-          });
-
           let calvinReply = '';
-          for await (const part of calvinCompletion) {
-            const content = part.choices[0]?.delta?.content || '';
-            if (content) {
-              calvinReply += content;
-              controller.enqueue(encoder.encode(JSON.stringify({ type: 'calvin', content }) + '\n'));
-            }
-          }
-
-          // Save Calvin's reply
-          await prisma.chatMessage.create({
-            data: { chatId, sender: 'calvin', content: calvinReply },
-          });
-
-          // Step 3: Parrot’s revision
-          const messagesAfterCalvin = await prisma.chatMessage.findMany({ where: { chatId }, orderBy: { timestamp: 'asc' } });
-          const parrotHistoryForRevision = buildParrotHistory(messagesAfterCalvin);
-
-          const parrotRevisionCompletion = await openai.chat.completions.create({
-            model: mini_model,
-            messages: parrotHistoryForRevision,
-            temperature: 0,
-            stream: true,
-          });
-
-          let parrotFinalReply = '';
-          for await (const part of parrotRevisionCompletion) {
-            const content = part.choices[0]?.delta?.content || '';
-            if (content) {
-              parrotFinalReply += content;
-              controller.enqueue(encoder.encode(JSON.stringify({ type: 'parrot_final', content }) + '\n'));
-            }
-          }
-
-          // Save Parrot's final reply
-          await prisma.chatMessage.create({
-            data: { chatId, sender: 'parrot', content: parrotFinalReply },
-          });
-
-          const messagesAfterInteraction = await prisma.chatMessage.findMany({
-            where: { chatId },
-            orderBy: { timestamp: 'asc' },
-          });
-
-          // If conversation name still 'New Conversation', classify and name
-          const currentChat = await prisma.chatHistory.findUnique({ where: { id: chatId } });
-          if (currentChat && currentChat.conversationName === 'New Conversation') {
-            const categorizationMessages = buildCategorizationMessages(message);
-            const categorizationResponse = await openai.chat.completions.create({
+          try {
+            const calvinHistory = buildCalvinHistory(conversationMessages);
+            const calvinCompletion = await openai.chat.completions.create({
               model: mini_model,
-              messages: categorizationMessages,
-              response_format: {
-                type: 'json_schema',
-                json_schema: categorizationSchema,
-              },
+              messages: calvinHistory,
               temperature: 0,
+              stream: true,
             });
 
-            const categorization = JSON.parse(categorizationResponse.choices[0]?.message?.content || '{}');
+            for await (const part of calvinCompletion) {
+              const content = part.choices[0]?.delta?.content || '';
+              if (content) {
+                calvinReply += content;
+                controller.enqueue(encoder.encode(JSON.stringify({ type: 'calvin', content }) + '\n'));
+              }
+            }
 
-            const allMessagesStr = messagesAfterInteraction.map((m) => `${m.sender}: ${m.content}`).join('\n');
-            const conversationName = await generateConversationName(allMessagesStr);
-
-            await prisma.chatHistory.update({
-              where: { id: chatId },
-              data: {
-                conversationName: conversationName || 'Conversation',
-                category: categorization.category || '',
-                subcategory: categorization.subcategory || '',
-                issue_type: categorization.issue_type || '',
-              },
+            await prisma.chatMessage.create({
+              data: { chatId, sender: 'calvin', content: calvinReply },
             });
+            conversationMessages.push({ sender: 'calvin', content: calvinReply });
+          } catch (error) {
+            sendError(error, 'calvin_response');
+            calvinReply = "We got a server error, we have to skip my feedback. Please continue.";
+            await prisma.chatMessage.create({
+              data: { chatId, sender: 'calvin', content: calvinReply },
+            });
+            conversationMessages.push({ sender: 'calvin', content: calvinReply });
           }
 
-          // End of stream
+          // Step 3: Parrot's revision
+          let parrotFinalReply = '';
+          try {
+            const parrotHistoryForRevision = buildParrotHistory(conversationMessages);
+            const parrotRevisionCompletion = await openai.chat.completions.create({
+              model: mini_model,
+              messages: parrotHistoryForRevision,
+              temperature: 0,
+              stream: true,
+            });
+
+            for await (const part of parrotRevisionCompletion) {
+              const content = part.choices[0]?.delta?.content || '';
+              if (content) {
+                parrotFinalReply += content;
+                controller.enqueue(encoder.encode(JSON.stringify({ type: 'parrot_final', content }) + '\n'));
+              }
+            }
+
+            await prisma.chatMessage.create({
+              data: { chatId, sender: 'parrot', content: parrotFinalReply },
+            });
+            conversationMessages.push({ sender: 'parrot', content: parrotFinalReply });
+          } catch (error) {
+            sendError(error, 'parrot_final_response');
+            parrotFinalReply = "I apologize for the technical difficulty. Let's continue our conversation.";
+            await prisma.chatMessage.create({
+              data: { chatId, sender: 'parrot', content: parrotFinalReply },
+            });
+            conversationMessages.push({ sender: 'parrot', content: parrotFinalReply });
+          }
+
+          // Handle conversation naming and categorization
+          try {
+            const currentChat = await prisma.chatHistory.findUnique({ where: { id: chatId } });
+            if (currentChat && currentChat.conversationName === 'New Conversation') {
+              const categorizationMessages = buildCategorizationMessages(message);
+              const categorizationResponse = await openai.chat.completions.create({
+                model: mini_model,
+                messages: categorizationMessages,
+                response_format: {
+                  type: 'json_schema',
+                  json_schema: categorizationSchema,
+                },
+                temperature: 0,
+              });
+
+              const categorization = JSON.parse(categorizationResponse.choices[0]?.message?.content || '{}');
+              const allMessagesStr = conversationMessages.map((m) => `${m.sender}: ${m.content}`).join('\n');
+              const conversationName = await generateConversationName(allMessagesStr);
+
+              await prisma.chatHistory.update({
+                where: { id: chatId },
+                data: {
+                  conversationName: conversationName || 'New Conversation',
+                  category: categorization.category || '',
+                  subcategory: categorization.subcategory || '',
+                  issue_type: categorization.issue_type || '',
+                },
+              });
+            }
+          } catch (error) {
+            sendError(error, 'conversation_metadata');
+          }
+
           controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
           controller.close();
-
         } catch (error) {
-          console.error('Error during conversation flow:', error);
+          sendError(error, 'general');
           controller.close();
         }
       },
