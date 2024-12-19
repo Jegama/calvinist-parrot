@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { MarkdownWithBibleVerses } from '@/components/MarkdownWithBibleVerses';
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { BackToTop } from '@/components/BackToTop';
+// import { BackToTop } from '@/components/BackToTop';
 
 type Message = {
   sender: string;
@@ -227,12 +227,11 @@ export default function ChatPage() {
                 <div ref={messagesEndRef}></div>
               </CardContent>
             </Card>
-            <BackToTop />
           </div>
 
           {/* Input section */}
-          <div className="fixed bottom-4 w-full px-4">
-            <Card className="w-full max-w-2xl">
+          <div className="fixed bottom-4 w-full px-4 flex justify-center">
+            <Card className="w-full max-w-2xl mx-auto">
               <CardContent className="w-full flex items-center gap-2 p-4">
                 <input
                   className="flex-1 border rounded p-2"

@@ -98,9 +98,9 @@ export default function ProfilePage() {
               <AccordionItem key={question.id} value={`question-${question.id}`}>
                 <AccordionTrigger>{question.question}</AccordionTrigger>
                 <AccordionContent>
-                  <p>
-                  <MarkdownWithBibleVerses content={question.reviewed_answer} />
-                  </p>
+                  <div className="prose dark:prose-invert max-w-none">
+                    <MarkdownWithBibleVerses content={question.reviewed_answer} />
+                  </div>
                 </AccordionContent>
               </AccordionItem>
             ))}

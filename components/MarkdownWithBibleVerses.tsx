@@ -34,8 +34,10 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
     }
     
     if (Array.isArray(children)) {
-      return children.map((child) => 
-        typeof child === 'string' ? renderWithBibleVerses(child) : child
+      return children.map((child, index) => 
+        typeof child === 'string' 
+          ? <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
+          : React.cloneElement(child as React.ReactElement, { key: index })
       );
     }
     
@@ -48,16 +50,25 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
     h3: ({ ...props }) => <h3 className="text-xl font-semibold mt-3 mb-2" {...props} />,
     h4: ({ ...props }) => <h4 className="text-lg font-semibold mt-2 mb-1" {...props} />,
     p: ({ ...props }) => <p className="mb-4" {...props} />,
-    ul: ({ children, ...props }) => <ul className="list-disc pl-6 mb-4" {...props}>
-        {renderWithBibleVerses(children)}
-      </ul>,
-    ol: ({ children, ...props }) => 
+    ul: ({ children, ...props }) => (
+      <ul className="list-disc pl-6 mb-4" {...props}>
+        {React.Children.map(children, (child, index) => (
+          <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
+        ))}
+      </ul>
+    ),
+    ol: ({ children, ...props }) => (
       <ol className="list-decimal pl-6 mb-4" {...props}>
-        {renderWithBibleVerses(children)}
-      </ol>,
+        {React.Children.map(children, (child, index) => (
+          <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
+        ))}
+      </ol>
+    ),
     li: ({ children, ...props }) => (
       <li className="mb-1" {...props}>
-        {renderWithBibleVerses(children)}
+        {React.Children.map(children, (child, index) => (
+          <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
+        ))}
       </li>
     ),
     strong: ({ ...props }) => <strong className="font-semibold" {...props} />,
