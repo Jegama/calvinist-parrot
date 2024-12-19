@@ -304,9 +304,9 @@ export default function Home() {
                   <AccordionItem value="review">
                     <AccordionTrigger>{"Calvin's Review"}</AccordionTrigger>
                     <AccordionContent>
-                      <p>
+                      <div>
                         <MarkdownWithBibleVerses content={result.calvin_review} />
-                      </p>
+                      </div>
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
@@ -316,9 +316,9 @@ export default function Home() {
               <CardFooter className="flex flex-col items-start">
                 <div className="mt-4">
                   <h3 className="font-semibold">Final Answer:</h3>
-                  <p>
+                  <div>
                     <MarkdownWithBibleVerses content={result.reviewed_answer} />
-                  </p>
+                  </div>
                 </div>
 
                 {/* Bible Commentary */}
@@ -358,9 +358,7 @@ export default function Home() {
               {result?.elaborated_answer && (
                 <CardFooter className="flex flex-col items-start">
                   <div className="mt-4">
-                    <p>
                       <MarkdownWithBibleVerses content={result.elaborated_answer} />
-                    </p>
                   </div>
                 </CardFooter>
               )}

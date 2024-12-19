@@ -36,7 +36,7 @@ export function AppSidebar({ chats, currentChatId, ...props }: AppSidebarProps) 
           <SidebarGroupContent>
             <SidebarMenu>
               {chats.map((c) => (
-                <SidebarMenuItem key={c.id}>
+                <SidebarMenuItem key={c.id} className="px-2 py-1">
                   <SidebarMenuButton asChild isActive={c.id === currentChatId}>
                     <Link href={`/main-chat/${c.id}`}>{c.conversationName || "Unnamed Conversation"}</Link>
                   </SidebarMenuButton>
