@@ -13,16 +13,13 @@ const md_text = `Welcome! I'm here to guide you through the Bible from a Reforme
 
 Huge thanks to [AO Lab](https://helloaolab.my.canva.site/) for graciously providing the [API](https://bible.helloao.org/docs/) with the Berean Standard Bible ([BSB](https://berean.bible/)) translation and the Bible Commentaries.
 
-Learn more about the BSB [here](https://copy.church/initiatives/bibles/) and join us in discovering the richness of its text.
- 
-**"Freely you have received; freely give.”**
-- Matthew 10:8`;
+Learn more about the BSB [here](https://copy.church/initiatives/bibles/) and join us in discovering the richness of its text.`;
 
 const md_footer = `## Let's Connect
 
-I'm still learning, so please be patient with me! I'm always looking to improve, so if you have any feedback, [please let me know](mailto:jesus@jgmancilla.com).
+I'm a work in progress, I'm rebuilding what I did before in [python](https://github.com/Jegama/calvinist-parrot-legacy), but now in Next.js. I'm still learning, so if you have any feedback [please let me know](mailto:jesus@jgmancilla.com)!
 
-I'm also open source, so if you're interested in contributing to my development, check out my [GitHub](https://github.com/Jegama/calvinist-parrot).
+This is open source, so if you're interested in helping me development this, check out the [GitHub repo](https://github.com/Jegama/calvinist-parrot).
 
 # Soli Deo Gloria
 

@@ -99,6 +99,9 @@ export default function ChatPage() {
     const userInput = input.trim();
     setInput('');
 
+    // Immediately add user message to UI
+    setMessages(msgs => [...msgs, { sender: 'user', content: userInput }]);
+
     const response = await fetch('/api/parrot-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

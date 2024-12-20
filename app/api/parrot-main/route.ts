@@ -1,4 +1,4 @@
-// api/parrot_main/route.ts
+// api/parrot-main/route.ts
 
 import { NextRequest } from "next/server";
 import OpenAI from "openai";

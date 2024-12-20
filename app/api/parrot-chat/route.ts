@@ -69,8 +69,55 @@ function buildCalvinHistory(messages: { sender: string; content: string }[]): Op
 }
 
 export async function POST(request: Request) {
-  const { userId, chatId, message } = await request.json();
+  interface ChatRequestBody {
+    userId: string;
+    chatId?: string;
+    message?: string;
+    initialQuestion?: string;
+    initialAnswer?: string;
+    category?: string;
+    subcategory?: string;
+    issue_type?: string;
+  }
+
+  const { 
+    userId, 
+    chatId, 
+    message, 
+    initialQuestion, 
+    initialAnswer,
+    category,
+    subcategory,
+    issue_type
+  }: ChatRequestBody = await request.json();
   const encoder = new TextEncoder();
+
+  // Handle new chat with initial content
+  if (userId && initialQuestion && initialAnswer && !chatId) {
+    const allMessagesStr = `user: ${initialQuestion}\nparrot: ${initialAnswer}`;
+    const conversationName = await generateConversationName(allMessagesStr);
+
+    const chat = await prisma.chatHistory.create({
+      data: {
+        userId,
+        conversationName,
+        category: category || '',
+        subcategory: subcategory || '',
+        issue_type: issue_type || '',
+      },
+    });
+
+    // Create initial messages
+    await prisma.chatMessage.create({
+      data: { chatId: chat.id, sender: 'user', content: initialQuestion },
+    });
+
+    await prisma.chatMessage.create({
+      data: { chatId: chat.id, sender: 'parrot', content: initialAnswer },
+    });
+
+    return NextResponse.json({ chatId: chat.id });
+  }
 
   console.log(userId, chatId, message)
 

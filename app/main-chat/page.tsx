@@ -77,9 +77,9 @@ export default function MainChatPage() {
     <SidebarProvider>
       <AppSidebar chats={chats} />
       <SidebarInset>
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex flex-1 flex-col gap-4 p-4 h-32">
         {userId === null ? (
-          <Card className="max-w-2xl mx-auto mt-8 mb-8">
+          <Card className="max-w-2xl mx-auto mt-8 mb-8 h-16">
             <CardHeader>
               <CardTitle>Main Chat</CardTitle>
             </CardHeader>

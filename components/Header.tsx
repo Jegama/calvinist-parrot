@@ -45,7 +45,7 @@ export function Header() {
 
           {/* Desktop Navigation (visible on md and above) */}
           <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
-            <Link href="/main-chat">New Chat</Link>
+            <Link href="/main-chat">Parrot Chat</Link>
             {/* <Link href="/devotionals">Devotionals</Link> */}
             <Link href="/about">About</Link>
           </nav>
@@ -58,14 +58,14 @@ export function Header() {
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuItem>
-                  <Link href="/main-chat">New Chat</Link>
+                  <Link href="/main-chat">Parrot Chat</Link>
                 </DropdownMenuItem>
                 {/* <DropdownMenuItem>
                   <Link href="/devotionals">Devotionals</Link>
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
                 <DropdownMenuItem>
                   <Link href="/about">About</Link>
-                </DropdownMenuItem> */}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

@@ -30,6 +30,3 @@ Learn more about the BSB [here](https://copy.church/initiatives/bibles/) and joi
 
 **"For from Him and through Him and to Him are all things. To Him be the glory forever! Amen."**
 - Romans 11:36
-
-**Freely you have received; freely give.”**
-- Matthew 10:8

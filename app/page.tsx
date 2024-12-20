@@ -28,6 +28,7 @@ import { BackToTop } from '@/components/BackToTop';
 
 import { account } from "@/utils/appwrite";
 import { Models } from "appwrite";
+import { useRouter } from 'next/navigation';
 type AppwriteUser = Models.User<Models.Preferences>;
 
 interface ChainReasoningResult {
@@ -101,7 +102,7 @@ export default function Home() {
     setProgressMessage('');
     setIsSynthesisStarted(false);
     try {
-      const response = await fetch("/api/chain-reasoning", {
+      const response = await fetch("/api/parrot-qa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, userId }),
@@ -231,6 +232,36 @@ export default function Home() {
     setIsElaborating(false);
   };
 
+  const router = useRouter(); // Move this inside the component
+
+  const handleContinueInChat = async () => {
+    if (!userId || !question || !result?.reviewed_answer || !result?.categorization) return;
+    console.log(result.categorization)
+    try {
+      const response = await fetch('/api/parrot-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          initialQuestion: question,
+          initialAnswer: result.reviewed_answer,
+          category: result.categorization.category,
+          subcategory: result.categorization.subcategory,
+          issue_type: result.categorization.issue_type,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create chat session');
+      }
+
+      const data = await response.json();
+      router.push(`/main-chat/${data.chatId}`);
+    } catch (error) {
+      console.error("Error starting chat:", error);
+    }
+  };
+
   return (
     <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center p-4">
       <Card className="w-[90%] max-w-2xl">
@@ -245,33 +276,37 @@ export default function Home() {
             <CardTitle className="text-3xl font-bold">Calvinist Parrot</CardTitle>
           </div>
           <CardDescription>
-            Ask a question and receive wisdom from the Calvinist Parrot
+            What theological question do you have?
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleHomepageSubmit} className="space-y-4">
-            <Input
-              placeholder="Enter your question here..."
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-            />
-            {!isLoading && (
-              <Button type="submit" className="w-full">
-                Ask the Parrot
-              </Button>
-            )}
-          </form>
-        </CardContent>
-        {isLoading && (
-          <CardFooter>
-            <div className="w-full flex items-center">
-              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-              {progressMessage && <p>{progressMessage}</p>}
-            </div>
-          </CardFooter>
+        
+        {!result && (
+          <CardContent>
+            <form onSubmit={handleHomepageSubmit} className="space-y-4">
+              <Input
+                placeholder="Enter your question here..."
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+              />
+              {!isLoading && (
+                <Button type="submit" className="w-full">
+                  Ask the Parrot
+                </Button>
+              )}
+            </form>
+          </CardContent>
         )}
+
         {result && !result.refuse_answer && (
           <>
+            {/* Display the user's question */}
+            <CardFooter className="flex flex-col items-start">
+              <div className="w-full">
+                <h3 className="font-semibold">Your Question:</h3>
+                <p className="mt-2">{question}</p>
+              </div>
+            </CardFooter>
+
             {isSynthesisStarted && (
               <>
                 {/* Render the "Counsel of Three" and "Calvin's Review" accordions */}
@@ -327,11 +362,11 @@ export default function Home() {
                     <AccordionTrigger>Bible Commentary</AccordionTrigger>
                     <AccordionContent>
                       <div className="w-full">
-                        {extractReferences(result.reviewed_answer).map((reference, index) => (
+                        {Array.from(new Set(extractReferences(result.reviewed_answer))).map((reference, index) => (
                           <BibleCommentary
-                            key={index}
-                            reference={reference}
-                            onCommentaryExtracted={handleCommentaryExtracted}
+                          key={index}
+                          reference={reference}
+                          onCommentaryExtracted={handleCommentaryExtracted}
                           />
                         ))}
                       </div>
@@ -339,42 +374,58 @@ export default function Home() {
                   </AccordionItem>
                 </Accordion>
 
-                {/* Add the "Please Elaborate" button */}
-                {!result?.elaborated_answer && (
-                  !isElaborating ? (
-                    <Button onClick={handleElaborate} className="mt-4">
-                      Please Elaborate
+                {/* Add the "Please Elaborate" and "Continue in Chat" buttons */}
+                <CardFooter className="flex justify-center w-full">
+                  <div className="flex gap-4 mt-4">
+                  {!result?.elaborated_answer && !isElaborating && (
+                    <Button onClick={handleElaborate}>
+                    Please Elaborate
                     </Button>
-                  ) : (
-                    <div className="w-full flex items-center mt-4">
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      <p>Elaborating...</p>
-                    </div>
-                  )
-                )}
-              </CardFooter>
-
-              {/* Display the elaborated answer */}
-              {result?.elaborated_answer && (
-                <CardFooter className="flex flex-col items-start">
-                  <div className="mt-4">
-                      <MarkdownWithBibleVerses content={result.elaborated_answer} />
+                  )}
+                  {userId && !result?.elaborated_answer && !isElaborating && (
+                    <Button onClick={handleContinueInChat}>
+                    Continue in Chat
+                    </Button>
+                  )}
                   </div>
+                  {isElaborating && (
+                  <div className="w-full flex items-center justify-center mt-4">
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    <p>Elaborating...</p>
+                  </div>
+                  )}
                 </CardFooter>
-              )}
 
-              {/* Render the "Reset" button */}
-              {result && (
-                <CardFooter className="flex flex-col items-start">
-                  <Button onClick={handleReset} className="mt-4">
+                {/* Display the elaborated answer */}
+                {result?.elaborated_answer && (
+                  <CardFooter className="flex flex-col items-start">
+                    <div className="mt-4">
+                      <MarkdownWithBibleVerses content={result.elaborated_answer} />
+                    </div>
+                  </CardFooter>
+                )}
+
+                {/* Render the "Reset" button separately */}
+                <CardFooter className="w-full">
+                  <Button onClick={handleReset} variant="outline" className="w-full">
                     Ask a New Question
                   </Button>
                 </CardFooter>
-              )}
+              </CardFooter>
               </>
             )}
           </>
         )}
+
+        {isLoading && (
+          <CardFooter>
+            <div className="w-full flex items-center">
+              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+              {progressMessage && <p>{progressMessage}</p>}
+            </div>
+          </CardFooter>
+        )}
+
         {result && result.refuse_answer && (
           <CardFooter>
             <div className="w-full">
