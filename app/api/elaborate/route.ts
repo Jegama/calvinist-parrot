@@ -41,8 +41,6 @@ export async function POST(req: NextRequest) {
           .replace("{reviewed_answer}", reviewed_answer)
           .replace("{commentary}", commentary);
 
-        console.log("Prompt:", prompt);
-
         // Call OpenAI API with streaming
         const response = await openai.chat.completions.create({
           model: main_model,

@@ -42,3 +42,12 @@ model chatMessage {
   content   String
   timestamp DateTime     @default(now())
 }
+
+model parrotApiKey {
+  id          String    @id @default(cuid())
+  apiKey      String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  usageCount  Int       @default(0)
+}

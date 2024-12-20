@@ -1,4 +1,4 @@
-// api/chain-reasoning/route.ts
+// api/parrot-qa/route.ts
 
 // import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
@@ -224,7 +224,6 @@ export async function POST(req: Request) {
 
     }
   });
-
 
   return new Response(stream, {
     headers: { 'Content-Type': 'text/plain; charset=utf-8' },
