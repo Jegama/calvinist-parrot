@@ -1,4 +1,9 @@
-// api/parrot-chat/route.ts
+// app/api/parrot-chat/route.ts
+
+export const config = {
+  runtime: 'nodejs', // ensures Node.js serverless function
+  maxDuration: 30,   // Pro plan allows up to 30
+};
 
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
@@ -159,7 +164,7 @@ export async function POST(request: Request) {
             orderBy: { timestamp: 'asc' },
           });
           
-          conversationMessages = previousMessages.map(msg => ({
+          conversationMessages = previousMessages.map((msg: { sender: string; content: string }) => ({
             sender: msg.sender,
             content: msg.content,
           }));

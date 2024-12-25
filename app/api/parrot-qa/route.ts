@@ -1,4 +1,9 @@
-// api/parrot-qa/route.ts
+// app/api/parrot-qa/route.ts
+
+export const config = {
+  runtime: 'nodejs', // ensures Node.js serverless function
+  maxDuration: 30,   // Pro plan allows up to 30
+};
 
 // import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
