@@ -64,7 +64,7 @@ function extractText(contentItem: VerseContent | string): string {
   }
 }
 
-export const bibleVerseRegex = /\b(?:[1-3]\s)?[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*\s+\d+:\d+(?:-\d+)?\b/g;
+export const bibleVerseRegex = /\b(?!In\b)(?:[1-3]\s)?(?!In\b)[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*\s+\d+:\d+(?:-\d+)?\b/g;
 
 export const extractReferences = (text: string): string[] => {
   const matches = text.match(bibleVerseRegex);
