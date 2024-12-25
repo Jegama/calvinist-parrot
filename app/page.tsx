@@ -427,12 +427,19 @@ export default function Home() {
         )}
 
         {result && result.refuse_answer && (
+          <>
           <CardFooter>
             <div className="w-full">
               <h3 className="font-semibold">Response:</h3>
               <p>{result.refuse_answer}</p>
             </div>
           </CardFooter>
+          <CardFooter>
+            <Button onClick={handleReset} variant="outline" className="w-full">
+              Ask a New Question
+            </Button>
+          </CardFooter>
+          </>
         )}
       </Card>
       <BackToTop />
