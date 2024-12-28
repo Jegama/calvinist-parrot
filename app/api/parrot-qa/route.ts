@@ -1,24 +1,13 @@
 // app/api/parrot-qa/route.ts
 
 export const config = {
-  runtime: 'nodejs', // ensures Node.js serverless function
-  maxDuration: 30,   // Pro plan allows up to 30
+  runtime: 'nodejs',
+  maxDuration: 30,
 };
 
-// import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import OpenAI from 'openai'
-import { 
-  CATEGORIZING_SYS_PROMPT, 
-  categorizationSchema,
-  n_shot_examples,
-  refusing_prompt,
-  QUICK_CHAT_SYS_PROMPT, 
-  CALVIN_QUICK_SYS_PROMPT,
-  reasoning_prompt,
-  calvin_review,
-  answer_prompt
-} from '@/lib/prompts'
+import * as prompts from '@/lib/prompts'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -29,8 +18,11 @@ const main_model = "gpt-4o"
 const mini_model = "gpt-4o-mini"
 
 export async function POST(req: Request) {
-  const { question, userId } = await req.json();
+  const { question, userId = null, mode = "default" } = await req.json();
   const encoder = new TextEncoder();
+
+  const sys_prompt = mode === "default" ? prompts.CORE_SYS_PROMPT : prompts.CORE_SYS_PROMPT_PRESBY;
+  const new_quick_chat = prompts.QUICK_CHAT_SYS_PROMPT.replace('{CORE}', sys_prompt)
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -38,8 +30,8 @@ export async function POST(req: Request) {
       controller.enqueue(encoder.encode(JSON.stringify({ type: 'progress', message: 'Understanding question...' }) + '\n'));
       
       const message_list: OpenAI.Chat.ChatCompletionMessageParam[] = [
-        {role: "system", content: CATEGORIZING_SYS_PROMPT},
-        ...n_shot_examples,
+        {role: "system", content: prompts.CATEGORIZING_SYS_PROMPT},
+        ...prompts.n_shot_examples,
         { role: "user", content: question }
       ]
 
@@ -48,12 +40,10 @@ export async function POST(req: Request) {
         messages: message_list,
         response_format: {
           type: "json_schema",
-          json_schema: categorizationSchema,
+          json_schema: prompts.categorizationSchema,
         },      
         temperature: 0
       })
-
-      // console.log(categorizationResponse.choices[0].message.content)
 
       const categorization = JSON.parse(categorizationResponse.choices[0].message.content || '{}')
 
@@ -64,7 +54,7 @@ export async function POST(req: Request) {
       );
       
       if (categorization.category === "Non-Biblical Questions") {
-        const refusingPrompt = refusing_prompt
+        const refusingPrompt = prompts.refusing_prompt
           .replace('{user_question}', question)
           .replace('{category}', categorization.category)
           .replace('{subcategory}', categorization.subcategory)
@@ -72,7 +62,7 @@ export async function POST(req: Request) {
         const refuseResponse = await openai.chat.completions.create({
           model: mini_model,
           messages: [
-            { role: "system", content: QUICK_CHAT_SYS_PROMPT },
+            { role: "system", content: new_quick_chat },
             { role: "user", content: refusingPrompt }
           ],
           temperature: 0,
@@ -106,7 +96,7 @@ export async function POST(req: Request) {
       // Step 2: Reasoning (simulating three agents)
       controller.enqueue(encoder.encode(JSON.stringify({ type: 'progress', message: 'Asking the Counsel of Three...' }) + '\n'));
 
-      const reasoningPrompt = reasoning_prompt
+      const reasoningPrompt = prompts.reasoning_prompt
         .replace('{user_question}', question)
         .replace('{reformatted_question}', categorization.reformatted_question)
         .replace('{category}', categorization.category)
@@ -117,7 +107,7 @@ export async function POST(req: Request) {
         openai.chat.completions.create({
           model: ft_model,
           messages: [
-            { role: "system", content: QUICK_CHAT_SYS_PROMPT },
+            // { role: "system", content: new_quick_chat },
             { role: "user", content: reasoningPrompt }
           ],
           temperature: 1
@@ -125,7 +115,7 @@ export async function POST(req: Request) {
         openai.chat.completions.create({
           model: mini_model,
           messages: [
-            { role: "system", content: QUICK_CHAT_SYS_PROMPT },
+            { role: "system", content: new_quick_chat },
             { role: "user", content: reasoningPrompt }
           ],
           temperature: 1
@@ -133,7 +123,7 @@ export async function POST(req: Request) {
         openai.chat.completions.create({
           model: mini_model,
           messages: [
-            { role: "system", content: CALVIN_QUICK_SYS_PROMPT },
+            { role: "system", content: prompts.CALVIN_QUICK_SYS_PROMPT },
             { role: "user", content: reasoningPrompt }
           ],
           temperature: 1
@@ -152,7 +142,7 @@ export async function POST(req: Request) {
       // Step 3: Calvin Review
       controller.enqueue(encoder.encode(JSON.stringify({ type: 'progress', message: 'Calvin is reviewing the answers...' }) + '\n'));
 
-      const calvinReviewPrompt = calvin_review
+      const calvinReviewPrompt = prompts.calvin_review
         .replace('{user_question}', question)
         .replace('{reformatted_question}', categorization.reformatted_question)
         .replace('{category}', categorization.category)
@@ -165,7 +155,7 @@ export async function POST(req: Request) {
       const calvinReviewResponse = await openai.chat.completions.create({
         model: mini_model,
         messages: [
-          { role: "system", content: CALVIN_QUICK_SYS_PROMPT },
+          { role: "system", content: prompts.CALVIN_QUICK_SYS_PROMPT },
           { role: "user", content: calvinReviewPrompt }
         ],
         temperature: 0
@@ -185,7 +175,7 @@ export async function POST(req: Request) {
       // Step 4: Synthesize Final Answer
       controller.enqueue(encoder.encode(JSON.stringify({ type: 'progress', message: 'Synthesizing final answer...' }) + '\n'));
 
-      const reviewPrompt = answer_prompt
+      const reviewPrompt = prompts.answer_prompt
         .replace('{user_question}', question)
         .replace('{reformatted_question}', categorization.reformatted_question)
         .replace('{category}', categorization.category)
@@ -199,7 +189,7 @@ export async function POST(req: Request) {
       const reviewResponse = await openai.chat.completions.create({
         model: main_model,
         messages: [
-          { role: "system", content: QUICK_CHAT_SYS_PROMPT },
+          { role: "system", content: new_quick_chat },
           { role: "user", content: reviewPrompt }
         ],
         temperature: 0,

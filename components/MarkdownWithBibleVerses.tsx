@@ -5,13 +5,12 @@ import ReactMarkdown, { Components } from 'react-markdown';
 import { BibleVerse } from './BibleVerse';
 import { extractReferences } from '@/utils/bibleUtils';
 
-
 interface MarkdownWithBibleVersesProps {
   content: string;
 }
 
 export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProps) {
-  const renderWithBibleVerses = (children: React.ReactNode): React.ReactNode => {
+  const renderWithBibleVerses: (children: React.ReactNode) => React.ReactNode = (children) => {
     if (typeof children === 'string') {
       const parts = [];
       let lastIndex = 0;
@@ -82,6 +81,13 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
         {children}
       </a>
     ),
+    code: ({ className, children, ...props }) => (
+        <pre className="overflow-auto bg-secondary text-secondary-foreground p-4 rounded text-sm mb-4">
+          <code className={className} {...props}>
+            {children}
+          </code>
+        </pre>
+      ),
   };
 
   return <ReactMarkdown components={customComponents}>{content}</ReactMarkdown>;

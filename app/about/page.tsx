@@ -13,7 +13,11 @@ const md_text = `Welcome! I'm here to guide you through the Bible from a Reforme
 
 Huge thanks to [AO Lab](https://helloaolab.my.canva.site/) for graciously providing the [API](https://bible.helloao.org/docs/) with the Berean Standard Bible ([BSB](https://berean.bible/)) translation and the Bible Commentaries.
 
-Learn more about the BSB [here](https://copy.church/initiatives/bibles/) and join us in discovering the richness of its text.`;
+Learn more about the BSB [here](https://copy.church/initiatives/bibles/) and join us in discovering the richness of its text.
+
+### Parrot QA API
+
+After years of development, I'm now able to answer questions about the Bible and am fully guarded so you don't have to worry about prompting or anything. If you want to add a QA function to your website, please see the [Parrot QA API documentation](/documentation-parrot-qa) so you can use it!`;
 
 const md_footer = `## Let's Connect
 
