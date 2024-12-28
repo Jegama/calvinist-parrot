@@ -124,8 +124,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ chatId: chat.id });
   }
 
-  console.log(userId, chatId, message)
-
   // If userId is provided but no chatId, start a new chat session
   if (userId && !chatId) {
     const chat = await prisma.chatHistory.create({
@@ -140,7 +138,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ chatId: chat.id });
   }
 
-  // If userId is provided but no chatId, start a new chat session
+  // If chatID and message run main system
   if (chatId && message) {
     const stream = new ReadableStream({
       async start(controller) {
