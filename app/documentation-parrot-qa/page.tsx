@@ -38,11 +38,11 @@ We can add more modes in the future to accommodate different theological nuances
 
 ### Request Body
 The API expects a JSON object with the following fields:
-- "question" (string, required): The question you want to ask.
-- "userId" (string, optional): The user ID for tracking the question history.
-- "mode" (string, optional): Specifies the theological perspective. Possible values:
-  - "default" (Reformed Baptist perspective)
-  - "presby" (Presbyterian perspective)
+- *question* (string, required): The question you want to ask.
+- *userId* (string, optional): The user ID for tracking the question history.
+- *mode* (string, optional): Specifies the theological perspective. Possible values:
+  - *default* (Reformed Baptist perspective)
+  - *presbyterian* (Presbyterian perspective)
 
 ### Response Format
 The API returns a streamed response with multiple stages, each represented as JSON objects:
@@ -91,6 +91,15 @@ You are a representative of the Reformed Christian tradition with a Presbyterian
   - Infant baptism (paedo baptism).
   - Presbyterian church governance.
 
+
+---
+
+## Reviewer Agent
+
+So far, the API has one reviewer agent named Calvin. (Not for nothing this website is called **Calvinist Parrot**, hehe.)
+
+* **Calvin**: He reviews the answers provided by the three agents and gives feedback based on John Calvin's "Institutes of the Christian Religion." Calvin's review helps as an additional layer of safeguarding the theological accuracy of the responses.
+* **Other agents** can be added upon request to provide a broader range of perspectives. Please reach out if you have specific theologian you would like to include.
 
 ---
 
@@ -243,14 +252,14 @@ If you want to use the Presbyterian mode, you can specify the mode in the reques
 \`\`\`json
 {
     "question": "Who is God?",
-    "mode": "presby"
+    "mode": "presbyterian"
 }
 \`\`\`
 
 ---
 
 ## Notes
-1. This API uses OpenAI GPT models to generate responses.
+1. This API uses OpenAI's 4o models to generate responses.
 2. All interactions are logged in a database for question history tracking.
 3. The endpoint streams responses in real-time for a dynamic user experience.
 

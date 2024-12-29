@@ -1,6 +1,7 @@
 // prisma/schema.prisma
 
 // Always use  `npx prisma migrate dev` to apply changes to the database
+// To see the tables locally, use `npx prisma studio`
 
 datasource db {
   provider = "postgresql"

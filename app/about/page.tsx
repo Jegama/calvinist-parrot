@@ -17,7 +17,7 @@ Learn more about the BSB [here](https://copy.church/initiatives/bibles/) and joi
 
 ### Parrot QA API
 
-After years of development, I'm now able to answer questions about the Bible and am fully guarded so you don't have to worry about prompting or anything. If you want to add a QA function to your website, please see the [Parrot QA API documentation](/documentation-parrot-qa) so you can use it!`;
+I'm now able to offer an API to answer questions about the Bible, and it's fully guarded so you don't have to worry about prompting or anything. If you want to add a QA function to your website, please see the [Parrot QA API documentation](/documentation-parrot-qa) so you can use it!`;
 
 const md_footer = `## Let's Connect
 
