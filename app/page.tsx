@@ -29,6 +29,7 @@ import { BackToTop } from '@/components/BackToTop';
 import { account } from "@/utils/appwrite";
 import { Models } from "appwrite";
 import { useRouter } from 'next/navigation';
+
 type AppwriteUser = Models.User<Models.Preferences>;
 
 interface ChainReasoningResult {
@@ -46,8 +47,6 @@ interface ChainReasoningResult {
   refuse_answer?: string;
   elaborated_answer?: string;
 }
-
-
 
 export default function Home() {
   const [question, setQuestion] = useState("");
@@ -266,15 +265,16 @@ export default function Home() {
     <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center p-4">
       <Card className="w-[90%] max-w-2xl">
         <CardHeader>
-          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4">
             <Image
-              src="https://cultofthepartyparrot.com/parrots/hd/calvinist_parrot.gif"
+              src="/calvinist_parrot.gif"
               alt="Calvinist Parrot"
               width={100}
               height={100}
+              unoptimized={true}
             />
             <CardTitle className="text-3xl font-bold">Calvinist Parrot</CardTitle>
-          </div>
+            </div>
           <CardDescription>
             What theological question do you have?
           </CardDescription>
