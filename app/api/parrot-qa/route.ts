@@ -5,6 +5,7 @@ export const config = {
   maxDuration: 30,
 };
 
+import { NextRequest } from "next/server";
 import prisma from '@/lib/prisma'
 import OpenAI from 'openai'
 import * as prompts from '@/lib/prompts'
@@ -17,7 +18,7 @@ const ft_model = process.env.FT_MODEL || "gpt-4o-mini"
 const main_model = "gpt-4o"
 const mini_model = "gpt-4o-mini"
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const { question, userId = null, mode = "default" } = await req.json();
   const encoder = new TextEncoder();
 

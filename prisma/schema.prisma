@@ -44,11 +44,11 @@ model chatMessage {
   timestamp DateTime     @default(now())
 }
 
-model parrotApiKey {
+model parrotDevotionals {
   id          String    @id @default(cuid())
-  apiKey      String    @unique
-  description String?
+  devotional_id String @unique
+  bible_verse String
+  title       String
+  devotional_text     String
   createdAt   DateTime  @default(now())
-  lastUsedAt  DateTime?
-  usageCount  Int       @default(0)
 }
