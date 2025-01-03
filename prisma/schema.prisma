@@ -20,6 +20,7 @@ model questionHistory {
   issue_type     String
   reviewed_answer String
   userId         String?
+  denomination   String @default("reformed-baptist")
   createdAt      DateTime @default(now())
 }
 
@@ -30,6 +31,7 @@ model chatHistory {
   category        String
   subcategory     String
   issue_type      String
+  denomination    String @default("reformed-baptist")
   messages        chatMessage[] @relation("ChatMessages")
   createdAt       DateTime  @default(now())
   modifiedAt      DateTime  @updatedAt
