@@ -8,11 +8,7 @@ export const config = {
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import OpenAI from 'openai';
-import {
-  PARROT_SYS_PROMPT_MAIN,
-  CALVIN_SYS_PROMPT_MAIN,
-  categorizationSchema,
-} from '@/lib/prompts';
+import * as prompts from '@/lib/prompts'
 import {
   generateConversationName, 
   buildCategorizationMessages
@@ -25,14 +21,14 @@ const openai = new OpenAI({
 const mini_model = "gpt-4o-mini";
 
 // Helper: build parrot_conversation_history from DB messages
-function buildParrotHistory(messages: { sender: string; content: string }[]): OpenAI.Chat.ChatCompletionMessageParam[] {
+function buildParrotHistory(messages: { sender: string; content: string }[], parrot_sys_prompt: string): OpenAI.Chat.ChatCompletionMessageParam[] {
   // According to PARROT_SYS_PROMPT_MAIN:
   // - user = /human/
   // - parrot = assistant
   // - calvin = user but prefixed with /calvin/
   // The system prompt instructs how roles interact.
   const history: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: 'system', content: PARROT_SYS_PROMPT_MAIN },
+    { role: 'system', content: parrot_sys_prompt },
   ];
 
   for (const msg of messages) {
@@ -56,7 +52,7 @@ function buildCalvinHistory(messages: { sender: string; content: string }[]): Op
   // - parrot = /parrot/ as user
   // - calvin = assistant
   const history: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: 'system', content: CALVIN_SYS_PROMPT_MAIN },
+    { role: 'system', content: prompts.CALVIN_SYS_PROMPT_MAIN },
   ];
 
   for (const msg of messages) {
@@ -83,6 +79,7 @@ export async function POST(request: Request) {
     category?: string;
     subcategory?: string;
     issue_type?: string;
+    denomination? : string;
   }
 
   const { 
@@ -93,9 +90,40 @@ export async function POST(request: Request) {
     initialAnswer,
     category,
     subcategory,
-    issue_type
+    issue_type,
+    denomination = "reformed-baptist"
   }: ChatRequestBody = await request.json();
   const encoder = new TextEncoder();
+
+  // Map denomination to corresponding system prompt
+  let sys_prompt;
+  switch (denomination) {
+    case "reformed-baptist":
+      sys_prompt = prompts.CORE_SYS_PROMPT;
+      break;
+    case "presbyterian":
+      sys_prompt = prompts.CORE_SYS_PROMPT_PRESBYTERIAN;
+      break;
+    case "wesleyan":
+      sys_prompt = prompts.CORE_SYS_PROMPT_WESLEYAN;
+      break;
+    case "lutheran":
+      sys_prompt = prompts.CORE_SYS_PROMPT_LUTHERAN;
+      break;
+    case "anglican":
+      sys_prompt = prompts.CORE_SYS_PROMPT_ANGLICAN;
+      break;
+    case "pentecostal":
+      sys_prompt = prompts.CORE_SYS_PROMPT_PENTECOSTAL;
+      break;
+    case "non-denom":
+      sys_prompt = prompts.CORE_SYS_PROMPT_NON_DENOM_EVANGELICAL;
+      break;
+    default:
+      sys_prompt = prompts.CORE_SYS_PROMPT;
+  }
+
+  const new_parrot_sys_prompt = prompts.PARROT_SYS_PROMPT_MAIN.replace('{CORE}', sys_prompt);
 
   // Handle new chat with initial content
   if (userId && initialQuestion && initialAnswer && !chatId) {
@@ -177,7 +205,7 @@ export async function POST(request: Request) {
           // Step 1: Parrot's answer
           let parrotReply = '';
           try {
-            const parrotHistoryForParrot = buildParrotHistory(conversationMessages);
+            const parrotHistoryForParrot = buildParrotHistory(conversationMessages, new_parrot_sys_prompt);
             const parrotCompletion = await openai.chat.completions.create({
               model: mini_model,
               messages: parrotHistoryForParrot,
@@ -241,7 +269,7 @@ export async function POST(request: Request) {
           // Step 3: Parrot's revision
           let parrotFinalReply = '';
           try {
-            const parrotHistoryForRevision = buildParrotHistory(conversationMessages);
+            const parrotHistoryForRevision = buildParrotHistory(conversationMessages, new_parrot_sys_prompt);
             const parrotRevisionCompletion = await openai.chat.completions.create({
               model: mini_model,
               messages: parrotHistoryForRevision,
@@ -280,7 +308,7 @@ export async function POST(request: Request) {
                 messages: categorizationMessages,
                 response_format: {
                   type: 'json_schema',
-                  json_schema: categorizationSchema,
+                  json_schema: prompts.categorizationSchema,
                 },
                 temperature: 0,
               });

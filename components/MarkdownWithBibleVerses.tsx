@@ -82,7 +82,7 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
       </a>
     ),
     code: ({ className, children, ...props }) => (
-        <pre className="overflow-auto bg-secondary text-secondary-foreground p-4 rounded text-sm mb-4">
+        <pre className="overflow-auto max-h-[500px] bg-secondary text-secondary-foreground p-4 rounded text-sm mb-4">
           <code className={className} {...props}>
             {children}
           </code>

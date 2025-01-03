@@ -19,11 +19,38 @@ const main_model = "gpt-4o"
 const mini_model = "gpt-4o-mini"
 
 export async function POST(req: NextRequest) {
-  const { question, userId = null, mode = "default" } = await req.json();
+  const { question, userId = null, denomination = "reformed-baptist" } = await req.json();
   const encoder = new TextEncoder();
 
-  const sys_prompt = mode === "default" ? prompts.CORE_SYS_PROMPT : prompts.CORE_SYS_PROMPT_PRESBY;
-  const new_quick_chat = prompts.QUICK_CHAT_SYS_PROMPT.replace('{CORE}', sys_prompt)
+  // Map denomination to corresponding system prompt
+  let sys_prompt;
+  switch (denomination) {
+    case "reformed-baptist":
+      sys_prompt = prompts.CORE_SYS_PROMPT;
+      break;
+    case "presbyterian":
+      sys_prompt = prompts.CORE_SYS_PROMPT_PRESBYTERIAN;
+      break;
+    case "wesleyan":
+      sys_prompt = prompts.CORE_SYS_PROMPT_WESLEYAN;
+      break;
+    case "lutheran":
+      sys_prompt = prompts.CORE_SYS_PROMPT_LUTHERAN;
+      break;
+    case "anglican":
+      sys_prompt = prompts.CORE_SYS_PROMPT_ANGLICAN;
+      break;
+    case "pentecostal":
+      sys_prompt = prompts.CORE_SYS_PROMPT_PENTECOSTAL;
+      break;
+    case "non-denom":
+      sys_prompt = prompts.CORE_SYS_PROMPT_NON_DENOM_EVANGELICAL;
+      break;
+    default:
+      sys_prompt = prompts.CORE_SYS_PROMPT;
+  }
+
+  const new_quick_chat = prompts.QUICK_CHAT_SYS_PROMPT.replace('{CORE}', sys_prompt);
 
   const stream = new ReadableStream({
     async start(controller) {
