@@ -10,6 +10,8 @@ import { Separator } from "@/components/ui/separator"
 import { MarkdownWithBibleVerses } from '@/components/MarkdownWithBibleVerses';
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea"
+
 // import { BackToTop } from '@/components/BackToTop';
 
 type Message = {
@@ -236,12 +238,17 @@ export default function ChatPage() {
           <div className="fixed bottom-4 w-full px-4 flex justify-center">
             <Card className="w-full max-w-2xl mx-auto">
               <CardContent className="w-full flex items-center gap-2 p-4">
-                <input
-                  className="flex-1 border rounded p-2"
+                <Textarea
+                  className="flex-1 border rounded p-2 resize-none"
                   placeholder="Type your message..."
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
                   disabled={sending}
                 />
                 {sending ? (
