@@ -196,22 +196,10 @@ https://calvinistparrot.com/api/parrot-qa
 \`\`\`
 
 ## Overview
-This API endpoint provides a structured question-and-answer service based on Christian theological perspectives. The endpoint processes user questions through categorization, reasoning, and review phases, synthesizing responses to theological and doctrinal queries. It supports two modes of operation:
-
-1. **Reformed Baptist** (default)
-2. **Presbyterian**
-3. **Wesleyan**
-4. **Lutheran**
-5. **Anglican**
-6. **Pentecostal/Charismatic**
-7. **Non-Denominational Evangelical**
-
-Each mode tailors its responses according to distinct theological perspectives on secondary issues while sharing a common foundation on core doctrines.
-
-We can add more modes in the future to accommodate different theological nuances. However, we will not compromise on the following essential doctrines:
+This API endpoint provides a structured question-and-answer service based on Christian theological perspectives. The endpoint processes user questions through categorization, reasoning, and review phases, synthesizing responses to theological and doctrinal queries. It supports multiple denominational modes to cater to various theological traditions. However, we will not compromise on the following essential doctrines:
 
 - **The Trinity**: One God in three persons—Father, Son, and Holy Spirit.
-- **The Deity and Humanity of Christ**: Jesus Christ is fully God and fully man.
+- **The Deity and Humanity of Christ**: Jesus Christ is truly God and truly man (*Vera Deus, vera homo*).
 - **The Incarnation and Virgin Birth**: Christ took on human nature through the miraculous conception by the Holy Spirit and was born of the Virgin Mary.
 - **The Gospel**: Salvation by grace alone through faith alone in Christ alone.
 - **The Authority of Scripture**: The Bible is the inspired, inerrant, and infallible Word of God.
@@ -430,7 +418,19 @@ You can look [here](https://github.com/Jegama/calvinist-parrot/blob/master/app/p
 ---
 
 ## Modes
-The endpoint supports the following modes, which affect the system's theological perspective on secondary issues:
+
+The endpoint supports the following modes:
+
+1. **Reformed Baptist** (default)
+2. **Presbyterian**
+3. **Wesleyan**
+4. **Lutheran**
+5. **Anglican**
+6. **Pentecostal/Charismatic**
+7. **Non-Denominational Evangelical**
+
+Each mode tailors its responses according to distinct theological perspectives on secondary issues while sharing a common foundation on core doctrines.
+
 `;
 
 const md_text_bottom = `---
