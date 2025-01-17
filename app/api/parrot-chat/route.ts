@@ -2,7 +2,7 @@
 
 export const config = {
   runtime: 'nodejs', // ensures Node.js serverless function
-  maxDuration: 30,   // Pro plan allows up to 30
+  maxDuration: 45,   // Pro plan allows up to 45
 };
 
 import { NextResponse } from 'next/server';
