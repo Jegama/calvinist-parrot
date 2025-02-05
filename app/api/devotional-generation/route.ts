@@ -1,5 +1,7 @@
 // app/api/devotional-generation/route.ts
 
+export const maxDuration = 60;
+
 import OpenAI from "openai";
 import { getJson } from "serpapi";
 import { JSDOM } from "jsdom";

@@ -1,9 +1,6 @@
 // app/api/parrot-chat/route.ts
 
-export const config = {
-  runtime: 'nodejs', // ensures Node.js serverless function
-  maxDuration: 45,   // Pro plan allows up to 45
-};
+export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';

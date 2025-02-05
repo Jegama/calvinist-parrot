@@ -1,5 +1,7 @@
 // api/elaborate/route.ts
 
+export const maxDuration = 60;
+
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
 import { CORE_SYS_PROMPT, follow_up_prompt } from "@/lib/prompts";
