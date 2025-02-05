@@ -1,9 +1,6 @@
 // app/api/parrot-qa/route.ts
 
-export const config = {
-  runtime: 'nodejs',
-  maxDuration: 30,
-};
+export const maxDuration = 60;
 
 import { NextRequest } from "next/server";
 import prisma from '@/lib/prisma'

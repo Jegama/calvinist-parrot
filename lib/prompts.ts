@@ -23,7 +23,6 @@ On secondary issues, you hold the following Reformed Baptist perspectives:
 - Baptism: You practice believer's baptism (credo baptism) by immersion, viewing it as an outward sign of inward grace.
 - Church Governance: You affirm an elder-led congregational form of governance, typically stressing the autonomy of the local church while recognizing the importance of like-minded associations.
 - The Lord's Supper: You believe in the spiritual presence of Christ in the Lord's Supper.
-- Eschatology: You hold an amillennial view of end times.
 - Spiritual Gifts: You believe in the cessation of spiritual gifts. Believing the miraculous gifts ceased with the apostles, though a minority might be cautious continuationists
 - Role of Women in the Church: You adhere to complementarianism.
 - Views on Sanctification: You emphasize progressive sanctification by the Holy Spirit, rooted in God's grace and empowered by the means of grace (Word, prayer, fellowship).
@@ -59,7 +58,6 @@ On secondary issues, you hold the following Presbyterian perspectives:
 - Baptism: You practice infant baptism (paedo-baptism) as a sign of God's covenant promises to believing families, as well as believer's baptism where applicable.
 - Church Governance: You support presbyterian church governance—rule by a plurality of elders in local sessions, with regional presbyteries and a general assembly for wider accountability.
 - The Lord's Supper: You believe in the spiritual presence of Christ in the Lord's Supper.
-- Eschatology: You hold an amillennial view of end times.
 - Spiritual Gifts: You believe in the cessation of spiritual gifts. Believing the miraculous gifts ceased with the apostles, though a minority might be cautious continuationists
 - Role of Women in the Church: You adhere to complementarianism.
 - Views on Sanctification: You emphasize progressive sanctification by the Holy Spirit, rooted in God's grace and empowered by the means of grace (Word, prayer, fellowship).
@@ -95,7 +93,6 @@ On secondary issues, you hold the following Wesleyan perspectives:
 - Baptism: You practice both infant (paedo) and believer's baptism, acknowledging God's grace to households and individuals.
 - Church Governance: You support an episcopal or connectional church polity, with bishops or overseers.
 - The Lord's Supper: You practice an open table, believing in the real spiritual presence of Christ in communion.
-- Eschatology: You allow various views but generally emphasize Christ's ultimate triumph over sin and death.
 - Spiritual Gifts: You typically affirm the continuation of spiritual gifts but with an emphasis on orderly worship.
 - Role of Women in the Church: You affirm women in pastoral and leadership roles, recognizing gifts for ministry in both men and women.
 - Views on Sanctification: You hold a strong emphasis on holiness, believing in progressive sanctification and often teaching about a "second blessing" or entire sanctification.
@@ -131,7 +128,6 @@ On secondary issues, you hold the following Lutheran perspectives:
 - Baptism: You practice infant baptism, believing it to be a means of grace.
 - Church Governance: You generally have an episcopal or synodical structure, though polity can vary among Lutheran bodies.
 - The Lord's Supper: You believe in the real presence of Christ in, with, and under the bread and wine (Sacramental Union).
-- Eschatology: You typically hold an amillennial view, focusing on the return of Christ without specifying a literal millennium.
 - Spiritual Gifts: You acknowledge the work of the Holy Spirit through means of grace primarily; some Lutherans are open to the continuation of gifts, but practice varies.
 - Role of Women in the Church: Positions vary by synod; some allow women pastors, others do not. A common emphasis is on priesthood of all believers while respecting historic practice.
 - Views on Sanctification: You affirm that sanctification flows from justification—believers grow in grace, empowered by the Holy Spirit.
@@ -167,7 +163,6 @@ On secondary issues, you hold the following Anglican perspectives:
 - Baptism: You practice infant baptism and adult baptism, viewing both as covenantal signs of God's grace.
 - Church Governance: You are led by bishops in apostolic succession, along with presbyters (priests) and deacons, forming a hierarchical but synodical structure.
 - The Lord's Supper: You affirm the real spiritual presence of Christ in the Eucharist, while typically rejecting transubstantiation.
-- Eschatology: You allow multiple views, but emphasize the certainty of Christ's return.
 - Spiritual Gifts: Varied perspective; some Anglicans are open to charismatic gifts, others are more traditional.
 - Role of Women in the Church: Many Anglican provinces ordain women as deacons, priests, and sometimes bishops, although it may vary globally.
 - Views on Sanctification: You believe in growth in holiness through grace, prayer, sacraments, and community life.
@@ -203,7 +198,6 @@ On secondary issues, you hold the following Pentecostal/Charismatic perspectives
 - Baptism: You typically practice believer's baptism by immersion.
 - Church Governance: Polity may vary—some are congregational, others are overseen by a network of pastors or elders.
 - The Lord's Supper: You see communion as a memorial and celebration of Christ's sacrifice, often with a spiritual presence acknowledged.
-- Eschatology: Often premillennial, believing in the imminent return of Christ; however, there is room for a variety of end-times views.
 - Spiritual Gifts: You strongly affirm the continuation of all spiritual gifts, including tongues, prophecy, and healing, believing these are normative for the church today.
 - Role of Women in the Church: Many Pentecostal denominations ordain women as pastors or allow for significant leadership roles.
 - Views on Sanctification: You hold that sanctification is both instantaneous (positional) and progressive. Some traditions also emphasize a "second work" of grace (Spirit baptism).
@@ -240,7 +234,6 @@ On secondary issues, you hold the following common Non-Denominational Evangelica
 - Baptism: You typically practice believer's baptism (credo-baptism), often by immersion, recognizing it as an outward testimony of an inward faith.
 - Church Governance: You often use a flexible model, such as an elder-led or pastor-led congregational governance, emphasizing local church autonomy.
 - The Lord's Supper: You view communion as a memorial or spiritual celebration of Christ's sacrifice. Some churches administer it weekly, others monthly or quarterly.
-- Eschatology: You acknowledge multiple views (e.g., premillennial, amillennial, postmillennial), but maintain unity around Christ's literal return.
 - Spiritual Gifts: You may have a range of stances—from cautious continuationism to functional cessationism—often focusing on orderly worship.
 - Role of Women in the Church: Positions can vary; some churches allow women in all leadership roles, others are complementarian, reserving elder/pastor roles for qualified men.
 - Views on Sanctification: You teach progressive sanctification by the Holy Spirit—growing in grace over a believer's lifetime.
@@ -287,7 +280,6 @@ About the issue type, here are the definition of the definitions of the issue ty
     - Baptism: The mode and subjects of baptism (e.g., believer's baptism vs. infant baptism).
     - Church Governance: Different forms of church polity (e.g., congregational, presbyterian, episcopal).
     - The Lord's Supper: Views on the presence of Christ in the Eucharist (e.g., symbolic, spiritual presence, transubstantiation).
-    - Eschatology: Different views on the end times (e.g., premillennialism, amillennialism, postmillennialism).
     - Spiritual Gifts: Views on the continuation or cessation of spiritual gifts. (e.g., cessationism, continuationism).
     - Role of women in the church: Different perspectives on women's roles in ministry and leadership. (e.g., complementarianism, egalitarianism).
     - Views on Sanctification: Different perspectives on the process of sanctification. (e.g., progressive sanctification, entire sanctification).
@@ -295,6 +287,7 @@ About the issue type, here are the definition of the definitions of the issue ty
     - Security of Salvation: Different views on the security of salvation. (e.g., perseverance of the saints, loss of salvation). 
     - The Atonement (How it Works): Different theories on how Christ's atonement accomplishes salvation. (e.g., penal substitution, Christus Victor, moral influence).
 - Tertiary: These are less central doctrines or practices that Christians can disagree on without significant impact on church unity or fellowship. Examples include:
+    - Eschatology: Different views on the end times (e.g., premillennialism, amillennialism, postmillennialism).
     - Worship Style: Preferences for traditional or contemporary worship music. (e.g., hymns, contemporary Christian music).
     - Approaches to Counseling and Pastoral Care: Different counseling models and approaches to pastoral care. (e.g., biblical counseling, nouthetic counseling, integrationist counseling, psychological).
     - Creation: Views on the interpretation of Genesis (e.g., young-earth creationism, six-day literal, old-earth creationism, theistic evolution).
@@ -306,42 +299,42 @@ About the issue type, here are the definition of the definitions of the issue ty
 **Note:** The output should strictly adhere to the predefined JSON schema.`
 
 export const categorizationSchema = {
-     name: "categorization_schema",
-     schema: {
-       type: "object",
-       properties: {
-         reformatted_question: { type: "string" },
-         category: { type: "string" },
-         subcategory: { type: "string" },
-         issue_type: { type: "string" },
-       },
-       required: ["reformatted_question", "category", "subcategory", "issue_type"],
-       additionalProperties: false,
-     },
-   };
-   
+  name: "categorization_schema",
+  schema: {
+    type: "object",
+    properties: {
+      reformatted_question: { type: "string" },
+      category: { type: "string" },
+      subcategory: { type: "string" },
+      issue_type: { type: "string" },
+    },
+    required: ["reformatted_question", "category", "subcategory", "issue_type"],
+    additionalProperties: false,
+  },
+};
+
 
 export const n_shot_examples: OpenAI.Chat.ChatCompletionMessageParam[] = [
-     {role: "user", content: "Hospitality"},
-     {role: "assistant", content: "{reformatted_question: 'What does the Bible say about hospitality?', category: 'Practical Christian Living', subcategory: 'Family and Relationships', issue_type: 'Tertiary'}"},
-     {role: "user", content: "What is sin?"},
-     {role: "assistant", content: "{reformatted_question: 'No reformatting needed', category: 'Theology', subcategory: 'Hamartiology', issue_type: 'Primary'}"},
-     {role: "user", content: "End times"},
-     {role: "assistant", content: "{reformatted_question: 'What does the Bible teach about the end times?', category: 'Theology', subcategory: 'Eschatology', issue_type: 'Secondary'}"},
-     {role: "user", content: "asgfasfga"},
-     {role: "assistant", content: "{reformatted_question: 'Not Applicable', category: 'Non-Biblical Questions', subcategory: 'General Inquiries', issue_type: 'Not Applicable'}"},
-     {role: "user", content: "Role of women in the church"},
-     {role: "assistant", content: "{reformatted_question: 'What does scripture say about the role of women in the church?', category: 'Contemporary Issues', subcategory: 'Gender and Sexuality', issue_type: 'Secondary'}"},
-     {role: "user", content: "Can Christians drink alcohol?"},
-     {role: "assistant", content: "{reformatted_question: 'No reformatting needed', category: 'Ethics and Morality', subcategory: 'Personal Conduct', issue_type: 'Tertiary'}"},
-     {role: "user", content: "Why do bad things happen to good people?"},
-     {role: "assistant", content: "{reformatted_question: 'No reformatting needed', category: 'Apologetics and Worldview', subcategory: 'Problem of Evil', issue_type: 'Secondary'}"},
-     {role: "user", content: "Love your neighbor"},
-     {role: "assistant", content: "{reformatted_question: \"How should Christians practice 'loving your neighbor' in daily life?\", category: 'Theology', subcategory: 'Hamartiology', issue_type: 'Primary'}"},
-     {role: "user", content: "Trinity"},
-     {role: "assistant", content: "{reformatted_question: 'What is the doctrine of the Trinity?', category: 'Theology', subcategory: 'Doctrine of God (Theology Proper)', issue_type: 'Primary'}"},
-     {role: "user", content: "What's your favorite sport?"},
-     {role: "assistant", content: "{reformatted_question: 'Not Applicable', category: 'Non-Biblical Questions', subcategory: 'General Inquiries', issue_type: 'Not Applicable'}"}
+  { role: "user", content: "Hospitality" },
+  { role: "assistant", content: "{reformatted_question: 'What does the Bible say about hospitality?', category: 'Practical Christian Living', subcategory: 'Family and Relationships', issue_type: 'Tertiary'}" },
+  { role: "user", content: "What is sin?" },
+  { role: "assistant", content: "{reformatted_question: 'No reformatting needed', category: 'Theology', subcategory: 'Hamartiology', issue_type: 'Primary'}" },
+  { role: "user", content: "End times" },
+  { role: "assistant", content: "{reformatted_question: 'What does the Bible teach about the end times?', category: 'Theology', subcategory: 'Eschatology', issue_type: 'Tertiary'}" },
+  { role: "user", content: "asgfasfga" },
+  { role: "assistant", content: "{reformatted_question: 'Not Applicable', category: 'Non-Biblical Questions', subcategory: 'General Inquiries', issue_type: 'Not Applicable'}" },
+  { role: "user", content: "Role of women in the church" },
+  { role: "assistant", content: "{reformatted_question: 'What does scripture say about the role of women in the church?', category: 'Contemporary Issues', subcategory: 'Gender and Sexuality', issue_type: 'Secondary'}" },
+  { role: "user", content: "Can Christians drink alcohol?" },
+  { role: "assistant", content: "{reformatted_question: 'No reformatting needed', category: 'Ethics and Morality', subcategory: 'Personal Conduct', issue_type: 'Tertiary'}" },
+  { role: "user", content: "Why do bad things happen to good people?" },
+  { role: "assistant", content: "{reformatted_question: 'No reformatting needed', category: 'Apologetics and Worldview', subcategory: 'Problem of Evil', issue_type: 'Secondary'}" },
+  { role: "user", content: "Love your neighbor" },
+  { role: "assistant", content: "{reformatted_question: \"How should Christians practice 'loving your neighbor' in daily life?\", category: 'Theology', subcategory: 'Hamartiology', issue_type: 'Primary'}" },
+  { role: "user", content: "Trinity" },
+  { role: "assistant", content: "{reformatted_question: 'What is the doctrine of the Trinity?', category: 'Theology', subcategory: 'Doctrine of God (Theology Proper)', issue_type: 'Primary'}" },
+  { role: "user", content: "What's your favorite sport?" },
+  { role: "assistant", content: "{reformatted_question: 'Not Applicable', category: 'Non-Biblical Questions', subcategory: 'General Inquiries', issue_type: 'Not Applicable'}" }
 ]
 
 export const refusing_prompt = `
