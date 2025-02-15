@@ -32,7 +32,7 @@ type ChatListItem = {
 
 type DataEvent =
   | { type: 'info' | 'done' }
-  | { type: 'parrot' | 'calvin' | 'parrot_final'; content: string };
+  | { type: 'parrot'; content: string };
 
 export default function ChatPage() {
   const params = useParams() as { chatId: string };
@@ -162,19 +162,13 @@ export default function ChatPage() {
           case 'parrot':
             appendToken('parrot', data.content);
             break;
-          case 'calvin':
-            appendToken('calvin', data.content);
-            break;
-          case 'parrot_final':
-            appendToken('parrot', data.content);
-            break;
           case 'done':
             await fetchChat();
             await fetchChats();
             setSending(false);
             return;
           default:
-              console.warn("Unknown event type");
+            console.warn("Unknown event type");
         }
       }
     }
@@ -226,7 +220,7 @@ export default function ChatPage() {
                     <div key={i} className={`max-w-[80%] p-2 rounded-md ${bubbleClass}`}>
                       <div className="text-sm font-bold mb-1">{senderName}</div>
                       <MarkdownWithBibleVerses content={msg.content} />
-                    </div>  
+                    </div>
                   );
                 })}
                 <div ref={messagesEndRef}></div>

@@ -7,7 +7,7 @@ import prisma from '@/lib/prisma';
 import OpenAI from 'openai';
 import * as prompts from '@/lib/prompts'
 import {
-  generateConversationName, 
+  generateConversationName,
   buildCategorizationMessages
 } from '@/utils/generateConversationName';
 
@@ -17,52 +17,19 @@ const openai = new OpenAI({
 
 const mini_model = "gpt-4o-mini";
 
-// Helper: build parrot_conversation_history from DB messages
-function buildParrotHistory(messages: { sender: string; content: string }[], parrot_sys_prompt: string): OpenAI.Chat.ChatCompletionMessageParam[] {
-  // According to PARROT_SYS_PROMPT_MAIN:
-  // - user = /human/
-  // - parrot = assistant
-  // - calvin = user but prefixed with /calvin/
-  // The system prompt instructs how roles interact.
+function buildParrotHistory(
+  messages: { sender: string; content: string }[],
+  parrot_sys_prompt: string
+): OpenAI.Chat.ChatCompletionMessageParam[] {
   const history: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: parrot_sys_prompt },
   ];
-
   for (const msg of messages) {
-    if (msg.sender === 'user') {
-      history.push({ role: 'user', content: `/human/ ${msg.content}` });
-    } else if (msg.sender === 'parrot') {
-      history.push({ role: 'assistant', content: msg.content });
-    } else if (msg.sender === 'calvin') {
-      // Calvin's messages appear as user messages to Parrot, but prefixed so Parrot knows it's Calvin
-      history.push({ role: 'user', content: `/calvin/ ${msg.content}` });
-    }
+    history.push({
+      role: msg.sender === 'user' ? 'user' : 'assistant',
+      content: msg.content,
+    });
   }
-
-  return history;
-}
-
-// Helper: build calvin_conversation_history from DB messages
-function buildCalvinHistory(messages: { sender: string; content: string }[]): OpenAI.Chat.ChatCompletionMessageParam[] {
-  // According to CALVIN_SYS_PROMPT_MAIN:
-  // - user = /human/
-  // - parrot = /parrot/ as user
-  // - calvin = assistant
-  const history: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: 'system', content: prompts.CALVIN_SYS_PROMPT_MAIN },
-  ];
-
-  for (const msg of messages) {
-    if (msg.sender === 'user') {
-      history.push({ role: 'user', content: `/human/ ${msg.content}` });
-    } else if (msg.sender === 'parrot') {
-      // Parrot's messages appear as user messages to Calvin, but prefixed so Calvin knows it's Parrot
-      history.push({ role: 'user', content: `/parrot/ ${msg.content}` });
-    } else if (msg.sender === 'calvin') {
-      history.push({ role: 'assistant', content: msg.content });
-    }
-  }
-
   return history;
 }
 
@@ -76,14 +43,14 @@ export async function POST(request: Request) {
     category?: string;
     subcategory?: string;
     issue_type?: string;
-    denomination? : string;
+    denomination?: string;
   }
 
-  const { 
-    userId, 
-    chatId, 
-    message, 
-    initialQuestion, 
+  const {
+    userId,
+    chatId,
+    message,
+    initialQuestion,
     initialAnswer,
     category,
     subcategory,
@@ -170,10 +137,10 @@ export async function POST(request: Request) {
         // Helper function to send errors to client
         const sendError = (error: Error | unknown, stage: string) => {
           console.error(`Error during ${stage}:`, error);
-          controller.enqueue(encoder.encode(JSON.stringify({ 
-            type: 'error', 
-            stage, 
-            message: 'An error occurred, but continuing conversation...' 
+          controller.enqueue(encoder.encode(JSON.stringify({
+            type: 'error',
+            stage,
+            message: 'An error occurred, but continuing conversation...'
           }) + '\n'));
         };
 
@@ -186,7 +153,7 @@ export async function POST(request: Request) {
             where: { chatId },
             orderBy: { timestamp: 'asc' },
           });
-          
+
           conversationMessages = previousMessages.map((msg: { sender: string; content: string }) => ({
             sender: msg.sender,
             content: msg.content,
@@ -199,7 +166,7 @@ export async function POST(request: Request) {
             data: { chatId, sender: 'user', content: message },
           });
 
-          // Step 1: Parrot's answer
+          // Parrot's answer
           let parrotReply = '';
           try {
             const parrotHistoryForParrot = buildParrotHistory(conversationMessages, new_parrot_sys_prompt);
@@ -224,75 +191,6 @@ export async function POST(request: Request) {
             conversationMessages.push({ sender: 'parrot', content: parrotReply });
           } catch (error) {
             sendError(error, 'parrot_response');
-            parrotReply = "I apologize, but I'm having trouble responding. Calvin, please help human.";
-            await prisma.chatMessage.create({
-              data: { chatId, sender: 'parrot', content: parrotReply },
-            });
-            conversationMessages.push({ sender: 'parrot', content: parrotReply });
-          }
-
-          // Step 2: Calvin's feedback
-          let calvinReply = '';
-          try {
-            const calvinHistory = buildCalvinHistory(conversationMessages);
-            const calvinCompletion = await openai.chat.completions.create({
-              model: mini_model,
-              messages: calvinHistory,
-              temperature: 0,
-              stream: true,
-            });
-
-            for await (const part of calvinCompletion) {
-              const content = part.choices[0]?.delta?.content || '';
-              if (content) {
-                calvinReply += content;
-                controller.enqueue(encoder.encode(JSON.stringify({ type: 'calvin', content }) + '\n'));
-              }
-            }
-
-            await prisma.chatMessage.create({
-              data: { chatId, sender: 'calvin', content: calvinReply },
-            });
-            conversationMessages.push({ sender: 'calvin', content: calvinReply });
-          } catch (error) {
-            sendError(error, 'calvin_response');
-            calvinReply = "We got a server error, we have to skip my feedback. Please continue.";
-            await prisma.chatMessage.create({
-              data: { chatId, sender: 'calvin', content: calvinReply },
-            });
-            conversationMessages.push({ sender: 'calvin', content: calvinReply });
-          }
-
-          // Step 3: Parrot's revision
-          let parrotFinalReply = '';
-          try {
-            const parrotHistoryForRevision = buildParrotHistory(conversationMessages, new_parrot_sys_prompt);
-            const parrotRevisionCompletion = await openai.chat.completions.create({
-              model: mini_model,
-              messages: parrotHistoryForRevision,
-              temperature: 0,
-              stream: true,
-            });
-
-            for await (const part of parrotRevisionCompletion) {
-              const content = part.choices[0]?.delta?.content || '';
-              if (content) {
-                parrotFinalReply += content;
-                controller.enqueue(encoder.encode(JSON.stringify({ type: 'parrot_final', content }) + '\n'));
-              }
-            }
-
-            await prisma.chatMessage.create({
-              data: { chatId, sender: 'parrot', content: parrotFinalReply },
-            });
-            conversationMessages.push({ sender: 'parrot', content: parrotFinalReply });
-          } catch (error) {
-            sendError(error, 'parrot_final_response');
-            parrotFinalReply = "I apologize for the technical difficulty. Let's continue our conversation.";
-            await prisma.chatMessage.create({
-              data: { chatId, sender: 'parrot', content: parrotFinalReply },
-            });
-            conversationMessages.push({ sender: 'parrot', content: parrotFinalReply });
           }
 
           // Handle conversation naming and categorization

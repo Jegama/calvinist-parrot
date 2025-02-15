@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       sys_prompt = prompts.CORE_SYS_PROMPT;
   }
 
-  const new_quick_chat = prompts.QUICK_CHAT_SYS_PROMPT.replace('{CORE}', sys_prompt);
+  const new_sys_prompt = prompts.BRIEF_RESPONSE_SYS_PROMPT.replace('{CORE}', sys_prompt);
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
         const refuseResponse = await openai.chat.completions.create({
           model: mini_model,
           messages: [
-            { role: "system", content: new_quick_chat },
+            { role: "system", content: new_sys_prompt },
             { role: "user", content: refusingPrompt }
           ],
           temperature: 0,
@@ -132,7 +132,6 @@ export async function POST(req: NextRequest) {
         openai.chat.completions.create({
           model: ft_model,
           messages: [
-            // { role: "system", content: new_quick_chat },
             { role: "user", content: reasoningPrompt }
           ],
           temperature: 1
@@ -140,7 +139,7 @@ export async function POST(req: NextRequest) {
         openai.chat.completions.create({
           model: mini_model,
           messages: [
-            { role: "system", content: new_quick_chat },
+            { role: "system", content: new_sys_prompt },
             { role: "user", content: reasoningPrompt }
           ],
           temperature: 1
@@ -214,7 +213,7 @@ export async function POST(req: NextRequest) {
       const reviewResponse = await openai.chat.completions.create({
         model: main_model,
         messages: [
-          { role: "system", content: new_quick_chat },
+          { role: "system", content: new_sys_prompt },
           { role: "user", content: reviewPrompt }
         ],
         temperature: 0,
