@@ -1,6 +1,10 @@
+// utils/commentaryService.ts
+
 import { parseReference } from "@/utils/parseReference";
 import { getBookId } from "@/utils/bookMappings";
 import { extractCommentary, formatCommentary, CommentaryResponse } from "@/utils/commentaryHelpers";
+
+const BIBLE_API_BASE_URL = "https://bible.helloao.org";
 
 /**
  * Given an array of Bible passage references, this function fetches and returns
@@ -10,6 +14,7 @@ import { extractCommentary, formatCommentary, CommentaryResponse } from "@/utils
  * @returns A promise that resolves to an object where each key is the original passage
  *          and its value is the formatted commentary text or an error message.
  */
+
 export async function getCommentariesForPassages(
   passages: string[]
 ): Promise<Record<string, string>> {
@@ -32,7 +37,7 @@ export async function getCommentariesForPassages(
 
     try {
       // Fetch the commentary JSON data for the book and chapter
-      const response = await fetch(`/api/c/matthew-henry/${bookId}/${chapter}.json`);
+      const response = await fetch(`${BIBLE_API_BASE_URL}/api/c/matthew-henry/${bookId}/${chapter}.json`);
       if (!response.ok) {
         results[passage] = "Error fetching commentary";
         continue;

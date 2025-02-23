@@ -10,6 +10,9 @@ import {
   generateConversationName,
   buildCategorizationMessages
 } from '@/utils/generateConversationName';
+import { sendError, sendProgress } from '@/lib/progressUtils';
+import { parrotWorkflow } from "@/utils/langChainAgents/mainAgent";
+import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -20,15 +23,16 @@ const mini_model = "gpt-4o-mini";
 function buildParrotHistory(
   messages: { sender: string; content: string }[],
   parrot_sys_prompt: string
-): OpenAI.Chat.ChatCompletionMessageParam[] {
-  const history: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: 'system', content: parrot_sys_prompt },
+): (SystemMessage | HumanMessage | AIMessage)[] {
+  const history: (SystemMessage | HumanMessage | AIMessage)[] = [
+    new SystemMessage(parrot_sys_prompt),
   ];
   for (const msg of messages) {
-    history.push({
-      role: msg.sender === 'user' ? 'user' : 'assistant',
-      content: msg.content,
-    });
+    if (msg.sender === 'user') {
+      history.push(new HumanMessage(msg.content));
+    } else if (msg.sender === 'parrot' || msg.sender === 'calvin') {
+      history.push(new AIMessage(msg.content));
+    }
   }
   return history;
 }
@@ -57,7 +61,6 @@ export async function POST(request: Request) {
     issue_type,
     denomination = "reformed-baptist"
   }: ChatRequestBody = await request.json();
-  const encoder = new TextEncoder();
 
   // Map denomination to corresponding system prompt
   let sys_prompt;
@@ -134,16 +137,6 @@ export async function POST(request: Request) {
   if (chatId && message) {
     const stream = new ReadableStream({
       async start(controller) {
-        // Helper function to send errors to client
-        const sendError = (error: Error | unknown, stage: string) => {
-          console.error(`Error during ${stage}:`, error);
-          controller.enqueue(encoder.encode(JSON.stringify({
-            type: 'error',
-            stage,
-            message: 'An error occurred, but continuing conversation...'
-          }) + '\n'));
-        };
-
         // Message accumulator to avoid repeated DB fetches
         let conversationMessages: { sender: string; content: string }[] = [];
 
@@ -169,28 +162,75 @@ export async function POST(request: Request) {
           // Parrot's answer
           let parrotReply = '';
           try {
-            const parrotHistoryForParrot = buildParrotHistory(conversationMessages, new_parrot_sys_prompt);
-            const parrotCompletion = await openai.chat.completions.create({
-              model: mini_model,
-              messages: parrotHistoryForParrot,
-              temperature: 0,
-              stream: true,
-            });
+            const parrotHistory = buildParrotHistory(
+              conversationMessages,
+              new_parrot_sys_prompt
+            );
 
-            for await (const part of parrotCompletion) {
-              const content = part.choices[0]?.delta?.content || '';
-              if (content) {
-                parrotReply += content;
-                controller.enqueue(encoder.encode(JSON.stringify({ type: 'parrot', content }) + '\n'));
+            const eventStream = parrotWorkflow.streamEvents(
+              { messages: parrotHistory },
+              { version: "v2" }
+            );
+
+            for await (const { event, tags, data } of eventStream) {
+              if (event === "on_chat_model_stream") {
+                // data.chunk is the partial token chunk for the LLM's AIMessage
+                if (data.chunk?.content) {
+                  parrotReply += data.chunk.content;
+                  sendProgress({ type: 'parrot', content: data.chunk.content }, controller);
+                }
+              } else if (event === "on_tool_start") {
+                sendProgress({ type: 'progress', content: tags ? tags.join(', ') : '' }, controller);
+                console.log("Tool start:", tags);
+              } else if (event === "on_tool_end") {
+                console.log("Tool end:", data.output.name);
+                if (data.output.name === "gotQuestionsSearch") {
+                  // Parse the JSON content from the tool's output
+                  let toolOutput;
+                  try {
+                    toolOutput = JSON.parse(data.output.content);
+                  } catch (e) {
+                    console.error("Failed to parse gotQuestionsSearch output", e);
+                    return;
+                  }
+                  // Ensure results exist
+                  const results = toolOutput.results;
+                  if (results && results.length > 0) {
+                    // Create a markdown-formatted bibliography list
+                    const parsedReferences = results
+                      .map((result: { title: string; url: string }) => `* [${result.title}](${result.url})`)
+                      .join('\n');
+                    // Pass the formatted bibliography to the front-end
+                    sendProgress({ type: 'gotQuestions', content: parsedReferences }, controller);
+                    await prisma.chatMessage.create({
+                      data: { chatId, sender: 'gotQuestions', content: parsedReferences },
+                    });
+                  }
+                } else if (data.output.name === "CalvinReviewer") {
+                  // Pass the CalvinReviewer feedback to the front-end
+                  sendProgress({ type: 'calvin', content: data.output.content }, controller);
+                  await prisma.chatMessage.create({
+                    data: { chatId, sender: 'calvin', content: data.output.content },
+                  })
+                // } else if (data.output.name === "BibleCommentary") {
+                //   // Pass the BibleCommentary feedback to the front-end
+                //   sendProgress({ type: 'bibleCommentary', content: data.output.content }, controller);
+                }
+                // } else if (event === "on_chain_end") {
+                //   console.log("Chain start:", data.output.);
+              } else {
+                console.log("Unhandled event:", event);
               }
             }
 
+            // When finished, store parrotReply in DB, etc.
             await prisma.chatMessage.create({
               data: { chatId, sender: 'parrot', content: parrotReply },
             });
             conversationMessages.push({ sender: 'parrot', content: parrotReply });
+
           } catch (error) {
-            sendError(error, 'parrot_response');
+            sendError(error, 'parrot_response', controller);
           }
 
           // Handle conversation naming and categorization
@@ -223,13 +263,13 @@ export async function POST(request: Request) {
               });
             }
           } catch (error) {
-            sendError(error, 'conversation_metadata');
+            sendError(error, 'conversation_metadata', controller);
           }
 
-          controller.enqueue(encoder.encode(JSON.stringify({ type: 'done' }) + '\n'));
+          sendProgress({ type: 'done' }, controller);
           controller.close();
         } catch (error) {
-          sendError(error, 'general');
+          sendError(error, 'general', controller);
           controller.close();
         }
       },
