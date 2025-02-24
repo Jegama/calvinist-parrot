@@ -4,10 +4,10 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { getCommentariesForPassages } from "@/utils/commentaryService";
 
-async function bibleCommentary(input: { input: string }): Promise<string> {
+async function bibleCommentary(input: { passages: string }): Promise<string> {
   try {
     // Expect input.input to be a JSON stringified array of passages.
-    const passages: string[] = JSON.parse(input.input);
+    const passages: string[] = JSON.parse(input.passages);
     const commentaries = await getCommentariesForPassages(passages);
     return JSON.stringify(commentaries);
   } catch (error) {
@@ -21,7 +21,7 @@ export const bibleCommentaryTool = tool(
     name: "BibleCommentary",
     description: "Given a JSON array of Bible passages, returns Bible commentaries.",
     schema: z.object({
-      input: z.string().describe("JSON stringified array of Bible passages"),
+      passages: z.string().describe("JSON stringified array of Bible passages"),
     }),
   }
 );

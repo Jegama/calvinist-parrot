@@ -36,7 +36,7 @@ type ChatListItem = {
 
 type DataEvent =
   | { type: "info" | "done" }
-  | { type: "progress"; content: string }
+  | { type: "progress"; title: string; content: string }
   | { type: "parrot"; content: string }
   | { type: "calvin"; content: string }
   | { type: "gotQuestions"; content: string };
@@ -50,7 +50,8 @@ export default function ChatPage() {
   const [chats, setChats] = useState<ChatListItem[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [sending, setSending] = useState(false);
+  const [progress, setProgress] = useState<{ title: string; content: string } | null>(null);
+  const autoSentRef = useRef(false);
 
   // --- 1) Fetch Chat, User, and Chat List ---
 
@@ -79,16 +80,26 @@ export default function ChatPage() {
   }, [userId]);
 
   useEffect(() => {
-    // Attempt to get the current user
-    (async () => {
+    async function initUser() {
       try {
         const { account } = await import("@/utils/appwrite");
         const currentUser = await account.get();
         setUserId(currentUser.$id);
       } catch (error) {
-        console.error("Error fetching user:", error);
+        console.log("Error getting user:", error);
+        const getCookieUserId = () => {
+          const match = document.cookie.match(new RegExp('(^| )userId=([^;]+)'));
+          return match ? match[2] : null;
+        };
+        let cookieUserId = getCookieUserId();
+        if (!cookieUserId) {
+          cookieUserId = crypto.randomUUID();
+          document.cookie = `userId=${cookieUserId}; path=/; max-age=31536000`;
+        }
+        setUserId(cookieUserId);
       }
-    })();
+    }
+    initUser();
   }, []);
 
   useEffect(() => {
@@ -106,103 +117,116 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Add progress to the dependencies so we fetch when progress becomes null
+  useEffect(() => {
+    if (params.chatId && !progress) {
+      fetchChat();
+      fetchChats();
+    }
+  }, [params.chatId, fetchChat, fetchChats, progress]);
+
   // --- 2) Send Message ---
+  const handleSendMessage = useCallback(
+    async (opts?: { message?: string; isAutoTrigger?: boolean }) => {
+      const userInput = opts?.message || input.trim();
+      if (!userInput) return;
+      setProgress({ title: "Reasoning", content: "Deciding what tools to use" });
 
-  async function handleSendMessage() {
-    if (!input.trim()) return;
-    setSending(true);
-    const userInput = input.trim();
-    setInput("");
+      // Only add user message if not auto-triggered
+      if (!opts?.isAutoTrigger) {
+        setMessages((msgs) => [...msgs, { sender: "user", content: userInput }]);
+      }
+      setInput("");
 
-    // Immediately add user message to UI
-    setMessages((msgs) => [...msgs, { sender: "user", content: userInput }]);
-
-    const response = await fetch("/api/parrot-chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chatId: params.chatId,
-        message: userInput,
-      }),
-    });
-
-    if (!response.ok || !response.body) {
-      console.error("Error sending message");
-      setSending(false);
-      return;
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
-
-    const appendToken = (sender: string, token: string) => {
-      setMessages((msgs) => {
-        if (msgs.length > 0 && msgs[msgs.length - 1].sender === sender) {
-          // Append partial tokens to the last message if same sender
-          return [
-            ...msgs.slice(0, -1),
-            { sender, content: msgs[msgs.length - 1].content + token },
-          ];
-        } else {
-          // Otherwise, create a new message
-          return [...msgs, { sender, content: token }];
-        }
+      const response = await fetch("/api/parrot-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: params.chatId,
+          message: userInput,
+          isAutoTrigger: opts?.isAutoTrigger,
+        }),
       });
-    };
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) {
-        await fetchChat();  // Refresh from DB
-        await fetchChats();
-        setSending(false);
-        break;
+      if (!response.ok || !response.body) {
+        console.error("Error processing message");
+        setProgress(null);
+        return;
       }
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
 
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        let data: DataEvent;
-        try {
-          data = JSON.parse(line);
-        } catch (e) {
-          console.error("Failed to parse JSON line:", line, e);
-          continue;
+      const appendToken = (sender: string, token: string) => {
+        setMessages((msgs) => {
+          if (msgs.length > 0 && msgs[msgs.length - 1].sender === sender) {
+            return [
+              ...msgs.slice(0, -1),
+              { sender, content: msgs[msgs.length - 1].content + token },
+            ];
+          } else {
+            return [...msgs, { sender, content: token }];
+          }
+        });
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) {
+          setProgress(null); // This will trigger the useEffect to fetch updates
+          break;
         }
 
-        switch (data.type) {
-          case "info":
-            // Optional: handle info messages
-            break;
-          case "parrot":
-            appendToken("parrot", data.content);
-            break;
-          case "calvin":
-            appendToken("calvin", data.content);
-            break;
-          case "gotQuestions":
-            // Insert directly into the conversation flow
-            setMessages((msgs) => [...msgs, { sender: "gotQuestions", content: data.content }]);
-            break;
-          case "done":
-            // End of streaming
-            await fetchChat();
-            await fetchChats();
-            setSending(false);
-            return;
-          default:
-            console.warn("Unknown event type:", data.type);
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let data: DataEvent;
+          try {
+            data = JSON.parse(line);
+          } catch (e) {
+            console.error("Failed to parse JSON line:", line, e);
+            continue;
+          }
+
+          switch (data.type) {
+            case "progress":
+              setProgress({ title: data.title, content: data.content });
+              break;
+            case "parrot":
+              appendToken("parrot", data.content);
+              break;
+            case "calvin":
+              appendToken("calvin", data.content);
+              break;
+            case "gotQuestions":
+              setMessages((msgs) => [...msgs, { sender: "gotQuestions", content: data.content }]);
+              break;
+            case "done":
+              setProgress(null); // This will trigger the useEffect to fetch updates
+              return;
+            default:
+              console.warn("Unknown event type:", data.type);
+          }
         }
       }
+    },
+    [input, params.chatId]
+  );
+
+  // --- Auto-trigger sending if only the initial user message exists ---
+  useEffect(() => {
+    if (messages.length === 1 && messages[0].sender === "user" && !autoSentRef.current) {
+      autoSentRef.current = true;
+      // Call handleSendMessage with autotrigger flag
+      handleSendMessage({ message: messages[0].content, isAutoTrigger: true });
     }
-  }
+  }, [messages, handleSendMessage]);
 
   // --- 3) Rendering ---
-
   if (errorMessage) {
     return (
       <div className="flex flex-1 overflow-hidden">
@@ -224,45 +248,31 @@ export default function ChatPage() {
       <AppSidebar chats={chats} currentChatId={params.chatId} />
       <SidebarInset>
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             <h2>{chat.conversationName}</h2>
           </header>
-
-          {/* Main Content */}
           <div className="flex-1 overflow-auto p-4 top-14 pb-28">
             <Card className="w-full max-w-2xl mx-auto">
               <CardContent className="flex flex-col gap-4 p-4">
                 {messages.map((msg, i) => {
-                  // Render each message according to sender
                   switch (msg.sender) {
-                    case "user": {
+                    case "user":
                       return (
-                        <div
-                          key={i}
-                          className="max-w-[80%] p-2 rounded-md ml-auto bg-blue-500 text-white"
-                        >
+                        <div key={i} className="max-w-[80%] p-2 rounded-md ml-auto bg-blue-500 text-white">
                           <div className="text-sm font-bold mb-1">You</div>
                           <MarkdownWithBibleVerses content={msg.content} />
                         </div>
                       );
-                    }
-
-                    case "parrot": {
+                    case "parrot":
                       return (
-                        <div
-                          key={i}
-                          className="max-w-[80%] p-2 rounded-md mr-auto bg-green-500 text-white"
-                        >
+                        <div key={i} className="max-w-[80%] p-2 rounded-md mr-auto bg-green-500 text-white">
                           <div className="text-sm font-bold mb-1">Parrot</div>
                           <MarkdownWithBibleVerses content={msg.content} />
                         </div>
                       );
-                    }
-
-                    case "calvin": {
+                    case "calvin":
                       return (
                         <div key={i} className="max-w-[80%] mr-auto mt-2">
                           <Accordion type="single" collapsible>
@@ -275,10 +285,7 @@ export default function ChatPage() {
                           </Accordion>
                         </div>
                       );
-                    }
-
-                    case "gotQuestions": {
-                      // For each gotQuestions message, we create an inline accordion
+                    case "gotQuestions":
                       return (
                         <div key={i} className="max-w-[80%] mr-auto mt-2">
                           <Accordion type="single" collapsible>
@@ -291,24 +298,6 @@ export default function ChatPage() {
                           </Accordion>
                         </div>
                       );
-                    }
-
-                    case "bibleCommentary": {
-                      // Optionally, you could do the same approach with an inline accordion
-                      return (
-                        <div key={i} className="max-w-[80%] mr-auto mt-2">
-                          <Accordion type="single" collapsible>
-                            <AccordionItem value={`bibleCommentary-${i}`}>
-                              <AccordionTrigger>Bible Commentary</AccordionTrigger>
-                              <AccordionContent>
-                                <MarkdownWithBibleVerses content={msg.content} />
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
-                        </div>
-                      );
-                    }
-
                     default:
                       return null;
                   }
@@ -317,36 +306,37 @@ export default function ChatPage() {
               </CardContent>
             </Card>
           </div>
-
-          {/* Input Section */}
           <div className="fixed bottom-4 w-full px-4 flex justify-center">
             <Card className="w-full max-w-2xl mx-auto">
               <CardContent className="w-full flex items-center gap-2 p-4">
-                <Textarea
-                  className="flex-1 border rounded p-2 resize-none"
-                  placeholder="Type your message..."
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
-                  disabled={sending}
-                />
-                {sending ? (
-                  <div className="flex items-center">
+                {progress ? (
+                  <div className="flex flex-col">
                     <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    <span>Sending...</span>
+                    <h3 className="font-bold">{progress.title}</h3>
+                    <p>{progress.content}</p>
                   </div>
                 ) : (
-                  <button
-                    onClick={handleSendMessage}
-                    className="bg-blue-600 text-white px-4 py-2 rounded"
-                  >
-                    Send
-                  </button>
+                  <>
+                    <Textarea
+                      className="flex-1 border rounded p-2 resize-none"
+                      placeholder="Type your message..."
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      disabled={!!progress}
+                    />
+                    <button
+                      onClick={() => handleSendMessage()}
+                      className="bg-blue-600 text-white px-4 py-2 rounded"
+                    >
+                      Send
+                    </button>
+                  </>
                 )}
               </CardContent>
             </Card>

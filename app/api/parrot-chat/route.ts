@@ -30,7 +30,7 @@ function buildParrotHistory(
   for (const msg of messages) {
     if (msg.sender === 'user') {
       history.push(new HumanMessage(msg.content));
-    } else if (msg.sender === 'parrot' || msg.sender === 'calvin') {
+    } else if (msg.sender === 'parrot') {
       history.push(new AIMessage(msg.content));
     }
   }
@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     subcategory?: string;
     issue_type?: string;
     denomination?: string;
+    isAutoTrigger?: boolean;  // Add this field
   }
 
   const {
@@ -59,7 +60,8 @@ export async function POST(request: Request) {
     category,
     subcategory,
     issue_type,
-    denomination = "reformed-baptist"
+    denomination = "reformed-baptist",
+    isAutoTrigger
   }: ChatRequestBody = await request.json();
 
   // Map denomination to corresponding system prompt
@@ -119,8 +121,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ chatId: chat.id });
   }
 
-  // If userId is provided but no chatId, start a new chat session
-  if (userId && !chatId) {
+  // If userId and initial message are provided but no chatId, start a new chat session
+  if (userId && initialQuestion && !chatId) {
     const chat = await prisma.chatHistory.create({
       data: {
         userId,
@@ -130,6 +132,12 @@ export async function POST(request: Request) {
         issue_type: '',
       },
     });
+    
+    // Create initial messages
+    await prisma.chatMessage.create({
+      data: { chatId: chat.id, sender: 'user', content: initialQuestion },
+    });
+
     return NextResponse.json({ chatId: chat.id });
   }
 
@@ -152,12 +160,14 @@ export async function POST(request: Request) {
             content: msg.content,
           }));
 
-          // Add and save user message
-          const userMessage = { sender: 'user', content: message };
-          conversationMessages.push(userMessage);
-          await prisma.chatMessage.create({
-            data: { chatId, sender: 'user', content: message },
-          });
+          // Only add and save user message if not auto-triggered
+          if (!isAutoTrigger) {
+            const userMessage = { sender: 'user', content: message };
+            conversationMessages.push(userMessage);
+            await prisma.chatMessage.create({
+              data: { chatId, sender: 'user', content: message },
+            });
+          }
 
           // Parrot's answer
           let parrotReply = '';
@@ -179,11 +189,30 @@ export async function POST(request: Request) {
                   parrotReply += data.chunk.content;
                   sendProgress({ type: 'parrot', content: data.chunk.content }, controller);
                 }
-              } else if (event === "on_tool_start") {
-                sendProgress({ type: 'progress', content: tags ? tags.join(', ') : '' }, controller);
-                console.log("Tool start:", tags);
+              } else if (event === "on_chain_start") {
+                // New progress handling using data.input.messages
+                if (data.input?.messages?.length > 0) {
+                  const firstMsg = data.input.messages[0];
+                  if (firstMsg.tool_calls && firstMsg.tool_calls.length > 0) {
+                    const toolCall = firstMsg.tool_calls[0];
+                    if (toolCall.args?.query) {
+                      sendProgress({ type: 'progress', title: "Looking for articles", content: toolCall.args.query }, controller);
+                    } else if (toolCall.args?.draft) {
+                      sendProgress({ type: 'progress', title: "Asking for feedback", content: toolCall.args.draft.slice(0, 50) }, controller);
+                    } else if (toolCall.args?.passages) {
+                      sendProgress({ type: 'progress', title: "Looking for a commentary", content: toolCall.args.passages.join(", ") }, controller);
+                    } else {
+                      sendProgress({ type: 'progress', title: "Using a tool", content: "" }, controller);
+                    }
+                  // } else {
+                  //   sendProgress({ type: 'progress', title: "Thinking", content: "" }, controller);
+                  }
+                }
+              // } else if (event === "on_chat_model_start") {
+              //   console.log("Chain Model start:", data);
               } else if (event === "on_tool_end") {
                 console.log("Tool end:", data.output.name);
+                console.log(tags);
                 if (data.output.name === "gotQuestionsSearch") {
                   // Parse the JSON content from the tool's output
                   let toolOutput;
@@ -211,16 +240,11 @@ export async function POST(request: Request) {
                   sendProgress({ type: 'calvin', content: data.output.content }, controller);
                   await prisma.chatMessage.create({
                     data: { chatId, sender: 'calvin', content: data.output.content },
-                  })
-                // } else if (data.output.name === "BibleCommentary") {
-                //   // Pass the BibleCommentary feedback to the front-end
-                //   sendProgress({ type: 'bibleCommentary', content: data.output.content }, controller);
+                  });
                 }
-                // } else if (event === "on_chain_end") {
-                //   console.log("Chain start:", data.output.);
-              } else {
-                console.log("Unhandled event:", event);
-              }
+              } // else {
+                // console.log("Unhandled event:", event);
+              // }
             }
 
             // When finished, store parrotReply in DB, etc.

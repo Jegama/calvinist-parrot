@@ -3,7 +3,7 @@
 type DataEvent =
   | { type: "info" | "done" }
   | { type: "error"; stage: string; message: string }
-  | { type: "progress"; content: string }
+  | { type: "progress"; title: string; content: string }
   | { type: "parrot"; content: string }
   | { type: "calvin"; content: string }
   | { type: "gotQuestions"; content: string };
