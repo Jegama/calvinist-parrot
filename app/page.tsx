@@ -64,7 +64,14 @@ export default function Home() {
         const currentUser = await account.get();
         setUser(currentUser);
       } catch {
-        setUser(null);
+        // Fallback to cookie if not logged in
+        const match = document.cookie.match(new RegExp('(^| )userId=([^;]+)'));
+        let guestId = match ? match[2] : null;
+        if (!guestId) {
+          guestId = crypto.randomUUID();
+          document.cookie = `userId=${guestId}; path=/; max-age=31536000`;
+        }
+        setUser({ $id: guestId } as AppwriteUser);
       }
     };
     getUser();
@@ -107,7 +114,7 @@ export default function Home() {
         body: JSON.stringify({ question, userId }),
       });
       if (!response.ok) throw new Error('Network response was not ok');
-  
+
       const reader = response.body?.getReader();
       const decoder = new TextDecoder('utf-8');
       let done = false;
@@ -121,7 +128,7 @@ export default function Home() {
         refuse_answer: '',
         categorization: undefined,
       };
-  
+
       while (!done) {
         const { value, done: readerDone } = await reader!.read();
         if (value) {
@@ -168,7 +175,7 @@ export default function Home() {
     setIsLoading(false);
     setProgressMessage('');
   };
-  
+
   const handleElaborate = async () => {
     setIsElaborating(true);
 
@@ -234,14 +241,19 @@ export default function Home() {
   const router = useRouter(); // Move this inside the component
 
   const handleContinueInChat = async () => {
-    if (!userId || !question || !result?.reviewed_answer || !result?.categorization) return;
-    console.log(result.categorization)
+    // Remove userId check. Use cookie fallback if needed.
+    const getCookieUserId = () => {
+      const match = document.cookie.match(new RegExp('(^| )userId=([^;]+)'));
+      return match ? match[2] : null;
+    };
+    const effectiveUserId = userId || getCookieUserId();
+    if (!question || !result?.reviewed_answer || !result?.categorization) return;
     try {
       const response = await fetch('/api/parrot-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId,
+          userId: effectiveUserId,
           initialQuestion: question,
           initialAnswer: result.reviewed_answer,
           category: result.categorization.category,
@@ -265,7 +277,7 @@ export default function Home() {
     <main className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center p-4">
       <Card className="w-[90%] max-w-2xl">
         <CardHeader>
-            <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4">
             <Image
               src="/calvinist_parrot.gif"
               alt="Calvinist Parrot"
@@ -274,12 +286,12 @@ export default function Home() {
               unoptimized={true}
             />
             <CardTitle className="text-3xl font-bold">Calvinist Parrot</CardTitle>
-            </div>
+          </div>
           <CardDescription>
             What theological question do you have?
           </CardDescription>
         </CardHeader>
-        
+
         {!result && (
           <CardContent>
             <form onSubmit={handleHomepageSubmit} className="space-y-4">
@@ -311,107 +323,105 @@ export default function Home() {
               <>
                 {/* Render the "Counsel of Three" and "Calvin's Review" accordions */}
                 <CardFooter className="flex flex-col items-start">
-                <Accordion type="single" collapsible className="w-full">
-                  {/* ...Counsel of Three... */}
-                  <AccordionItem value="counsel">
-                    <AccordionTrigger>Counsel of Three</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <strong>Agent A:</strong>{" "}
-                          <MarkdownWithBibleVerses content={result.first_answer} />
+                  <Accordion type="single" collapsible className="w-full">
+                    {/* ...Counsel of Three... */}
+                    <AccordionItem value="counsel">
+                      <AccordionTrigger>Counsel of Three</AccordionTrigger>
+                      <AccordionContent>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <strong>Agent A:</strong>{" "}
+                            <MarkdownWithBibleVerses content={result.first_answer} />
+                          </div>
+                          <div>
+                            <strong>Agent B:</strong>{" "}
+                            <MarkdownWithBibleVerses content={result.second_answer} />
+                          </div>
+                          <div>
+                            <strong>Agent C:</strong>{" "}
+                            <MarkdownWithBibleVerses content={result.third_answer} />
+                          </div>
                         </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+
+                  <Accordion type="single" collapsible className="w-full mt-4">
+                    {/* ...Calvin's Review... */}
+                    <AccordionItem value="review">
+                      <AccordionTrigger>{"Calvin's Review"}</AccordionTrigger>
+                      <AccordionContent>
                         <div>
-                          <strong>Agent B:</strong>{" "}
-                          <MarkdownWithBibleVerses content={result.second_answer} />
+                          <MarkdownWithBibleVerses content={result.calvin_review} />
                         </div>
-                        <div>
-                          <strong>Agent C:</strong>{" "}
-                          <MarkdownWithBibleVerses content={result.third_answer} />
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-
-                <Accordion type="single" collapsible className="w-full mt-4">
-                  {/* ...Calvin's Review... */}
-                  <AccordionItem value="review">
-                    <AccordionTrigger>{"Calvin's Review"}</AccordionTrigger>
-                    <AccordionContent>
-                      <div>
-                        <MarkdownWithBibleVerses content={result.calvin_review} />
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </CardFooter>
-
-              {/* Render the "Final Answer" section */}
-              <CardFooter className="flex flex-col items-start">
-                <div className="mt-4">
-                  <h3 className="font-semibold">Final Answer:</h3>
-                  <div>
-                    <MarkdownWithBibleVerses content={result.reviewed_answer} />
-                  </div>
-                </div>
-
-                {/* Bible Commentary */}
-                <Accordion type="single" collapsible className="w-full mt-4">
-                  <AccordionItem value="commentary">
-                    <AccordionTrigger>Bible Commentary</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="w-full">
-                        {Array.from(new Set(extractReferences(result.reviewed_answer))).map((reference, index) => (
-                          <BibleCommentary
-                          key={index}
-                          reference={reference}
-                          onCommentaryExtracted={handleCommentaryExtracted}
-                          />
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-
-                {/* Add the "Please Elaborate" and "Continue in Chat" buttons */}
-                <CardFooter className="flex justify-center w-full">
-                  <div className="flex gap-4 mt-4">
-                  {!result?.elaborated_answer && !isElaborating && (
-                    <Button onClick={handleElaborate}>
-                    Please Elaborate
-                    </Button>
-                  )}
-                  {userId && !result?.elaborated_answer && !isElaborating && (
-                    <Button onClick={handleContinueInChat}>
-                    Continue in Chat
-                    </Button>
-                  )}
-                  </div>
-                  {isElaborating && (
-                  <div className="w-full flex items-center justify-center mt-4">
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    <p>Elaborating...</p>
-                  </div>
-                  )}
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 </CardFooter>
 
-                {/* Display the elaborated answer */}
-                {result?.elaborated_answer && (
-                  <CardFooter className="flex flex-col items-start">
-                    <div className="mt-4">
-                      <MarkdownWithBibleVerses content={result.elaborated_answer} />
+                {/* Render the "Final Answer" section */}
+                <CardFooter className="flex flex-col items-start">
+                  <div className="mt-4">
+                    <h3 className="font-semibold">Final Answer:</h3>
+                    <div>
+                      <MarkdownWithBibleVerses content={result.reviewed_answer} />
                     </div>
-                  </CardFooter>
-                )}
+                  </div>
 
-                {/* Render the "Reset" button separately */}
-                <CardFooter className="w-full">
-                  <Button onClick={handleReset} variant="outline" className="w-full">
-                    Ask a New Question
-                  </Button>
+                  {/* Bible Commentary */}
+                  <Accordion type="single" collapsible className="w-full mt-4">
+                    <AccordionItem value="commentary">
+                      <AccordionTrigger>Bible Commentary</AccordionTrigger>
+                      <AccordionContent>
+                        <div className="w-full">
+                          {Array.from(new Set(extractReferences(result.reviewed_answer))).map((reference, index) => (
+                            <BibleCommentary
+                              key={index}
+                              reference={reference}
+                              onCommentaryExtracted={handleCommentaryExtracted}
+                            />
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+
+                  {/* Add the "Please Elaborate" and "Continue in Chat" buttons */}
+                  <CardFooter className="flex flex-col w-full gap-4 mt-8">
+                    {userId && !result?.elaborated_answer && !isElaborating && (
+                      <Button onClick={handleContinueInChat} className="bg-blue-600 text-white w-full hover:bg-muted/20">
+                        Continue in Chat
+                      </Button>
+                    )}
+                    {!result?.elaborated_answer && !isElaborating && (
+                      <Button onClick={handleElaborate} className="bg-blue-200 text-black w-full hover:bg-secondary/90">
+                        Please Elaborate
+                      </Button>
+                    )}
+                    {isElaborating && (
+                      <div className="w-full flex items-center justify-center">
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        <p>Elaborating...</p>
+                      </div>
+                    )}
+                  </CardFooter>
+
+                  {/* Display the elaborated answer */}
+                  {result?.elaborated_answer && (
+                    <CardFooter className="flex flex-col items-start">
+                      <div className="mt-4">
+                        <MarkdownWithBibleVerses content={result.elaborated_answer} />
+                      </div>
+                    </CardFooter>
+                  )}
+
+                  {/* Render the "Reset" button separately */}
+                  <CardFooter className="w-full">
+                    <Button onClick={handleReset} className="w-full">
+                      Ask a New Question
+                    </Button>
+                  </CardFooter>
                 </CardFooter>
-              </CardFooter>
               </>
             )}
           </>
@@ -428,17 +438,17 @@ export default function Home() {
 
         {result && result.refuse_answer && (
           <>
-          <CardFooter>
-            <div className="w-full">
-              <h3 className="font-semibold">Response:</h3>
-              <p>{result.refuse_answer}</p>
-            </div>
-          </CardFooter>
-          <CardFooter>
-            <Button onClick={handleReset} variant="outline" className="w-full">
-              Ask a New Question
-            </Button>
-          </CardFooter>
+            <CardFooter>
+              <div className="w-full">
+                <h3 className="font-semibold">Response:</h3>
+                <p>{result.refuse_answer}</p>
+              </div>
+            </CardFooter>
+            <CardFooter>
+              <Button onClick={handleReset} variant="outline" className="w-full">
+                Ask a New Question
+              </Button>
+            </CardFooter>
           </>
         )}
       </Card>

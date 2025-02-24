@@ -4,14 +4,12 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { account } from "@/utils/appwrite";
 import { AppSidebar } from "@/components/app-sidebar";
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar"
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 type Chat = {
   id: string;
@@ -20,20 +18,30 @@ type Chat = {
 
 export default function MainChatPage() {
   const [userId, setUserId] = useState<string | null>(null);
+  const [initialQuestion, setInitialQuestion] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [chats, setChats] = useState<Chat[]>([]);
   const router = useRouter();
 
   useEffect(() => {
-    const fetchUser = async () => {
+    async function initUser() {
       try {
         const currentUser = await account.get();
         setUserId(currentUser.$id);
-      } catch (error) {
-        console.error("Error fetching profile info:", error);
+      } catch {
+        const getCookieUserId = () => {
+          const match = document.cookie.match(new RegExp('(^| )userId=([^;]+)'));
+          return match ? match[2] : null;
+        };
+        let cookieUserId = getCookieUserId();
+        if (!cookieUserId) {
+          cookieUserId = crypto.randomUUID();
+          document.cookie = `userId=${cookieUserId}; path=/; max-age=31536000`;
+        }
+        setUserId(cookieUserId);
       }
-    };
-    fetchUser();
+    }
+    initUser();
   }, []);
 
   useEffect(() => {
@@ -48,26 +56,24 @@ export default function MainChatPage() {
     fetchChats();
   }, [userId]);
 
-  const handleStartNewChat = async () => {
-    if (!userId) {
-      setErrorMessage("Please log in to start a new chat.");
-      return;
-    }
-
+  const handleStartNewChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!initialQuestion.trim()) return;
+    
     try {
-      const response = await fetch('/api/parrot-chat', {
+      const createResponse = await fetch('/api/parrot-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, initialQuestion }),
       });
 
-      if (!response.ok) {
+      if (!createResponse.ok) {
         throw new Error('Failed to create chat session');
       }
 
-      const data = await response.json();
-      router.push(`/main-chat/${data.chatId}`);
-    } catch (error: unknown) {
+      const { chatId } = await createResponse.json();
+      router.push(`/main-chat/${chatId}`);
+    } catch (error) {
       console.error("Error starting new chat:", error);
       setErrorMessage("An error occurred while starting a new chat.");
     }
@@ -77,23 +83,29 @@ export default function MainChatPage() {
     <SidebarProvider>
       <AppSidebar chats={chats} />
       <SidebarInset>
-      <div className="flex flex-1 flex-col gap-4 p-4 h-32">
-        {userId === null ? (
-          <Card className="max-w-2xl mx-auto mt-8 mb-8 h-16">
+        <main className="flex min-h-screen items-center justify-center p-4">
+          <Card className="w-[90%] max-w-2xl">
             <CardHeader>
-              <CardTitle>Main Chat</CardTitle>
+              <CardTitle className="text-3xl font-bold">Parrot Chat</CardTitle>
+              <CardDescription>
+                Ask the Parrot a theological question
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <p>You must be logged in to view or start a chat.</p>
+              {errorMessage && <p className="text-red-600 mb-4">{errorMessage}</p>}
+              <form onSubmit={handleStartNewChat} className="space-y-4">
+                <Input
+                  placeholder="Enter your question here..."
+                  value={initialQuestion}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInitialQuestion(e.target.value)}
+                />
+                <Button type="submit" className="w-full">
+                  Start Chat
+                </Button>
+              </form>
             </CardContent>
           </Card>
-        ) : (
-          <>
-            {errorMessage && <p className="text-red-600 mb-4">{errorMessage}</p>}
-            <Button onClick={handleStartNewChat}>Start New Chat</Button>
-          </>
-        )}
-      </div>
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );

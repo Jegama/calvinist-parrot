@@ -19,18 +19,27 @@ export function RegisterForm() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await account.create(ID.unique(), email, password, name);
+      // Use cookie-based ID if available, otherwise generate one.
+      const getCookieUserId = () => {
+        const match = document.cookie.match(new RegExp('(^| )userId=([^;]+)'));
+        return match ? match[2] : null;
+      };
+      let uniqueId = getCookieUserId();
+      if (!uniqueId) {
+        uniqueId = ID.unique();
+        document.cookie = `userId=${uniqueId}; path=/; max-age=31536000`;
+      }
+      await account.create(uniqueId, email, password, name);
       // Optionally log them in automatically
       await account.createEmailPasswordSession(email, password);
-      // Redirect to homepage or dashboard
       window.location.href = "/";
     } catch (error: unknown) {
-        if (error instanceof Error) {
-          setErrorMessage(error.message);
-        } else {
-          setErrorMessage("An unknown error occurred.");
-        }
-      }      
+      if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("An unknown error occurred.");
+      }
+    }      
   };
 
   return (
