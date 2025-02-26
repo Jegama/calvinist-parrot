@@ -3,12 +3,12 @@
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 
 // Imported from your separate files
-import { gotQuestionsSearchTool } from "./gotQuestionsSearchTool";
+import { supplementalArticleSearchTool } from "./supplementalArticleSearchTool";
 import { bibleCommentaryTool } from "./bibleCommentaryTool";
 import { calvinReviewerTool } from "./calvinReviewerTool";
 
 export const toolsArray = [
-  gotQuestionsSearchTool,
+  supplementalArticleSearchTool,
   bibleCommentaryTool,
   calvinReviewerTool,
 ];

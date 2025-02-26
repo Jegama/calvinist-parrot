@@ -15,9 +15,17 @@ Huge thanks to [AO Lab](https://helloaolab.my.canva.site/) for graciously provid
 
 Learn more about the BSB [here](https://copy.church/initiatives/bibles/) and join us in discovering the richness of its text.
 
+## Calvinist Parrot APIs
+
+I'm opened 2 APIs! Both are fully guarded so you don't have to worry about prompting or anything.
+
 ### Parrot QA API
 
-I'm now able to offer an API to answer questions about the Bible, and it's fully guarded so you don't have to worry about prompting or anything. If you want to add a QA function to your website, please see the [Parrot QA API documentation](/documentation-parrot-qa) so you can use it!`;
+If you want to add a QA function to your website, please see the [Parrot QA API documentation](/documentation-parrot-qa) so you can use it!
+
+### Parrot Chat API
+
+Want to add a chat function with Bible knowledge to your website? Check out the [Parrot Chat API documentation](/documentation-parrot-chat)!`;
 
 const md_footer = `## Let's Connect
 
