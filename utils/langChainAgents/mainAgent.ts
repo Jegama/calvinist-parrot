@@ -27,14 +27,14 @@ async function firstModel(state: typeof AgentState.State) {
     const userMessage = state.messages[state.messages.length - 1];
     const userInput = userMessage?.content || "";
 
-    // Return an AI message that calls gotQuestionsSearch
+    // Return an AI message that calls supplementalArticleSearch
     return {
         messages: [
             new AIMessage({
                 content: "",
                 tool_calls: [
                     {
-                        name: "gotQuestionsSearch",
+                        name: "supplementalArticleSearch",
                         args: { query: userInput },
                         id: "forced_gotqeustion_call",
                     },

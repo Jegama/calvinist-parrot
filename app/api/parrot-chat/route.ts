@@ -94,7 +94,7 @@ export async function POST(request: Request) {
 
   const new_parrot_sys_prompt = prompts.PARROT_SYS_PROMPT_MAIN.replace('{CORE}', sys_prompt);
 
-  // Handle new chat with initial content
+  // Handle new chat from Parrot QA
   if (userId && initialQuestion && initialAnswer && !chatId) {
     const allMessagesStr = `user: ${initialQuestion}\nparrot: ${initialAnswer}`;
     const conversationName = await generateConversationName(allMessagesStr);
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ chatId: chat.id });
   }
 
-  // If userId and initial message are provided but no chatId, start a new chat session
+  // If userId and initial message are provided but no chatId, start a new chat session. This is from `app/main-chat/page.tsx`.
   if (userId && initialQuestion && !chatId) {
     const chat = await prisma.chatHistory.create({
       data: {
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ chatId: chat.id });
   }
 
-  // If chatID and message run main system
+  // If chatID and message run main system <-- This continues the converation and is the main use case.
   if (chatId && message) {
     const stream = new ReadableStream({
       async start(controller) {
@@ -160,7 +160,7 @@ export async function POST(request: Request) {
             content: msg.content,
           }));
 
-          // Only add and save user message if not auto-triggered
+          // Only add and save user message if not auto-triggered. This is from `app/main-chat/[chatId]/page.tsx`, when you load the page and the last message is from the user.
           if (!isAutoTrigger) {
             const userMessage = { sender: 'user', content: message };
             conversationMessages.push(userMessage);
@@ -213,13 +213,13 @@ export async function POST(request: Request) {
               } else if (event === "on_tool_end") {
                 console.log("Tool end:", data.output.name);
                 console.log(tags);
-                if (data.output.name === "gotQuestionsSearch") {
+                if (data.output.name === "supplementalArticleSearch") {
                   // Parse the JSON content from the tool's output
                   let toolOutput;
                   try {
                     toolOutput = JSON.parse(data.output.content);
                   } catch (e) {
-                    console.error("Failed to parse gotQuestionsSearch output", e);
+                    console.error("Failed to parse supplementalArticleSearch output", e);
                     return;
                   }
                   // Ensure results exist

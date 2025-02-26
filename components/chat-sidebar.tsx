@@ -1,4 +1,4 @@
-// components/app-sidebar.tsx
+// components/chat-sidebar.tsx
 
 import * as React from "react"
 import {
@@ -6,11 +6,11 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
+  // SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem
+  SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import Link from "next/link"
 
@@ -27,12 +27,10 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 export function AppSidebar({ chats, currentChatId, ...props }: AppSidebarProps) {
   return (
     <Sidebar {...props} className="top-14">
-      <SidebarHeader>
-        {/* Add your own search or version switcher if needed */}
-      </SidebarHeader>
       <SidebarContent>
+        <SidebarHeader><br />Your Conversations</SidebarHeader>
         <SidebarGroup>
-          <SidebarGroupLabel>Your Conversations</SidebarGroupLabel>
+          {/* <SidebarGroupLabel></SidebarGroupLabel> */}
           <SidebarGroupContent>
             <SidebarMenu>
               {chats.map((c) => (

@@ -4,7 +4,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebar } from "@/components/chat-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
@@ -290,7 +290,7 @@ export default function ChatPage() {
                         <div key={i} className="max-w-[80%] mr-auto mt-2">
                           <Accordion type="single" collapsible>
                             <AccordionItem value={`gotQuestions-${i}`}>
-                              <AccordionTrigger>Articles from &quot;Got Questions&quot;</AccordionTrigger>
+                              <AccordionTrigger>Additional Sources/Materials</AccordionTrigger>
                               <AccordionContent>
                                 <MarkdownWithBibleVerses content={msg.content} />
                               </AccordionContent>

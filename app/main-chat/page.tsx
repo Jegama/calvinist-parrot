@@ -4,12 +4,12 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { account } from "@/utils/appwrite";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/chat-sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 type Chat = {
   id: string;
@@ -83,7 +83,12 @@ export default function MainChatPage() {
     <SidebarProvider>
       <AppSidebar chats={chats} />
       <SidebarInset>
-        <main className="flex min-h-screen items-center justify-center p-4">
+        <div className="pl-4">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger className="-ml-1" />
+          </header>
+        </div>
+        <main className="flex min-h-[calc(100vh-4rem)] items-start justify-center pt-[25vh] p-4">
           <Card className="w-[90%] max-w-2xl">
             <CardHeader>
               <CardTitle className="text-3xl font-bold">Parrot Chat</CardTitle>
@@ -94,10 +99,10 @@ export default function MainChatPage() {
             <CardContent>
               {errorMessage && <p className="text-red-600 mb-4">{errorMessage}</p>}
               <form onSubmit={handleStartNewChat} className="space-y-4">
-                <Input
+                <Textarea
                   placeholder="Enter your question here..."
                   value={initialQuestion}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInitialQuestion(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInitialQuestion(e.target.value)}
                 />
                 <Button type="submit" className="w-full">
                   Start Chat
