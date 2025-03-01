@@ -231,6 +231,7 @@ export async function POST(request: Request) {
                       .join('\n');
                     // Pass the formatted bibliography to the front-end
                     sendProgress({ type: 'gotQuestions', content: parsedReferences }, controller);
+                    sendProgress({ type: 'progress', title: "Thinking", content: "I am deciding on my next step." }, controller);
                     await prisma.chatMessage.create({
                       data: { chatId, sender: 'gotQuestions', content: parsedReferences },
                     });
@@ -238,6 +239,7 @@ export async function POST(request: Request) {
                 } else if (data.output.name === "CalvinReviewer") {
                   // Pass the CalvinReviewer feedback to the front-end
                   sendProgress({ type: 'calvin', content: data.output.content }, controller);
+                  sendProgress({ type: 'progress', title: "Thinking", content: "Writing my final response." }, controller);
                   await prisma.chatMessage.create({
                     data: { chatId, sender: 'calvin', content: data.output.content },
                   });

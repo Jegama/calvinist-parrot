@@ -1,5 +1,3 @@
-// app/main-chat/[chatId]/page.tsx
-
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
@@ -52,11 +50,20 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState<{ title: string; content: string } | null>(null);
   const autoSentRef = useRef(false);
+  // Add refs to track data loading state
+  const isFetchingChatRef = useRef(false);
+  const isFetchingChatsRef = useRef(false);
+  const chatFetchedRef = useRef(false);
+  const chatsLoadedRef = useRef(false);
 
   // --- 1) Fetch Chat, User, and Chat List ---
 
   const fetchChat = useCallback(async () => {
+    // Prevent duplicate fetch requests
+    if (isFetchingChatRef.current) return;
+    
     try {
+      isFetchingChatRef.current = true;
       const response = await fetch(`/api/parrot-chat?chatId=${params.chatId}`);
       if (!response.ok) {
         throw new Error("Failed to fetch chat");
@@ -64,18 +71,31 @@ export default function ChatPage() {
       const data = await response.json();
       setChat(data.chat);
       setMessages(data.messages);
+      chatFetchedRef.current = true;
     } catch (error) {
       console.error("Error fetching chat:", error);
       setErrorMessage("An error occurred while fetching the chat.");
+    } finally {
+      isFetchingChatRef.current = false;
     }
   }, [params.chatId]);
 
   const fetchChats = useCallback(async () => {
-    if (!userId) return;
-    const res = await fetch(`/api/user-chats?userId=${userId}`);
-    if (res.ok) {
-      const data = await res.json();
-      setChats(data.chats);
+    // Only fetch if we have a userId and aren't already fetching
+    if (!userId || isFetchingChatsRef.current) return;
+    
+    try {
+      isFetchingChatsRef.current = true;
+      const res = await fetch(`/api/user-chats?userId=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setChats(data.chats);
+        chatsLoadedRef.current = true;
+      }
+    } catch (error) {
+      console.error("Error fetching chats:", error);
+    } finally {
+      isFetchingChatsRef.current = false;
     }
   }, [userId]);
 
@@ -102,28 +122,24 @@ export default function ChatPage() {
     initUser();
   }, []);
 
+  // Load chat data once when component mounts or chatId changes
   useEffect(() => {
-    if (params.chatId) {
+    if (params.chatId && !chatFetchedRef.current) {
       fetchChat();
     }
   }, [params.chatId, fetchChat]);
 
+  // Load chat list once when userId is available
   useEffect(() => {
-    fetchChats();
-  }, [userId, fetchChats]);
-
-  useEffect(() => {
-    // Always scroll to bottom when messages change
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  // Add progress to the dependencies so we fetch when progress becomes null
-  useEffect(() => {
-    if (params.chatId && !progress) {
-      fetchChat();
+    if (userId && !chatsLoadedRef.current) {
       fetchChats();
     }
-  }, [params.chatId, fetchChat, fetchChats, progress]);
+  }, [userId, fetchChats]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   // --- 2) Send Message ---
   const handleSendMessage = useCallback(
@@ -174,7 +190,10 @@ export default function ChatPage() {
       while (true) {
         const { value, done } = await reader.read();
         if (done) {
-          setProgress(null); // This will trigger the useEffect to fetch updates
+          setProgress(null);
+          // When streaming is done, refresh chat without triggering a re-fetch loop
+          chatFetchedRef.current = false;
+          fetchChat();
           break;
         }
 
@@ -206,7 +225,10 @@ export default function ChatPage() {
               setMessages((msgs) => [...msgs, { sender: "gotQuestions", content: data.content }]);
               break;
             case "done":
-              setProgress(null); // This will trigger the useEffect to fetch updates
+              setProgress(null);
+              // Refresh chat data once after completion
+              chatFetchedRef.current = false;
+              fetchChat();
               return;
             default:
               console.warn("Unknown event type:", data.type);
@@ -214,17 +236,17 @@ export default function ChatPage() {
         }
       }
     },
-    [input, params.chatId]
+    [input, params.chatId, fetchChat]
   );
 
   // --- Auto-trigger sending if only the initial user message exists ---
   useEffect(() => {
-    if (messages.length === 1 && messages[0].sender === "user" && !autoSentRef.current) {
+    if (messages.length === 1 && messages[0].sender === "user" && !autoSentRef.current && !progress) {
       autoSentRef.current = true;
       // Call handleSendMessage with autotrigger flag
       handleSendMessage({ message: messages[0].content, isAutoTrigger: true });
     }
-  }, [messages, handleSendMessage]);
+  }, [messages, handleSendMessage, progress]);
 
   // --- 3) Rendering ---
   if (errorMessage) {
