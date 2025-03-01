@@ -1,12 +1,11 @@
-// app/api/devotional-generation/route.ts
-
-export const maxDuration = 60;
-
+import { NextResponse } from 'next/server';
 import OpenAI from "openai";
 import { getJson } from "serpapi";
 import { JSDOM } from "jsdom";
 import prisma from "@/lib/prisma";
 import * as prompts from "@/lib/prompts";
+
+export const maxDuration = 60;
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -31,9 +30,6 @@ const devotionalSchema = {
 function getDevotionalId(date: Date): string {
     // Convert to US/Eastern time
     const easternTime = new Date(date.toLocaleString("en-US", { timeZone: "America/New_York" }));
-    // figure out morning/evening based on Eastern time
-    // const hour = easternTime.getHours();
-    // const devotionalType = (hour >= 17 || hour < 5) ? "evening" : "morning";
     const year = easternTime.getFullYear();
     const month = String(easternTime.getMonth() + 1).padStart(2, "0");
     const day = String(easternTime.getDate()).padStart(2, "0");
@@ -61,13 +57,11 @@ If it's a morning devotional, focus on encouraging people on growing on their fa
     return message;
 }
 
-// Helper function to parse HTML using jsdom
 function parseHtml(html: string): Document {
     const dom = new JSDOM(html);
     return dom.window.document;
 }
 
-// Recursively find the longest <div> text content
 function getArticle(doc: Document | HTMLElement, found = false): string {
     const divs = Array.from(doc.getElementsByTagName("div"));
     const start = divs.length;
@@ -114,7 +108,6 @@ async function fetchNews() {
     };
   
     try {
-        // `getJson` is from serpapi
         const results = await getJson(params);
         const links: string[] = [];
     
@@ -131,7 +124,7 @@ async function fetchNews() {
     
         return {
             articles,
-            links, // Useful for debugging
+            links,
         };
     } catch (error) {
         console.error("Error fetching news:", error);
@@ -139,32 +132,34 @@ async function fetchNews() {
     }
 }
 
-  
-export async function POST() {
+export async function GET(request: Request) {
+    // Check for authorization
+    const authHeader = request.headers.get('Authorization');
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     try {
         const now = new Date();
         const devotionalId = getDevotionalId(now);
     
-        // Check DB first
+        // Check if we already have a devotional for today
         const existing = await prisma.parrotDevotionals.findUnique({
             where: { devotional_id: devotionalId },
         });
 
+        // If devotional already exists, just return success
         if (existing) {
-            return Response.json({
-                title: existing.title,
-                bible_verse: existing.bible_verse,
-                devotional: existing.devotional_text,
+            return NextResponse.json({
+                success: true,
+                message: "Devotional already exists for today",
+                id: devotionalId
             });
         }
 
         // Generate new devotional
         const { articles } = await fetchNews();
         const latestNews = articles.join("\n\n---\n\n");
-        
-        // const easternTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-        // const hour = easternTime.getHours();
-        // const devotionalType = (hour >= 17 || hour < 5) ? "evening" : "morning";
         
         const userPrompt = generateMessage("morning", now, latestNews);
         const response = await openai.chat.completions.create({
@@ -186,8 +181,8 @@ export async function POST() {
 
         const structured = JSON.parse(response.choices[0].message.content);
         
-        // Store in DB
-        const created = await prisma.parrotDevotionals.create({
+        // Store in DB and get the ID
+        await prisma.parrotDevotionals.create({
             data: {
                 devotional_id: devotionalId,
                 bible_verse: structured.bible_verse,
@@ -196,15 +191,15 @@ export async function POST() {
             },
         });
 
-        return Response.json({
-            bible_verse: created.bible_verse,
-            title: created.title,
-            devotional: created.devotional_text,
+        return NextResponse.json({
+            success: true,
+            message: "Devotional generated successfully",
+            id: devotionalId
         });
         
     } catch (error) {
         console.error("Error:", error);
         const message = error instanceof Error ? error.message : "Internal server error";
-        return Response.json({ error: message }, { status: 500 });
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

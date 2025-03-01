@@ -22,7 +22,7 @@ https://calvinistparrot.com/api/parrot-chat
 \`\`\`
 
 ## Overview
-The Parrot Chat endpoint provides real-time conversational interactions by streaming responses. It handles creating chat sessions, processing user messages, maintaining context, and integrating multiple theological agents including a final review stage (“Calvin’s Review”). This endpoint forms the backbone for [Parrot Chat](/app/main-chat).
+The Parrot Chat endpoint provides real-time conversational interactions by streaming responses. It handles creating chat sessions, processing user messages, maintaining context, and integrating multiple theological agents including a final review stage ("Calvin's Review"). This endpoint forms the backbone for [Parrot Chat](/app/main-chat).
 
 As with the [Parrot QA API](/documentation-parrot-qa), the Parrot Chat endpoint supports multiple denominational modes to cater to various theological traditions. However, we will not compromise on the following essential doctrines:
 
@@ -46,19 +46,19 @@ For simplicity, I created this other endpoint that focuses on quick QA. Please c
 ## How It Works
 
 1. **Chat Session Initialization**  
-   There are two ways to start a new chat:
-   - **From Parrot QA**: Initialize with both question and answer
-   - **From Chat Interface**: Initialize with just a question
+  There are two ways to start a new chat:
+  - **From Parrot QA**: Initialize with both question and answer
+  - **From Chat Interface**: Initialize with just a question
 
 2. **Chat Continuation**  
-   - Uses stored chat history to maintain context
-   - Processes messages through multiple agents and tools
-   - Streams real-time responses with progress updates
+  - Uses stored chat history to maintain context
+  - Processes messages through multiple agents and tools
+  - Streams real-time responses with progress updates
 
 3. **Denomination Handling**  
-   - Each denomination maps to a specific system prompt
-   - Affects how the AI interprets and responds to questions
-   - Maintains core doctrinal consistency while respecting denominational distinctives
+  - Each denomination maps to a specific system prompt
+  - Affects how the AI interprets and responds to questions
+  - Maintains core doctrinal consistency while respecting denominational distinctives
 
 ## API Reference
 
@@ -68,7 +68,7 @@ Send a JSON payload with these possible fields:
 
 - *userId* (string): Unique identifier for the user.
 - *chatId* (string, optional): Identifier for an existing chat session.
-- *message* (string): The user’s chat message.
+- *message* (string): The user's chat message.
 - *initialQuestion* (string, optional): For starting a new chat session.
 - *initialAnswer* (string, optional): Initial answer for a new chat session.
 - *denomination* (string, optional): The theological perspective. Possible values:
@@ -87,29 +87,29 @@ Send a JSON payload with these possible fields:
 The API streams different event types as JSON objects:
 
 1. **Progress Updates** - Status messages during processing
-   \`\`\`json
-   {"type": "progress", "title": "Looking for articles", "content": "Searching for: predestination"}
-   \`\`\`
+  \`\`\`json
+  {"type": "progress", "title": "Looking for articles", "content": "Searching for: predestination"}
+  \`\`\`
 
 2. **Parrot Messages** - Main response content (streamed in chunks)
-   \`\`\`json
-   {"type": "parrot", "content": "The doctrine of predestination..."}
-   \`\`\`
+  \`\`\`json
+  {"type": "parrot", "content": "The doctrine of predestination..."}
+  \`\`\`
 
 3. **Calvin's Review** - Theological review feedback
-   \`\`\`json
-   {"type": "calvin", "content": "This explanation aligns with Reformed theology..."}
-   \`\`\`
+  \`\`\`json
+  {"type": "calvin", "content": "This explanation aligns with Reformed theology..."}
+  \`\`\`
 
 4. **Reference Materials** - Related articles and resources
-   \`\`\`json
-   {"type": "gotQuestions", "content": "* [What is predestination?](https://www.gotquestions.org/predestination.html)"}
-   \`\`\`
+  \`\`\`json
+  {"type": "gotQuestions", "content": "* [What is predestination?](https://www.gotquestions.org/predestination.html)"}
+  \`\`\`
 
 5. **Stream Completion**
-   \`\`\`json
-   {"type": "done"}
-   \`\`\`
+  \`\`\`json
+  {"type": "done"}
+  \`\`\`
 
 ### Usage Patterns
 
@@ -133,6 +133,70 @@ POST /api/parrot-chat
 }
 \`\`\`
 
+Response:
+\`\`\`json
+{
+  "chatId": "chat123"
+}
+\`\`\`
+
+> **Note**: This endpoint only returns the chatId. The client should navigate to a new URL with this chatId (e.g., \`/main-chat/chat123\`). When the chat page loads, it will automatically trigger the streaming process using the \`isAutoTrigger\` flag to process the initial question.
+
+#### Complete Flow Example
+
+1. **Start a new chat and get the chatId**:
+  \`\`\`typescript
+  // In main-chat/page.tsx
+  const handleStartNewChat = async () => {
+    const response = await fetch('/api/parrot-chat', {
+     method: 'POST',
+     headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({ 
+      userId: "user123", 
+      initialQuestion: "What is predestination?" 
+     }),
+    });
+    const { chatId } = await response.json();
+    router.push(\`/main-chat/\${chatId}\`);  // Navigate to chat page
+  };
+  \`\`\`
+
+2. **Chat page loads and auto-triggers the initial question**:
+  \`\`\`typescript
+  // In main-chat/[chatId]/page.tsx
+  useEffect(() => {
+    // When we detect only a user message with no response yet
+    if (messages.length === 1 && messages[0].sender === "user" && !autoSentRef.current) {
+     autoSentRef.current = true;
+     // Auto-trigger the API call with the isAutoTrigger flag
+     handleSendMessage({ 
+      message: messages[0].content, 
+      isAutoTrigger: true 
+     });
+    }
+  }, [messages, handleSendMessage]);
+
+  // Actual API call with isAutoTrigger flag
+  const handleSendMessage = async ({ message, isAutoTrigger }) => {
+    const response = await fetch("/api/parrot-chat", {
+     method: "POST",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify({
+      chatId: "chat123",  // From URL params
+      message: "What is predestination?",  // Initial question
+      isAutoTrigger: true  // This tells the API not to store the message again
+     }),
+    });
+    
+    // Handle streaming response...
+  };
+  \`\`\`
+
+3. **API processes the request differently with isAutoTrigger**:
+  - When \`isAutoTrigger: true\`, the API doesn't save the message again (it's already stored)
+  - The API processes the message and streams the response
+  - The client receives and displays the streaming response
+
 #### 3. Continue Conversation
 \`\`\`json
 POST /api/parrot-chat
@@ -152,13 +216,42 @@ Response:
 \`\`\`json
 {
   "chat": {
-    "id": "chat123",
-    "conversationName": "Discussion on Predestination",
-    "userId": "user123"
+   "id": "cm7p6rik1001emqp0slgxgu1j",
+   "userId": "6754db6b00119ba9e0da",
+   "conversationName": "Understanding Predestination",
+   "denomination": "reformed-baptist",
+   "createdAt": "2025-02-28T19:48:22.321Z",
+   "modifiedAt": "2025-02-28T19:48:45.855Z"
   },
   "messages": [
-    { "sender": "user", "content": "What is predestination?" },
-    { "sender": "parrot", "content": "Predestination is..." }
+   {
+    "id": "cm7p6rimi001gmqp0liuisq27",
+    "chatId": "cm7p6rik1001emqp0slgxgu1j",
+    "sender": "user",
+    "content": "What is predestination?",
+    "timestamp": "2025-02-28T19:48:22.410Z"
+   },
+   {
+    "id": "cm7p6rqc0001imqp0h9gywt2x",
+    "chatId": "cm7p6rik1001emqp0slgxgu1j",
+    "sender": "gotQuestions",
+    "content": "* [Providence and Predestination - Monergism](https://www.monergism.com/reformation-theology/blog/providence-and-predestination)\\n* [What is predestination? - GotQuestions.org](https://www.gotquestions.org/predestination.html)\\n* [Predestination and the Work of Jesus Considered | Monergism](https://www.monergism.com/predestination-and-work-jesus-considered)\\n* [What is Predestination? - Monergism](https://www.monergism.com/what-predestination)\\n* [What does the Bible say about predestination vs. free will?](https://www.gotquestions.org/predestination-vs-free-will.html)",
+    "timestamp": "2025-02-28T19:48:32.401Z"
+   },
+   {
+    "id": "cm7p6rxq0001kmqp0kdxt3qvt",
+    "chatId": "cm7p6rik1001emqp0slgxgu1j",
+    "sender": "calvin",
+    "content": "Your summary of predestination captures...",
+    "timestamp": "2025-02-28T19:48:41.938Z"
+   },
+   {
+    "id": "cm7p6rzqs001mmqp0jrawhfi1",
+    "chatId": "cm7p6rik1001emqp0slgxgu1j",
+    "sender": "parrot",
+    "content": "Predestination is...",
+    "timestamp": "2025-02-28T19:48:44.596Z"
+   }
   ]
 }
 \`\`\`
@@ -169,41 +262,41 @@ Response:
 \`\`\`typescript
 const handleStream = async (chatId: string, message: string) => {
   const response = await fetch('/api/parrot-chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chatId, message })
+   method: 'POST',
+   headers: { 'Content-Type': 'application/json' },
+   body: JSON.stringify({ chatId, message })
   });
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
 
   while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
+   const { value, done } = await reader.read();
+   if (done) break;
+   
+   const lines = decoder.decode(value).split('\\n');
+   for (const line of lines) {
+    if (!line.trim()) continue;
     
-    const lines = decoder.decode(value).split('\\n');
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      
-      const event = JSON.parse(line);
-      switch (event.type) {
-        case 'progress':
-          updateProgress(event.title, event.content);
-          break;
-        case 'parrot':
-          appendParrotMessage(event.content);
-          break;
-        case 'calvin':
-          showCalvinReview(event.content);
-          break;
-        case 'gotQuestions':
-          showReferences(event.content);
-          break;
-        case 'done':
-          finishStream();
-          break;
-      }
+    const event = JSON.parse(line);
+    switch (event.type) {
+      case 'progress':
+       updateProgress(event.title, event.content);
+       break;
+      case 'parrot':
+       appendParrotMessage(event.content);
+       break;
+      case 'calvin':
+       showCalvinReview(event.content);
+       break;
+      case 'gotQuestions':
+       showReferences(event.content);
+       break;
+      case 'done':
+       finishStream();
+       break;
     }
+   }
   }
 };
 \`\`\`
