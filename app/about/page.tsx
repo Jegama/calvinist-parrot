@@ -13,11 +13,11 @@ const md_text = `Welcome! I'm here to guide you through the Bible from a Reforme
 
 Huge thanks to [AO Lab](https://helloaolab.my.canva.site/) for graciously providing the [API](https://bible.helloao.org/docs/) with the Berean Standard Bible ([BSB](https://berean.bible/)) translation and the Bible Commentaries.
 
-Learn more about the BSB [here](https://copy.church/initiatives/bibles/) and join us in discovering the richness of its text.
+If you want to learn the legal restrictions to sharing God's word, click [here](https://copy.church/initiatives/bibles/).
 
 ## Calvinist Parrot APIs
 
-I'm opened 2 APIs! Both are fully guarded so you don't have to worry about prompting or anything.
+I'm opening 2 APIs! Both are fully guarded so you don't have to worry about prompting or anything.
 
 ### Parrot QA API
 

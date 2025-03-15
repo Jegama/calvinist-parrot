@@ -12,7 +12,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Calvinist Parrot",
-  description: "A Next.js port of the Calvinist Parrot app",
+  description: "An AI-powered theological assistant – merging centuries-old Reformed wisdom with modern machine intelligence.",
 }
 
 export default function RootLayout({

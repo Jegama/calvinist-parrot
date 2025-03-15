@@ -1,4 +1,4 @@
-# Contribute to the Calvinist Parrot project
+# Contribute to Conversify
 
 ## How to set up the project
 
@@ -8,125 +8,122 @@ You will need to have the following installed on your machine:
 
 - Node.js 18.18.0 or higher
 - npm (comes with Node.js)
-- Git
 
 ### Environment Setup
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/calvinist-parrot.git
-   cd calvinist-parrot
-   ```
+1. **Fork this repository**
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+- Click the "Fork" button in the top right
+- Follow the prompts to create your fork
 
-3. **Environment variables**
-   Copy the `.env.template` file to `.env` and fill in the required values. Contact the maintainers for required credentials and API keys.
+2. **Clone the repository**
 
-4. **Run the development server**
-   ```bash
-   npm run dev
-   ```
+```bash
+git clone https://github.com/YOUR_USERNAME/calvinist-parrot.git
+cd calvinist-parrot
+```
 
-### Development Workflow
+3. **Install dependencies**
 
-1. **Run tests** (I need help adding tests)
-   ```bash
-   npm test
-   ```
+```bash
+npm install
+```
 
-2. **Build the project**
-   ```bash
-   npm run build
-   ```
+4. **Environment variables**
+
+* Copy `.env.template` to `.env`
+* Fill in required credentials and API keys
+
+5. **Run the development server**
+
+```bash
+npm run dev
+```
 
 ## Contributing to the Project
 
-Before you begin, fork the project on GitHub:
-[Project Page](https://github.com/Jegama/calvinist-parrot)
+1. **Add the original repository as a remote** to pull future updates:
 
-## Contributing to the Project
+```bash
+git remote add upstream https://github.com/Jegama/calvinist-parrot.git
+```
 
-Before you begin, make sure to fork the project. Go to the project's GitHub page and click the `fork` button:
-[Project Page](https://github.com/Jegama/calvinist-parrot)
+2. **Fetch the latest updates** from the original repository:
 
-### Setting Up Your Local Repository
+```bash
+git fetch upstream
+```
 
-1. **Clone your forked repository** to your local machine:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/calvinist-parrot.git
-   cd calvinist-parrot
-   ```
+3. **Create a new branch** for your changes:
 
-2. **Add the original repository as a remote** to pull future updates:
-   ```bash
-   git remote add upstream https://github.com/Jegama/calvinist-parrot.git
-   ```
-
-3. **Fetch the latest updates** from the original repository:
-   ```bash
-   git fetch upstream
-   ```
-
-4. **Create a new branch** for your changes:
-   ```bash
-   git checkout -b mychange upstream/master
-   ```
+```bash
+git checkout -b mychange upstream/master
+```
 
 ### Making Changes
+
 1. Make your changes to the code.
 
 2. **Commit your changes**:
-   ```bash
-   git add .
-   git commit -m "Describe your changes here"
-   ```
+
+```bash
+git add .
+git commit -m "Describe your changes here"
+```
 
 ### Submitting Changes
+
 1. **Push your changes** to your fork:
-   ```bash
-   git push origin mychange
-   ```
+
+```bash
+git push origin mychange
+```
 
 2. Go to your fork on GitHub. You should see a `Compare & pull request` button. Click it to create a pull request.
 
-   - When creating the pull request, you can choose to allow maintainers to make edits. This is helpful if they need to make minor adjustments before merging.
+- When creating the pull request, you can choose to allow maintainers to make edits. This is helpful if they need to make minor adjustments before merging.
 
 ### Updating Your Branch
+
 If you need to make more changes after your initial commit:
+
 1. Make the changes locally.
 
 2. **Amend your previous commit** if you want to keep it as a single commit (optional):
-   ```bash
-   git add .
-   git commit --amend --no-edit
-   ```
+
+```bash
+git add .
+git commit --amend --no-edit
+```
 
 3. **Force push** your changes (since you've amended the commit):
-   ```bash
-   git push -f origin mychange
-   ```
+
+```bash
+git push -f origin mychange
+```
 
 ### Keeping Your Fork Updated
+
 To keep your fork up to date with the original repository:
+
 1. **Fetch updates** from the upstream:
-   ```bash
-   git fetch upstream
-   ```
+
+```bash
+git fetch upstream
+```
 
 2. **Merge updates into your master branch**:
-   ```bash
-   git checkout master
-   git merge upstream/master
-   ```
+
+```bash
+git checkout master
+git merge upstream/master
+```
 
 3. **Push updates to your fork**:
-   ```bash
-   git push origin master
-   ```
+
+```bash
+git push origin master
+```
 
 **Note:** It’s important to regularly sync your fork, especially before starting a new change.
 
