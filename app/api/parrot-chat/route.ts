@@ -214,6 +214,7 @@ export async function POST(request: Request) {
                           title: "Looking commentary on:", 
                           content: String(toolCall.args.passages) 
                         }, controller);
+                        console.error("Failed to parse passages", e);
                       }
                     } else {
                       sendProgress({ type: 'progress', title: "Using a tool", content: "" }, controller);
@@ -257,6 +258,9 @@ export async function POST(request: Request) {
                   await prisma.chatMessage.create({
                     data: { chatId, sender: 'calvin', content: data.output.content },
                   });
+                } else if (data.output.name === "BibleCommentary") {
+                  // Pass the BibleCommentary feedback to the front-end
+                  sendProgress({ type: 'progress', title: "Thinking", content: "I am deciding on my next step." }, controller);
                 }
               } // else {
                 // console.log("Unhandled event:", event);
