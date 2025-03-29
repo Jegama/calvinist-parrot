@@ -35,7 +35,11 @@ export function AppSidebar({ chats, currentChatId, ...props }: AppSidebarProps) 
             <SidebarMenu>
               {chats.map((c) => (
                 <SidebarMenuItem key={c.id} className="px-2 py-1">
-                  <SidebarMenuButton asChild isActive={c.id === currentChatId}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={c.id === currentChatId}
+                    className="hover:bg-[#B8F2E6]/30 data-[active]:bg-[#B8F2E6] data-[active]:text-[#333333]"
+                  >
                     <Link href={`/main-chat/${c.id}`}>{c.conversationName || "Unnamed Conversation"}</Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
