@@ -282,14 +282,14 @@ export default function ChatPage() {
                   switch (msg.sender) {
                     case "user":
                       return (
-                        <div key={i} className="max-w-[80%] p-2 rounded-md ml-auto bg-blue-500 text-white">
+                        <div key={i} className="max-w-[80%] p-2 rounded-md ml-auto bg-[#A3B18A] text-white">
                           <div className="text-sm font-bold mb-1">You</div>
                           <MarkdownWithBibleVerses content={msg.content} />
                         </div>
                       );
                     case "parrot":
                       return (
-                        <div key={i} className="max-w-[80%] p-2 rounded-md mr-auto bg-green-500 text-white">
+                        <div key={i} className="max-w-[80%] p-2 rounded-md mr-auto bg-[#004D70] text-white">
                           <div className="text-sm font-bold mb-1">Parrot</div>
                           <MarkdownWithBibleVerses content={msg.content} />
                         </div>
@@ -354,7 +354,8 @@ export default function ChatPage() {
                     />
                     <button
                       onClick={() => handleSendMessage()}
-                      className="bg-blue-600 text-white px-4 py-2 rounded"
+                      disabled={!!progress}
+                      className="bg-[#FFD166] text-[#333333] px-4 py-2 rounded-md hover:bg-[#FFD166]/90"
                     >
                       Send
                     </button>

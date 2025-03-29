@@ -104,7 +104,7 @@ export default function MainChatPage() {
                   value={initialQuestion}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInitialQuestion(e.target.value)}
                 />
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full bg-[#FFD166] text-[#333333] hover:bg-[#FFD166]/90">
                   Start Chat
                 </Button>
               </form>

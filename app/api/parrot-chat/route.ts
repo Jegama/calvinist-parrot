@@ -200,7 +200,21 @@ export async function POST(request: Request) {
                     } else if (toolCall.args?.draft) {
                       sendProgress({ type: 'progress', title: "Asking for feedback", content: toolCall.args.draft.slice(0, 50) }, controller);
                     } else if (toolCall.args?.passages) {
-                      sendProgress({ type: 'progress', title: "Looking for a commentary", content: toolCall.args.passages.join(", ") }, controller);
+                      try {
+                        const passages = JSON.parse(toolCall.args.passages);
+                        sendProgress({ 
+                          type: 'progress', 
+                          title: "Looking commentary on:", 
+                          content: Array.isArray(passages) ? passages.join(", ") : String(passages) 
+                        }, controller);
+                      } catch (e) {
+                        // If parsing fails, use the string as is
+                        sendProgress({ 
+                          type: 'progress', 
+                          title: "Looking commentary on:", 
+                          content: String(toolCall.args.passages) 
+                        }, controller);
+                      }
                     } else {
                       sendProgress({ type: 'progress', title: "Using a tool", content: "" }, controller);
                     }
