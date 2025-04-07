@@ -94,3 +94,19 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .sidebar-button {
+    background-color: transparent;
+    transition: background-color 0.2s;
+  }
+
+  .sidebar-button:hover {
+    background-color: hsl(var(--sidebar-accent) / 0.3);
+  }
+
+  .sidebar-button[data-active="true"] {
+    background-color: hsl(var(--sidebar-accent));
+    color: hsl(var(--sidebar-accent-foreground));
+  }
+}

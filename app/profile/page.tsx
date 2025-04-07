@@ -88,25 +88,27 @@ export default function ProfilePage() {
           </Button>
         </CardContent>
       </Card>
-      <Card className="max-w-2xl mx-auto mt-8 mb-8">
-        <CardHeader>
-          <CardTitle>Your Previous Questions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Accordion type="single" collapsible>
-            {questions.map((question) => (
-              <AccordionItem key={question.id} value={`question-${question.id}`}>
-                <AccordionTrigger>{question.question}</AccordionTrigger>
-                <AccordionContent>
-                  <div className="prose dark:prose-invert max-w-none">
-                    <MarkdownWithBibleVerses content={question.reviewed_answer} />
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </CardContent>
-      </Card>
+      {questions.length > 0 && (
+        <Card className="max-w-2xl mx-auto mt-8 mb-8">
+          <CardHeader>
+            <CardTitle>Your Previous Questions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="single" collapsible>
+              {questions.map((question) => (
+                <AccordionItem key={question.id} value={`question-${question.id}`}>
+                  <AccordionTrigger>{question.question}</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="prose dark:prose-invert max-w-none">
+                      <MarkdownWithBibleVerses content={question.reviewed_answer} />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }

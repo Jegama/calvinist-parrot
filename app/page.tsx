@@ -88,39 +88,39 @@ export default function MainChatPage() {
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
           </header>
+          <main className="flex flex-1 items-start justify-center pt-[5vh] p-4 overflow-auto">
+            <Card className="w-[70%]">
+              <CardHeader>
+                <div className="flex items-center space-x-4">
+                  <Image
+                    src="/Logo.png"
+                    alt="Calvinist Parrot"
+                    width={100}
+                    height={100}
+                    unoptimized={true}
+                  />
+                  <CardTitle className="text-3xl font-bold justify-center w-full">Calvinist Parrot</CardTitle>
+                </div>
+                <CardDescription>
+                  What theological question do you have?
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {errorMessage && <p className="text-red-600 mb-4">{errorMessage}</p>}
+                <form onSubmit={handleStartNewChat} className="space-y-4">
+                  <Textarea
+                    placeholder="Enter your question here..."
+                    value={initialQuestion}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInitialQuestion(e.target.value)}
+                  />
+                  <Button type="submit" className="w-full">
+                    Start Chat
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </main>
         </div>
-        <main className="flex min-h-[calc(100vh-4rem)] items-start justify-center pt-[5vh] p-4">
-          <Card className="w-[70%]">
-            <CardHeader>
-              <div className="flex items-center justify-center w-full">
-                <Image
-                  src="/Logo.png"
-                  alt="Calvinist Parrot"
-                  width={250}
-                  height={250}
-                  unoptimized={true}
-                />
-              </div>
-              <CardTitle className="text-3xl font-bold">Parrot Chat</CardTitle>
-              <CardDescription>
-                What theological question do you have?
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {errorMessage && <p className="text-red-600 mb-4">{errorMessage}</p>}
-              <form onSubmit={handleStartNewChat} className="space-y-4">
-                <Textarea
-                  placeholder="Enter your question here..."
-                  value={initialQuestion}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInitialQuestion(e.target.value)}
-                />
-                <Button type="submit" className="w-full">
-                  Start Chat
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </main>
       </SidebarInset>
     </SidebarProvider>
   );
