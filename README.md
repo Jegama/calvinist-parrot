@@ -4,7 +4,7 @@ An AI-powered theological assistant – merging centuries-old Reformed wisdom wi
 
 [**Website**](https://www.calvinistparrot.com/)
 
-This work is part of the [Calvinist Parrot Ministries](https://www.calvinistparrotministries.org/), we are dedicated to spreading the Gospel of Jesus Christ through technology and innovation. We believe in the power of the internet to reach people with the message of salvation and hope found in Jesus.
+This work is part of the [Calvinist Parrot Ministries](https://www.calvinistparrotministries.org/), we exist to glorify God by creating and freely distributing AI tools that proclaim the Gospel, strengthen the Church, and equip believers across the globe.
 
 ## Overview
 
