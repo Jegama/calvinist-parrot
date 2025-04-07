@@ -194,6 +194,9 @@ export default function ChatPage() {
           // When streaming is done, refresh chat without triggering a re-fetch loop
           chatFetchedRef.current = false;
           fetchChat();
+          // Also refresh the chat list to update the sidebar
+          chatsLoadedRef.current = false;
+          fetchChats();
           break;
         }
 
@@ -236,7 +239,7 @@ export default function ChatPage() {
         }
       }
     },
-    [input, params.chatId, fetchChat]
+    [input, params.chatId, fetchChat, fetchChats]
   );
 
   // --- Auto-trigger sending if only the initial user message exists ---
@@ -355,7 +358,7 @@ export default function ChatPage() {
                     <button
                       onClick={() => handleSendMessage()}
                       disabled={!!progress}
-                      className="bg-[#FFD166] text-[#333333] px-4 py-2 rounded-md hover:bg-[#FFD166]/90"
+                      className="bg-accent text-accent-foreground px-4 py-2 rounded-md hover:bg-accent/90"
                     >
                       Send
                     </button>

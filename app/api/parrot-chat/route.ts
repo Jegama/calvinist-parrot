@@ -121,7 +121,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ chatId: chat.id });
   }
 
-  // If userId and initial message are provided but no chatId, start a new chat session. This is from `app/main-chat/page.tsx`.
+  // If userId and initial message are provided but no chatId, start a new chat session. This is from `app/page.tsx`.
   if (userId && initialQuestion && !chatId) {
     const chat = await prisma.chatHistory.create({
       data: {
@@ -160,7 +160,7 @@ export async function POST(request: Request) {
             content: msg.content,
           }));
 
-          // Only add and save user message if not auto-triggered. This is from `app/main-chat/[chatId]/page.tsx`, when you load the page and the last message is from the user.
+          // Only add and save user message if not auto-triggered. This is from `app/[chatId]/page.tsx`, when you load the page and the last message is from the user.
           if (!isAutoTrigger) {
             const userMessage = { sender: 'user', content: message };
             conversationMessages.push(userMessage);

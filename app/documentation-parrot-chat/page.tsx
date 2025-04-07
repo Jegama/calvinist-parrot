@@ -22,7 +22,7 @@ https://calvinistparrot.com/api/parrot-chat
 \`\`\`
 
 ## Overview
-The Parrot Chat endpoint provides real-time conversational interactions by streaming responses. It handles creating chat sessions, processing user messages, maintaining context, and integrating multiple theological agents including a final review stage ("Calvin's Review"). This endpoint forms the backbone for [Parrot Chat](/app/main-chat).
+The Parrot Chat endpoint provides real-time conversational interactions by streaming responses. It handles creating chat sessions, processing user messages, maintaining context, and integrating multiple theological agents including a final review stage ("Calvin's Review").
 
 As with the [Parrot QA API](/documentation-parrot-qa), the Parrot Chat endpoint supports multiple denominational modes to cater to various theological traditions. However, we will not compromise on the following essential doctrines:
 
@@ -140,13 +140,13 @@ Response:
 }
 \`\`\`
 
-> **Note**: This endpoint only returns the chatId. The client should navigate to a new URL with this chatId (e.g., \`/main-chat/chat123\`). When the chat page loads, it will automatically trigger the streaming process using the \`isAutoTrigger\` flag to process the initial question.
+> **Note**: This endpoint only returns the chatId. The client should navigate to a new URL with this chatId (e.g., \`/chat123\`). When the chat page loads, it will automatically trigger the streaming process using the \`isAutoTrigger\` flag to process the initial question.
 
 #### Complete Flow Example
 
 1. **Start a new chat and get the chatId**:
   \`\`\`typescript
-  // In main-chat/page.tsx
+  // In /page.tsx
   const handleStartNewChat = async () => {
     const response = await fetch('/api/parrot-chat', {
      method: 'POST',
@@ -157,13 +157,13 @@ Response:
      }),
     });
     const { chatId } = await response.json();
-    router.push(\`/main-chat/\${chatId}\`);  // Navigate to chat page
+    router.push(\`/\${chatId}\`);  // Navigate to chat page
   };
   \`\`\`
 
 2. **Chat page loads and auto-triggers the initial question**:
   \`\`\`typescript
-  // In main-chat/[chatId]/page.tsx
+  // In /[chatId]/page.tsx
   useEffect(() => {
     // When we detect only a user message with no response yet
     if (messages.length === 1 && messages[0].sender === "user" && !autoSentRef.current) {
@@ -302,8 +302,8 @@ const handleStream = async (chatId: string, message: string) => {
 \`\`\`
 
 For complete implementation examples, see:
-- [Main Chat Page](https://github.com/Jegama/calvinist-parrot/blob/master/app/main-chat/page.tsx)
-- [Chat Session Page](https://github.com/Jegama/calvinist-parrot/blob/master/app/main-chat/[chatId]/page.tsx)
+- [Main Chat Page](https://github.com/Jegama/calvinist-parrot/blob/master/app/page.tsx)
+- [Chat Session Page](https://github.com/Jegama/calvinist-parrot/blob/master/app/[chatId]/page.tsx)
 
 ---
 
