@@ -4,6 +4,8 @@ An AI-powered theological assistant – merging centuries-old Reformed wisdom wi
 
 [**Website**](https://www.calvinistparrot.com/)
 
+This work is part of the [Calvinist Parrot Ministries](https://www.calvinistparrotministries.org/), we are dedicated to spreading the Gospel of Jesus Christ through technology and innovation. We believe in the power of the internet to reach people with the message of salvation and hope found in Jesus.
+
 ## Overview
 
 Calvinist Parrot delivers Biblical insights and deep theological responses by combining multiple AI agents and a built-in review process modeled after Reformed theology. Whether you’re exploring doctrine, engaging in a dynamic chat, or seeking daily devotionals, the Parrot is here to guide you.
@@ -14,8 +16,6 @@ Calvinist Parrot delivers Biblical insights and deep theological responses by co
 - **Theological Q&A:** Answers complex theological questions with layered reasoning.
 - **Multi-Perspective Insights:** Choose from Reformed Baptist, Presbyterian, Wesleyan, Lutheran, Anglican, Pentecostal/Charismatic, or Non-Denominational Evangelical modes.
 - **Daily Devotionals:** Get devotionals generated from current news and Scripture.
-
-![Calvinist Parrot](./public/LogoForHeader.png)
 
 ## Getting Started
 
@@ -55,8 +55,6 @@ npm install
 npm run dev
 ```
 
-## Pages
-
 ## API Endpoints
 
 - **/api/parrot-qa**  
@@ -90,3 +88,7 @@ For questions or support, please [reach out](mailto:jesusmancilla@calvinistparro
 [Copy.church](https://copy.church/explain/importance/) | [sellingJesus.org](https://sellingJesus.org/free)
 ---|---
 ![Copy.church](https://copy.church/badges/lcc_alt_pde.png) | ![sellingJesus.org/free](https://copy.church/badges/sj_standard_pd.png)
+
+---
+
+![Calvinist Parrot](./public/LogoForHeader.png)
