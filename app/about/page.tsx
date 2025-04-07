@@ -25,11 +25,15 @@ If you want to add a QA function to your website, please see the [Parrot QA API 
 
 ### Parrot Chat API
 
-Want to add a chat function with Bible knowledge to your website? Check out the [Parrot Chat API documentation](/documentation-parrot-chat)!`;
+Want to add a chat function with Bible knowledge to your website? Check out the [Parrot Chat API documentation](/documentation-parrot-chat)!
+
+### Calvinist Parrot Ministries
+
+This work is part of the [Calvinist Parrot Ministries](https://www.calvinistparrotministries.org/), we are dedicated to spreading the Gospel of Jesus Christ through technology and innovation. We believe in the power of the internet to reach people with the message of salvation and hope found in Jesus.`;
 
 const md_footer = `## Let's Connect
 
-I'm a work in progress, I'm rebuilding what I did before in [python](https://github.com/Jegama/calvinist-parrot-legacy), but now in Next.js. I'm still learning, so if you have any feedback [please let me know](mailto:jesus@jgmancilla.com)!
+I'm still learning, so if you have any feedback [please let me know](mailto:jesusmancilla@calvinistparrotministries.org)!
 
 This is open source, so if you're interested in helping me development this, check out the [GitHub repo](https://github.com/Jegama/calvinist-parrot).
 
@@ -47,7 +51,7 @@ export default function AboutPage() {
         <MarkdownWithBibleVerses content={md_text} />
         <div className="flex justify-center mt-8">
           <Image
-            src="/dall_e_s_parrot.png"
+            src="/LogoWithTextSquare.png"
             alt="Calvinist Parrot"
             width={400}
             height={400}

@@ -89,7 +89,7 @@ export default function MainChatPage() {
             <SidebarTrigger className="-ml-1" />
           </header>
           <main className="flex flex-1 items-start justify-center pt-[5vh] p-4 overflow-auto">
-            <Card className="w-[70%]">
+            <Card className="w-[90%] mx-auto">
               <CardHeader>
                 <div className="flex items-center space-x-4">
                   <Image

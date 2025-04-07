@@ -10,21 +10,12 @@ Calvinist Parrot delivers Biblical insights and deep theological responses by co
 
 ## What the Parrot Can Do
 
-- **Theological Q&A:** Answers complex theological questions with layered reasoning.
 - **Real-Time Chat:** Engage in interactive sessions with streamed responses.
+- **Theological Q&A:** Answers complex theological questions with layered reasoning.
 - **Multi-Perspective Insights:** Choose from Reformed Baptist, Presbyterian, Wesleyan, Lutheran, Anglican, Pentecostal/Charismatic, or Non-Denominational Evangelical modes.
 - **Daily Devotionals:** Get devotionals generated from current news and Scripture.
 
-## Features
-
-- **Multi-Agent Responses:** Synthesizes answers from multiple AI agents.
-- **Calvin's Review:** Ensures doctrinal soundness through a “Calvin-style” review.
-- **Real-Time Streaming:** Offers a responsive chat experience using state‑of‑the‑art streaming technology.
-- **Bible Integration:** Direct citation and commentary on Scripture.
-- **User Authentication:** Powered by Appwrite.
-- **Database Integration:** Utilizes Prisma for persistent storage.
-
-![Calvinist Parrot](./public/calvinist_parrot.gif)
+![Calvinist Parrot](./public/LogoForHeader.png)
 
 ## Getting Started
 
@@ -66,18 +57,6 @@ npm run dev
 
 ## Pages
 
-- **Home Page**  
-  Located at `/app/page.tsx`. This is the entry point where users ask theological questions.
-  
-- **Main Chat Page**  
-  Located at `/app/main-chat/[chatId]/page.tsx`. Enables real-time chat sessions with streamed responses.
-  
-- **Documentation Page**  
-  Located at `/app/documentation-parrot-qa/page.tsx`. Provides API documentation and selectable denominational modes.
-  
-- **Devotional Page**  
-  Located at `/app/devotional/page.tsx`. Generates daily devotionals using the latest news and Bible passages.
-
 ## API Endpoints
 
 - **/api/parrot-qa**  
@@ -101,7 +80,7 @@ Huge thanks to [AO Lab](https://helloaolab.my.canva.site/) for providing the Bib
 If you want to learn the legal restrictions to sharing God's word, click [here](https://copy.church/initiatives/bibles/).
 
 ## Contact
-For questions or support, please [reach out](mailto:jesus@jgmancilla.com).
+For questions or support, please [reach out](mailto:jesusmancilla@calvinistparrotministries.org).
 
 # Soli Deo Gloria
 

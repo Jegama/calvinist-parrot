@@ -46,6 +46,7 @@ export function Header() {
           {/* Desktop Navigation (visible on md and above) */}
           <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
             <Link href="/devotional">Devotional</Link>
+            <Link href="/parrot-qa">Parrot QA</Link>
             <Link href="/about">About</Link>
           </nav>
 
@@ -58,6 +59,9 @@ export function Header() {
               <DropdownMenuContent>
                 <DropdownMenuItem>
                   <Link href="/devotional">Devotional</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link href="/parrot-qa">Parrot QA</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Link href="/about">About</Link>

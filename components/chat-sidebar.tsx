@@ -30,7 +30,6 @@ export function AppSidebar({ chats, currentChatId, ...props }: AppSidebarProps) 
       <SidebarContent>
         <SidebarHeader><br />Your Conversations</SidebarHeader>
         <SidebarGroup>
-          {/* <SidebarGroupLabel></SidebarGroupLabel> */}
           <SidebarGroupContent>
             <SidebarMenu>
               {chats.map((c, index) => (

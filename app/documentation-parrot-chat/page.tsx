@@ -331,7 +331,7 @@ const md_text_bottom = `---
 3. The endpoint streams responses in real-time for a dynamic user experience.
 
 ## Contact
-For further questions or support, [please reach out](mailto:jesus@jgmancilla.com)!
+For further questions or support, [please reach out](mailto:jesusmancilla@calvinistparrotministries.org)!
 
 This is open source, so if you're interested in helping me development this, check out the [GitHub repo](https://github.com/Jegama/calvinist-parrot).
 
