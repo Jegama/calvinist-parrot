@@ -232,6 +232,9 @@ export default function ChatPage() {
               // Refresh chat data once after completion
               chatFetchedRef.current = false;
               fetchChat();
+
+              // Refresh chat list to update sidebar
+              fetchChats();
               return;
             default:
               console.warn("Unknown event type:", data.type);
