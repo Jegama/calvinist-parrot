@@ -40,7 +40,7 @@ export function AppSidebar({ chats, currentChatId, ...props }: AppSidebarProps) 
                     isActive={c.id === currentChatId}
                     className="hover:bg-[#B8F2E6]/30 data-[active]:bg-[#B8F2E6] data-[active]:text-[#333333]"
                   >
-                    <Link href={`/main-chat/${c.id}`}>{c.conversationName || "Unnamed Conversation"}</Link>
+                    <Link href={`/${c.id}`}>{c.conversationName || "Unnamed Conversation"}</Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
