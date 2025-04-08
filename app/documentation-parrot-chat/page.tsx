@@ -325,10 +325,9 @@ Each mode tailors its responses according to distinct theological perspectives o
 
 const md_text_bottom = `---
 
-## Notes
-1. This API uses OpenAI's 4o models to generate responses.
-2. All interactions are logged in a database for question history tracking.
-3. The endpoint streams responses in real-time for a dynamic user experience.
+### Calvinist Parrot Ministries
+
+This work is part of the [Calvinist Parrot Ministries](https://www.calvinistparrotministries.org/), we exist to glorify God by creating and freely distributing AI tools that proclaim the Gospel, strengthen the Church, and equip believers across the globe.
 
 ## Contact
 For further questions or support, [please reach out](mailto:jesusmancilla@calvinistparrotministries.org)!
@@ -403,7 +402,7 @@ export default function DocumentationParrotChatPage() {
               <MarkdownWithBibleVerses content={md_text_bottom} />
               <div className="flex justify-center mt-8">
                 <Image
-                  src="/dall_e_s_parrot.png"
+                  src="/LogoWithTextSquare.png"
                   alt="Calvinist Parrot"
                   width={400}
                   height={400}
