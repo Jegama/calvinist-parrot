@@ -32,7 +32,7 @@ export default function RootLayout({
           <Header />
           {children}
         </ThemeProvider>
-        <SpeedInsights/>
+        <SpeedInsights />
         <Analytics />
       </body>
     </html>
