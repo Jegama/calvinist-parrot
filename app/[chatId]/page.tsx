@@ -90,7 +90,8 @@ export default function ChatPage() {
       if (res.ok) {
         const data = await res.json();
         setChats(data.chats);
-        chatsLoadedRef.current = true;
+      } else {
+        console.error("Error fetching chats: non-OK response");
       }
     } catch (error) {
       console.error("Error fetching chats:", error);
@@ -129,9 +130,9 @@ export default function ChatPage() {
     }
   }, [params.chatId, fetchChat]);
 
-  // Load chat list once when userId is available
+  // Load chat list when userId is available and whenever we need to refresh
   useEffect(() => {
-    if (userId && !chatsLoadedRef.current) {
+    if (userId) {
       fetchChats();
     }
   }, [userId, fetchChats]);
@@ -195,7 +196,6 @@ export default function ChatPage() {
           chatFetchedRef.current = false;
           fetchChat();
           // Also refresh the chat list to update the sidebar
-          chatsLoadedRef.current = false;
           fetchChats();
           break;
         }
