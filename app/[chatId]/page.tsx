@@ -54,7 +54,6 @@ export default function ChatPage() {
   const isFetchingChatRef = useRef(false);
   const isFetchingChatsRef = useRef(false);
   const chatFetchedRef = useRef(false);
-  const chatsLoadedRef = useRef(false);
 
   // --- 1) Fetch Chat, User, and Chat List ---
 

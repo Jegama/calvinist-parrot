@@ -267,7 +267,7 @@ export default function Home() {
       }
 
       const data = await response.json();
-      router.push(`/main-chat/${data.chatId}`);
+      router.push(`/${data.chatId}`);
     } catch (error) {
       console.error("Error starting chat:", error);
     }
