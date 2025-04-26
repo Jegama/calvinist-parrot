@@ -18,7 +18,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const mini_model = "gpt-4o-mini";
+const mini_model = "gpt-4.1-mini";
 
 function buildParrotHistory(
   messages: { sender: string; content: string }[],
