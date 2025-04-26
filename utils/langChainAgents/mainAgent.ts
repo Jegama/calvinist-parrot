@@ -12,11 +12,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const mini_model = "gpt-4o-mini";
+const mini_model = "gpt-4.1-mini";
 
 // 1) Create the Chat Model, bind tools for function calling
 const model = new ChatOpenAI({
-    model: "gpt-4o-mini",
+    model: "gpt-4.1-mini",
     streaming: true,
 });
 export const boundModel = model.bindTools(toolsArray);

@@ -24,16 +24,16 @@ https://calvinistparrot.com/api/parrot-qa
 ## Overview
 This API endpoint provides a structured question-and-answer service based on Christian theological perspectives. The endpoint processes user questions through categorization, reasoning, and review phases, synthesizing responses to theological and doctrinal queries. It supports multiple denominational modes to cater to various theological traditions. However, we will not compromise on the following essential doctrines:
 
-- **The Trinity**: We believe in one God, eternally existing in three persons—Father, Son, and Holy Spirit.
-- **The Character of God**: God is holy, supreme, sovereign, immutable, faithful, good, patient, gracious, merciful, loving, and just; His wrath against sin is real. 
-- **The Authority of Scripture**: The Bible is the inspired, inerrant, and infallible Word of God, serving as the ultimate authority in all matters of faith and practice.
-- **The Deity and Humanity of Christ**: We affirm that Jesus Christ is truly God and truly man (Vera Deus, vera homo).
-- **The Incarnation and Virgin Birth**: We affirm that Jesus Christ took on human nature through miraculous conception by the Holy Spirit and was born of the Virgin Mary.
-- **The Atonement (Christ's Saving Work)**: Christ's sacrificial death on the cross is necessary and sufficient to reconcile sinners to God.
-- **The Gospel**: We proclaim that salvation is secured by Christ's historical death, burial, and resurrection on the third day, demonstrating His victory over sin and death.
-- **Justification by Faith**: Individuals are justified solely by grace alone through faith alone in Christ alone, apart from works.
-- **The Resurrection**: We affirm the bodily resurrection of Jesus Christ, confirming His divinity and victory over sin and death.
-- **Christ's Return and Final Judgment**: Jesus Christ will return personally and bodily to judge the living and the dead, culminating in the renewal of all things.
+- **The Trinity:** One God, eternally existing in three persons—Father, Son, and Holy Spirit.
+- **The Character of God:** God is holy, supreme, sovereign, immutable, faithful, good, patient, gracious, merciful, loving, and just; His wrath against sin is real.
+- **The Authority of Scripture:** The Bible is the inspired, inerrant, and infallible Word of God, serving as the ultimate authority in all matters of faith and practice.
+- **The Deity and Humanity of Christ:** Jesus Christ is truly God and truly man (Vera Deus, vera homo).
+- **The Incarnation and Virgin Birth:** Jesus Christ took on human nature through miraculous conception by the Holy Spirit and was born of the Virgin Mary.
+- **The Atonement (Christ's Saving Work):** Christ's sacrificial death on the cross is necessary and sufficient to reconcile sinners to God.
+- **The Gospel:** Salvation is secured by Christ's historical death, burial, and resurrection on the third day, demonstrating His victory over sin and death.
+- **Justification by Faith:** Individuals are justified solely by grace alone through faith alone in Christ alone, apart from works.
+- **The Resurrection:** Christ's bodily resurrection, confirming His divinity and victory over sin and death.
+- **Christ's Return and Final Judgment:** Jesus Christ will return personally and bodily to judge the living and the dead, culminating in the renewal of all things.
 
 ### Chat Endpoint
 

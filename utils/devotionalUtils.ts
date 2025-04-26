@@ -14,7 +14,7 @@ export const openai = new OpenAI({
 export const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
 // Constants
-export const MAIN_MODEL = "gpt-4o-mini";
+export const MAIN_MODEL = "gpt-4.1-mini";
 
 // Schema definition
 export const devotionalSchema = {
