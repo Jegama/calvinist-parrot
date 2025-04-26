@@ -40,7 +40,7 @@ What would you like to name this conversation? It can be a short name to remembe
   };
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: 'gpt-4.1-mini',
     messages: getNamePrompt,
     response_format: {
       type: "json_schema",

@@ -8,7 +8,7 @@ import { CALVIN_SYS_PROMPT_REVIEWER } from "@/lib/prompts";
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const mini_model = "gpt-4o-mini";
+const mini_model = "gpt-4.1-mini";
 
 async function calvinReview(input: { draft: string }): Promise<string> {
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
