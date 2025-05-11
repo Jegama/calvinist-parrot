@@ -20,42 +20,43 @@ export async function POST(req: NextRequest) {
   const encoder = new TextEncoder();
 
   // Map denomination to corresponding system prompt
-  let sys_prompt;
+  let secondary_prompt_text;
   switch (denomination) {
     case "reformed-baptist":
-      sys_prompt = prompts.CORE_SYS_PROMPT;
+      secondary_prompt_text = prompts.secondary_reformed_baptist;
       break;
     case "presbyterian":
-      sys_prompt = prompts.CORE_SYS_PROMPT_PRESBYTERIAN;
+      secondary_prompt_text = prompts.secondary_presbyterian;
       break;
     case "wesleyan":
-      sys_prompt = prompts.CORE_SYS_PROMPT_WESLEYAN;
+      secondary_prompt_text = prompts.secondary_wesleyan;
       break;
     case "lutheran":
-      sys_prompt = prompts.CORE_SYS_PROMPT_LUTHERAN;
+      secondary_prompt_text = prompts.secondary_lutheran;
       break;
     case "anglican":
-      sys_prompt = prompts.CORE_SYS_PROMPT_ANGLICAN;
+      secondary_prompt_text = prompts.secondary_anglican;
       break;
     case "pentecostal":
-      sys_prompt = prompts.CORE_SYS_PROMPT_PENTECOSTAL;
+      secondary_prompt_text = prompts.secondary_pentecostal;
       break;
     case "non-denom":
-      sys_prompt = prompts.CORE_SYS_PROMPT_NON_DENOM_EVANGELICAL;
+      secondary_prompt_text = prompts.secondary_non_denom;
       break;
     default:
-      sys_prompt = prompts.CORE_SYS_PROMPT;
+      secondary_prompt_text = prompts.secondary_reformed_baptist; // Default to reformed-baptist
   }
 
-  const new_sys_prompt = prompts.BRIEF_RESPONSE_SYS_PROMPT.replace('{CORE}', sys_prompt);
+  const core_sys_prompt_with_denomination = prompts.CORE_SYS_PROMPT.replace('{denomination}', secondary_prompt_text);
+  const new_sys_prompt = prompts.BRIEF_RESPONSE_SYS_PROMPT.replace('{CORE}', core_sys_prompt_with_denomination);
 
   const stream = new ReadableStream({
     async start(controller) {
       // Step 1: Categorize
       controller.enqueue(encoder.encode(JSON.stringify({ type: 'progress', message: 'Understanding question...' }) + '\n'));
-      
+
       const message_list: OpenAI.Chat.ChatCompletionMessageParam[] = [
-        {role: "system", content: prompts.CATEGORIZING_SYS_PROMPT},
+        { role: "system", content: prompts.CATEGORIZING_SYS_PROMPT },
         ...prompts.n_shot_examples,
         { role: "user", content: question }
       ]
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
         response_format: {
           type: "json_schema",
           json_schema: prompts.categorizationSchema,
-        },      
+        },
         temperature: 0
       })
 
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
           JSON.stringify({ type: "categorization", data: categorization }) + "\n"
         )
       );
-      
+
       if (categorization.category === "Non-Biblical Questions") {
         const refusingPrompt = prompts.refusing_prompt
           .replace('{user_question}', question)
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
         controller.close();
         return;
       }
-      
+
       // Step 2: Reasoning (simulating three agents)
       controller.enqueue(encoder.encode(JSON.stringify({ type: 'progress', message: 'Asking the Counsel of Three...' }) + '\n'));
 
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
         .replace('{category}', categorization.category)
         .replace('{subcategory}', categorization.subcategory)
         .replace('{issue_type}', categorization.issue_type)
-    
+
       const [responseA, responseB, responseC] = await Promise.all([
         openai.chat.completions.create({
           model: ft_model,
@@ -153,7 +154,7 @@ export async function POST(req: NextRequest) {
           temperature: 1
         })
       ])
-    
+
       const first_answer = responseA.choices[0].message.content
       const second_answer = responseB.choices[0].message.content
       const third_answer = responseC.choices[0].message.content
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest) {
         type: 'agent_responses',
         data: { first_answer, second_answer, third_answer },
       }) + '\n'));
-      
+
       // Step 3: Calvin Review
       controller.enqueue(encoder.encode(JSON.stringify({ type: 'progress', message: 'Calvin is reviewing the answers...' }) + '\n'));
 
@@ -175,7 +176,7 @@ export async function POST(req: NextRequest) {
         .replace('{first_answer}', first_answer || '')
         .replace('{second_answer}', second_answer || '')
         .replace('{third_answer}', third_answer || '')
-    
+
       const calvinReviewResponse = await openai.chat.completions.create({
         model: mini_model,
         messages: [
@@ -195,7 +196,7 @@ export async function POST(req: NextRequest) {
         )
       );
 
-      
+
       // Step 4: Synthesize Final Answer
       controller.enqueue(encoder.encode(JSON.stringify({ type: 'progress', message: 'Synthesizing final answer...' }) + '\n'));
 
@@ -209,7 +210,7 @@ export async function POST(req: NextRequest) {
         .replace('{second_answer}', second_answer || '')
         .replace('{third_answer}', third_answer || '')
         .replace('{calvin_review}', calvinReviewAnswer || '')
-    
+
       const reviewResponse = await openai.chat.completions.create({
         model: main_model,
         messages: [
@@ -221,7 +222,7 @@ export async function POST(req: NextRequest) {
       })
 
       let finalAnswer = ''
-    
+
       for await (const part of reviewResponse) {
         const content = part.choices[0]?.delta?.content || '';
         finalAnswer += content;

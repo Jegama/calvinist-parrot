@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     subcategory?: string;
     issue_type?: string;
     denomination?: string;
-    isAutoTrigger?: boolean;  // Add this field
+    isAutoTrigger?: boolean;
   }
 
   const {
@@ -65,34 +65,35 @@ export async function POST(request: Request) {
   }: ChatRequestBody = await request.json();
 
   // Map denomination to corresponding system prompt
-  let sys_prompt;
+  let secondary_prompt_text;
   switch (denomination) {
     case "reformed-baptist":
-      sys_prompt = prompts.CORE_SYS_PROMPT;
+      secondary_prompt_text = prompts.secondary_reformed_baptist;
       break;
     case "presbyterian":
-      sys_prompt = prompts.CORE_SYS_PROMPT_PRESBYTERIAN;
+      secondary_prompt_text = prompts.secondary_presbyterian;
       break;
     case "wesleyan":
-      sys_prompt = prompts.CORE_SYS_PROMPT_WESLEYAN;
+      secondary_prompt_text = prompts.secondary_wesleyan;
       break;
     case "lutheran":
-      sys_prompt = prompts.CORE_SYS_PROMPT_LUTHERAN;
+      secondary_prompt_text = prompts.secondary_lutheran;
       break;
     case "anglican":
-      sys_prompt = prompts.CORE_SYS_PROMPT_ANGLICAN;
+      secondary_prompt_text = prompts.secondary_anglican;
       break;
     case "pentecostal":
-      sys_prompt = prompts.CORE_SYS_PROMPT_PENTECOSTAL;
+      secondary_prompt_text = prompts.secondary_pentecostal;
       break;
     case "non-denom":
-      sys_prompt = prompts.CORE_SYS_PROMPT_NON_DENOM_EVANGELICAL;
+      secondary_prompt_text = prompts.secondary_non_denom;
       break;
     default:
-      sys_prompt = prompts.CORE_SYS_PROMPT;
+      secondary_prompt_text = prompts.secondary_reformed_baptist; // Default to reformed-baptist
   }
 
-  const new_parrot_sys_prompt = prompts.PARROT_SYS_PROMPT_MAIN.replace('{CORE}', sys_prompt);
+  const core_sys_prompt_with_denomination = prompts.CORE_SYS_PROMPT.replace('{denomination}', secondary_prompt_text);
+  const new_parrot_sys_prompt = prompts.PARROT_SYS_PROMPT_MAIN.replace('{CORE}', core_sys_prompt_with_denomination);
 
   // Handle new chat from Parrot QA
   if (userId && initialQuestion && initialAnswer && !chatId) {
