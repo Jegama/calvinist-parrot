@@ -4,7 +4,7 @@ export const maxDuration = 60;
 
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
-import { CORE_SYS_PROMPT, follow_up_prompt } from "@/lib/prompts";
+import { CORE_SYS_PROMPT, secondary_reformed_baptist, follow_up_prompt } from "@/lib/prompts";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -43,11 +43,14 @@ export async function POST(req: NextRequest) {
           .replace("{reviewed_answer}", reviewed_answer)
           .replace("{commentary}", commentary);
 
+        // System prompt
+        const coreSysPrompt = CORE_SYS_PROMPT.replace("{denomination}", secondary_reformed_baptist);
+
         // Call OpenAI API with streaming
         const response = await openai.chat.completions.create({
           model: main_model,
           messages: [
-            { role: "system", content: CORE_SYS_PROMPT },
+            { role: "system", content: coreSysPrompt },
             { role: "user", content: prompt },
           ],
           temperature: 0,

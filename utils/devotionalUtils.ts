@@ -112,12 +112,15 @@ export async function generateDevotional(date: Date) {
     
     // Create the prompt
     const userPrompt = generateMessage("morning", date, articles);
+
+    // System prompt
+    const coreSysPrompt = prompts.CORE_SYS_PROMPT.replace("{denomination}", prompts.secondary_reformed_baptist);
     
     // Call OpenAI API
     const response = await openai.chat.completions.create({
         model: MAIN_MODEL,
         messages: [
-            { role: "system", content: prompts.CORE_SYS_PROMPT },
+            { role: "system", content: coreSysPrompt },
             { role: "user", content: userPrompt },
         ],
         temperature: 0,
