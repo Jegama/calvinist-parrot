@@ -26,7 +26,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 export function AppSidebar({ chats, currentChatId, ...props }: AppSidebarProps) {
   return (
-    <Sidebar {...props} className="top-14">
+    <Sidebar {...props} className="top-14 pt-14">
       <SidebarContent>
         <SidebarHeader><br />Your Conversations</SidebarHeader>
         <SidebarGroup>

@@ -84,11 +84,11 @@ export default function MainChatPage() {
     <SidebarProvider>
       <AppSidebar chats={chats} />
       <SidebarInset>
-        <div className="pl-4">
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <div className="pl-4 pt-14 md:pt-0">
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 fixed top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:static">
             <SidebarTrigger className="-ml-1" />
           </header>
-          <main className="flex flex-1 items-start justify-center pt-[5vh] p-4 overflow-auto">
+          <main className="flex flex-1 items-start justify-center pt-[5vh] p-4 overflow-auto md:ml-[16rem] pt-16">
             <Card className="w-[90%] mx-auto">
               <CardHeader>
                 <div className="flex items-center space-x-4">

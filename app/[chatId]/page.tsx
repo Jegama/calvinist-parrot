@@ -274,13 +274,13 @@ export default function ChatPage() {
     <SidebarProvider>
       <AppSidebar chats={chats} currentChatId={params.chatId} />
       <SidebarInset>
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <div className="flex-1 flex flex-col overflow-hidden pt-14 md:pt-0">
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 fixed top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:static">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
-            <h2>{chat.conversationName}</h2>
+            <h2 className="truncate max-w-full">{chat.conversationName}</h2>
           </header>
-          <div className="flex-1 overflow-auto p-4 top-14 pb-28">
+          <div className="flex-1 overflow-auto p-4 pb-28 md:ml-[16rem] pt-16">
             <Card className="w-full max-w-2xl mx-auto">
               <CardContent className="flex flex-col gap-4 p-4">
                 {messages.map((msg, i) => {
@@ -333,7 +333,7 @@ export default function ChatPage() {
               </CardContent>
             </Card>
           </div>
-          <div className="fixed bottom-4 w-full px-4 flex justify-center">
+          <div className="fixed bottom-4 w-full px-4 flex justify-center md:ml-[16rem] z-50" style={{maxWidth: '100vw'}}>
             <Card className="w-full max-w-2xl mx-auto">
               <CardContent className="w-full flex items-center gap-2 p-4">
                 {progress ? (
