@@ -275,12 +275,12 @@ export default function ChatPage() {
       <AppSidebar chats={chats} currentChatId={params.chatId} />
       <SidebarInset>
         <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+    <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 sticky top-[3.5rem] z-40 bg-background">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             <h2>{chat.conversationName}</h2>
           </header>
-          <div className="flex-1 overflow-auto p-4 top-14 pb-28">
+    <div className="flex-1 overflow-y-auto p-4">
             <Card className="w-full max-w-2xl mx-auto">
               <CardContent className="flex flex-col gap-4 p-4">
                 {messages.map((msg, i) => {
@@ -333,7 +333,7 @@ export default function ChatPage() {
               </CardContent>
             </Card>
           </div>
-          <div className="fixed bottom-4 w-full px-4 flex justify-center">
+          <div className="px-4 py-2 border-t">
             <Card className="w-full max-w-2xl mx-auto">
               <CardContent className="w-full flex items-center gap-2 p-4">
                 {progress ? (
