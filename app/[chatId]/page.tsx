@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { AppSidebar } from "@/components/chat-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -41,6 +41,7 @@ type DataEvent =
 
 export default function ChatPage() {
   const params = useParams() as { chatId: string };
+  const searchParams = useSearchParams();
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -54,10 +55,15 @@ export default function ChatPage() {
   const isFetchingChatRef = useRef(false);
   const isFetchingChatsRef = useRef(false);
   const chatFetchedRef = useRef(false);
+  const seededInitialMessageRef = useRef(false);
+
+  const initialQuestionParam = searchParams.get("initialQuestion");
+  const MAX_CHAT_FETCH_RETRIES = 5;
+  const RETRY_DELAY_BASE_MS = 200;
 
   // --- 1) Fetch Chat, User, and Chat List ---
 
-  const fetchChat = useCallback(async () => {
+  const fetchChat = useCallback(async (attempt = 0) => {
     // Prevent duplicate fetch requests
     if (isFetchingChatRef.current) return;
     
@@ -65,15 +71,23 @@ export default function ChatPage() {
       isFetchingChatRef.current = true;
       const response = await fetch(`/api/parrot-chat?chatId=${params.chatId}`);
       if (!response.ok) {
+        if (response.status === 404 && attempt < MAX_CHAT_FETCH_RETRIES) {
+          const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt);
+          setTimeout(() => fetchChat(attempt + 1), delay);
+          return;
+        }
         throw new Error("Failed to fetch chat");
       }
       const data = await response.json();
       setChat(data.chat);
       setMessages(data.messages);
       chatFetchedRef.current = true;
+      setErrorMessage("");
     } catch (error) {
       console.error("Error fetching chat:", error);
-      setErrorMessage("An error occurred while fetching the chat.");
+      if (attempt >= MAX_CHAT_FETCH_RETRIES) {
+        setErrorMessage("An error occurred while fetching the chat.");
+      }
     } finally {
       isFetchingChatRef.current = false;
     }
@@ -135,6 +149,19 @@ export default function ChatPage() {
       fetchChats();
     }
   }, [userId, fetchChats]);
+
+  // Seed the initial user message immediately when navigating from the landing page.
+  useEffect(() => {
+    if (
+      !seededInitialMessageRef.current &&
+      initialQuestionParam &&
+      messages.length === 0 &&
+      !chatFetchedRef.current
+    ) {
+      seededInitialMessageRef.current = true;
+      setMessages([{ sender: "user", content: initialQuestionParam }]);
+    }
+  }, [initialQuestionParam, messages.length]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -246,7 +273,13 @@ export default function ChatPage() {
 
   // --- Auto-trigger sending if only the initial user message exists ---
   useEffect(() => {
-    if (messages.length === 1 && messages[0].sender === "user" && !autoSentRef.current && !progress) {
+    if (
+      chatFetchedRef.current &&
+      messages.length === 1 &&
+      messages[0].sender === "user" &&
+      !autoSentRef.current &&
+      !progress
+    ) {
       autoSentRef.current = true;
       // Call handleSendMessage with autotrigger flag
       handleSendMessage({ message: messages[0].content, isAutoTrigger: true });

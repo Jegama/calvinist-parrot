@@ -4,38 +4,6 @@ export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import OpenAI from 'openai';
-import * as prompts from '@/lib/prompts'
-import {
-  generateConversationName,
-  buildCategorizationMessages
-} from '@/utils/generateConversationName';
-import { sendError, sendProgress } from '@/lib/progressUtils';
-import { parrotWorkflow } from "@/utils/langChainAgents/mainAgent";
-import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const mini_model = "gpt-4.1-mini";
-
-function buildParrotHistory(
-  messages: { sender: string; content: string }[],
-  parrot_sys_prompt: string
-): (SystemMessage | HumanMessage | AIMessage)[] {
-  const history: (SystemMessage | HumanMessage | AIMessage)[] = [
-    new SystemMessage(parrot_sys_prompt),
-  ];
-  for (const msg of messages) {
-    if (msg.sender === 'user') {
-      history.push(new HumanMessage(msg.content));
-    } else if (msg.sender === 'parrot') {
-      history.push(new AIMessage(msg.content));
-    }
-  }
-  return history;
-}
 
 export async function POST(request: Request) {
   interface ChatRequestBody {
@@ -49,6 +17,7 @@ export async function POST(request: Request) {
     issue_type?: string;
     denomination?: string;
     isAutoTrigger?: boolean;
+    clientChatId?: string;
   }
 
   const {
@@ -61,42 +30,13 @@ export async function POST(request: Request) {
     subcategory,
     issue_type,
     denomination = "reformed-baptist",
-    isAutoTrigger
+    isAutoTrigger,
+    clientChatId,
   }: ChatRequestBody = await request.json();
-
-  // Map denomination to corresponding system prompt
-  let secondary_prompt_text;
-  switch (denomination) {
-    case "reformed-baptist":
-      secondary_prompt_text = prompts.secondary_reformed_baptist;
-      break;
-    case "presbyterian":
-      secondary_prompt_text = prompts.secondary_presbyterian;
-      break;
-    case "wesleyan":
-      secondary_prompt_text = prompts.secondary_wesleyan;
-      break;
-    case "lutheran":
-      secondary_prompt_text = prompts.secondary_lutheran;
-      break;
-    case "anglican":
-      secondary_prompt_text = prompts.secondary_anglican;
-      break;
-    case "pentecostal":
-      secondary_prompt_text = prompts.secondary_pentecostal;
-      break;
-    case "non-denom":
-      secondary_prompt_text = prompts.secondary_non_denom;
-      break;
-    default:
-      secondary_prompt_text = prompts.secondary_reformed_baptist; // Default to reformed-baptist
-  }
-
-  const core_sys_prompt_with_denomination = prompts.CORE_SYS_PROMPT.replace('{denomination}', secondary_prompt_text);
-  const new_parrot_sys_prompt = prompts.PARROT_SYS_PROMPT_MAIN.replace('{CORE}', core_sys_prompt_with_denomination);
 
   // Handle new chat from Parrot QA
   if (userId && initialQuestion && initialAnswer && !chatId) {
+    const { generateConversationName } = await import('@/utils/generateConversationName');
     const allMessagesStr = `user: ${initialQuestion}\nparrot: ${initialAnswer}`;
     const conversationName = await generateConversationName(allMessagesStr);
 
@@ -126,11 +66,13 @@ export async function POST(request: Request) {
   if (userId && initialQuestion && !chatId) {
     const chat = await prisma.chatHistory.create({
       data: {
+        id: clientChatId ?? undefined,
         userId,
         conversationName: 'New Conversation',
         category: '',
         subcategory: '',
         issue_type: '',
+        denomination,
       },
     });
     
@@ -144,6 +86,67 @@ export async function POST(request: Request) {
 
   // If chatID and message run main system <-- This continues the converation and is the main use case.
   if (chatId && message) {
+    const [progressUtils, mainAgentModule, promptsModule, messagesModule, conversationUtils] = await Promise.all([
+      import('@/lib/progressUtils'),
+      import('@/utils/langChainAgents/mainAgent'),
+      import('@/lib/prompts'),
+      import('@langchain/core/messages'),
+      import('@/utils/generateConversationName'),
+    ]);
+
+    const { sendError, sendProgress } = progressUtils;
+    const { parrotWorkflow } = mainAgentModule;
+    const prompts = promptsModule;
+    const { SystemMessage, HumanMessage, AIMessage } = messagesModule;
+    const { generateConversationName, buildCategorizationMessages } = conversationUtils;
+
+    const mapDenominationPrompt = (value: string) => {
+      switch (value) {
+        case "reformed-baptist":
+          return prompts.secondary_reformed_baptist;
+        case "presbyterian":
+          return prompts.secondary_presbyterian;
+        case "wesleyan":
+          return prompts.secondary_wesleyan;
+        case "lutheran":
+          return prompts.secondary_lutheran;
+        case "anglican":
+          return prompts.secondary_anglican;
+        case "pentecostal":
+          return prompts.secondary_pentecostal;
+        case "non-denom":
+          return prompts.secondary_non_denom;
+        default:
+          return prompts.secondary_reformed_baptist;
+      }
+    };
+
+    type LangChainMessage =
+      | InstanceType<typeof SystemMessage>
+      | InstanceType<typeof HumanMessage>
+      | InstanceType<typeof AIMessage>;
+
+    const buildParrotHistory = (
+      messages: { sender: string; content: string }[],
+      parrotSysPrompt: string
+    ): LangChainMessage[] => {
+      const history: LangChainMessage[] = [
+        new SystemMessage(parrotSysPrompt),
+      ];
+      for (const msg of messages) {
+        if (msg.sender === 'user') {
+          history.push(new HumanMessage(msg.content));
+        } else if (msg.sender === 'parrot') {
+          history.push(new AIMessage(msg.content));
+        }
+      }
+      return history;
+    };
+
+    const secondaryPromptText = mapDenominationPrompt(denomination);
+    const coreSysPromptWithDenomination = prompts.CORE_SYS_PROMPT.replace('{denomination}', secondaryPromptText);
+    const newParrotSysPrompt = prompts.PARROT_SYS_PROMPT_MAIN.replace('{CORE}', coreSysPromptWithDenomination);
+
     const stream = new ReadableStream({
       async start(controller) {
         // Message accumulator to avoid repeated DB fetches
@@ -175,7 +178,7 @@ export async function POST(request: Request) {
           try {
             const parrotHistory = buildParrotHistory(
               conversationMessages,
-              new_parrot_sys_prompt
+              newParrotSysPrompt
             );
 
             const eventStream = parrotWorkflow.streamEvents(
@@ -283,8 +286,13 @@ export async function POST(request: Request) {
             const currentChat = await prisma.chatHistory.findUnique({ where: { id: chatId } });
             if (currentChat && currentChat.conversationName === 'New Conversation') {
               const categorizationMessages = buildCategorizationMessages(message);
+              const { default: OpenAI } = await import('openai');
+              const miniModel = "gpt-4.1-mini";
+              const openai = new OpenAI({
+                apiKey: process.env.OPENAI_API_KEY,
+              });
               const categorizationResponse = await openai.chat.completions.create({
-                model: mini_model,
+                model: miniModel,
                 messages: categorizationMessages,
                 response_format: {
                   type: 'json_schema',

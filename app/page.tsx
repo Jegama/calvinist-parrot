@@ -57,27 +57,38 @@ export default function MainChatPage() {
     fetchChats();
   }, [userId]);
 
-  const handleStartNewChat = async (e: React.FormEvent) => {
+  const handleStartNewChat = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!initialQuestion.trim()) return;
+    const question = initialQuestion.trim();
+    if (!question) return;
 
-    try {
-      const createResponse = await fetch('/api/parrot-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, initialQuestion }),
-      });
+    const newChatId = crypto.randomUUID();
 
-      if (!createResponse.ok) {
-        throw new Error('Failed to create chat session');
+    setErrorMessage("");
+
+    void (async () => {
+      try {
+        const createResponse = await fetch('/api/parrot-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, initialQuestion: question, clientChatId: newChatId }),
+        });
+
+        if (!createResponse.ok) {
+          throw new Error('Failed to create chat session');
+        }
+
+        const { chatId } = await createResponse.json();
+        if (!chatId) {
+          throw new Error('Chat session created without an ID');
+        }
+      } catch (error) {
+        console.error("Error starting new chat:", error);
+        setErrorMessage("An error occurred while starting a new chat.");
       }
+    })();
 
-      const { chatId } = await createResponse.json();
-      router.push(`/${chatId}`);
-    } catch (error) {
-      console.error("Error starting new chat:", error);
-      setErrorMessage("An error occurred while starting a new chat.");
-    }
+    router.push(`/${newChatId}?initialQuestion=${encodeURIComponent(question)}`);
   };
 
   return (
