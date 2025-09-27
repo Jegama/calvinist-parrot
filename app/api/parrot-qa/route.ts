@@ -11,9 +11,9 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 })
 
-const ft_model = process.env.FT_MODEL || "gpt-4.1-mini"
-const main_model = "gpt-4.1"
-const mini_model = "gpt-4.1-mini"
+const ft_model = process.env.FT_MODEL || "gpt-5-mini"
+const main_model = "gpt-5"
+const mini_model = "gpt-5-mini"
 
 export async function POST(req: NextRequest) {
   const { question, userId = null, denomination = "reformed-baptist" } = await req.json();
@@ -68,7 +68,6 @@ export async function POST(req: NextRequest) {
           type: "json_schema",
           json_schema: prompts.categorizationSchema,
         },
-        temperature: 0
       })
 
       const categorization = JSON.parse(categorizationResponse.choices[0].message.content || '{}')
@@ -91,7 +90,6 @@ export async function POST(req: NextRequest) {
             { role: "system", content: new_sys_prompt },
             { role: "user", content: refusingPrompt }
           ],
-          temperature: 0,
           stream: true
         })
 
@@ -135,7 +133,6 @@ export async function POST(req: NextRequest) {
           messages: [
             { role: "user", content: reasoningPrompt }
           ],
-          temperature: 1
         }),
         openai.chat.completions.create({
           model: mini_model,
@@ -143,7 +140,6 @@ export async function POST(req: NextRequest) {
             { role: "system", content: new_sys_prompt },
             { role: "user", content: reasoningPrompt }
           ],
-          temperature: 1
         }),
         openai.chat.completions.create({
           model: mini_model,
@@ -151,7 +147,6 @@ export async function POST(req: NextRequest) {
             { role: "system", content: prompts.CALVIN_QUICK_SYS_PROMPT },
             { role: "user", content: reasoningPrompt }
           ],
-          temperature: 1
         })
       ])
 
@@ -183,7 +178,6 @@ export async function POST(req: NextRequest) {
           { role: "system", content: prompts.CALVIN_QUICK_SYS_PROMPT },
           { role: "user", content: calvinReviewPrompt }
         ],
-        temperature: 0
       })
 
       const calvinReviewAnswer = calvinReviewResponse.choices[0].message.content
@@ -217,7 +211,6 @@ export async function POST(req: NextRequest) {
           { role: "system", content: new_sys_prompt },
           { role: "user", content: reviewPrompt }
         ],
-        temperature: 0,
         stream: true
       })
 

@@ -287,7 +287,7 @@ export async function POST(request: Request) {
             if (currentChat && currentChat.conversationName === 'New Conversation') {
               const categorizationMessages = buildCategorizationMessages(message);
               const { default: OpenAI } = await import('openai');
-              const miniModel = "gpt-4.1-mini";
+              const miniModel = "gpt-5-mini";
               const openai = new OpenAI({
                 apiKey: process.env.OPENAI_API_KEY,
               });
@@ -298,7 +298,6 @@ export async function POST(request: Request) {
                   type: 'json_schema',
                   json_schema: prompts.categorizationSchema,
                 },
-                temperature: 0,
               });
 
               const categorization = JSON.parse(categorizationResponse.choices[0]?.message?.content || '{}');

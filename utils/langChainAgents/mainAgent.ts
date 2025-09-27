@@ -12,11 +12,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const mini_model = "gpt-4.1-mini";
+const mini_model = "gpt-5-mini";
 
 // 1) Create the Chat Model, bind tools for function calling
 const model = new ChatOpenAI({
-    model: "gpt-4.1-mini",
+    model: "gpt-5-mini",
     streaming: true,
 });
 export const boundModel = model.bindTools(toolsArray);
@@ -48,7 +48,6 @@ Return ONLY the refined search query without any explanation, commentary, or add
     const response = await openai.chat.completions.create({
       model: mini_model,
       messages,
-      temperature: 0,
     });
     return response.choices[0].message?.content?.trim() || longQuery;
   } catch (error) {
