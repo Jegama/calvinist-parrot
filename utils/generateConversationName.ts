@@ -40,13 +40,12 @@ What would you like to name this conversation? It can be a short name to remembe
   };
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4.1-mini',
+    model: 'gpt-5-mini',
     messages: getNamePrompt,
     response_format: {
       type: "json_schema",
       json_schema: conversationNameSchema,
     },
-    temperature: 0,
   });
 
   const conversationNameContent = response.choices[0].message.content;

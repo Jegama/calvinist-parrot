@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { AppSidebar } from "@/components/chat-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Accordion,
@@ -41,6 +42,8 @@ type DataEvent =
 
 export default function ChatPage() {
   const params = useParams() as { chatId: string };
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -54,10 +57,16 @@ export default function ChatPage() {
   const isFetchingChatRef = useRef(false);
   const isFetchingChatsRef = useRef(false);
   const chatFetchedRef = useRef(false);
+  const seededInitialMessageRef = useRef(false);
+  const urlNormalizedRef = useRef(false);
+
+  const initialQuestionParam = searchParams.get("initialQuestion");
+  const MAX_CHAT_FETCH_RETRIES = 5;
+  const RETRY_DELAY_BASE_MS = 200;
 
   // --- 1) Fetch Chat, User, and Chat List ---
 
-  const fetchChat = useCallback(async () => {
+  const fetchChat = useCallback(async (attempt = 0) => {
     // Prevent duplicate fetch requests
     if (isFetchingChatRef.current) return;
     
@@ -65,19 +74,40 @@ export default function ChatPage() {
       isFetchingChatRef.current = true;
       const response = await fetch(`/api/parrot-chat?chatId=${params.chatId}`);
       if (!response.ok) {
+        if (response.status === 404 && attempt < MAX_CHAT_FETCH_RETRIES) {
+          const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt);
+          setTimeout(() => fetchChat(attempt + 1), delay);
+          return;
+        }
         throw new Error("Failed to fetch chat");
       }
       const data = await response.json();
+      if (!data.chat) {
+        if (attempt < MAX_CHAT_FETCH_RETRIES) {
+          const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt);
+          setTimeout(() => fetchChat(attempt + 1), delay);
+        } else {
+          setErrorMessage("An error occurred while fetching the chat.");
+        }
+        return;
+      }
       setChat(data.chat);
       setMessages(data.messages);
       chatFetchedRef.current = true;
+      setErrorMessage("");
+      if (initialQuestionParam && !urlNormalizedRef.current) {
+        router.replace(`/${params.chatId}`);
+        urlNormalizedRef.current = true;
+      }
     } catch (error) {
       console.error("Error fetching chat:", error);
-      setErrorMessage("An error occurred while fetching the chat.");
+      if (attempt >= MAX_CHAT_FETCH_RETRIES) {
+        setErrorMessage("An error occurred while fetching the chat.");
+      }
     } finally {
       isFetchingChatRef.current = false;
     }
-  }, [params.chatId]);
+  }, [params.chatId, initialQuestionParam, router]);
 
   const fetchChats = useCallback(async () => {
     // Only fetch if we have a userId and aren't already fetching
@@ -122,6 +152,10 @@ export default function ChatPage() {
     initUser();
   }, []);
 
+  useEffect(() => {
+    urlNormalizedRef.current = false;
+  }, [params.chatId]);
+
   // Load chat data once when component mounts or chatId changes
   useEffect(() => {
     if (params.chatId && !chatFetchedRef.current) {
@@ -135,6 +169,19 @@ export default function ChatPage() {
       fetchChats();
     }
   }, [userId, fetchChats]);
+
+  // Seed the initial user message immediately when navigating from the landing page.
+  useEffect(() => {
+    if (
+      !seededInitialMessageRef.current &&
+      initialQuestionParam &&
+      messages.length === 0 &&
+      !chatFetchedRef.current
+    ) {
+      seededInitialMessageRef.current = true;
+      setMessages([{ sender: "user", content: initialQuestionParam }]);
+    }
+  }, [initialQuestionParam, messages.length]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -234,6 +281,10 @@ export default function ChatPage() {
 
               // Refresh chat list to update sidebar
               fetchChats();
+              if (initialQuestionParam && !urlNormalizedRef.current) {
+                router.replace(`/${params.chatId}`);
+                urlNormalizedRef.current = true;
+              }
               return;
             default:
               console.warn("Unknown event type:", data.type);
@@ -241,12 +292,18 @@ export default function ChatPage() {
         }
       }
     },
-    [input, params.chatId, fetchChat, fetchChats]
+    [input, params.chatId, fetchChat, fetchChats, initialQuestionParam, router]
   );
 
   // --- Auto-trigger sending if only the initial user message exists ---
   useEffect(() => {
-    if (messages.length === 1 && messages[0].sender === "user" && !autoSentRef.current && !progress) {
+    if (
+      chatFetchedRef.current &&
+      messages.length === 1 &&
+      messages[0].sender === "user" &&
+      !autoSentRef.current &&
+      !progress
+    ) {
       autoSentRef.current = true;
       // Call handleSendMessage with autotrigger flag
       handleSendMessage({ message: messages[0].content, isAutoTrigger: true });
@@ -273,37 +330,37 @@ export default function ChatPage() {
   return (
     <SidebarProvider>
       <AppSidebar chats={chats} currentChatId={params.chatId} />
-      <SidebarInset>
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+      <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))]">
+        <div className="flex min-h-full flex-col">
+          <header className="sticky top-[var(--app-header-height)] z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
-            <h2>{chat.conversationName}</h2>
+            <h2 className="text-lg font-semibold">{chat.conversationName}</h2>
           </header>
-          <div className="flex-1 overflow-auto p-4 top-14 pb-28">
-            <Card className="w-full max-w-2xl mx-auto">
-              <CardContent className="flex flex-col gap-4 p-4">
+          <div className="flex-1 overflow-hidden px-4 pb-6 pt-4">
+            <Card className="mx-auto flex h-full w-full max-w-2xl flex-col">
+              <CardContent className="flex-1 space-y-4 overflow-y-auto p-6">
                 {messages.map((msg, i) => {
                   switch (msg.sender) {
                     case "user":
                       return (
-                        <div key={i} className="max-w-[80%] p-2 rounded-md ml-auto bg-[#A3B18A] text-white">
-                          <div className="text-sm font-bold mb-1">You</div>
+                        <div key={i} className="ml-auto max-w-[80%] rounded-md bg-[#A3B18A] p-3 text-white shadow">
+                          <div className="mb-1 text-sm font-bold">You</div>
                           <MarkdownWithBibleVerses content={msg.content} />
                         </div>
                       );
                     case "parrot":
                       return (
-                        <div key={i} className="max-w-[80%] p-2 rounded-md mr-auto bg-[#004D70] text-white">
-                          <div className="text-sm font-bold mb-1">Parrot</div>
+                        <div key={i} className="mr-auto max-w-[80%] rounded-md bg-[#004D70] p-3 text-white shadow">
+                          <div className="mb-1 text-sm font-bold">Parrot</div>
                           <MarkdownWithBibleVerses content={msg.content} />
                         </div>
                       );
                     case "calvin":
                       return (
-                        <div key={i} className="max-w-[80%] mr-auto mt-2">
+                        <div key={i} className="mr-auto mt-2 max-w-[80%]">
                           <Accordion type="single" collapsible>
-                            <AccordionItem value={`gotQuestions-${i}`}>
+                            <AccordionItem value={`calvin-${i}`}>
                               <AccordionTrigger>Calvin&apos;s Feedback</AccordionTrigger>
                               <AccordionContent>
                                 <MarkdownWithBibleVerses content={msg.content} />
@@ -314,7 +371,7 @@ export default function ChatPage() {
                       );
                     case "gotQuestions":
                       return (
-                        <div key={i} className="max-w-[80%] mr-auto mt-2">
+                        <div key={i} className="mr-auto mt-2 max-w-[80%]">
                           <Accordion type="single" collapsible>
                             <AccordionItem value={`gotQuestions-${i}`}>
                               <AccordionTrigger>Additional Sources/Materials</AccordionTrigger>
@@ -331,21 +388,25 @@ export default function ChatPage() {
                 })}
                 <div ref={messagesEndRef} />
               </CardContent>
-            </Card>
-          </div>
-          <div className="fixed bottom-4 w-full px-4 flex justify-center">
-            <Card className="w-full max-w-2xl mx-auto">
-              <CardContent className="w-full flex items-center gap-2 p-4">
+              <div className="border-t bg-card/80 p-4 backdrop-blur supports-[backdrop-filter]:bg-card/60">
                 {progress ? (
-                  <div className="flex flex-col">
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    <h3 className="font-bold">{progress.title}</h3>
-                    <p>{progress.content}</p>
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    <div className="space-y-1 text-sm">
+                      <h3 className="font-semibold leading-none">{progress.title}</h3>
+                      <p className="text-muted-foreground">{progress.content}</p>
+                    </div>
                   </div>
                 ) : (
-                  <>
+                  <form
+                    className="flex w-full items-end gap-3"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }}
+                  >
                     <Textarea
-                      className="flex-1 border rounded p-2 resize-none"
+                      className="min-h-[80px] flex-1 resize-none"
                       placeholder="Type your message..."
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
@@ -357,16 +418,12 @@ export default function ChatPage() {
                       }}
                       disabled={!!progress}
                     />
-                    <button
-                      onClick={() => handleSendMessage()}
-                      disabled={!!progress}
-                      className="bg-accent text-accent-foreground px-4 py-2 rounded-md hover:bg-accent/90"
-                    >
+                    <Button type="submit" disabled={!!progress}>
                       Send
-                    </button>
-                  </>
+                    </Button>
+                  </form>
                 )}
-              </CardContent>
+              </div>
             </Card>
           </div>
         </div>

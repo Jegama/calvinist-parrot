@@ -1,6 +1,7 @@
 // components/chat-sidebar.tsx
 
 import * as React from "react"
+import type { CSSProperties } from "react"
 import {
   Sidebar,
   SidebarContent,
@@ -24,9 +25,14 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   currentChatId?: string;
 }
 
-export function AppSidebar({ chats, currentChatId, ...props }: AppSidebarProps) {
+export function AppSidebar({ chats, currentChatId, className, style, ...props }: AppSidebarProps) {
+  const mergedStyle = {
+    ...style,
+    top: "var(--app-header-height)",
+  } as CSSProperties
+
   return (
-    <Sidebar {...props} className="top-14">
+    <Sidebar {...props} className={className} style={mergedStyle}>
       <SidebarContent>
         <SidebarHeader><br />Your Conversations</SidebarHeader>
         <SidebarGroup>

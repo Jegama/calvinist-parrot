@@ -10,7 +10,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const main_model = "gpt-4.1-mini";
+const main_model = "gpt-5-mini";
 
 export async function POST(req: NextRequest) {
   const {
@@ -53,7 +53,6 @@ export async function POST(req: NextRequest) {
             { role: "system", content: coreSysPrompt },
             { role: "user", content: prompt },
           ],
-          temperature: 0,
           stream: true,
         });
 

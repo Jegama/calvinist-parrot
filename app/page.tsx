@@ -57,69 +57,78 @@ export default function MainChatPage() {
     fetchChats();
   }, [userId]);
 
-  const handleStartNewChat = async (e: React.FormEvent) => {
+  const handleStartNewChat = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!initialQuestion.trim()) return;
+    const question = initialQuestion.trim();
+    if (!question) return;
 
-    try {
-      const createResponse = await fetch('/api/parrot-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, initialQuestion }),
-      });
+    const newChatId = crypto.randomUUID();
 
-      if (!createResponse.ok) {
-        throw new Error('Failed to create chat session');
+    setErrorMessage("");
+
+    void (async () => {
+      try {
+        const createResponse = await fetch('/api/parrot-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, initialQuestion: question, clientChatId: newChatId }),
+        });
+
+        if (!createResponse.ok) {
+          throw new Error('Failed to create chat session');
+        }
+
+        const { chatId } = await createResponse.json();
+        if (!chatId) {
+          throw new Error('Chat session created without an ID');
+        }
+      } catch (error) {
+        console.error("Error starting new chat:", error);
+        setErrorMessage("An error occurred while starting a new chat.");
       }
+    })();
 
-      const { chatId } = await createResponse.json();
-      router.push(`/${chatId}`);
-    } catch (error) {
-      console.error("Error starting new chat:", error);
-      setErrorMessage("An error occurred while starting a new chat.");
-    }
+    router.push(`/${newChatId}?initialQuestion=${encodeURIComponent(question)}`);
   };
 
   return (
     <SidebarProvider>
       <AppSidebar chats={chats} />
-      <SidebarInset>
-        <div className="pl-4">
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-            <SidebarTrigger className="-ml-1" />
-          </header>
-          <main className="flex flex-1 items-start justify-center pt-[5vh] p-4 overflow-auto">
-            <Card className="w-[90%] mx-auto">
-              <CardHeader>
-                <div className="flex items-center space-x-4">
-                  <Image
-                    src="/Logo.png"
-                    alt="Calvinist Parrot"
-                    width={100}
-                    height={100}
-                    unoptimized={true}
-                  />
-                  <CardTitle className="text-3xl font-bold justify-center w-full">Calvinist Parrot</CardTitle>
-                </div>
-                <CardDescription>
-                  What theological question do you have?
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {errorMessage && <p className="text-red-600 mb-4">{errorMessage}</p>}
-                <form onSubmit={handleStartNewChat} className="space-y-4">
-                  <Textarea
-                    placeholder="Enter your question here..."
-                    value={initialQuestion}
-                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInitialQuestion(e.target.value)}
-                  />
-                  <Button type="submit" className="w-full">
-                    Start Chat
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </main>
+      <SidebarInset className="flex min-h-[calc(100vh-var(--app-header-height))] flex-col">
+        <header className="sticky top-[var(--app-header-height)] z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <SidebarTrigger className="-ml-1" />
+        </header>
+        <div className="flex flex-1 items-center justify-center px-4 py-6">
+          <Card className="w-full max-w-3xl">
+            <CardHeader>
+              <div className="flex items-center space-x-4">
+                <Image
+                  src="/Logo.png"
+                  alt="Calvinist Parrot"
+                  width={100}
+                  height={100}
+                  unoptimized={true}
+                />
+                <CardTitle className="w-full justify-center text-3xl font-bold">Calvinist Parrot</CardTitle>
+              </div>
+              <CardDescription>
+                What theological question do you have?
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {errorMessage && <p className="mb-4 text-red-600">{errorMessage}</p>}
+              <form onSubmit={handleStartNewChat} className="space-y-4">
+                <Textarea
+                  placeholder="Enter your question here..."
+                  value={initialQuestion}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInitialQuestion(e.target.value)}
+                />
+                <Button type="submit" className="w-full">
+                  Start Chat
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </div>
       </SidebarInset>
     </SidebarProvider>

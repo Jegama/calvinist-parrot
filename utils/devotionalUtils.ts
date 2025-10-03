@@ -14,7 +14,7 @@ export const openai = new OpenAI({
 export const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
 // Constants
-export const MAIN_MODEL = "gpt-4.1-mini";
+export const MAIN_MODEL = "gpt-5-mini";
 
 // Schema definition
 export const devotionalSchema = {
@@ -123,7 +123,6 @@ export async function generateDevotional(date: Date) {
             { role: "system", content: coreSysPrompt },
             { role: "user", content: userPrompt },
         ],
-        temperature: 0,
         response_format: {
             type: "json_schema",
             json_schema: devotionalSchema,

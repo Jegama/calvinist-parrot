@@ -1,5 +1,6 @@
 // app/layout.tsx
 
+import type { CSSProperties } from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
@@ -20,9 +21,13 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const bodyStyle = {
+    "--app-header-height": "4.5rem",
+  } as CSSProperties
+
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={inter.className} suppressHydrationWarning style={bodyStyle}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
