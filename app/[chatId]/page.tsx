@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { AppSidebar } from "@/components/chat-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -43,6 +43,7 @@ type DataEvent =
 export default function ChatPage() {
   const params = useParams() as { chatId: string };
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -57,6 +58,7 @@ export default function ChatPage() {
   const isFetchingChatsRef = useRef(false);
   const chatFetchedRef = useRef(false);
   const seededInitialMessageRef = useRef(false);
+  const urlNormalizedRef = useRef(false);
 
   const initialQuestionParam = searchParams.get("initialQuestion");
   const MAX_CHAT_FETCH_RETRIES = 5;
@@ -80,10 +82,23 @@ export default function ChatPage() {
         throw new Error("Failed to fetch chat");
       }
       const data = await response.json();
+      if (!data.chat) {
+        if (attempt < MAX_CHAT_FETCH_RETRIES) {
+          const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt);
+          setTimeout(() => fetchChat(attempt + 1), delay);
+        } else {
+          setErrorMessage("An error occurred while fetching the chat.");
+        }
+        return;
+      }
       setChat(data.chat);
       setMessages(data.messages);
       chatFetchedRef.current = true;
       setErrorMessage("");
+      if (initialQuestionParam && !urlNormalizedRef.current) {
+        router.replace(`/${params.chatId}`);
+        urlNormalizedRef.current = true;
+      }
     } catch (error) {
       console.error("Error fetching chat:", error);
       if (attempt >= MAX_CHAT_FETCH_RETRIES) {
@@ -92,7 +107,7 @@ export default function ChatPage() {
     } finally {
       isFetchingChatRef.current = false;
     }
-  }, [params.chatId]);
+  }, [params.chatId, initialQuestionParam, router]);
 
   const fetchChats = useCallback(async () => {
     // Only fetch if we have a userId and aren't already fetching
@@ -136,6 +151,10 @@ export default function ChatPage() {
     }
     initUser();
   }, []);
+
+  useEffect(() => {
+    urlNormalizedRef.current = false;
+  }, [params.chatId]);
 
   // Load chat data once when component mounts or chatId changes
   useEffect(() => {
@@ -262,6 +281,10 @@ export default function ChatPage() {
 
               // Refresh chat list to update sidebar
               fetchChats();
+              if (initialQuestionParam && !urlNormalizedRef.current) {
+                router.replace(`/${params.chatId}`);
+                urlNormalizedRef.current = true;
+              }
               return;
             default:
               console.warn("Unknown event type:", data.type);
@@ -269,7 +292,7 @@ export default function ChatPage() {
         }
       }
     },
-    [input, params.chatId, fetchChat, fetchChats]
+    [input, params.chatId, fetchChat, fetchChats, initialQuestionParam, router]
   );
 
   // --- Auto-trigger sending if only the initial user message exists ---

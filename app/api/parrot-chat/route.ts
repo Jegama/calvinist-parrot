@@ -75,7 +75,7 @@ export async function POST(request: Request) {
         denomination,
       },
     });
-    
+
     // Create initial messages
     await prisma.chatMessage.create({
       data: { chatId: chat.id, sender: 'user', content: initialQuestion },
@@ -126,10 +126,10 @@ export async function POST(request: Request) {
       | InstanceType<typeof HumanMessage>
       | InstanceType<typeof AIMessage>;
 
-    const buildParrotHistory = (
+    const buildParrotHistory: (
       messages: { sender: string; content: string }[],
       parrotSysPrompt: string
-    ): LangChainMessage[] => {
+    ) => LangChainMessage[] = (messages, parrotSysPrompt) => {
       const history: LangChainMessage[] = [
         new SystemMessage(parrotSysPrompt),
       ];
@@ -147,12 +147,66 @@ export async function POST(request: Request) {
     const coreSysPromptWithDenomination = prompts.CORE_SYS_PROMPT.replace('{denomination}', secondaryPromptText);
     const newParrotSysPrompt = prompts.PARROT_SYS_PROMPT_MAIN.replace('{CORE}', coreSysPromptWithDenomination);
 
+
     const stream = new ReadableStream({
       async start(controller) {
         // Message accumulator to avoid repeated DB fetches
         let conversationMessages: { sender: string; content: string }[] = [];
+        let hasAnnouncedThinking = false;
+        let hasAnnouncedDrafting = false;
+        const activeToolRuns = new Set<string>();
+
+        const toolNameMap: Record<string, { title: string; start: string; finish: string }> = {
+          supplementalArticleSearch: {
+            title: 'Consulting trusted resources',
+            start: 'Looking up supplemental articles to support the answer.',
+            finish: 'Finished gathering supporting articles.',
+          },
+        };
+
+        const getFriendlyToolMessage = (
+          toolName?: string
+        ): { title: string; start: string; finish: string } => {
+          if (!toolName) {
+            return {
+              title: 'Using a tool',
+              start: 'Exploring an external resource for more insight.',
+              finish: 'Done consulting the external resource.',
+            };
+          }
+          return toolNameMap[toolName] ?? {
+            title: `Using ${toolName}`,
+            start: 'Exploring an external resource for more insight.',
+            finish: 'Done consulting the external resource.',
+          };
+        };
+
+        const extractToolName = (payload: unknown): string | undefined => {
+          if (!payload || typeof payload !== 'object') {
+            return undefined;
+          }
+          const withName = payload as { name?: unknown; serialized?: { name?: unknown } };
+          if (typeof withName.name === 'string' && withName.name.length > 0) {
+            return withName.name;
+          }
+          if (
+            withName.serialized &&
+            typeof withName.serialized === 'object' &&
+            withName.serialized !== null &&
+            typeof (withName.serialized as { name?: unknown }).name === 'string'
+          ) {
+            return (withName.serialized as { name: string }).name;
+          }
+          return undefined;
+        };
 
         try {
+          sendProgress({
+            type: 'progress',
+            title: 'Preparing context',
+            content: 'Gathering conversation history...',
+          }, controller);
+
           // Fetch initial messages only once
           const previousMessages = await prisma.chatMessage.findMany({
             where: { chatId },
@@ -164,6 +218,12 @@ export async function POST(request: Request) {
             content: msg.content,
           }));
 
+          sendProgress({
+            type: 'progress',
+            title: 'Analyzing question',
+            content: 'Context collected — thinking through the best response.',
+          }, controller);
+
           // Only add and save user message if not auto-triggered. This is from `app/[chatId]/page.tsx`, when you load the page and the last message is from the user.
           if (!isAutoTrigger) {
             const userMessage = { sender: 'user', content: message };
@@ -171,6 +231,12 @@ export async function POST(request: Request) {
             await prisma.chatMessage.create({
               data: { chatId, sender: 'user', content: message },
             });
+
+            sendProgress({
+              type: 'progress',
+              title: 'Message received',
+              content: 'Working on a thoughtful reply...',
+            }, controller);
           }
 
           // Parrot's answer
@@ -183,7 +249,7 @@ export async function POST(request: Request) {
 
             const eventStream = parrotWorkflow.streamEvents(
               { messages: parrotHistory },
-              { version: "v2" }
+              { version: "v2", streamMode: ["updates", "messages"] }
             );
 
             for await (const { event, tags, data } of eventStream) {
@@ -193,42 +259,81 @@ export async function POST(request: Request) {
                   parrotReply += data.chunk.content;
                   sendProgress({ type: 'parrot', content: data.chunk.content }, controller);
                 }
+              } else if (event === "on_chat_model_start") {
+                if (!hasAnnouncedDrafting) {
+                  hasAnnouncedDrafting = true;
+                  sendProgress({
+                    type: 'progress',
+                    title: 'Drafting response',
+                    content: 'Turning insights into a clear answer...',
+                  }, controller);
+                }
               } else if (event === "on_chain_start") {
                 // New progress handling using data.input.messages
+                if (!hasAnnouncedThinking) {
+                  hasAnnouncedThinking = true;
+                  sendProgress({
+                    type: 'progress',
+                    title: 'Mapping out a plan',
+                    content: 'Considering sources and next steps...',
+                  }, controller);
+                }
+
                 if (data.input?.messages?.length > 0) {
-                  const firstMsg = data.input.messages[0];
-                  if (firstMsg.tool_calls && firstMsg.tool_calls.length > 0) {
-                    const toolCall = firstMsg.tool_calls[0];
-                    if (toolCall.args?.query) {
-                      sendProgress({ type: 'progress', title: "Looking for articles", content: toolCall.args.query }, controller);
-                    } else if (toolCall.args?.draft) {
-                      sendProgress({ type: 'progress', title: "Asking for feedback", content: toolCall.args.draft.slice(0, 50) }, controller);
-                    } else if (toolCall.args?.passages) {
+                  const messageWithToolCall = data.input.messages.find(
+                    (m: { tool_calls?: Array<{ args?: Record<string, unknown> }> }) =>
+                      Array.isArray(m.tool_calls) && m.tool_calls.length > 0
+                  );
+
+                  const firstToolCall = messageWithToolCall?.tool_calls?.[0];
+                  if (firstToolCall) {
+                    const args = firstToolCall.args ?? {};
+                    if (typeof args.query === 'string' && args.query.trim()) {
+                      const friendly = getFriendlyToolMessage(firstToolCall.name);
+                      sendProgress({
+                        type: 'progress',
+                        title: friendly.title,
+                        content: args.query,
+                      }, controller);
+                    } else if (typeof args.draft === 'string' && args.draft.trim()) {
+                      sendProgress({
+                        type: 'progress',
+                        title: 'Requesting peer review',
+                        content: args.draft.slice(0, 120),
+                      }, controller);
+                    } else if (args.passages) {
                       try {
-                        const passages = JSON.parse(toolCall.args.passages);
-                        sendProgress({ 
-                          type: 'progress', 
-                          title: "Looking commentary on:", 
-                          content: Array.isArray(passages) ? passages.join(", ") : String(passages) 
+                        const passages = Array.isArray(args.passages)
+                          ? args.passages
+                          : JSON.parse(String(args.passages));
+                        const list = Array.isArray(passages) ? passages.join(', ') : String(passages);
+                        sendProgress({
+                          type: 'progress',
+                          title: 'Reviewing commentary passages',
+                          content: list,
                         }, controller);
                       } catch (e) {
-                        // If parsing fails, use the string as is
-                        sendProgress({ 
-                          type: 'progress', 
-                          title: "Looking commentary on:", 
-                          content: String(toolCall.args.passages) 
+                        sendProgress({
+                          type: 'progress',
+                          title: 'Reviewing commentary passages',
+                          content: String(args.passages),
                         }, controller);
                         console.error("Failed to parse passages", e);
                       }
-                    } else {
-                      sendProgress({ type: 'progress', title: "Using a tool", content: "" }, controller);
                     }
-                  // } else {
-                  //   sendProgress({ type: 'progress', title: "Thinking", content: "" }, controller);
                   }
                 }
-              // } else if (event === "on_chat_model_start") {
-              //   console.log("Chain Model start:", data);
+              } else if (event === "on_tool_start") {
+                const toolName = extractToolName(data);
+                const friendly = getFriendlyToolMessage(toolName);
+                if (!activeToolRuns.has(toolName ?? 'unknown')) {
+                  activeToolRuns.add(toolName ?? 'unknown');
+                  sendProgress({
+                    type: 'progress',
+                    title: friendly.title,
+                    content: friendly.start,
+                  }, controller);
+                }
               } else if (event === "on_tool_end") {
                 console.log("Tool end:", data.output.name);
                 console.log(tags);
@@ -250,24 +355,28 @@ export async function POST(request: Request) {
                       .join('\n');
                     // Pass the formatted bibliography to the front-end
                     sendProgress({ type: 'gotQuestions', content: parsedReferences }, controller);
-                    sendProgress({ type: 'progress', title: "Thinking", content: "I am deciding on my next step." }, controller);
+                    const friendly = getFriendlyToolMessage(data.output.name);
+                    sendProgress({
+                      type: 'progress',
+                      title: friendly.title,
+                      content: friendly.finish,
+                    }, controller);
                     await prisma.chatMessage.create({
                       data: { chatId, sender: 'gotQuestions', content: parsedReferences },
                     });
+                    sendProgress({
+                      type: 'progress',
+                      title: 'Synthesizing answer',
+                      content: 'Weaving research into a cohesive response...',
+                    }, controller);
                   }
-                } else if (data.output.name === "CalvinReviewer") {
-                  // Pass the CalvinReviewer feedback to the front-end
-                  sendProgress({ type: 'calvin', content: data.output.content }, controller);
-                  sendProgress({ type: 'progress', title: "Thinking", content: "Writing my final response." }, controller);
-                  await prisma.chatMessage.create({
-                    data: { chatId, sender: 'calvin', content: data.output.content },
-                  });
-                } else if (data.output.name === "BibleCommentary") {
-                  // Pass the BibleCommentary feedback to the front-end
-                  sendProgress({ type: 'progress', title: "Thinking", content: "I am deciding on my next step." }, controller);
+                }
+              } else if (event === "on_chain_end") {
+                if (activeToolRuns.size > 0) {
+                  activeToolRuns.clear();
                 }
               } // else {
-                // console.log("Unhandled event:", event);
+              // console.log("Unhandled event:", event);
               // }
             }
 
@@ -276,6 +385,11 @@ export async function POST(request: Request) {
               data: { chatId, sender: 'parrot', content: parrotReply },
             });
             conversationMessages.push({ sender: 'parrot', content: parrotReply });
+            sendProgress({
+              type: 'progress',
+              title: 'Final polishing',
+              content: 'Answer ready — sending it your way...',
+            }, controller);
 
           } catch (error) {
             sendError(error, 'parrot_response', controller);
@@ -344,6 +458,9 @@ export async function GET(request: Request) {
   }
 
   const chat = await prisma.chatHistory.findUnique({ where: { id: chatId } });
+  if (!chat) {
+    return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+  }
   const messages = await prisma.chatMessage.findMany({
     where: { chatId },
     orderBy: { timestamp: 'asc' },
