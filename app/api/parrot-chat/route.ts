@@ -3,6 +3,7 @@
 export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import type { Prisma } from '@prisma/client';
 import { sendError, sendProgress } from '@/lib/progressUtils';
 import prisma from '@/lib/prisma';
@@ -445,14 +446,26 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const chatId = searchParams.get('chatId');
+  const userIdFromQuery = searchParams.get('userId');
+  const cookieStore = await cookies();
+  const userIdFromCookie = cookieStore.get('userId')?.value ?? null;
+  const requesterUserId = userIdFromQuery ?? userIdFromCookie;
 
   if (!chatId) {
     return NextResponse.json({ error: 'Missing chatId' }, { status: 400 });
   }
 
+  if (!requesterUserId) {
+    return NextResponse.json({ error: 'Missing user identity' }, { status: 401 });
+  }
+
   const chat = await prisma.chatHistory.findUnique({ where: { id: chatId } });
   if (!chat) {
     return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+  }
+
+  if (chat.userId !== requesterUserId) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
   const messages = await prisma.chatMessage.findMany({
     where: { chatId },

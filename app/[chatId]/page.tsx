@@ -67,13 +67,22 @@ export default function ChatPage() {
   // --- 1) Fetch Chat, User, and Chat List ---
 
   const fetchChat = useCallback(async (attempt = 0) => {
+    if (!userId) return;
     // Prevent duplicate fetch requests
     if (isFetchingChatRef.current) return;
-    
+
     try {
       isFetchingChatRef.current = true;
-      const response = await fetch(`/api/parrot-chat?chatId=${params.chatId}`);
+      const response = await fetch(`/api/parrot-chat?chatId=${params.chatId}&userId=${encodeURIComponent(userId)}`);
       if (!response.ok) {
+        if (response.status === 401) {
+          setErrorMessage("Please sign in to view this chat.");
+          return;
+        }
+        if (response.status === 403) {
+          setErrorMessage("You do not have access to this chat.");
+          return;
+        }
         if (response.status === 404 && attempt < MAX_CHAT_FETCH_RETRIES) {
           const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt);
           setTimeout(() => fetchChat(attempt + 1), delay);
@@ -107,7 +116,7 @@ export default function ChatPage() {
     } finally {
       isFetchingChatRef.current = false;
     }
-  }, [params.chatId, initialQuestionParam, router]);
+  }, [params.chatId, initialQuestionParam, router, userId]);
 
   const fetchChats = useCallback(async () => {
     // Only fetch if we have a userId and aren't already fetching
