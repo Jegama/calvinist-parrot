@@ -1,10 +1,17 @@
 // utils/parseReference.ts
 
+export type VerseSelection =
+  | { type: 'range'; start: number; end: number }
+  | { type: 'list'; verses: number[] }
+  | { type: 'single'; verse: number };
+
 export interface ParsedReference {
   book: string;
   chapter: number;
-  verses?: number[] | [number, number]; // Handle ranges as well
+  verses?: VerseSelection;
 }
+
+const DASH_CHARACTERS = /[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\uFE58\uFE63\uFF0D]/g;
 
 export function parseReference(reference: string): ParsedReference | null {
   try {
@@ -13,11 +20,12 @@ export function parseReference(reference: string): ParsedReference | null {
       return null;
     }
 
-    // Split book and the rest
-    const [bookChapterRaw, versePartRaw] = trimmedReference.split(':');
+    // Split book and the rest (allow additional colons in the verse portion)
+    const [bookChapterRaw, ...versePartSegments] = trimmedReference.split(':');
     if (!bookChapterRaw) {
       return null;
     }
+    const versePartRaw = versePartSegments.join(':');
 
     const bookChapterParts = bookChapterRaw.trim().split(/\s+/);
     if (bookChapterParts.length === 0) {
@@ -49,10 +57,12 @@ export function parseReference(reference: string): ParsedReference | null {
       return null;
     }
 
-    const versePart = versePartRaw?.trim();
+    const versePart = versePartRaw
+      ?.replace(DASH_CHARACTERS, '-')
+      .trim();
 
     // Parse verses
-    let verses: number[] | [number, number] | undefined;
+    let verses: VerseSelection | undefined;
 
     if (versePart) {
       // Handle ranges and lists
@@ -67,7 +77,7 @@ export function parseReference(reference: string): ParsedReference | null {
         if (start > end) {
           [start, end] = [end, start];
         }
-        verses = [start, end];
+        verses = { type: 'range', start, end };
       } else if (versePart.includes(',')) {
         // List of verses
         const verseNumbers = versePart
@@ -77,14 +87,16 @@ export function parseReference(reference: string): ParsedReference | null {
         if (verseNumbers.length === 0) {
           return null;
         }
-        verseNumbers.sort((a, b) => a - b);
-        verses = verseNumbers;
+        const normalizedList = Array.from(new Set(verseNumbers)).sort(
+          (a, b) => a - b
+        );
+        verses = { type: 'list', verses: normalizedList };
       } else {
         const single = parseInt(versePart, 10);
         if (Number.isNaN(single)) {
           return null;
         }
-        verses = [single];
+        verses = { type: 'single', verse: single };
       }
     }
 

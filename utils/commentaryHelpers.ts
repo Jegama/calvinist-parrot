@@ -27,17 +27,30 @@ export const extractCommentary = (
 
   let requestedStartVerse = 1;
   let requestedEndVerse: number = Infinity;
+  let requestedSpecificVerses: Set<number> | null = null;
 
-  if (Array.isArray(requestedVerses) && requestedVerses.length > 0) {
-    const first = requestedVerses[0];
-    const last = requestedVerses[requestedVerses.length - 1];
-
-    if (typeof first === "number") {
-      requestedStartVerse = first;
-    }
-
-    if (typeof last === "number") {
-      requestedEndVerse = last;
+  if (requestedVerses) {
+    switch (requestedVerses.type) {
+      case 'range': {
+        requestedStartVerse = requestedVerses.start;
+        requestedEndVerse = requestedVerses.end;
+        break;
+      }
+      case 'list': {
+        if (requestedVerses.verses.length > 0) {
+          requestedStartVerse = requestedVerses.verses[0];
+          requestedEndVerse =
+            requestedVerses.verses[requestedVerses.verses.length - 1];
+          requestedSpecificVerses = new Set(requestedVerses.verses);
+        }
+        break;
+      }
+      case 'single': {
+        requestedStartVerse = requestedVerses.verse;
+        requestedEndVerse = requestedVerses.verse;
+        requestedSpecificVerses = new Set([requestedVerses.verse]);
+        break;
+      }
     }
   }
 
@@ -61,7 +74,8 @@ export const extractCommentary = (
       requestedStartVerse,
       requestedEndVerse,
       currentStartVerse,
-      currentEndVerse
+      currentEndVerse,
+      requestedSpecificVerses
     );
 
     if (overlaps) {
@@ -100,12 +114,21 @@ const doesOverlap = (
   requestedStart: number,
   requestedEnd: number,
   commentaryStart: number,
-  commentaryEnd: number | null
+  commentaryEnd: number | null,
+  requestedSpecificVerses: Set<number> | null
 ) => {
-  const commentaryEndVerse = commentaryEnd || Infinity; // If null, assume it covers to the end
-  return (
-    requestedStart <= commentaryEndVerse && requestedEnd >= commentaryStart
-  );
+  const commentaryEndVerse = commentaryEnd ?? Infinity;
+
+  if (requestedSpecificVerses && requestedSpecificVerses.size > 0) {
+    for (const verse of requestedSpecificVerses) {
+      if (verse >= commentaryStart && verse <= commentaryEndVerse) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  return requestedStart <= commentaryEndVerse && requestedEnd >= commentaryStart;
 };
 
 // **Helper function to format the commentary data**
