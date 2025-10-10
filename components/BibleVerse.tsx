@@ -72,7 +72,13 @@ export function BibleVerse({ reference }: BibleVerseProps) {
 
     let verseTexts: string[] = [];
 
-    if (Array.isArray(verses) && verses.length === 2 && typeof verses[0] === 'number') {
+    if (
+      Array.isArray(verses) &&
+      verses.length === 2 &&
+      typeof verses[0] === 'number' &&
+      typeof verses[1] === 'number' &&
+      verses[0] <= verses[1]
+    ) {
       // Range of verses
       const [start, end] = verses as [number, number];
       for (let i = start; i <= end; i++) {
@@ -83,7 +89,7 @@ export function BibleVerse({ reference }: BibleVerseProps) {
           verseTexts.push(`${i}: ${verse.content.map(extractText).join(' ')}`);
         }
       }
-    } else if (Array.isArray(verses)) {
+    } else if (Array.isArray(verses) && verses.length > 0) {
       // List of verses
       verses.forEach((v) => {
         const verse = content.find(

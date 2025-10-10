@@ -1,6 +1,6 @@
 // utils/commentaryHelpers.ts
 
-import { parseReference, ParsedReference } from "@/utils/parseReference";
+import { ParsedReference } from "@/utils/parseReference";
 
 export interface CommentaryResponse {
     book: {
@@ -24,12 +24,22 @@ export const extractCommentary = (
   parsedRef: ParsedReference
 ) => {
   const { verses: requestedVerses } = parsedRef;
-  const requestedStartVerse = Array.isArray(requestedVerses)
-    ? requestedVerses[0]
-    : requestedVerses;
-  const requestedEndVerse = Array.isArray(requestedVerses)
-    ? requestedVerses[requestedVerses.length - 1]
-    : requestedVerses;
+
+  let requestedStartVerse = 1;
+  let requestedEndVerse: number = Infinity;
+
+  if (Array.isArray(requestedVerses) && requestedVerses.length > 0) {
+    const first = requestedVerses[0];
+    const last = requestedVerses[requestedVerses.length - 1];
+
+    if (typeof first === "number") {
+      requestedStartVerse = first;
+    }
+
+    if (typeof last === "number") {
+      requestedEndVerse = last;
+    }
+  }
 
   // Build the verse ranges for each commentary entry
   const contentItems = commentaryData.chapter.content;
@@ -68,9 +78,12 @@ export const extractCommentary = (
 
   // If no commentary entries matched, inform the user
   if (verses.length === 0) {
+    const requestedEndLabel = Number.isFinite(requestedEndVerse)
+      ? requestedEndVerse
+      : "end";
     verses.push({
       range: `${requestedStartVerse}${
-        requestedEndVerse !== requestedStartVerse ? `-${requestedEndVerse}` : ""
+        requestedEndLabel !== requestedStartVerse ? `-${requestedEndLabel}` : ""
       }`,
       content: "No commentary available for the requested verses.",
     });
