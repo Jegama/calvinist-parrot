@@ -1,3 +1,7 @@
+<div align="center">
+	<img src="./public/LogoForHeader.png" alt="Calvinist Parrot" height="140" />
+</div>
+
 # Calvinist Parrot
 
 An AI-powered theological assistant – merging centuries-old Reformed wisdom with modern machine intelligence.
@@ -85,10 +89,11 @@ For questions or support, please [reach out](mailto:jesusmancilla@calvinistparro
 **"For from Him and through Him and to Him are all things. To Him be the glory forever! Amen."**
 - Romans 11:36
 
-[Copy.church](https://copy.church/explain/importance/) | [sellingJesus.org](https://sellingJesus.org/free)
----|---
-![Copy.church](https://copy.church/badges/lcc_alt_pde.png) | ![sellingJesus.org/free](https://copy.church/badges/sj_standard_pd.png)
-
----
-
-![Calvinist Parrot](./public/LogoForHeader.png)
+<div align="center">
+  <a href="https://copy.church/explain/importance/">
+    <img src="https://copy.church/badges/lcc_alt_pde.png" alt="Copy.church" height="100" />
+  </a>
+  <a href="https://sellingJesus.org/free">
+    <img src="https://copy.church/badges/sj_standard_pd.png" alt="sellingJesus.org/free" height="100" />
+  </a>
+</div>
