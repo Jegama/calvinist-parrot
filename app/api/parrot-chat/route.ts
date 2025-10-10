@@ -3,7 +3,13 @@
 export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
+import { sendError, sendProgress } from '@/lib/progressUtils';
 import prisma from '@/lib/prisma';
+import * as prompts from '@/lib/prompts';
+import { SystemMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
+import { parrotWorkflow } from '@/utils/langChainAgents/mainAgent';
+import { generateConversationName } from '@/utils/generateConversationName';
 
 export async function POST(request: Request) {
   interface ChatRequestBody {
@@ -36,27 +42,28 @@ export async function POST(request: Request) {
 
   // Handle new chat from Parrot QA
   if (userId && initialQuestion && initialAnswer && !chatId) {
-    const { generateConversationName } = await import('@/utils/generateConversationName');
     const allMessagesStr = `user: ${initialQuestion}\nparrot: ${initialAnswer}`;
     const conversationName = await generateConversationName(allMessagesStr);
+    const chat = await prisma.$transaction(async (tx) => {
+      const createdChat = await tx.chatHistory.create({
+        data: {
+          userId,
+          conversationName,
+          category: category || '',
+          subcategory: subcategory || '',
+          issue_type: issue_type || '',
+        },
+      });
 
-    const chat = await prisma.chatHistory.create({
-      data: {
-        userId,
-        conversationName,
-        category: category || '',
-        subcategory: subcategory || '',
-        issue_type: issue_type || '',
-      },
-    });
+      await tx.chatMessage.create({
+        data: { chatId: createdChat.id, sender: 'user', content: initialQuestion },
+      });
 
-    // Create initial messages
-    await prisma.chatMessage.create({
-      data: { chatId: chat.id, sender: 'user', content: initialQuestion },
-    });
+      await tx.chatMessage.create({
+        data: { chatId: createdChat.id, sender: 'parrot', content: initialAnswer },
+      });
 
-    await prisma.chatMessage.create({
-      data: { chatId: chat.id, sender: 'parrot', content: initialAnswer },
+      return createdChat;
     });
 
     return NextResponse.json({ chatId: chat.id });
@@ -64,21 +71,24 @@ export async function POST(request: Request) {
 
   // If userId and initial message are provided but no chatId, start a new chat session. This is from `app/page.tsx`.
   if (userId && initialQuestion && !chatId) {
-    const chat = await prisma.chatHistory.create({
-      data: {
-        id: clientChatId ?? undefined,
-        userId,
-        conversationName: 'New Conversation',
-        category: '',
-        subcategory: '',
-        issue_type: '',
-        denomination,
-      },
-    });
+    const chat = await prisma.$transaction(async (tx) => {
+      const createdChat = await tx.chatHistory.create({
+        data: {
+          id: clientChatId ?? undefined,
+          userId,
+          conversationName: 'New Conversation',
+          category: '',
+          subcategory: '',
+          issue_type: '',
+          denomination,
+        },
+      });
 
-    // Create initial messages
-    await prisma.chatMessage.create({
-      data: { chatId: chat.id, sender: 'user', content: initialQuestion },
+      await tx.chatMessage.create({
+        data: { chatId: createdChat.id, sender: 'user', content: initialQuestion },
+      });
+
+      return createdChat;
     });
 
     return NextResponse.json({ chatId: chat.id });
@@ -86,20 +96,6 @@ export async function POST(request: Request) {
 
   // If chatID and message run main system <-- This continues the converation and is the main use case.
   if (chatId && message) {
-    const [progressUtils, mainAgentModule, promptsModule, messagesModule, conversationUtils] = await Promise.all([
-      import('@/lib/progressUtils'),
-      import('@/utils/langChainAgents/mainAgent'),
-      import('@/lib/prompts'),
-      import('@langchain/core/messages'),
-      import('@/utils/generateConversationName'),
-    ]);
-
-    const { sendError, sendProgress } = progressUtils;
-    const { parrotWorkflow } = mainAgentModule;
-    const prompts = promptsModule;
-    const { SystemMessage, HumanMessage, AIMessage } = messagesModule;
-    const { generateConversationName, buildCategorizationMessages } = conversationUtils;
-
     const mapDenominationPrompt = (value: string) => {
       switch (value) {
         case "reformed-baptist":
@@ -155,6 +151,7 @@ export async function POST(request: Request) {
         let hasAnnouncedThinking = false;
         let hasAnnouncedDrafting = false;
         const activeToolRuns = new Set<string>();
+        const pendingWrites: Prisma.PrismaPromise<unknown>[] = [];
 
         const toolNameMap: Record<string, { title: string; start: string; finish: string }> = {
           supplementalArticleSearch: {
@@ -211,9 +208,10 @@ export async function POST(request: Request) {
           const previousMessages = await prisma.chatMessage.findMany({
             where: { chatId },
             orderBy: { timestamp: 'asc' },
+            select: { sender: true, content: true },
           });
 
-          conversationMessages = previousMessages.map((msg: { sender: string; content: string }) => ({
+          conversationMessages = previousMessages.map((msg) => ({
             sender: msg.sender,
             content: msg.content,
           }));
@@ -228,9 +226,11 @@ export async function POST(request: Request) {
           if (!isAutoTrigger) {
             const userMessage = { sender: 'user', content: message };
             conversationMessages.push(userMessage);
-            await prisma.chatMessage.create({
-              data: { chatId, sender: 'user', content: message },
-            });
+            pendingWrites.push(
+              prisma.chatMessage.create({
+                data: { chatId, sender: 'user', content: message },
+              })
+            );
 
             sendProgress({
               type: 'progress',
@@ -381,9 +381,11 @@ export async function POST(request: Request) {
             }
 
             // When finished, store parrotReply in DB, etc.
-            await prisma.chatMessage.create({
-              data: { chatId, sender: 'parrot', content: parrotReply },
-            });
+            pendingWrites.push(
+              prisma.chatMessage.create({
+                data: { chatId, sender: 'parrot', content: parrotReply },
+              })
+            );
             conversationMessages.push({ sender: 'parrot', content: parrotReply });
             sendProgress({
               type: 'progress',
@@ -395,41 +397,32 @@ export async function POST(request: Request) {
             sendError(error, 'parrot_response', controller);
           }
 
-          // Handle conversation naming and categorization
+          // Handle conversation naming
           try {
             const currentChat = await prisma.chatHistory.findUnique({ where: { id: chatId } });
             if (currentChat && currentChat.conversationName === 'New Conversation') {
-              const categorizationMessages = buildCategorizationMessages(message);
-              const { default: OpenAI } = await import('openai');
-              const miniModel = "gpt-5-mini";
-              const openai = new OpenAI({
-                apiKey: process.env.OPENAI_API_KEY,
-              });
-              const categorizationResponse = await openai.chat.completions.create({
-                model: miniModel,
-                messages: categorizationMessages,
-                response_format: {
-                  type: 'json_schema',
-                  json_schema: prompts.categorizationSchema,
-                },
-              });
-
-              const categorization = JSON.parse(categorizationResponse.choices[0]?.message?.content || '{}');
               const allMessagesStr = conversationMessages.map((m) => `${m.sender}: ${m.content}`).join('\n');
               const conversationName = await generateConversationName(allMessagesStr);
 
-              await prisma.chatHistory.update({
-                where: { id: chatId },
-                data: {
-                  conversationName: conversationName || 'New Conversation',
-                  category: categorization.category || '',
-                  subcategory: categorization.subcategory || '',
-                  issue_type: categorization.issue_type || '',
-                },
-              });
+              pendingWrites.push(
+                prisma.chatHistory.update({
+                  where: { id: chatId },
+                  data: {
+                    conversationName: conversationName || 'New Conversation',
+                  },
+                })
+              );
             }
           } catch (error) {
             sendError(error, 'conversation_metadata', controller);
+          }
+
+          if (pendingWrites.length > 0) {
+            try {
+              await prisma.$transaction(pendingWrites);
+            } catch (error) {
+              sendError(error, 'persist_messages', controller);
+            }
           }
 
           sendProgress({ type: 'done' }, controller);
