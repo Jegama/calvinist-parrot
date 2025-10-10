@@ -53,8 +53,10 @@ ${latestNews}
 Please output the following:
 
 - Title: [Title of the devotional]
-- Bible Verse: [The Bible verse reference of the passage you are using (e.g. Romans 3.10-12)]
-- Devotional: [The content of the devotional, in the style of Charles Spurgeon's Morning and Evening Devotionals]
+- Bible Verse: [The Bible verse reference of the passage you are using (e.g. Romans 3:10-12)]
+- Devotional: [The content of the devotional, in the style of Charles Spurgeon's Morning and Evening Devotionals. Do not include the Bible verse at the top since you are giving it in the previous field.]
+
+Make sure the devotional is between 300-500 words. Use a warm and engaging tone, and ensure it is theologically sound.
 
 If it's a morning devotional, focus on encouraging people on growing on their faith, if it's an evening devotional, focus on conforting people on their faith.
   
