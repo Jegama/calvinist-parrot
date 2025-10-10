@@ -67,7 +67,7 @@ function extractText(contentItem: VerseContent | string): string {
 const UNICODE_DASH_CLASS = '\\-\\u2010\\u2011\\u2012\\u2013\\u2014\\u2015\\u2212\\uFE58\\uFE63\\uFF0D';
 
 export const bibleVerseRegex = new RegExp(
-  `\\b(?!In\\b)(?:[1-3]\\s)?(?!In\\b)[A-Z][a-zA-Z]+(?:\\s+[A-Z][a-zA-Z]+)*\\s+\\d+:\\d+(?:[${UNICODE_DASH_CLASS}]\\d+)?\\b`,
+  `\\b(?!In\\b)(?:[1-3]\\s)?(?!In\\b)[A-Z][a-zA-Z]+(?:\\s+[A-Z][a-zA-Z]+)*\\s+\\d+:\\d+(?:[${UNICODE_DASH_CLASS}]\\d+|(?:,\\d+)+)*\\b`,
   'g'
 );
 

@@ -65,38 +65,70 @@ export function parseReference(reference: string): ParsedReference | null {
     let verses: VerseSelection | undefined;
 
     if (versePart) {
-      // Handle ranges and lists
-      if (versePart.includes('-')) {
-        // Range of verses
-        const [startStr, endStr] = versePart.split('-');
-        let start = parseInt(startStr.trim(), 10);
-        let end = parseInt(endStr.trim(), 10);
-        if (Number.isNaN(start) || Number.isNaN(end)) {
+      const segments = versePart
+        .split(',')
+        .map((segment) => segment.trim())
+        .filter((segment) => segment.length > 0);
+
+      if (segments.length === 1) {
+        const part = segments[0];
+
+        if (part.includes('-')) {
+          const rangeParts = part.split('-').map((value) => value.trim());
+          if (rangeParts.length !== 2) {
+            return null;
+          }
+          let start = parseInt(rangeParts[0], 10);
+          let end = parseInt(rangeParts[1], 10);
+          if (Number.isNaN(start) || Number.isNaN(end)) {
+            return null;
+          }
+          if (start > end) {
+            [start, end] = [end, start];
+          }
+          verses = { type: 'range', start, end };
+        } else {
+          const single = parseInt(part, 10);
+          if (Number.isNaN(single)) {
+            return null;
+          }
+          verses = { type: 'single', verse: single };
+        }
+      } else if (segments.length > 1) {
+        const verseNumbers = new Set<number>();
+
+        for (const segment of segments) {
+          if (segment.includes('-')) {
+            const rangeParts = segment.split('-').map((value) => value.trim());
+            if (rangeParts.length !== 2) {
+              return null;
+            }
+            let start = parseInt(rangeParts[0], 10);
+            let end = parseInt(rangeParts[1], 10);
+            if (Number.isNaN(start) || Number.isNaN(end)) {
+              return null;
+            }
+            if (start > end) {
+              [start, end] = [end, start];
+            }
+            for (let verse = start; verse <= end; verse += 1) {
+              verseNumbers.add(verse);
+            }
+          } else {
+            const single = parseInt(segment, 10);
+            if (Number.isNaN(single)) {
+              return null;
+            }
+            verseNumbers.add(single);
+          }
+        }
+
+        if (verseNumbers.size === 0) {
           return null;
         }
-        if (start > end) {
-          [start, end] = [end, start];
-        }
-        verses = { type: 'range', start, end };
-      } else if (versePart.includes(',')) {
-        // List of verses
-        const verseNumbers = versePart
-          .split(',')
-          .map((v) => parseInt(v.trim(), 10))
-          .filter((num) => !Number.isNaN(num));
-        if (verseNumbers.length === 0) {
-          return null;
-        }
-        const normalizedList = Array.from(new Set(verseNumbers)).sort(
-          (a, b) => a - b
-        );
+
+        const normalizedList = Array.from(verseNumbers).sort((a, b) => a - b);
         verses = { type: 'list', verses: normalizedList };
-      } else {
-        const single = parseInt(versePart, 10);
-        if (Number.isNaN(single)) {
-          return null;
-        }
-        verses = { type: 'single', verse: single };
       }
     }
 
