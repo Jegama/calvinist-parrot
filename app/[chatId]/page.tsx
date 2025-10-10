@@ -65,6 +65,7 @@ export default function ChatPage() {
   const initialQuestionParam = searchParams.get("initialQuestion");
   const MAX_CHAT_FETCH_RETRIES = 5;
   const RETRY_DELAY_BASE_MS = 200;
+  const COPY_FEEDBACK_DURATION = 2000
 
   // --- 1) Fetch Chat, User, and Chat List ---
 
@@ -394,7 +395,7 @@ export default function ChatPage() {
                                 copyResetTimeoutRef.current = window.setTimeout(() => {
                                   setCopiedMessageIndex(null);
                                   copyResetTimeoutRef.current = null;
-                                }, 2000);
+                                }, COPY_FEEDBACK_DURATION);
                               } catch (err) {
                                 console.error("Failed to copy message:", err);
                               }

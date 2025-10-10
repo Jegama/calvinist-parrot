@@ -206,13 +206,14 @@ export async function POST(request: Request) {
           }, controller);
 
           // Fetch initial messages only once
-          const previousMessages = await prisma.chatMessage.findMany({
+          type ChatMessageSummary = { sender: string; content: string };
+          const previousMessages: ChatMessageSummary[] = await prisma.chatMessage.findMany({
             where: { chatId },
             orderBy: { timestamp: 'asc' },
             select: { sender: true, content: true },
           });
 
-          conversationMessages = previousMessages.map((msg) => ({
+          conversationMessages = previousMessages.map((msg: ChatMessageSummary) => ({
             sender: msg.sender,
             content: msg.content,
           }));
