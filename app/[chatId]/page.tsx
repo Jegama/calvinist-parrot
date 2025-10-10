@@ -6,7 +6,7 @@ import { AppSidebar } from "@/components/chat-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
-import { Loader2 } from "lucide-react";
+import { Loader2, Copy, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,6 +53,8 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState<{ title: string; content: string } | null>(null);
   const autoSentRef = useRef(false);
+  const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
+  const copyResetTimeoutRef = useRef<number | null>(null);
   // Add refs to track data loading state
   const isFetchingChatRef = useRef(false);
   const isFetchingChatsRef = useRef(false);
@@ -164,6 +166,14 @@ export default function ChatPage() {
   useEffect(() => {
     urlNormalizedRef.current = false;
   }, [params.chatId]);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimeoutRef.current !== null) {
+        window.clearTimeout(copyResetTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Load chat data once when component mounts or chatId changes
   useEffect(() => {
@@ -360,9 +370,42 @@ export default function ChatPage() {
                       );
                     case "parrot":
                       return (
-                        <div key={i} className="mr-auto max-w-[80%] rounded-md bg-[#004D70] p-3 text-white shadow">
+                        <div
+                          key={i}
+                          className="group relative mr-auto max-w-[80%] rounded-md bg-[#004D70] p-3 text-white shadow"
+                        >
                           <div className="mb-1 text-sm font-bold">Parrot</div>
                           <MarkdownWithBibleVerses content={msg.content} />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={
+                              copiedMessageIndex === i ? "Markdown copied" : "Copy markdown"
+                            }
+                            className="absolute right-3 top-3 h-7 w-7 rounded-full bg-black/30 text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-black/40"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(msg.content);
+                                setCopiedMessageIndex(i);
+                                if (copyResetTimeoutRef.current !== null) {
+                                  window.clearTimeout(copyResetTimeoutRef.current);
+                                }
+                                copyResetTimeoutRef.current = window.setTimeout(() => {
+                                  setCopiedMessageIndex(null);
+                                  copyResetTimeoutRef.current = null;
+                                }, 2000);
+                              } catch (err) {
+                                console.error("Failed to copy message:", err);
+                              }
+                            }}
+                          >
+                            {copiedMessageIndex === i ? (
+                              <Check className="h-4 w-4" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
                         </div>
                       );
                     case "calvin":
