@@ -35,6 +35,9 @@ export function parseReference(reference: string): ParsedReference | null {
       }
       book = match[1];
       chapterStr = match[2];
+      if (!book.trim()) {
+        return null;
+      }
     } else {
       // Book and chapter are separate
       book = bookChapterParts.slice(0, -1).join(' ');
