@@ -70,44 +70,38 @@ export function BibleVerse({ reference }: BibleVerseProps) {
     const { verses } = parsedRef;
     const content = chapterData.chapter.content;
 
-    let verseTexts: string[] = [];
+    const verseTexts: string[] = [];
 
-    if (Array.isArray(verses) && verses.length === 2 && typeof verses[0] === 'number') {
-      // Range of verses
-      const [start, end] = verses as [number, number];
-      for (let i = start; i <= end; i++) {
-        const verse = content.find(
-          (item): item is ChapterVerse => item.type === 'verse' && item.number === i
-        );
-        if (verse) {
-          verseTexts.push(`${i}: ${verse.content.map(extractText).join(' ')}`);
-        }
+    const collectVerse = (verseNumber: number) => {
+      const verse = content.find(
+        (item): item is ChapterVerse => item.type === 'verse' && item.number === verseNumber
+      );
+      if (verse) {
+        verseTexts.push(`${verseNumber}: ${verse.content.map(extractText).join(' ')}`);
       }
-    } else if (Array.isArray(verses)) {
-      // List of verses
-      verses.forEach((v) => {
-        const verse = content.find(
-          (item): item is ChapterVerse => item.type === 'verse' && item.number === v
-        );
-        if (verse) {
-          verseTexts.push(`${v}: ${verse.content.map(extractText).join(' ')}`);
-        }
+    };
+
+    if (!verses) {
+      const allVerses = content.filter((item): item is ChapterVerse => item.type === 'verse');
+      allVerses.forEach((verseItem) => {
+        verseTexts.push(`${verseItem.number}: ${verseItem.content.map(extractText).join(' ')}`);
       });
     } else {
-      // Whole chapter or single verse
-      if (typeof verses === 'number') {
-        const verse = content.find(
-          (item): item is ChapterVerse => item.type === 'verse' && item.number === verses
-        );
-        if (verse) {
-          verseTexts.push(`${verses}: ${verse.content.map(extractText).join(' ')}`);
+      switch (verses.type) {
+        case 'range': {
+          for (let i = verses.start; i <= verses.end; i++) {
+            collectVerse(i);
+          }
+          break;
         }
-      } else {
-        // Whole chapter
-        const allVerses = content.filter((item): item is ChapterVerse => item.type === 'verse');
-        verseTexts = allVerses.map(
-          (verseItem) => `${verseItem.number}: ${verseItem.content.map(extractText).join(' ')}`
-        );
+        case 'list': {
+          verses.verses.forEach(collectVerse);
+          break;
+        }
+        case 'single': {
+          collectVerse(verses.verse);
+          break;
+        }
       }
     }
 

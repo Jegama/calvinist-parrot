@@ -1,6 +1,6 @@
 // utils/commentaryHelpers.ts
 
-import { parseReference, ParsedReference } from "@/utils/parseReference";
+import { ParsedReference } from "@/utils/parseReference";
 
 export interface CommentaryResponse {
     book: {
@@ -24,12 +24,35 @@ export const extractCommentary = (
   parsedRef: ParsedReference
 ) => {
   const { verses: requestedVerses } = parsedRef;
-  const requestedStartVerse = Array.isArray(requestedVerses)
-    ? requestedVerses[0]
-    : requestedVerses;
-  const requestedEndVerse = Array.isArray(requestedVerses)
-    ? requestedVerses[requestedVerses.length - 1]
-    : requestedVerses;
+
+  let requestedStartVerse = 1;
+  let requestedEndVerse: number = Infinity;
+  let requestedSpecificVerses: Set<number> | null = null;
+
+  if (requestedVerses) {
+    switch (requestedVerses.type) {
+      case 'range': {
+        requestedStartVerse = requestedVerses.start;
+        requestedEndVerse = requestedVerses.end;
+        break;
+      }
+      case 'list': {
+        if (requestedVerses.verses.length > 0) {
+          requestedStartVerse = requestedVerses.verses[0];
+          requestedEndVerse =
+            requestedVerses.verses[requestedVerses.verses.length - 1];
+          requestedSpecificVerses = new Set(requestedVerses.verses);
+        }
+        break;
+      }
+      case 'single': {
+        requestedStartVerse = requestedVerses.verse;
+        requestedEndVerse = requestedVerses.verse;
+        requestedSpecificVerses = new Set([requestedVerses.verse]);
+        break;
+      }
+    }
+  }
 
   // Build the verse ranges for each commentary entry
   const contentItems = commentaryData.chapter.content;
@@ -51,7 +74,8 @@ export const extractCommentary = (
       requestedStartVerse,
       requestedEndVerse,
       currentStartVerse,
-      currentEndVerse
+      currentEndVerse,
+      requestedSpecificVerses
     );
 
     if (overlaps) {
@@ -68,9 +92,12 @@ export const extractCommentary = (
 
   // If no commentary entries matched, inform the user
   if (verses.length === 0) {
+    const requestedEndLabel = Number.isFinite(requestedEndVerse)
+      ? requestedEndVerse
+      : "end";
     verses.push({
       range: `${requestedStartVerse}${
-        requestedEndVerse !== requestedStartVerse ? `-${requestedEndVerse}` : ""
+        requestedEndLabel !== requestedStartVerse ? `-${requestedEndLabel}` : ""
       }`,
       content: "No commentary available for the requested verses.",
     });
@@ -87,12 +114,21 @@ const doesOverlap = (
   requestedStart: number,
   requestedEnd: number,
   commentaryStart: number,
-  commentaryEnd: number | null
+  commentaryEnd: number | null,
+  requestedSpecificVerses: Set<number> | null
 ) => {
-  const commentaryEndVerse = commentaryEnd || Infinity; // If null, assume it covers to the end
-  return (
-    requestedStart <= commentaryEndVerse && requestedEnd >= commentaryStart
-  );
+  const commentaryEndVerse = commentaryEnd ?? Infinity;
+
+  if (requestedSpecificVerses && requestedSpecificVerses.size > 0) {
+    for (const verse of requestedSpecificVerses) {
+      if (verse >= commentaryStart && verse <= commentaryEndVerse) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  return requestedStart <= commentaryEndVerse && requestedEnd >= commentaryStart;
 };
 
 // **Helper function to format the commentary data**
