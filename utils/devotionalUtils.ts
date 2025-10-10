@@ -58,7 +58,7 @@ Please output the following:
 
 Make sure the devotional is between 300-500 words. Use a warm and engaging tone, and ensure it is theologically sound.
 
-If it's a morning devotional, focus on encouraging people on growing on their faith, if it's an evening devotional, focus on conforting people on their faith.
+If it's a morning devotional, focus on encouraging people on growing on their faith, if it's an evening devotional, focus on comforting people on their faith.
   
 **Note:** The output should strictly adhere to the predefined JSON schema.`;
 }
