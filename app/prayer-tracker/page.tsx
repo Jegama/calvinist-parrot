@@ -359,14 +359,29 @@ export default function PrayerTrackerPage() {
       }
       const fetchedFamilies: Family[] = Array.isArray(data?.families) ? data.families : [];
       const fetchedPersonal: PersonalRequest[] = Array.isArray(data?.personal) ? data.personal : [];
-      setRotation({ families: fetchedFamilies, personal: fetchedPersonal });
-
-      const effectiveMembers = Array.isArray(data?.members) && data.members.length ? data.members : members;
+      const effectiveMembers: Member[] = Array.isArray(data?.members) && data.members.length
+        ? (data.members as Member[])
+        : members;
       const defaults: Record<string, string> = {};
       fetchedFamilies.forEach((family) => {
         const nextMember = determineNextMemberId(family, effectiveMembers);
         defaults[family.id] = nextMember ?? "skip";
       });
+
+      const currentMemberId = effectiveMembers.find((member) => member.appwriteUserId === user.$id)?.id;
+      const prioritizedFamilies = currentMemberId
+        ? fetchedFamilies
+            .map((family, index) => ({ family, index }))
+            .sort((a, b) => {
+              const aPriority = defaults[a.family.id] === currentMemberId ? 0 : 1;
+              const bPriority = defaults[b.family.id] === currentMemberId ? 0 : 1;
+              if (aPriority !== bPriority) return aPriority - bPriority;
+              return a.index - b.index;
+            })
+            .map((entry) => entry.family)
+        : fetchedFamilies;
+
+      setRotation({ families: prioritizedFamilies, personal: fetchedPersonal });
       setFamilyAssignments(defaults);
 
       const personalDefaults: Record<string, boolean> = {};
