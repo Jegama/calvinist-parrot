@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-type Params = { params: { familyId: string } };
+type RouteContext = { params: Promise<{ familyId: string }> };
 
 async function getMembership(userId?: string) {
   if (!userId) return null;
@@ -15,7 +15,8 @@ function resolveUserId(request: Request, bodyUserId?: string) {
   return queryUserId ?? undefined;
 }
 
-export async function PATCH(request: Request, { params }: Params) {
+export async function PATCH(request: Request, context: RouteContext) {
+  const { familyId } = await context.params;
   const body = (await request.json().catch(() => ({}))) as {
     userId?: string;
     familyName?: string;
@@ -34,7 +35,7 @@ export async function PATCH(request: Request, { params }: Params) {
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
 
   const family = await prisma.prayerFamily.findFirst({
-    where: { id: params.familyId, spaceId: membership.spaceId },
+    where: { id: familyId, spaceId: membership.spaceId },
   });
 
   if (!family) return NextResponse.json({ error: "Family not found" }, { status: 404 });
@@ -52,7 +53,7 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   const updated = await prisma.prayerFamily.update({
-    where: { id: params.familyId },
+    where: { id: familyId },
     data,
     include: {
       lastPrayedBy: { select: { id: true, displayName: true } },
@@ -62,7 +63,8 @@ export async function PATCH(request: Request, { params }: Params) {
   return NextResponse.json(updated);
 }
 
-export async function DELETE(request: Request, { params }: Params) {
+export async function DELETE(request: Request, context: RouteContext) {
+  const { familyId } = await context.params;
   let userId: string | undefined;
   try {
     const body = (await request.json()) as { userId?: string };
@@ -77,13 +79,13 @@ export async function DELETE(request: Request, { params }: Params) {
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
 
   const family = await prisma.prayerFamily.findFirst({
-    where: { id: params.familyId, spaceId: membership.spaceId },
+    where: { id: familyId, spaceId: membership.spaceId },
   });
   if (!family) return NextResponse.json({ error: "Family not found" }, { status: 404 });
 
   await prisma.$transaction([
-    prisma.prayerFamilyRequest.deleteMany({ where: { familyId: params.familyId } }),
-    prisma.prayerFamily.delete({ where: { id: params.familyId } }),
+    prisma.prayerFamilyRequest.deleteMany({ where: { familyId } }),
+    prisma.prayerFamily.delete({ where: { id: familyId } }),
   ]);
 
   return NextResponse.json({ ok: true });
