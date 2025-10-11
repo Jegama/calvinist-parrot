@@ -38,7 +38,7 @@ export function BibleCommentary({ reference, onCommentaryExtracted }: BibleComme
         if (bookId) {
           try {
             const response = await fetch(
-              `/api/c/matthew-henry/${bookId}/${chapter}.json`
+              `/api/bible/c/matthew-henry/${bookId}/${chapter}.json`
             );
             if (response.ok) {
               const data: CommentaryResponse = await response.json();

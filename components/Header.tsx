@@ -47,6 +47,7 @@ export function Header() {
           <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
             <Link href="/devotional">Devotional</Link>
             <Link href="/parrot-qa">Parrot QA</Link>
+            <Link href="/prayer-tracker">Prayer Tracker</Link>
             <Link href="/about">About</Link>
           </nav>
 
@@ -62,6 +63,9 @@ export function Header() {
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Link href="/parrot-qa">Parrot QA</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Link href="/prayer-tracker">Prayer Tracker</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Link href="/about">About</Link>

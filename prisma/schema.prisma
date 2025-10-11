@@ -24,6 +24,118 @@ model questionHistory {
   createdAt      DateTime @default(now())
 }
 
+// Prayer Tracker models
+
+enum MemberRole {
+  OWNER
+  MEMBER
+}
+
+enum RequestStatus {
+  ACTIVE
+  ANSWERED
+  ARCHIVED
+}
+
+model userProfile {
+  id                     String   @id @default(cuid())
+  appwriteUserId         String   @unique
+  displayName            String
+  email                  String?
+  defaultSpaceId         String?
+  defaultSpace           prayerFamilySpace? @relation("DefaultSpaceProfiles", fields: [defaultSpaceId], references: [id])
+  answeredPersonalCount  Int      @default(0)
+  answeredFamilyCount    Int      @default(0)
+  journalEntriesCount    Int      @default(0)
+  lastPrayerAt           DateTime?
+  lastSeenAt             DateTime @default(now())
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model prayerFamilySpace {
+  id               String   @id @default(cuid())
+  spaceName        String
+  shareCode        String   @unique
+  createdByUserId  String
+  archivedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  members          prayerMember[]
+  families         prayerFamily[]
+  personalRequests prayerPersonalRequest[]
+  journal          prayerJournalEntry[]
+  profiles         userProfile[] @relation("DefaultSpaceProfiles")
+}
+
+model prayerMember {
+  id             String   @id @default(cuid())
+  spaceId        String
+  space          prayerFamilySpace @relation(fields: [spaceId], references: [id])
+  appwriteUserId String
+  displayName    String
+  role           MemberRole @default(MEMBER)
+  joinedAt       DateTime @default(now())
+  lastPrayed     prayerFamily[] @relation("LastPrayedBy")
+}
+
+model prayerFamily {
+  id                      String   @id @default(cuid())
+  spaceId                 String
+  space                   prayerFamilySpace @relation(fields: [spaceId], references: [id])
+  familyName              String
+  parents                 String
+  children                String[]
+  categoryTag             String?
+  lastPrayedAt            DateTime?
+  lastPrayedByMemberId    String?
+  lastPrayedBy            prayerMember? @relation("LastPrayedBy", fields: [lastPrayedByMemberId], references: [id])
+  journalNotes            String?
+  linkedScripture         String?
+  archivedAt              DateTime?
+  requests                prayerFamilyRequest[]
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model prayerFamilyRequest {
+  id              String   @id @default(cuid())
+  familyId        String
+  family          prayerFamily @relation(fields: [familyId], references: [id])
+  status          RequestStatus @default(ACTIVE)
+  requestText     String
+  notes           String?
+  linkedScripture String?
+  dateAdded       DateTime @default(now())
+  dateUpdated     DateTime @updatedAt
+  lastPrayedAt    DateTime?
+  answeredAt      DateTime?
+}
+
+model prayerPersonalRequest {
+  id                String   @id @default(cuid())
+  spaceId           String
+  space             prayerFamilySpace @relation(fields: [spaceId], references: [id])
+  status            RequestStatus @default(ACTIVE)
+  requestText       String
+  notes             String?
+  linkedScripture   String?
+  requesterMemberId String?
+  dateAdded         DateTime @default(now())
+  dateUpdated       DateTime @updatedAt
+  lastPrayedAt      DateTime?
+  answeredAt        DateTime?
+}
+
+model prayerJournalEntry {
+  id        String   @id @default(cuid())
+  spaceId   String
+  space     prayerFamilySpace @relation(fields: [spaceId], references: [id])
+  entryDate DateTime @default(now())
+  entryText String
+  tags      String[]
+}
+
 model chatHistory {
   id              String    @id @default(cuid())
   userId          String

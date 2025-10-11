@@ -11,8 +11,8 @@ Implementation plan for bringing the husband-and-wife prayer tracker into the ex
 
 ## 2. Data & Domain Modeling (Prisma/Postgres)
 - **New core tables:**
-  - `userProfile` (id, appwriteUserId, defaultSpaceId FK, totalPrayersOffered, totalRequestsAdded, streakDays, lastSeenAt).
-  - `prayerFamilySpace` (id, shareCode, createdByUserId, archivedAt).
+  - `userProfile` (id, appwriteUserId, displayName, email, defaultSpaceId FK, answeredPersonalCount, answeredFamilyCount, journalEntriesCount, lastPrayerAt, lastSeenAt, createdAt, updatedAt).
+  - `prayerFamilySpace` (id, spaceName, shareCode, createdByUserId, archivedAt, createdAt, updatedAt).
   - `prayerMember` (id, spaceId FK, appwriteUserId, displayName, role enum, joinedAt).
   - `prayerFamily` (id, spaceId FK, familyName, parents, children string[], categoryTag, lastPrayedAt, lastPrayedByMemberId FK, journalNotes, linkedScripture, archivedAt).
   - `prayerFamilyRequest` (id, familyId FK, status enum, requestText, notes, linkedScripture, dateAdded, dateUpdated, lastPrayedAt, answeredAt).
@@ -38,9 +38,10 @@ Implementation plan for bringing the husband-and-wife prayer tracker into the ex
   - `POST /invite` – produce invite token.
   - `POST /accept-invite` – link second account.
   - `GET/POST /families` – list/create family cards.
-  - `PATCH /families/[id]` – update, archive, restore.
+  - `PATCH/DELETE /families/[id]` – edit details, archive, or remove family cards.
   - `GET/POST /families/[id]/requests` – manage family prayer requests.
   - `GET/POST /personal-requests` – manage “Our Family” prayer items.
+  - `PATCH/DELETE /personal-requests/[id]` – edit, mark answered, or remove “Our Family” items.
   - `GET/POST /journal` – CRUD journal entries.
   - `GET /rotation` – compute “Praying Tonight” lineup; respond with JSON+progress events using `lib/progressUtils.sendProgress` to preserve streaming UX.
   - `POST /rotation/confirm` – batch update `lastPrayedAt` and track who prayed.
