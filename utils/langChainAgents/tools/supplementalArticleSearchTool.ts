@@ -1,15 +1,15 @@
 // utils/langChainAgents/tools/supplementalArticleSearchTool.ts
 
 import { tool } from "@langchain/core/tools";
+import { tavily } from "@tavily/core";
 import { z } from "zod";
 
-const { tavily } = require("@tavily/core");
 const client = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
 async function supplementalArticleSearch(query: { query: string }): Promise<string> {
   try {
     const response = await client.search(query.query, {
-      includeAnswer: "advanced",
+      searchDepth: "advanced",
       includeDomains: [
         "https://www.monergism.com/",
         "https://www.gotquestions.org/"

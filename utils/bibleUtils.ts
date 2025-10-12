@@ -1,7 +1,7 @@
 // utils/bibleUtils.ts
 
 import { getBookId } from '@/utils/bookMappings';
-import { TranslationBookChapter, ChapterVerse, VerseContent } from '@/types/bible';
+import { VerseContent } from '@/types/bible';
 
 export async function getBibleCommentary(
     commentaryId: string,

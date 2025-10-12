@@ -9,18 +9,28 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { account } from "@/utils/appwrite";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const router = useRouter();
+  const { setUser } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await account.createEmailPasswordSession(email, password);
-      // Redirect to homepage or dashboard after login
-      window.location.href = "/";
+      const currentUser = await account.get();
+      await fetch("/api/user-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: currentUser.$id, name: currentUser.name, email: currentUser.email }),
+      });
+      setUser(currentUser);
+      router.push("/");
     } catch (error: unknown) {
       if (error instanceof Error) {
         setErrorMessage(error.message);

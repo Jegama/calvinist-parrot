@@ -3,36 +3,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { account } from "@/utils/appwrite";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Models } from "appwrite";
-
-type AppwriteUser = Models.User<Models.Preferences>;
+import { useAuth } from "@/hooks/use-auth";
 
 export function Header() {
-  const [user, setUser] = useState<AppwriteUser | null>(null);
-
-  useEffect(() => {
-    const getUser = async () => {
-      try {
-        const currentUser = await account.get();
-        setUser(currentUser);
-      } catch {
-        // Not logged in or error
-        setUser(null);
-      }
-    };
-    getUser();
-  }, []);
+  const { user, loading } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 py-2">
@@ -47,24 +29,36 @@ export function Header() {
           <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
             <Link href="/devotional">Devotional</Link>
             <Link href="/parrot-qa">Parrot QA</Link>
+            <Link href="/prayer-tracker">Prayer Tracker</Link>
             <Link href="/about">About</Link>
           </nav>
 
           {/* Mobile Dropdown (hidden on md and above) */}
           <div className="md:hidden">
             <DropdownMenu>
-              <DropdownMenuTrigger>
-                <DropdownMenuLabel>More</DropdownMenuLabel>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">More</Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem>
-                  <Link href="/devotional">Devotional</Link>
+              <DropdownMenuContent align="end" className="min-w-[8rem]">
+                <DropdownMenuItem asChild>
+                  <Link href="/devotional" className="w-full">
+                    Devotional
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link href="/parrot-qa">Parrot QA</Link>
+                <DropdownMenuItem asChild>
+                  <Link href="/parrot-qa" className="w-full">
+                    Parrot QA
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link href="/about">About</Link>
+                <DropdownMenuItem asChild>
+                  <Link href="/prayer-tracker" className="w-full">
+                    Prayer Tracker
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/about" className="w-full">
+                    About
+                  </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -77,7 +71,7 @@ export function Header() {
         {/* Right side: Theme toggle and user session actions */}
         <div className="flex items-center space-x-2">
           <ThemeToggle />
-          {user ? (
+          {loading ? null : user ? (
             // If logged in, show the user's name linking to profile
             <Link href="/profile">
               <Button variant="outline">{user.name}</Button>

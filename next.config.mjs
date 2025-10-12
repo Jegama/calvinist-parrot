@@ -13,12 +13,8 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/c/:path*',
-        destination: 'https://bible.helloao.org/api/c/:path*',
-      },
-      {
-        source: '/api/:translation/:path*',
-        destination: 'https://bible.helloao.org/api/:translation/:path*',
+        source: '/api/bible/:path*',
+        destination: 'https://bible.helloao.org/api/:path*',
       },
     ];
   },

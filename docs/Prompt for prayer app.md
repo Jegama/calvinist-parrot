@@ -1,9 +1,9 @@
-Create a Flutter application using Firebase (Firestore as the database) as the backend. The app is a Christian prayer tracker for a husband and wife to manage and track prayers for families they know, as well as for their own family, with shared data access between their two accounts.
+Create a Flutter application using Supabase (PostgreSQL as the database) as the backend. The app is a Christian prayer tracker for a husband and wife to manage and track prayers for families they know, as well as for their own family, with shared data access between their two accounts.
 
 **I. Authentication and Data Sharing:**
 
 1.  **User Authentication:**
-    * Implement user sign-up and sign-in using Firebase Authentication (e.g., email/password, or Google Sign-In).
+    * Implement user sign-up and sign-in using Supabase Authentication (e.g., email/password, or third-party providers like Google Sign-In).
 2.  **Account Linking & Data Sharing:**
     * The app must allow two distinct user accounts (e.g., husband and wife) to link and share access to the *same dataset* (all families, prayer requests, journal entries, etc.).
     * **Mechanism Idea:**
@@ -20,7 +20,7 @@ Create a Flutter application using Firebase (Firestore as the database) as the b
 2.  **Data Management:**
     * **Import Data:** Ability to import family lists and prayer requests from a CSV file into the shared dataset.
     * **Export Data:** Ability to export all shared prayer data (families, requests, journals) to a CSV file.
-    * **Offline Support:** The app should function seamlessly offline for both users, queueing any data changes and syncing them with the shared Firebase Firestore dataset once an internet connection is available.
+    * **Offline Support:** The app should function seamlessly offline for both users, queueing any data changes and syncing them with the shared Supabase dataset once an internet connection is available.
 
 **III. Prayer for Other Families (Shared Data):**
 
@@ -53,9 +53,9 @@ Create a Flutter application using Firebase (Firestore as the database) as the b
             * For Family Cards: `lastPrayedDate` is updated to the current timestamp, and `lastPrayedBy` is updated.
             * For Personal Prayer Requests: `lastPrayedDate` on the `personalPrayerRequest` object is updated to the current timestamp. The `lastPrayedBy` is implicitly the other linked user (not the `requesterName`).
     * Allow manual override if the users decide to pray for different families or personal requests.
-    * **Prayer Summarization (GenAI - Gemini API):**
+    * **Prayer Summarization (GenAI - OpenAI API):**
         * For the items displayed in the "Praying Tonight" view, provide a button: "Generate Prayer Focus."
-        * When tapped, this feature will use a GenAI model (e.g., Gemini API via a secure Cloud Function) to:
+        * When tapped, this feature will use a GenAI model (e.g., OpenAI API via a secure Supabase Edge Function) to:
             * **For a Family Card:**
                 * List the active prayer requests for that family.
                 * Randomly select and display up to 3 "Answered" prayer requests for that family (as a point of thanksgiving).
@@ -78,9 +78,9 @@ Create a Flutter application using Firebase (Firestore as the database) as the b
         * Add, edit, delete prayer requests.
         * Change status.
         * Display requests under their respective family.
-        * **Scripture Suggestion (Gemini API):**
+        * **Scripture Suggestion (OpenAI API):**
             * After a user types in the `requestText` (and perhaps `notes`), provide an "Suggest Scripture" AI button.
-            * When tapped, this sends the `requestText` (and optionally notes) to a GenAI model (e.g., Gemini API via a secure Cloud Function).
+            * When tapped, this sends the `requestText` (and optionally notes) to a GenAI model (e.g., OpenAI API via a secure Supabase Edge Function).
             * The model returns 1-3 relevant Bible verse suggestions, which are then displayed to the user to choose from or be inspired by (not auto-filled, but suggested).
             * *Data to API:* The text of the prayer request.
 
@@ -118,7 +118,7 @@ Create a Flutter application using Firebase (Firestore as the database) as the b
 
 **VI. GenAI Feature Considerations:**
 
-* **API Key Management:** Securely manage API keys for GenAI services (e.g., Gemini API) using Firebase Cloud Functions. Client-side API calls should be avoided for security.
+* **API Key Management:** Securely manage API keys for OpenAI services using Supabase Edge Functions. Client-side API calls should be avoided for security.
 * **User Indication:** Clearly indicate when GenAI is being used to generate suggestions or summaries.
 * **Data Privacy:** Be mindful of the data being sent to external APIs. For scripture suggestions, it's prayer text; for summaries, it's prayer texts.
 
@@ -131,7 +131,7 @@ Create a Flutter application using Firebase (Firestore as the database) as the b
 **Technical Stack:**
 
 * **Frontend:** Flutter
-* **Backend:** Firebase
-    * **Authentication:** Firebase Authentication
-    * **Database:** Firestore (Data structure must support the shared model, e.g., all primary collections like `sharedFamilies`, `sharedOurFamilyLog` could be rooted under a document ID specific to the linked pair of users, or Firestore rules heavily utilized to manage access based on a shared link ID stored in each user's profile).
-    * **Cloud Functions:** For GenAI API interactions, invitation system (if needed), and potentially complex data migrations or aggregations.
+* **Backend:** Supabase
+    * **Authentication:** Supabase Authentication
+    * **Database:** Supabase PostgreSQL (Data structure must support the shared model, e.g., all primary tables like `sharedFamilies`, `sharedOurFamilyLog` could be rooted under a document ID specific to the linked pair of users, or Supabase row-level security heavily utilized to manage access based on a shared link ID stored in each user's profile).
+    * **Edge Functions:** For OpenAI API interactions, invitation system (if needed), and potentially complex data migrations or aggregations.

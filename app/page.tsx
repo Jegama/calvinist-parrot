@@ -107,6 +107,7 @@ export default function MainChatPage() {
                   alt="Calvinist Parrot"
                   width={100}
                   height={100}
+                  priority
                   unoptimized={true}
                 />
                 <CardTitle className="w-full justify-center text-3xl font-bold">Calvinist Parrot</CardTitle>
