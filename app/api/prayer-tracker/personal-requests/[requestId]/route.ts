@@ -90,7 +90,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           email: null,
           lastSeenAt: now,
         },
-  } as any);
+  });
 
   const [updated] = await prisma.$transaction([
     prisma.prayerPersonalRequest.update({

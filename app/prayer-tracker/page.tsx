@@ -83,32 +83,6 @@ export default function PrayerTrackerPage() {
 	const [answeringPersonalId, setAnsweringPersonalId] = useState<string | null>(null);
 	const initializedForUser = useRef<string | null>(null);
 
-	useEffect(() => {
-		if (authLoading) return;
-		if (!user) {
-			initializedForUser.current = null;
-			setSpaceLoaded(false);
-			setSpaceName(null);
-			setMembers([]);
-			setFamilies([]);
-			setPersonal([]);
-			setRotation(null);
-			setFamilyAssignments({});
-			setPersonalSelections({});
-			return;
-		}
-		if (initializedForUser.current === user.$id) return;
-		initializedForUser.current = user.$id;
-		(async () => {
-			try {
-				await refreshAll(user.$id);
-			} catch (error) {
-				console.error("Failed to load prayer tracker data", error);
-				setSpaceLoaded(true);
-			}
-		})();
-	}, [authLoading, user]);
-
 	const categories = useMemo(() => {
 		const unique = new Set<string>();
 		defaultCategories.forEach((category) => unique.add(category));
@@ -179,13 +153,7 @@ export default function PrayerTrackerPage() {
 		setPersonalSelections({});
 	}, []);
 
-	async function refreshAll(userId: string) {
-		setSpaceLoaded(false);
-		await Promise.all([loadSpace(userId), refreshLists(userId)]);
-		setSpaceLoaded(true);
-	}
-
-	async function loadSpace(userId: string) {
+	const loadSpace = useCallback(async (userId: string) => {
 		try {
 			const res = await fetch(`/api/prayer-tracker/spaces?userId=${userId}`);
 			if (!res.ok) {
@@ -203,9 +171,9 @@ export default function PrayerTrackerPage() {
 			setMembers([]);
 			return null;
 		}
-	}
+	}, []);
 
-	async function refreshLists(userId: string) {
+	const refreshLists = useCallback(async (userId: string) => {
 		try {
 			const [familiesRes, personalRes] = await Promise.all([
 				fetch(`/api/prayer-tracker/families?userId=${userId}`),
@@ -223,7 +191,42 @@ export default function PrayerTrackerPage() {
 		} catch (error) {
 			console.error("Failed to refresh lists", error);
 		}
-	}
+	}, []);
+
+	const refreshAll = useCallback(
+		async (userId: string) => {
+			setSpaceLoaded(false);
+			await Promise.all([loadSpace(userId), refreshLists(userId)]);
+			setSpaceLoaded(true);
+		},
+		[loadSpace, refreshLists]
+	);
+
+	useEffect(() => {
+		if (authLoading) return;
+		if (!user) {
+			initializedForUser.current = null;
+			setSpaceLoaded(false);
+			setSpaceName(null);
+			setMembers([]);
+			setFamilies([]);
+			setPersonal([]);
+			setRotation(null);
+			setFamilyAssignments({});
+			setPersonalSelections({});
+			return;
+		}
+		if (initializedForUser.current === user.$id) return;
+		initializedForUser.current = user.$id;
+		(async () => {
+			try {
+				await refreshAll(user.$id);
+			} catch (error) {
+				console.error("Failed to load prayer tracker data", error);
+				setSpaceLoaded(true);
+			}
+		})();
+	}, [authLoading, refreshAll, user]);
 
 	async function createFamily() {
 		if (!user) return;

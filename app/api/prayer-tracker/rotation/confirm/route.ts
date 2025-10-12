@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 
 export async function POST(request: Request) {
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
   if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 
   const now = new Date();
-  const transactions: Promise<unknown>[] = [];
+  const transactions: Prisma.PrismaPromise<unknown>[] = [];
 
   if (Array.isArray(familyAssignments) && familyAssignments.length) {
     familyAssignments.forEach(({ familyId, prayedByMemberId }) => {

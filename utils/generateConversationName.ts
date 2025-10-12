@@ -54,7 +54,7 @@ What would you like to name this conversation? It can be a short name to remembe
     try {
       const conversationName = JSON.parse(conversationNameContent).name;
       return conversationName;
-    } catch (error) {
+    } catch {
       return await generateConversationName(currentConversation);
     }
   } else {

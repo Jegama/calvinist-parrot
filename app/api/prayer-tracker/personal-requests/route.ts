@@ -18,7 +18,39 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const { userId, requestText, notes, linkedScripture, requesterMemberId } = body as any;
+  type CreatePersonalRequestPayload = {
+    userId?: string;
+    requestText?: string;
+    notes?: string | null;
+    linkedScripture?: string | null;
+    requesterMemberId?: string;
+  };
+
+  const payload = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+  const {
+    userId,
+    requestText,
+    notes,
+    linkedScripture,
+    requesterMemberId,
+  }: CreatePersonalRequestPayload = {
+    userId: typeof payload.userId === "string" ? payload.userId : undefined,
+    requestText: typeof payload.requestText === "string" ? payload.requestText : undefined,
+    notes:
+      typeof payload.notes === "string"
+        ? payload.notes
+        : payload.notes === null
+        ? null
+        : undefined,
+    linkedScripture:
+      typeof payload.linkedScripture === "string"
+        ? payload.linkedScripture
+        : payload.linkedScripture === null
+        ? null
+        : undefined,
+    requesterMemberId:
+      typeof payload.requesterMemberId === "string" ? payload.requesterMemberId : undefined,
+  };
   if (!userId || !requestText)
     return NextResponse.json({ error: "Missing userId or requestText" }, { status: 400 });
 

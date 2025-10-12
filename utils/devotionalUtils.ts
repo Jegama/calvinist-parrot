@@ -1,10 +1,9 @@
 // utils/devotionalUtils.ts
 
 import OpenAI from "openai";
+import { tavily } from "@tavily/core";
 import prisma from "@/lib/prisma";
 import * as prompts from "@/lib/prompts";
-
-const { tavily } = require("@tavily/core");
 
 // Initialize clients
 export const openai = new OpenAI({
@@ -42,12 +41,17 @@ export function getDevotionalId(date: Date): string {
 }
 
 // Generate the prompt message for the OpenAI API
-export function generateMessage(devotionalType: string, date: Date, latestNews: string): string {
+export function generateMessage(
+        devotionalType: string,
+        date: Date,
+        latestNews: string | string[]
+    ): string {
+        const newsBlock = Array.isArray(latestNews) ? latestNews.join("\n\n") : latestNews;
     return `You are writing a ${devotionalType} devotional for ${date.toDateString()}.
 
 Here are snippets of the latest news:
 ---------------------
-${latestNews}
+${newsBlock}
 ---------------------
 
 Please output the following:
@@ -65,17 +69,34 @@ If it's a morning devotional, focus on encouraging people on growing on their fa
 
 // Fetch latest news using Tavily API
 export async function fetchNews() {
+    type TavilySearchResult = {
+        title?: string;
+        content?: string;
+        publishedDate?: string;
+    };
+
+    type TavilySearchResponse = {
+        results?: TavilySearchResult[];
+    };
+
     try {
-        const response = await tavilyClient.search("Global news", {
+        const response = (await tavilyClient.search("Global news", {
             topic: "news",
             days: 1
-        });
+        })) as TavilySearchResponse;
 
-        const articles = response.results.map((result: any) => {
-            return `${result.title}
-        ${result.content}
-        Published: ${result.publishedDate || 'Unknown date'}`;
-        }).slice(0, 5);
+        const articles = Array.isArray(response.results)
+            ? response.results
+                    .slice(0, 5)
+                    .map((result) => {
+                        const title = result.title ?? "Untitled";
+                        const content = result.content ?? "No summary available.";
+                        const publishedDate = result.publishedDate || "Unknown date";
+                        return `${title}
+        ${content}
+        Published: ${publishedDate}`;
+                    })
+            : [];
 
         return { articles };
     } catch (error) {

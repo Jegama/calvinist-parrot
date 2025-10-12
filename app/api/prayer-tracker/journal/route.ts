@@ -18,7 +18,18 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const { userId, entryText, tags } = body as any;
+  type CreateJournalEntryPayload = {
+    userId?: string;
+    entryText?: string;
+    tags?: unknown;
+  };
+
+  const payload = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+  const { userId, entryText, tags }: CreateJournalEntryPayload = {
+    userId: typeof payload.userId === "string" ? payload.userId : undefined,
+    entryText: typeof payload.entryText === "string" ? payload.entryText : undefined,
+    tags: payload.tags,
+  };
   if (!userId || !entryText)
     return NextResponse.json({ error: "Missing userId or entryText" }, { status: 400 });
 
@@ -26,7 +37,13 @@ export async function POST(request: Request) {
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
 
   const created = await prisma.prayerJournalEntry.create({
-    data: { spaceId: membership.spaceId, entryText, tags: Array.isArray(tags) ? tags : [] },
+    data: {
+      spaceId: membership.spaceId,
+      entryText,
+      tags: Array.isArray(tags)
+        ? tags.filter((tag): tag is string => typeof tag === "string")
+        : [],
+    },
   });
   return NextResponse.json(created);
 }
