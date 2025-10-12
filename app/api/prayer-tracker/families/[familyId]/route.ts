@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { ARCHIVED_CATEGORY } from "@/app/prayer-tracker/constants";
 
 type RouteContext = { params: Promise<{ familyId: string }> };
 
@@ -23,11 +24,12 @@ export async function PATCH(request: Request, context: RouteContext) {
     parents?: string;
     children?: string[];
     categoryTag?: string | null;
+    lastPrayedAt?: string | null;
     archive?: boolean;
     unarchive?: boolean;
   };
   const userId = resolveUserId(request, body.userId);
-  const { familyName, parents, children, categoryTag, archive, unarchive } = body;
+  const { familyName, parents, children, categoryTag, lastPrayedAt, archive, unarchive } = body;
 
   if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 
@@ -45,8 +47,24 @@ export async function PATCH(request: Request, context: RouteContext) {
   if (typeof parents === "string") data.parents = parents.trim();
   if (Array.isArray(children)) data.children = children;
   if (categoryTag !== undefined) data.categoryTag = categoryTag ? categoryTag.trim() : null;
-  if (archive) data.archivedAt = new Date();
-  if (unarchive) data.archivedAt = null;
+  if (lastPrayedAt !== undefined) {
+    if (lastPrayedAt === null || lastPrayedAt === "") {
+      data.lastPrayedAt = null;
+    } else {
+      const parsed = new Date(lastPrayedAt);
+      if (!Number.isNaN(parsed.getTime())) {
+        data.lastPrayedAt = parsed;
+      }
+    }
+  }
+  if (archive) {
+    data.archivedAt = new Date();
+    data.categoryTag = ARCHIVED_CATEGORY;
+  }
+  if (unarchive) {
+    data.archivedAt = null;
+    if (data.categoryTag === undefined) data.categoryTag = null;
+  }
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "No updates provided" }, { status: 400 });

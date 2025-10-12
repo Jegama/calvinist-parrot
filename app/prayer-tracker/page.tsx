@@ -8,6 +8,7 @@ import { FamilySection } from "./components/FamilySection";
 import { PersonalRequestsSection } from "./components/PersonalRequestsSection";
 import { FamilySheet } from "./components/FamilySheet";
 import { PersonalSheet } from "./components/PersonalSheet";
+import { ARCHIVED_CATEGORY } from "./constants";
 import { useAuth } from "@/hooks/use-auth";
 import { ProtectedView } from "@/components/ProtectedView";
 import {
@@ -65,6 +66,8 @@ export default function PrayerTrackerPage() {
 		children: "",
 		categorySelect: "none",
 		customCategory: "",
+		lastPrayedAt: "",
+		archivedAt: null,
 	}));
 	const [familySheetError, setFamilySheetError] = useState<string | null>(null);
 
@@ -110,17 +113,27 @@ export default function PrayerTrackerPage() {
 		const unique = new Set<string>();
 		defaultCategories.forEach((category) => unique.add(category));
 		families.forEach((family) => {
-			if (family.categoryTag) unique.add(family.categoryTag);
+			if (family.categoryTag && family.categoryTag !== ARCHIVED_CATEGORY) {
+				unique.add(family.categoryTag);
+			}
 		});
 		if (newFamily.categorySelect === "__custom" && newFamily.customCategory.trim().length) {
 			unique.add(newFamily.customCategory.trim());
 		}
+		unique.add(ARCHIVED_CATEGORY);
 		return Array.from(unique);
 	}, [families, newFamily.categorySelect, newFamily.customCategory]);
 
 	const filteredFamilies = useMemo(() => {
-		if (categoryFilter === "all") return families;
-		return families.filter((family) => family.categoryTag === categoryFilter);
+		if (categoryFilter === "all") {
+			return families.filter((family) => !family.archivedAt);
+		}
+		if (categoryFilter === ARCHIVED_CATEGORY) {
+			return families.filter((family) => Boolean(family.archivedAt));
+		}
+		return families.filter(
+			(family) => family.categoryTag === categoryFilter && !family.archivedAt
+		);
 	}, [families, categoryFilter]);
 
 	const hasSelections = useMemo(() => {
@@ -392,13 +405,23 @@ export default function PrayerTrackerPage() {
 	}
 
 	function openFamilyEditor(family: Family) {
+		const category = family.categoryTag ?? "none";
+		let lastPrayedDate = "";
+		if (family.lastPrayedAt) {
+			const parsedDate = new Date(family.lastPrayedAt);
+			if (!Number.isNaN(parsedDate.getTime())) {
+				lastPrayedDate = parsedDate.toISOString().slice(0, 10);
+			}
+		}
 		setFamilySheet({
 			id: family.id,
 			familyName: family.familyName,
 			parents: family.parents,
 			children: family.children.join(", "),
-			categorySelect: family.categoryTag ?? "none",
+			categorySelect: category,
 			customCategory: "",
+			lastPrayedAt: lastPrayedDate,
+			archivedAt: family.archivedAt ?? null,
 		});
 		setFamilySheetError(null);
 		setIsFamilySheetOpen(true);
@@ -412,6 +435,8 @@ export default function PrayerTrackerPage() {
 			children: "",
 			categorySelect: "none",
 			customCategory: "",
+			lastPrayedAt: "",
+			archivedAt: null,
 		});
 		setFamilySheetError(null);
 		setFamilySheetLoading(false);
@@ -435,6 +460,17 @@ export default function PrayerTrackerPage() {
 			return;
 		}
 
+		const dateValue = familySheet.lastPrayedAt.trim();
+		let lastPrayedAtIso: string | null = null;
+		if (dateValue) {
+			const parsed = new Date(dateValue);
+			if (Number.isNaN(parsed.getTime())) {
+				setFamilySheetError("Please choose a valid last prayed date.");
+				return;
+			}
+			lastPrayedAtIso = parsed.toISOString();
+		}
+
 		setFamilySheetLoading(true);
 		setFamilySheetError(null);
 		try {
@@ -449,6 +485,7 @@ export default function PrayerTrackerPage() {
 						parents: familySheet.parents.trim(),
 						children: normalizeChildren(familySheet.children),
 						categoryTag: resolvedCategory || null,
+						lastPrayedAt: lastPrayedAtIso,
 					}),
 				}
 			);
@@ -478,7 +515,11 @@ export default function PrayerTrackerPage() {
 				{
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ userId: user.$id, archive: true }),
+					body: JSON.stringify({
+						userId: user.$id,
+						archive: true,
+						categoryTag: ARCHIVED_CATEGORY,
+					}),
 				}
 			);
 			if (!response.ok) {
@@ -492,6 +533,39 @@ export default function PrayerTrackerPage() {
 		} catch (error) {
 			console.error("Failed to archive family", error);
 			setFamilySheetError("Unable to archive this family right now.");
+		} finally {
+			setFamilySheetLoading(false);
+		}
+	}
+
+	async function restoreFamily() {
+		if (!user || !familySheet.id) return;
+		setFamilySheetLoading(true);
+		setFamilySheetError(null);
+		try {
+			const response = await fetch(
+				appendUserId(`/api/prayer-tracker/families/${familySheet.id}`, user.$id),
+				{
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						userId: user.$id,
+						unarchive: true,
+						categoryTag: null,
+					}),
+				}
+			);
+			if (!response.ok) {
+				const message = await readErrorMessage(response);
+				setFamilySheetError(message || "Unable to restore this family right now.");
+				return;
+			}
+			resetFamilySheet();
+			setIsFamilySheetOpen(false);
+			await refreshLists(user.$id);
+		} catch (error) {
+			console.error("Failed to restore family", error);
+			setFamilySheetError("Unable to restore this family right now.");
 		} finally {
 			setFamilySheetLoading(false);
 		}
@@ -760,6 +834,7 @@ export default function PrayerTrackerPage() {
 				onUpdate={handleFamilySheetChange}
 				onSave={saveFamilySheet}
 				onArchive={archiveFamily}
+				onRestore={restoreFamily}
 				onDelete={deleteFamily}
 			/>
 

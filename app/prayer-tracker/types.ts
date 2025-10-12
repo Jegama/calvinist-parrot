@@ -19,6 +19,7 @@ export type Family = {
   lastPrayedByMemberId?: string | null;
   lastPrayedBy?: { id: string; displayName: string } | null;
   createdAt?: string;
+  archivedAt?: string | null;
 };
 
 export type PersonalRequest = {
@@ -47,6 +48,8 @@ export type NewFamilyFormState = {
 
 export type FamilySheetState = NewFamilyFormState & {
   id: string;
+  lastPrayedAt: string;
+  archivedAt: string | null;
 };
 
 export type NewPersonalFormState = {

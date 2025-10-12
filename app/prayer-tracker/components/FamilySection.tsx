@@ -15,6 +15,7 @@ import { Family, NewFamilyFormState } from "../types";
 import { useEffect, useMemo, useState } from "react";
 import { formatRelative } from "../utils";
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
+import { ARCHIVED_CATEGORY } from "../constants";
 
 const joinClassNames = (base: string, extra?: string) => {
   if (!extra) return base;
@@ -64,6 +65,11 @@ export function FamilySection({
 
   const canPrev = page > 1;
   const canNext = page < totalPages;
+  const selectableCategories = useMemo(
+    () => categories.filter((category) => category !== ARCHIVED_CATEGORY),
+    [categories]
+  );
+  const showArchiveMetadata = categoryFilter === ARCHIVED_CATEGORY;
 
   return (
     <Card className={joinClassNames("", className)}>
@@ -104,7 +110,7 @@ export function FamilySection({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No category</SelectItem>
-                  {categories.map((category) => (
+                  {selectableCategories.map((category) => (
                     <SelectItem key={category} value={category}>
                       {category}
                     </SelectItem>
@@ -215,10 +221,17 @@ export function FamilySection({
                   </div>
                   <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                     {family.parents && <p>Parents: {family.parents}</p>}
-                    {family.children.length > 0 && <p>Children: {family.children.join(", ")}</p>}
-                    <p>
-                      Last prayed: {formatRelative(family.lastPrayedAt)} - by {family.lastPrayedBy?.displayName ?? "Unknown"}
-                    </p>
+                    {Array.isArray(family.children) && family.children.length > 0 && (
+                      <p>Children: {family.children.join(", ")}</p>
+                    )}
+                    {showArchiveMetadata && family.archivedAt ? (
+                      <p>Archived: {formatRelative(family.archivedAt)}</p>
+                    ) : (
+                      <p>
+                        Last prayed: {formatRelative(family.lastPrayedAt)}
+                        {family.lastPrayedBy?.displayName ? ` - by ${family.lastPrayedBy.displayName}` : ""}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,7 +19,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { ARCHIVED_CATEGORY } from "../constants";
 import { FamilySheetState } from "../types";
+import { formatRelative } from "../utils";
 
 type FamilySheetProps = {
   isOpen: boolean;
@@ -30,6 +33,7 @@ type FamilySheetProps = {
   onUpdate: (changes: Partial<FamilySheetState>) => void;
   onSave: () => void;
   onArchive: () => void;
+  onRestore: () => void;
   onDelete: () => void;
 };
 
@@ -43,6 +47,7 @@ export function FamilySheet({
   onUpdate,
   onSave,
   onArchive,
+  onRestore,
   onDelete,
 }: FamilySheetProps) {
   const handleCategoryChange = (value: string) => {
@@ -52,12 +57,23 @@ export function FamilySheet({
     });
   };
 
+  const categoryOptions = useMemo(() => {
+    if (sheetState.categorySelect === ARCHIVED_CATEGORY) return categories;
+    return categories.filter((category) => category !== ARCHIVED_CATEGORY);
+  }, [categories, sheetState.categorySelect]);
+
+  const showRestore = Boolean(sheetState.archivedAt);
+
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>Edit family</SheetTitle>
-          <SheetDescription>Update details or archive this family card.</SheetDescription>
+          <SheetDescription>
+            {showRestore
+              ? "This family is archived. Update details or restore it back to active cards."
+              : "Update details or archive this family card."}
+          </SheetDescription>
         </SheetHeader>
         <div className="mt-6 space-y-4">
           <Input
@@ -82,7 +98,7 @@ export function FamilySheet({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No category</SelectItem>
-                {categories.map((category) => (
+                {categoryOptions.map((category) => (
                   <SelectItem key={category} value={category}>
                     {category}
                   </SelectItem>
@@ -98,13 +114,52 @@ export function FamilySheet({
               />
             )}
           </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground" htmlFor="family-last-prayed">
+              Last prayed on
+            </label>
+            <div className="flex gap-2">
+              <Input
+                id="family-last-prayed"
+                type="date"
+                value={sheetState.lastPrayedAt}
+                onChange={(event) => onUpdate({ lastPrayedAt: event.target.value })}
+                max="9999-12-31"
+              />
+              {sheetState.lastPrayedAt && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onUpdate({ lastPrayedAt: "" })}
+                  disabled={isLoading}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+          {sheetState.archivedAt && (
+            <p className="text-xs text-muted-foreground">
+              Archived on {formatRelative(sheetState.archivedAt)}
+            </p>
+          )}
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
         <SheetFooter className="mt-6 gap-2">
           <div className="flex flex-1 flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={onArchive} disabled={isLoading}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onArchive}
+              disabled={isLoading || showRestore}
+            >
               Archive
             </Button>
+            {showRestore && (
+              <Button type="button" variant="outline" onClick={onRestore} disabled={isLoading}>
+                Restore
+              </Button>
+            )}
             <Button type="button" variant="destructive" onClick={onDelete} disabled={isLoading}>
               Delete
             </Button>

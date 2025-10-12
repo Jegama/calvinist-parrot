@@ -12,13 +12,14 @@ export async function GET(request: Request) {
   if (!membership) return NextResponse.json([]);
 
   const families = await prisma.prayerFamily.findMany({
-    where: { spaceId: membership.spaceId, archivedAt: null },
+    where: { spaceId: membership.spaceId },
     include: {
       lastPrayedBy: {
         select: { id: true, displayName: true },
       },
     },
     orderBy: [
+      { archivedAt: { sort: "asc", nulls: "first" } },
       { lastPrayedAt: { sort: "asc", nulls: "first" } },
       { familyName: "asc" },
     ],
