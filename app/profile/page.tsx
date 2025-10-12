@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { account } from "@/utils/appwrite";
 import { Models } from "appwrite";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -39,8 +39,11 @@ export default function ProfilePage() {
   const [spaceNameInput, setSpaceNameInput] = useState<string>("");
   const [profileStats, setProfileStats] = useState<ProfileStats | null>(null);
   const router = useRouter();
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
     const fetchUserAndQuestions = async () => {
       try {
         // Get the current logged-in user from Appwrite

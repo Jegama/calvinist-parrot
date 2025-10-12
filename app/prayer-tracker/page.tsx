@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { account } from "@/utils/appwrite";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,8 +78,11 @@ export default function PrayerTrackerPage() {
 	}));
 	const [personalSheetError, setPersonalSheetError] = useState<string | null>(null);
 	const [answeringPersonalId, setAnsweringPersonalId] = useState<string | null>(null);
+	const hasLoadedInitialData = useRef(false);
 
 	useEffect(() => {
+		if (hasLoadedInitialData.current) return;
+		hasLoadedInitialData.current = true;
 		(async () => {
 			try {
 				const currentUser = await account.get();
