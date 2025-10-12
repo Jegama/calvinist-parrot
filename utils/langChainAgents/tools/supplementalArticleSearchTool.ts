@@ -9,7 +9,6 @@ const client = tavily({ apiKey: process.env.TAVILY_API_KEY });
 async function supplementalArticleSearch(query: { query: string }): Promise<string> {
   try {
     const response = await client.search(query.query, {
-      includeAnswer: true,
       searchDepth: "advanced",
       includeDomains: [
         "https://www.monergism.com/",

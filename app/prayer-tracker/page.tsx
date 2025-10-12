@@ -155,7 +155,7 @@ export default function PrayerTrackerPage() {
 
 	const loadSpace = useCallback(async (userId: string) => {
 		try {
-			const res = await fetch(`/api/prayer-tracker/spaces?userId=${userId}`);
+			const res = await fetch(appendUserId(`/api/prayer-tracker/spaces`, userId));
 			if (!res.ok) {
 				setSpaceName(null);
 				setMembers([]);
@@ -176,8 +176,8 @@ export default function PrayerTrackerPage() {
 	const refreshLists = useCallback(async (userId: string) => {
 		try {
 			const [familiesRes, personalRes] = await Promise.all([
-				fetch(`/api/prayer-tracker/families?userId=${userId}`),
-				fetch(`/api/prayer-tracker/personal-requests?userId=${userId}`),
+				fetch(appendUserId(`/api/prayer-tracker/families`, userId)),
+				fetch(appendUserId(`/api/prayer-tracker/personal-requests`, userId)),
 			]);
 
 			if (familiesRes.ok) {
@@ -317,7 +317,7 @@ export default function PrayerTrackerPage() {
 		setIsComputing(true);
 		setRotationError(null);
 		try {
-			const res = await fetch(`/api/prayer-tracker/rotation?userId=${user.$id}`);
+			const res = await fetch(appendUserId(`/api/prayer-tracker/rotation`, user.$id));
 			if (!res.ok) throw new Error("Failed to compute rotation");
 			const data = await res.json();
 			if (Array.isArray(data?.members) && data.members.length) {
@@ -385,7 +385,7 @@ export default function PrayerTrackerPage() {
 		setIsConfirming(true);
 		setRotationError(null);
 		try {
-			const res = await fetch(`/api/prayer-tracker/rotation/confirm`, {
+			const res = await fetch(appendUserId(`/api/prayer-tracker/rotation/confirm`, user.$id), {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
