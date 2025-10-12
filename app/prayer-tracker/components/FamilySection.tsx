@@ -12,7 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Family, NewFamilyFormState } from "../types";
+import { useEffect, useMemo, useState } from "react";
 import { formatRelative } from "../utils";
+import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
 
 const joinClassNames = (base: string, extra?: string) => {
   if (!extra) return base;
@@ -44,6 +46,25 @@ export function FamilySection({
   onCategoryFilterChange,
   onEditFamily,
 }: FamilySectionProps) {
+  // Pagination state
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const total = filteredFamilies.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  useEffect(() => {
+    // Reset to first page when filter changes or list size shrinks below current window
+    setPage(1);
+  }, [categoryFilter]);
+
+  const pagedFamilies = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredFamilies.slice(start, start + PAGE_SIZE);
+  }, [filteredFamilies, page]);
+
+  const canPrev = page > 1;
+  const canNext = page < totalPages;
+
   return (
     <Card className={joinClassNames("", className)}>
       <CardHeader>
@@ -128,29 +149,128 @@ export function FamilySection({
         {filteredFamilies.length === 0 ? (
           <p className="text-sm text-muted-foreground">Add a family card to get started.</p>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {filteredFamilies.map((family) => (
-              <div key={family.id} className="rounded-lg border bg-card p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h4 className="text-base font-semibold">{family.familyName}</h4>
-                    {family.categoryTag && (
-                      <span className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium">
-                        {family.categoryTag}
-                      </span>
-                    )}
-                  </div>
-                  <Button size="sm" variant="outline" onClick={() => onEditFamily(family)}>
-                    Edit
-                  </Button>
-                </div>
-                <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                  {family.parents && <p>Parents: {family.parents}</p>}
-                  {family.children.length > 0 && <p>Children: {family.children.join(", ")}</p>}
-                  <p>Last prayed: {formatRelative(family.lastPrayedAt)} - by {family.lastPrayedBy?.displayName ?? "Unknown"}</p>
-                </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                {Math.min((page - 1) * PAGE_SIZE + 1, total)}-
+                {Math.min(page * PAGE_SIZE, total)} of {total}
+                {categoryFilter !== "all" ? ` in ${categoryFilter}` : ""}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage(1)}
+                  disabled={!canPrev}
+                  aria-label="Go to first page"
+                >
+                  <ChevronFirst className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={!canPrev}
+                  aria-label="Go to previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <span className="px-1">Page {page} / {totalPages}</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={!canNext}
+                  aria-label="Go to next page"
+                >
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage(totalPages)}
+                  disabled={!canNext}
+                  aria-label="Go to last page"
+                >
+                  <ChevronLast className="h-4 w-4" aria-hidden="true" />
+                </Button>
               </div>
-            ))}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {pagedFamilies.map((family) => (
+                <div key={family.id} className="rounded-lg border bg-card p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="text-base font-semibold">{family.familyName}</h4>
+                      {family.categoryTag && (
+                        <span className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium">
+                          {family.categoryTag}
+                        </span>
+                      )}
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => onEditFamily(family)}>
+                      Edit
+                    </Button>
+                  </div>
+                  <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                    {family.parents && <p>Parents: {family.parents}</p>}
+                    {family.children.length > 0 && <p>Children: {family.children.join(", ")}</p>}
+                    <p>
+                      Last prayed: {formatRelative(family.lastPrayedAt)} - by {family.lastPrayedBy?.displayName ?? "Unknown"}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Duplicate controls at bottom for convenience */}
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                {Math.min((page - 1) * PAGE_SIZE + 1, total)}-
+                {Math.min(page * PAGE_SIZE, total)} of {total}
+                {categoryFilter !== "all" ? ` in ${categoryFilter}` : ""}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage(1)}
+                  disabled={!canPrev}
+                  aria-label="Go to first page"
+                >
+                  <ChevronFirst className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={!canPrev}
+                  aria-label="Go to previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <span className="px-1">Page {page} / {totalPages}</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={!canNext}
+                  aria-label="Go to next page"
+                >
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage(totalPages)}
+                  disabled={!canNext}
+                  aria-label="Go to last page"
+                >
+                  <ChevronLast className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </CardContent>

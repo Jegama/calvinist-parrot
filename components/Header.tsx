@@ -9,7 +9,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
@@ -37,21 +36,29 @@ export function Header() {
           {/* Mobile Dropdown (hidden on md and above) */}
           <div className="md:hidden">
             <DropdownMenu>
-              <DropdownMenuTrigger>
-                <DropdownMenuLabel>More</DropdownMenuLabel>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">More</Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem>
-                  <Link href="/devotional">Devotional</Link>
+              <DropdownMenuContent align="end" className="min-w-[8rem]">
+                <DropdownMenuItem asChild>
+                  <Link href="/devotional" className="w-full">
+                    Devotional
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link href="/parrot-qa">Parrot QA</Link>
+                <DropdownMenuItem asChild>
+                  <Link href="/parrot-qa" className="w-full">
+                    Parrot QA
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link href="/prayer-tracker">Prayer Tracker</Link>
+                <DropdownMenuItem asChild>
+                  <Link href="/prayer-tracker" className="w-full">
+                    Prayer Tracker
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link href="/about">About</Link>
+                <DropdownMenuItem asChild>
+                  <Link href="/about" className="w-full">
+                    About
+                  </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

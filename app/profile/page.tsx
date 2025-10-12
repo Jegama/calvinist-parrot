@@ -155,36 +155,40 @@ export default function ProfilePage() {
                 <span className="font-semibold">{spaceNameInput || "Prayer Space"}</span>
               </div>
               <p className="pt-1">Share code:</p>
-              <div className="flex gap-2 items-center">
-                <span className="font-mono text-lg">{shareCode}</span>
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(shareCode);
-                    } catch (error) {
-                      console.error("Failed to copy share code", error);
-                    }
-                  }}
-                >
-                  Copy
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    const res = await fetch(`/api/prayer-tracker/invite`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ userId: user.$id, regenerate: true }),
-                    });
-                    if (res.ok) {
-                      const d = await res.json();
-                      setShareCode(d.shareCode);
-                    }
-                  }}
-                >
-                  Regenerate
-                </Button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+                <span className="font-mono text-lg break-all sm:break-normal">{shareCode}</span>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(shareCode);
+                      } catch (error) {
+                        console.error("Failed to copy share code", error);
+                      }
+                    }}
+                  >
+                    Copy
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={async () => {
+                      const res = await fetch(`/api/prayer-tracker/invite`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ userId: user.$id, regenerate: true }),
+                      });
+                      if (res.ok) {
+                        const d = await res.json();
+                        setShareCode(d.shareCode);
+                      }
+                    }}
+                  >
+                    Regenerate
+                  </Button>
+                </div>
               </div>
             </div>
           ) : (

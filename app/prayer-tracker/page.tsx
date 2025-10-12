@@ -689,7 +689,7 @@ export default function PrayerTrackerPage() {
 
 	return (
 		<ProtectedView fallback={authFallback}>
-			<div className="max-w-6xl mx-auto mt-8 mb-16 space-y-8">
+			<div className="max-w-6xl mx-auto mt-8 mb-16 space-y-8 px-4 sm:px-6">
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 				<div>
 					<h1 className="text-2xl font-semibold">{spaceName}</h1>
@@ -719,9 +719,22 @@ export default function PrayerTrackerPage() {
 				onConfirmRotation={confirmRotation}
 			/>
 
-			<div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+			{/* Primary actions first: Personal requests on top full width, families below */}
+			<div className="space-y-6">
+				<PersonalRequestsSection
+					className="w-full"
+					personal={personal}
+					newPersonal={newPersonal}
+					personalFormError={personalFormError}
+					answeringPersonalId={answeringPersonalId}
+					onNewPersonalChange={handleNewPersonalChange}
+					onCreatePersonal={createPersonal}
+					onEditPersonal={openPersonalEditor}
+					onMarkAnswered={markPersonalAnswered}
+				/>
+
 				<FamilySection
-					className="order-1 lg:order-none"
+					className="w-full"
 					newFamily={newFamily}
 					familyFormError={familyFormError}
 					categories={categories}
@@ -731,17 +744,6 @@ export default function PrayerTrackerPage() {
 					onCreateFamily={createFamily}
 					onCategoryFilterChange={setCategoryFilter}
 					onEditFamily={openFamilyEditor}
-				/>
-				<PersonalRequestsSection
-					className="order-2 lg:order-none"
-					personal={personal}
-					newPersonal={newPersonal}
-					personalFormError={personalFormError}
-					answeringPersonalId={answeringPersonalId}
-					onNewPersonalChange={handleNewPersonalChange}
-					onCreatePersonal={createPersonal}
-					onEditPersonal={openPersonalEditor}
-					onMarkAnswered={markPersonalAnswered}
 				/>
 			</div>
 

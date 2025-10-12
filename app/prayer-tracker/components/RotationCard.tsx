@@ -51,7 +51,7 @@ export function RotationCard({
         ) : (
           <>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-semibold">Families</h3>
                 <span className="text-sm text-muted-foreground">
                   Select who will lead prayer for each family tonight.
@@ -102,7 +102,7 @@ export function RotationCard({
             <Separator />
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-semibold">Our Family Requests</h3>
                 <span className="text-sm text-muted-foreground">
                   Deselect any requests you&apos;re postponing tonight.
