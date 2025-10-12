@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { account, ID } from "@/utils/appwrite";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
 
 export function RegisterForm() {
   const [email, setEmail] = useState("");
@@ -17,6 +18,7 @@ export function RegisterForm() {
   const [name, setName] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
+  const { setUser } = useAuth();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +41,7 @@ export function RegisterForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: currentUser.$id, name: currentUser.name || name, email: currentUser.email }),
       });
+      setUser(currentUser);
       router.push("/");
     } catch (error: unknown) {
       if (error instanceof Error) {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { account } from "@/utils/appwrite";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RotationCard } from "./components/RotationCard";
@@ -9,6 +8,8 @@ import { FamilySection } from "./components/FamilySection";
 import { PersonalRequestsSection } from "./components/PersonalRequestsSection";
 import { FamilySheet } from "./components/FamilySheet";
 import { PersonalSheet } from "./components/PersonalSheet";
+import { useAuth } from "@/hooks/use-auth";
+import { ProtectedView } from "@/components/ProtectedView";
 import {
 	appendUserId,
 	defaultCategories,
@@ -17,7 +18,6 @@ import {
 	readErrorMessage,
 } from "./utils";
 import {
-	AppwriteUser,
 	Family,
 	FamilySheetState,
 	Member,
@@ -29,7 +29,7 @@ import {
 } from "./types";
 
 export default function PrayerTrackerPage() {
-	const [user, setUser] = useState<AppwriteUser | null>(null);
+	const { user, loading: authLoading } = useAuth();
 	const [spaceName, setSpaceName] = useState<string | null>(null);
 	const [spaceLoaded, setSpaceLoaded] = useState(false);
 	const [members, setMembers] = useState<Member[]>([]);
@@ -78,22 +78,33 @@ export default function PrayerTrackerPage() {
 	}));
 	const [personalSheetError, setPersonalSheetError] = useState<string | null>(null);
 	const [answeringPersonalId, setAnsweringPersonalId] = useState<string | null>(null);
-	const hasLoadedInitialData = useRef(false);
+	const initializedForUser = useRef<string | null>(null);
 
 	useEffect(() => {
-		if (hasLoadedInitialData.current) return;
-		hasLoadedInitialData.current = true;
+		if (authLoading) return;
+		if (!user) {
+			initializedForUser.current = null;
+			setSpaceLoaded(false);
+			setSpaceName(null);
+			setMembers([]);
+			setFamilies([]);
+			setPersonal([]);
+			setRotation(null);
+			setFamilyAssignments({});
+			setPersonalSelections({});
+			return;
+		}
+		if (initializedForUser.current === user.$id) return;
+		initializedForUser.current = user.$id;
 		(async () => {
 			try {
-				const currentUser = await account.get();
-				setUser(currentUser);
-				await refreshAll(currentUser.$id);
+				await refreshAll(user.$id);
 			} catch (error) {
-				console.error("Not logged in or failed to load user", error);
+				console.error("Failed to load prayer tracker data", error);
 				setSpaceLoaded(true);
 			}
 		})();
-	}, []);
+	}, [authLoading, user]);
 
 	const categories = useMemo(() => {
 		const unique = new Set<string>();
@@ -628,50 +639,57 @@ export default function PrayerTrackerPage() {
 		}
 	}
 
+	const authFallback = (
+		<Card className="max-w-2xl mx-auto mt-8 mb-8">
+			<CardHeader>
+				<CardTitle>Prayer Tracker</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<p>Checking your session… redirecting to login if needed.</p>
+			</CardContent>
+		</Card>
+	);
+
 	if (!user) {
-		return (
-			<Card className="max-w-2xl mx-auto mt-8 mb-8">
-				<CardHeader>
-					<CardTitle>Prayer Tracker</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<p>Please log in to use the prayer tracker.</p>
-				</CardContent>
-			</Card>
-		);
+		return <ProtectedView fallback={authFallback} />;
 	}
 
 	if (!spaceLoaded) {
 		return (
-			<Card className="max-w-2xl mx-auto mt-8 mb-8">
-				<CardHeader>
-					<CardTitle>Prayer Tracker</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<p>Loading your family space...</p>
-				</CardContent>
-			</Card>
+			<ProtectedView fallback={authFallback}>
+				<Card className="max-w-2xl mx-auto mt-8 mb-8">
+					<CardHeader>
+						<CardTitle>Prayer Tracker</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<p>Loading your family space...</p>
+					</CardContent>
+				</Card>
+			</ProtectedView>
 		);
 	}
 
 	if (!spaceName) {
 		return (
-			<Card className="max-w-2xl mx-auto mt-8 mb-8">
-				<CardHeader>
-					<CardTitle>Prayer Tracker</CardTitle>
-				</CardHeader>
-				<CardContent className="space-y-2">
-					<p>You don&apos;t have a shared family space yet.</p>
-					<p>Create one from your profile page to begin tracking prayers together.</p>
-				</CardContent>
-			</Card>
+			<ProtectedView fallback={authFallback}>
+				<Card className="max-w-2xl mx-auto mt-8 mb-8">
+					<CardHeader>
+						<CardTitle>Prayer Tracker</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-2">
+						<p>You don&apos;t have a shared family space yet.</p>
+						<p>Create one from your profile page to begin tracking prayers together.</p>
+					</CardContent>
+				</Card>
+			</ProtectedView>
 		);
 	}
 
 	const memberNames = members.map((member) => member.displayName).join(" & ") || "Invite your spouse from your profile";
 
 	return (
-		<div className="max-w-6xl mx-auto mt-8 mb-16 space-y-8">
+		<ProtectedView fallback={authFallback}>
+			<div className="max-w-6xl mx-auto mt-8 mb-16 space-y-8">
 			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 				<div>
 					<h1 className="text-2xl font-semibold">{spaceName}</h1>
@@ -759,5 +777,6 @@ export default function PrayerTrackerPage() {
 				onDelete={() => personalSheet.id && deletePersonal(personalSheet.id)}
 			/>
 		</div>
+		</ProtectedView>
 	);
 }

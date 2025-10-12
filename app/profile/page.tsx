@@ -3,8 +3,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { account } from "@/utils/appwrite";
-import { Models } from "appwrite";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +14,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { MarkdownWithBibleVerses } from '@/components/MarkdownWithBibleVerses';
-
-type AppwriteUser = Models.User<Models.Preferences>;
+import { ProtectedView } from "@/components/ProtectedView";
+import { useAuth } from "@/hooks/use-auth";
 
 type Question = {
   id: string;
@@ -32,26 +30,31 @@ type ProfileStats = {
 };
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<AppwriteUser | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [shareCode, setShareCode] = useState<string | null>(null);
   const [pendingCode, setPendingCode] = useState<string>("");
   const [spaceNameInput, setSpaceNameInput] = useState<string>("");
   const [profileStats, setProfileStats] = useState<ProfileStats | null>(null);
   const router = useRouter();
-  const hasInitialized = useRef(false);
+  const hasFetchedForUser = useRef<string | null>(null);
+  const { user, loading, logout } = useAuth();
 
   useEffect(() => {
-    if (hasInitialized.current) return;
-    hasInitialized.current = true;
+    if (loading) return;
+    if (!user) {
+      hasFetchedForUser.current = null;
+      setQuestions([]);
+      setProfileStats(null);
+      setShareCode(null);
+      setSpaceNameInput("");
+      return;
+    }
+    if (hasFetchedForUser.current === user.$id) return;
+    hasFetchedForUser.current = user.$id;
     const fetchUserAndQuestions = async () => {
       try {
-        // Get the current logged-in user from Appwrite
-        const currentUser = await account.get();
-        setUser(currentUser);
-
         // Fetch questions from our new API route
-        const res = await fetch(`/api/user-questions?userId=${currentUser.$id}`);
+        const res = await fetch(`/api/user-questions?userId=${user.$id}`);
         if (!res.ok) {
           throw new Error("Failed to fetch questions");
         }
@@ -59,14 +62,14 @@ export default function ProfilePage() {
         setQuestions(fetchedQuestions);
 
         // Load profile stats
-        const profileRes = await fetch(`/api/user-profile?userId=${currentUser.$id}`);
+        const profileRes = await fetch(`/api/user-profile?userId=${user.$id}`);
         if (profileRes.ok) {
           const profileData = await profileRes.json();
           if (profileData) setProfileStats(profileData);
         }
 
         // Load family space share code if any
-        const spaceRes = await fetch(`/api/prayer-tracker/spaces?userId=${currentUser.$id}`);
+        const spaceRes = await fetch(`/api/prayer-tracker/spaces?userId=${user.$id}`);
         if (spaceRes.ok) {
           const data = await spaceRes.json();
           if (data?.space?.shareCode) {
@@ -80,33 +83,34 @@ export default function ProfilePage() {
     };
 
     fetchUserAndQuestions();
-  }, []);
+  }, [loading, user]);
 
   const handleLogout = async () => {
     try {
-      await account.deleteSession("current");
-      setUser(null);
+      await logout();
       router.push("/login");
     } catch (error: unknown) {
       console.error("Logout failed:", error);
     }
   };
 
+  const fallback = (
+    <Card className="max-w-2xl mx-auto mt-8 mb-8">
+      <CardHeader>
+        <CardTitle>Profile</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>Checking your session… you&apos;ll be redirected to login if needed.</p>
+      </CardContent>
+    </Card>
+  );
+
   if (!user) {
-    return (
-      <Card className="max-w-2xl mx-auto mt-8 mb-8">
-        <CardHeader>
-          <CardTitle>Please log in</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>You must be logged in to view your profile.</p>
-        </CardContent>
-      </Card>
-    );
+    return <ProtectedView fallback={fallback} />;
   }
 
   return (
-    <>
+    <ProtectedView fallback={fallback}>
       <Card className="mx-auto max-w-sm mt-10">
         <CardHeader>
           <CardTitle>Profile</CardTitle>
@@ -270,6 +274,6 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
       )}
-    </>
+    </ProtectedView>
   );
 }

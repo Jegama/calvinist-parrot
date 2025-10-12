@@ -1,42 +1,36 @@
 # Calvinist Parrot – AI Agent Guide
-## Architecture
-- Next.js 15 App Router project with TypeScript; API logic lives under `app/api/**`, pages and layouts under `app/**`.
-- Clients authenticate with Appwrite if possible and fall back to a `userId` cookie (`app/page.tsx`, `app/[chatId]/page.tsx`).
-- Prisma talks to a Postgres database; schema and migrations are in `prisma/schema.prisma` and `prisma/migrations/**`.
-- UI components follow the shadcn pattern stored in `components/ui/**` and consumed by page-level components.
-- Markdown answers render through `components/MarkdownWithBibleVerses.tsx`, which injects live verse popovers via the Bible API.
+## Overview & Entry Points
+- Next.js 15 App Router with TypeScript; route handlers under `app/api/**`, router pages/layouts under `app/**`.
+- Auth flows lean on Appwrite (`hooks/use-auth.tsx`) with a `userId` cookie fallback (`app/page.tsx`, `app/[chatId]/page.tsx`).
+- Prisma Postgres schema lives in `prisma/schema.prisma`; run `npx prisma migrate dev` after edits to keep migrations in sync.
+- Shared UI primitives follow the shadcn pattern in `components/ui/**`; compose them inside page-level components and feature modules.
 
-## Chat & QA Pipelines
-- `/api/parrot-chat` handles ongoing conversations: creates chat records, streams JSONL events, and appends messages (`app/api/parrot-chat/route.ts`).
-- Streaming uses `lib/progressUtils.sendProgress` to emit `{type}` events (`progress`, `parrot`, `gotQuestions`, etc.); the chat UI expects those exact strings.
-- Chat replies come from a LangGraph agent (`utils/langChainAgents/mainAgent.ts`) whose tools are registered in `utils/langChainAgents/tools/index.ts`.
-- The supplemental article search tool wraps Tavily and whitelists monergism.com and gotquestions.org (`supplementalArticleSearchTool.ts`).
-- Conversation naming and categorization reuse OpenAI mini models via `utils/generateConversationName.ts` and `lib/prompts.ts`.
-- `/api/parrot-qa` runs the multi-agent "Counsel of Three" flow, Calvin review, and final synthesis before storing `questionHistory` entries.
+## Conversational Pipelines
+- `/api/parrot-chat` streams JSONL events via `lib/progressUtils.sendProgress`; the chat UI keys on `{type}` values (`progress`, `parrot`, `gotQuestions`, etc.).
+- `utils/langChainAgents/mainAgent.ts` defines the LangGraph agent; new tools register in `utils/langChainAgents/tools/index.ts` and follow the Tavily whitelist in `supplementalArticleSearchTool.ts`.
+- `/api/parrot-qa` orchestrates the "Counsel of Three" workflow, Calvin review, and stores results in Prisma `questionHistory`.
+- Conversation titles and categories reuse mini OpenAI models through `utils/generateConversationName.ts` and prompt constants in `lib/prompts.ts`.
+
+## Prayer Tracker Module
+- Feature lives in `app/prayer-tracker/**` with sheets, rotation logic, and helpers split into `components/` and `utils.ts`.
+- API routes mirror the UI: `spaces`, `families`, `personal-requests`, `rotation`, `rotation/confirm`, `journal`, and `invite`; each expects an Appwrite `userId` (use `appendUserId` when invoking from server code).
+- Rotations compute member assignments in `/api/prayer-tracker/rotation/route.ts`; confirm endpoint writes Prisma records to `prayerRotation`, `prayerLog`, and personal request statuses.
+- `app/prayer-tracker/page.tsx` keeps rotation state client-side; follow the existing `fetch` patterns for optimistic updates, error messaging via `readErrorMessage`, and category normalization helpers.
 
 ## Data & Integrations
-- `prisma/chatHistory` and `prisma/chatMessage` persist threaded chats; `questionHistory` captures QA results; `parrotDevotionals` stores generated devotionals.
-- Bible references resolve against AO Lab endpoints using helpers in `utils/bibleUtils.ts` and `utils/bookMappings.ts`.
-- Daily devotionals call Tavily news plus OpenAI JSON-schema completions (`utils/devotionalUtils.ts`) and gate cron access with `Authorization: Bearer ${CRON_SECRET}` (`app/api/cron/devotional/route.ts`).
-- LangChain ChatOpenAI models default to `gpt-5`/`gpt-5-mini`; keep model names in sync with `package.json` expectations and `.env.template`.
-
-## Environment & Secrets
-- Required env vars live in `.env.template`: `OPENAI_API_KEY`, `GPT_MODEL`, `FT_MODEL`, `TAVILY_API_KEY`, `DATABASE_URL`, `CRON_SECRET`, and the Appwrite public keys.
-- Prisma expects `DATABASE_URL` to point at a Postgres-compatible instance (Neon in production).
-- Tavily-powered features crash if `TAVILY_API_KEY` is missing; guard tool invocations or short-circuit gracefully when absent.
-- Cron endpoints must run behind the `CRON_SECRET`; local testing requires setting that header manually.
+- Chat history tables: `prisma/chatHistory`, `prisma/chatMessage`; QA uses `questionHistory`; devotionals persist in `parrotDevotionals`; prayer tracker tables defined in latest migrations (`20250103*`, `20251011*`).
+- Bible references use AO Lab endpoints through `utils/bibleUtils.ts` and mapping helpers in `utils/bookMappings.ts`.
+- Daily devotionals rely on Tavily plus OpenAI JSON schema (`utils/devotionalUtils.ts`); guard execution when `TAVILY_API_KEY` is missing and require `Authorization: Bearer ${CRON_SECRET}` for cron routes.
 
 ## Frontend Patterns
-- Pages are client components when using hooks/side effects; keep server components free of browser-only APIs.
-- Chat UI streams tokens by appending partial responses in state; match the `DataEvent` discriminated union to avoid breaking renders (`app/[chatId]/page.tsx`).
-- `MarkdownWithBibleVerses` should wrap any LLM output to ensure verse detection stays consistent.
-- Sidebar chat list pulls from `/api/user-chats`; push updates after streaming completes to refresh the UI.
-- Styling leans on Tailwind classes and shared primitives from `components/ui/**`; reuse them instead of ad-hoc markup.
+- Treat pages with hooks/effects as client components (`"use client"`); keep server components free of browser-only APIs.
+- Streamed chat rendering in `app/[chatId]/page.tsx` depends on the `DataEvent` discriminated union—update types before emitting new events.
+- Wrap any LLM output with `components/MarkdownWithBibleVerses.tsx` to preserve verse popovers; avoid duplicating parsing logic elsewhere.
+- Shared styling leans on Tailwind and `components/ui/**`; reuse `Card`, `Button`, `Sheet`, etc. instead of bespoke markup.
 
-## Workflows & Quality
-- Install deps with `npm install`; run dev server via `npm run dev`; build invokes `prisma generate && next build`.
-- Run `npx prisma migrate dev` when schema changes and inspect data with `npx prisma studio`.
-- Lint with `npm run lint`; commit only after addressing TypeScript errors (Next enforces `strict` mode via `tsconfig.json`).
-- API routes rely on streaming backpressure; prefer `ReadableStream` and `sendProgress` helpers over manual `Response` writes.
-- Log sensitive payloads sparingly—OpenAI requests often include Scripture and user data; redact before shipping diagnostics.
-- When adding tools or prompts, centralize constants in `lib/prompts.ts` to keep denominational variants and schema definitions in sync.
+## Environment & Workflows
+- `.env.template` lists required secrets: OpenAI keys, Tavily key, Prisma `DATABASE_URL`, `CRON_SECRET`, and Appwrite IDs; keep `GPT_MODEL` / `FT_MODEL` values aligned with `package.json` expectations.
+- Dev loop: `npm install`, `npm run dev`; production build triggers `prisma generate && next build`.
+- Run `npm run lint` before commits—TypeScript strict mode fails builds on unresolved types.
+- Streaming handlers should favor `ReadableStream` + `sendProgress` over manual `Response` writes to avoid backpressure issues.
+- Log data cautiously; redact Scripture and user content when adding diagnostics.
