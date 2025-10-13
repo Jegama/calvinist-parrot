@@ -44,6 +44,10 @@ export function RotationCard({
         <CardTitle>Tonight&apos;s Rotation</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        <p className="text-sm text-muted-foreground">
+          We lean on this rotation during family worship, keeping our prayers intentional and making
+          sure each household we love is lifted before the Lord together (Deuteronomy 6:6-7; Psalm 78:4-7).
+        </p>
         {!rotation ? (
           <p className="text-sm text-muted-foreground">
             Generate a rotation to see suggested families and prayer requests for tonight.

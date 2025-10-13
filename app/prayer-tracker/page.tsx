@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -664,9 +665,14 @@ export default function PrayerTrackerPage() {
 					<h1 className="text-2xl font-semibold">{spaceName}</h1>
 					<p className="text-sm text-muted-foreground">Prayer partners: {memberNames}</p>
 				</div>
-				<Button onClick={computeRotation} disabled={isComputing}>
-					{isComputing ? "Computing..." : "Compute Tonight's Rotation"}
-				</Button>
+				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+					<Button asChild variant="outline">
+						<Link href="/family-worship">Why Family Worship?</Link>
+					</Button>
+					<Button onClick={computeRotation} disabled={isComputing}>
+						{isComputing ? "Computing..." : "Compute Tonight's Rotation"}
+					</Button>
+				</div>
 			</div>
 
 			{rotationError && (
