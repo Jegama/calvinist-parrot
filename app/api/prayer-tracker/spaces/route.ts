@@ -115,17 +115,23 @@ export async function DELETE(request: Request) {
   // Owner removing another member
   if (removeMemberId && member.role === "OWNER") {
     if (removeMemberId === member.id) return NextResponse.json({ error: "Owner cannot remove self this way" }, { status: 400 });
-    await prisma.prayerMember.delete({ where: { id: removeMemberId } });
+
+    const targetMember = await prisma.prayerMember.findFirst({ where: { id: removeMemberId, spaceId } });
+    if (!targetMember) return NextResponse.json({ error: "Member not found in this space" }, { status: 404 });
+
+    await prisma.prayerMember.delete({ where: { id: targetMember.id } });
     return NextResponse.json({ success: true });
   }
 
   // Owner leaving: must transfer ownership
   if (member.role === "OWNER") {
     if (!transferToMemberId) return NextResponse.json({ error: "Must transfer ownership before leaving" }, { status: 400 });
-    // Transfer role
-    await prisma.prayerMember.update({ where: { id: transferToMemberId }, data: { role: "OWNER" } });
+    const targetMember = await prisma.prayerMember.findFirst({ where: { id: transferToMemberId, spaceId } });
+    if (!targetMember) return NextResponse.json({ error: "Transfer target must be in this space" }, { status: 404 });
+
+    await prisma.prayerMember.update({ where: { id: targetMember.id }, data: { role: "OWNER" } });
     await prisma.prayerMember.delete({ where: { id: member.id } });
-    return NextResponse.json({ success: true, transferred: transferToMemberId });
+    return NextResponse.json({ success: true, transferred: targetMember.id });
   }
 
   // Regular member leaving
