@@ -31,7 +31,6 @@ import {
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
 import { ProtectedView } from "@/components/ProtectedView";
 import { useAuth } from "@/hooks/use-auth";
-import { cn } from "@/lib/utils";
 
 type Question = {
   id: string;
@@ -118,10 +117,13 @@ export default function ProfilePage() {
   const [isLeavingSpace, setIsLeavingSpace] = useState(false);
   const [transferOwnerId, setTransferOwnerId] = useState<string>("");
   const [copySuccess, setCopySuccess] = useState(false);
+  const [regenerateSuccess, setRegenerateSuccess] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [joinError, setJoinError] = useState<string>("");
   const router = useRouter();
   const hasFetchedForUser = useRef<string | null>(null);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const regenerateTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const { user, loading, logout } = useAuth();
 
   const fetchProfileData = useCallback(async (userId: string) => {
@@ -194,10 +196,15 @@ export default function ProfilePage() {
     if (hasFetchedForUser.current === user.$id) return;
     hasFetchedForUser.current = user.$id;
     fetchProfileData(user.$id);
+  }, [loading, user, fetchProfileData]);
+
+  // Cleanup timeout on unmount only
+  useEffect(() => {
     return () => {
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      if (regenerateTimeoutRef.current) clearTimeout(regenerateTimeoutRef.current);
     };
-  }, [loading, user, fetchProfileData]);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -287,17 +294,17 @@ export default function ProfilePage() {
                   <span className="font-mono text-lg break-all sm:break-normal">{space.shareCode}</span>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 w-full sm:w-auto">
                     <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full sm:w-auto transition-colors",
-                        copySuccess && "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
-                      )}
+                      key={`copy-${copySuccess}`}
+                      variant={copySuccess ? "default" : "outline"}
+                      className="w-full sm:w-auto"
                       onClick={async () => {
                         try {
                           await navigator.clipboard.writeText(space.shareCode);
                           setCopySuccess(true);
                           if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-                          copyTimeoutRef.current = setTimeout(() => setCopySuccess(false), 2000);
+                          copyTimeoutRef.current = setTimeout(() => {
+                            setCopySuccess(false);
+                          }, 2000);
                         } catch (error) {
                           console.error("Failed to copy share code", error);
                         }
@@ -306,22 +313,30 @@ export default function ProfilePage() {
                       {copySuccess ? "Copied" : "Copy"}
                     </Button>
                     <Button
-                      variant="outline"
+                      key={`regenerate-${regenerateSuccess}`}
+                      variant={regenerateSuccess ? "default" : "outline"}
                       className="w-full sm:w-auto"
                       onClick={async () => {
+                        setIsRegenerating(true);
                         const res = await fetch(`/api/prayer-tracker/invite`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ userId: user.$id, regenerate: true }),
                         });
+                        setIsRegenerating(false);
                         if (res.ok) {
                           const d = await res.json();
                           setSpace((prev) => (prev ? { ...prev, shareCode: d.shareCode } : prev));
+                          setRegenerateSuccess(true);
+                          if (regenerateTimeoutRef.current) clearTimeout(regenerateTimeoutRef.current);
+                          regenerateTimeoutRef.current = setTimeout(() => {
+                            setRegenerateSuccess(false);
+                          }, 2000);
                         }
                       }}
-                      disabled={membership?.role !== "OWNER"}
+                      disabled={membership?.role !== "OWNER" || isRegenerating}
                     >
-                      Regenerate
+                      {isRegenerating ? "Regenerating..." : regenerateSuccess ? "Regenerated" : "Regenerate"}
                     </Button>
                   </div>
                 </div>
