@@ -31,6 +31,7 @@ import {
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
 import { ProtectedView } from "@/components/ProtectedView";
 import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
 
 type Question = {
   id: string;
@@ -63,7 +64,24 @@ type PrayerSpace = {
   members: SpaceMember[];
 };
 
-const toSpaceMember = (raw: any): SpaceMember => ({
+type RawSpaceMember = Partial<{
+  id: string | number;
+  displayName: string;
+  appwriteUserId: string;
+  role: string;
+  joinedAt: string | Date;
+}> | null | undefined;
+
+type RawPrayerSpace = Partial<{
+  id: string | number;
+  spaceName: string;
+  shareCode: string;
+  members: RawSpaceMember[];
+}> | null | undefined;
+
+type RawMembershipInfo = RawSpaceMember & { spaceId?: string | number };
+
+const toSpaceMember = (raw: RawSpaceMember): SpaceMember => ({
   id: String(raw?.id ?? ""),
   displayName: String(raw?.displayName ?? "Member"),
   appwriteUserId: String(raw?.appwriteUserId ?? ""),
@@ -71,14 +89,14 @@ const toSpaceMember = (raw: any): SpaceMember => ({
   joinedAt: String(raw?.joinedAt ?? new Date().toISOString()),
 });
 
-const toPrayerSpace = (raw: any): PrayerSpace => ({
+const toPrayerSpace = (raw: RawPrayerSpace): PrayerSpace => ({
   id: String(raw?.id ?? ""),
   spaceName: String(raw?.spaceName ?? "Prayer Space"),
   shareCode: String(raw?.shareCode ?? ""),
   members: Array.isArray(raw?.members) ? raw.members.map(toSpaceMember) : [],
 });
 
-const toMembershipInfo = (raw: any): MembershipInfo => ({
+const toMembershipInfo = (raw: RawMembershipInfo): MembershipInfo => ({
   ...toSpaceMember(raw),
   spaceId: String(raw?.spaceId ?? ""),
 });
@@ -100,6 +118,7 @@ export default function ProfilePage() {
   const [isLeavingSpace, setIsLeavingSpace] = useState(false);
   const [transferOwnerId, setTransferOwnerId] = useState<string>("");
   const [copySuccess, setCopySuccess] = useState(false);
+  const [joinError, setJoinError] = useState<string>("");
   const router = useRouter();
   const hasFetchedForUser = useRef<string | null>(null);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -162,6 +181,7 @@ export default function ProfilePage() {
       setMembership(null);
       setSpaceNameInput("");
       setPendingCode("");
+      setJoinError("");
       setRenameDialogOpen(false);
       setPendingRename("");
       setRemoveDialogOpen(false);
@@ -267,8 +287,11 @@ export default function ProfilePage() {
                   <span className="font-mono text-lg break-all sm:break-normal">{space.shareCode}</span>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 w-full sm:w-auto">
                     <Button
-                      variant={copySuccess ? "secondary" : "outline"}
-                      className="w-full sm:w-auto"
+                      variant="outline"
+                      className={cn(
+                        "w-full sm:w-auto transition-colors",
+                        copySuccess && "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+                      )}
                       onClick={async () => {
                         try {
                           await navigator.clipboard.writeText(space.shareCode);
@@ -389,31 +412,52 @@ export default function ProfilePage() {
               <div>
                 <p>Have a code from your spouse? Enter it to join:</p>
                 <div className="flex gap-2 mt-2">
-                  <Input
-                    placeholder="Share code"
-                    className="sm:flex-1"
-                    value={pendingCode}
-                    onChange={(e) => setPendingCode(e.target.value.toUpperCase())}
-                  />
+                  <div className="flex flex-1 flex-col gap-1 sm:flex-1">
+                    <Input
+                      placeholder="Share code"
+                      className="sm:flex-1"
+                      value={pendingCode}
+                      onChange={(e) => {
+                        setPendingCode(e.target.value);
+                        if (joinError) setJoinError("");
+                      }}
+                    />
+                    {joinError && <p className="text-sm text-destructive">{joinError}</p>}
+                  </div>
                   <Button
                     onClick={async () => {
                       if (!pendingCode.trim() || !user) return;
-                      const res = await fetch(`/api/prayer-tracker/accept-invite`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ userId: user.$id, shareCode: pendingCode.trim(), displayName: user.name || "Member" }),
-                      });
-                      if (res.ok) {
-                        const d = await res.json();
-                        if (d?.space) {
-                          const mappedSpace = toPrayerSpace(d.space);
-                          setSpace(mappedSpace);
-                          setSpaceNameInput(mappedSpace.spaceName ?? "");
+                      try {
+                        const res = await fetch(`/api/prayer-tracker/accept-invite`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ userId: user.$id, shareCode: pendingCode.trim(), displayName: user.name || "Member" }),
+                        });
+                        if (res.ok) {
+                          const d = await res.json();
+                          if (d?.space) {
+                            const mappedSpace = toPrayerSpace(d.space);
+                            setSpace(mappedSpace);
+                            setSpaceNameInput(mappedSpace.spaceName ?? "");
+                          }
+                          if (d?.membership) {
+                            setMembership(toMembershipInfo(d.membership));
+                          }
+                          setPendingCode("");
+                          setJoinError("");
+                        } else {
+                          let message = "Unable to join space";
+                          try {
+                            const error = await res.json();
+                            if (typeof error?.error === "string" && error.error.trim()) message = error.error;
+                          } catch (parseError) {
+                            console.error("Failed to parse join error", parseError);
+                          }
+                          setJoinError(message);
                         }
-                        if (d?.membership) {
-                          setMembership(toMembershipInfo(d.membership));
-                        }
-                        setPendingCode("");
+                      } catch (error) {
+                        console.error("Join request failed", error);
+                        setJoinError("Unable to reach the server");
                       }
                     }}
                   >
