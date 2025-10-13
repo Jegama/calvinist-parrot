@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,11 +13,18 @@ import { ARCHIVED_CATEGORY } from "./constants";
 import { useAuth } from "@/hooks/use-auth";
 import { ProtectedView } from "@/components/ProtectedView";
 import {
-	appendUserId,
 	defaultCategories,
 	determineNextMemberId,
 	normalizeChildren,
-	readErrorMessage,
+	validateFamilyForm,
+	validatePersonalForm,
+	resolveCategoryTag,
+	dateInputToIso,
+	isoToDateInput,
+	buildFamilyPayload,
+	buildPersonalRequestPayload,
+	resetFamilyForm,
+	resetPersonalForm,
 } from "./utils";
 import {
 	Family,
@@ -28,6 +36,7 @@ import {
 	PersonalSheetState,
 	Rotation,
 } from "./types";
+import * as api from "./api";
 
 export default function PrayerTrackerPage() {
 	const { user, loading: authLoading } = useAuth();
@@ -154,42 +163,28 @@ export default function PrayerTrackerPage() {
 	}, []);
 
 	const loadSpace = useCallback(async (userId: string) => {
-		try {
-			const res = await fetch(appendUserId(`/api/prayer-tracker/spaces`, userId));
-			if (!res.ok) {
-				setSpaceName(null);
-				setMembers([]);
-				return null;
-			}
-			const data = await res.json();
-			setSpaceName(data?.space?.spaceName ?? null);
-			setMembers(Array.isArray(data?.space?.members) ? data.space.members : []);
-			return data.space ?? null;
-		} catch (error) {
-			console.error("Failed to load space", error);
-			setSpaceName(null);
-			setMembers([]);
-			return null;
+		const result = await api.fetchSpace(userId);
+		
+		if (result.success && result.data) {
+			setSpaceName(result.data.spaceName);
+			setMembers(result.data.members);
+			return result.data;
 		}
+		
+		setSpaceName(null);
+		setMembers([]);
+		return null;
 	}, []);
 
 	const refreshLists = useCallback(async (userId: string) => {
-		try {
-			const [familiesRes, personalRes] = await Promise.all([
-				fetch(appendUserId(`/api/prayer-tracker/families`, userId)),
-				fetch(appendUserId(`/api/prayer-tracker/personal-requests`, userId)),
-			]);
-
-			if (familiesRes.ok) {
-				const familiesData = await familiesRes.json();
-				setFamilies(Array.isArray(familiesData) ? familiesData : []);
-			}
-			if (personalRes.ok) {
-				const personalData = await personalRes.json();
-				setPersonal(Array.isArray(personalData) ? personalData : []);
-			}
-		} catch (error) {
-			console.error("Failed to refresh lists", error);
+		const { families, personal } = await api.fetchFamiliesAndPersonal(userId);
+		
+		if (families.success) {
+			setFamilies(families.data);
+		}
+		
+		if (personal.success) {
+			setPersonal(personal.data);
 		}
 	}, []);
 
@@ -230,141 +225,119 @@ export default function PrayerTrackerPage() {
 
 	async function createFamily() {
 		if (!user) return;
-		const trimmedName = newFamily.familyName.trim();
-		if (!trimmedName) {
-			setFamilyFormError("Family name is required.");
-			return;
-		}
 
-		const selected = newFamily.categorySelect;
-		const custom = newFamily.customCategory.trim();
-		const resolvedCategory =
-			selected === "__custom" ? custom : selected === "none" ? "" : selected;
-
-		if (selected === "__custom" && !resolvedCategory) {
-			setFamilyFormError("Please provide a category name.");
+		// Use utility for validation
+		const validationError = validateFamilyForm(newFamily);
+		if (validationError) {
+			setFamilyFormError(validationError);
 			return;
 		}
 
 		setFamilyFormError(null);
 
-		const payload = {
-			userId: user.$id,
-			familyName: trimmedName,
-			parents: newFamily.parents.trim(),
-			children: normalizeChildren(newFamily.children),
-			categoryTag: resolvedCategory || undefined,
-		};
+		// Use utility to build payload
+		const payload = buildFamilyPayload(user.$id, newFamily);
 
-		try {
-			const response = await fetch(`/api/prayer-tracker/families`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(payload),
-			});
-			if (!response.ok) {
-				const message = await readErrorMessage(response);
-				setFamilyFormError(message || "Unable to save family right now.");
-				return;
-			}
-			setNewFamily({
-				familyName: "",
-				parents: "",
-				children: "",
-				categorySelect: resolvedCategory ? resolvedCategory : "none",
-				customCategory: "",
-			});
-			await refreshLists(user.$id);
-		} catch (error) {
-			console.error("Failed to create family", error);
-			setFamilyFormError("Unable to save family right now.");
+		// Use API client
+		const result = await api.createFamily(user.$id, payload);
+
+		if (!result.success) {
+			setFamilyFormError(result.error);
+			return;
 		}
+
+		// Use utility to reset form, preserving resolved category
+		const resolvedCategory = resolveCategoryTag(newFamily.categorySelect, newFamily.customCategory);
+		setNewFamily(resetFamilyForm(resolvedCategory || undefined));
+
+		await refreshLists(user.$id);
 	}
 
 	async function createPersonal() {
 		if (!user) return;
-		const requestText = newPersonal.text.trim();
-		if (!requestText) {
-			setPersonalFormError("Please enter a prayer request.");
+
+		const validationError = validatePersonalForm(newPersonal);
+		if (validationError) {
+			setPersonalFormError(validationError);
 			return;
 		}
+
 		setPersonalFormError(null);
-		try {
-			const response = await fetch(`/api/prayer-tracker/personal-requests`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					userId: user.$id,
-					requestText,
-					notes: newPersonal.notes.trim() || undefined,
-				}),
-			});
-			if (!response.ok) {
-				const message = await readErrorMessage(response);
-				setPersonalFormError(message || "Unable to save request right now.");
-				return;
-			}
-			setNewPersonal({ text: "", notes: "" });
-			await refreshLists(user.$id);
-		} catch (error) {
-			console.error("Failed to create personal request", error);
-			setPersonalFormError("Unable to save request right now.");
+
+		const payload = buildPersonalRequestPayload(user.$id, newPersonal);
+
+		// Use API client
+		const result = await api.createPersonalRequest(user.$id, payload);
+
+		if (!result.success) {
+			setPersonalFormError(result.error);
+			return;
 		}
+
+		setNewPersonal(resetPersonalForm());
+		await refreshLists(user.$id);
 	}
 
 	async function computeRotation() {
 		if (!user) return;
 		setIsComputing(true);
 		setRotationError(null);
-		try {
-			const res = await fetch(appendUserId(`/api/prayer-tracker/rotation`, user.$id));
-			if (!res.ok) throw new Error("Failed to compute rotation");
-			const data = await res.json();
-			if (Array.isArray(data?.members) && data.members.length) {
-				setMembers(data.members);
-			}
-			const fetchedFamilies: Family[] = Array.isArray(data?.families) ? data.families : [];
-			const fetchedPersonal: PersonalRequest[] = Array.isArray(data?.personal) ? data.personal : [];
-			const effectiveMembers: Member[] = Array.isArray(data?.members) && data.members.length
-				? (data.members as Member[])
-				: members;
-			const defaults: Record<string, string> = {};
-			fetchedFamilies.forEach((family) => {
-				const nextMember = determineNextMemberId(family, effectiveMembers);
-				defaults[family.id] = nextMember ?? "skip";
-			});
 
-			const currentMemberId = effectiveMembers.find((member) => member.appwriteUserId === user.$id)?.id;
-			const prioritizedFamilies = currentMemberId
-				? fetchedFamilies
-						.map((family, index) => ({ family, index }))
-						.sort((a, b) => {
-							const aPriority = defaults[a.family.id] === currentMemberId ? 0 : 1;
-							const bPriority = defaults[b.family.id] === currentMemberId ? 0 : 1;
-							if (aPriority !== bPriority) return aPriority - bPriority;
-							return a.index - b.index;
-						})
-						.map((entry) => entry.family)
-				: fetchedFamilies;
+		const result = await api.computeRotation(user.$id);
 
-			setRotation({ families: prioritizedFamilies, personal: fetchedPersonal });
-			setFamilyAssignments(defaults);
-
-			const personalDefaults: Record<string, boolean> = {};
-			fetchedPersonal.forEach((item) => {
-				personalDefaults[item.id] = true;
-			});
-			setPersonalSelections(personalDefaults);
-		} catch (error) {
-			console.error(error);
-			setRotationError("Unable to compute tonight's rotation right now.");
-		} finally {
+		if (!result.success) {
+			setRotationError(result.error);
 			setIsComputing(false);
+			return;
 		}
+
+		const { families: fetchedFamilies, personal: fetchedPersonal, members: fetchedMembers } = result.data;
+
+		// Update members if provided
+		if (fetchedMembers && fetchedMembers.length) {
+			setMembers(fetchedMembers);
+		}
+
+		const effectiveMembers: Member[] = fetchedMembers && fetchedMembers.length
+			? fetchedMembers
+			: members;
+
+		// Build default assignments
+		const defaults: Record<string, string> = {};
+		fetchedFamilies.forEach((family) => {
+			const nextMember = determineNextMemberId(family, effectiveMembers);
+			defaults[family.id] = nextMember ?? "skip";
+		});
+
+		// Prioritize families assigned to current user
+		const currentMemberId = effectiveMembers.find((member) => member.appwriteUserId === user.$id)?.id;
+		const prioritizedFamilies = currentMemberId
+			? fetchedFamilies
+					.map((family, index) => ({ family, index }))
+					.sort((a, b) => {
+						const aPriority = defaults[a.family.id] === currentMemberId ? 0 : 1;
+						const bPriority = defaults[b.family.id] === currentMemberId ? 0 : 1;
+						if (aPriority !== bPriority) return aPriority - bPriority;
+						return a.index - b.index;
+					})
+					.map((entry) => entry.family)
+			: fetchedFamilies;
+
+		setRotation({ families: prioritizedFamilies, personal: fetchedPersonal });
+		setFamilyAssignments(defaults);
+
+		// Default all personal requests to selected
+		const personalDefaults: Record<string, boolean> = {};
+		fetchedPersonal.forEach((item) => {
+			personalDefaults[item.id] = true;
+		});
+		setPersonalSelections(personalDefaults);
+		setIsComputing(false);
 	}
 
 	async function confirmRotation() {
 		if (!user || !rotation) return;
+
 		const familiesPayload = rotation.families
 			.map((family) => {
 				const value = familyAssignments[family.id];
@@ -384,38 +357,30 @@ export default function PrayerTrackerPage() {
 
 		setIsConfirming(true);
 		setRotationError(null);
-		try {
-			const res = await fetch(appendUserId(`/api/prayer-tracker/rotation/confirm`, user.$id), {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					userId: user.$id,
-					familyAssignments: familiesPayload,
-					personalIds: personalPayload,
-				}),
-			});
-			if (!res.ok) throw new Error("Failed to confirm rotation");
-			setRotation(null);
-			setFamilyAssignments({});
-			setPersonalSelections({});
-			await refreshAll(user.$id);
-		} catch (error) {
-			console.error(error);
-			setRotationError("Unable to save updates right now. Please try again.");
-		} finally {
+
+		const result = await api.confirmRotation(user.$id, {
+			userId: user.$id,
+			familyAssignments: familiesPayload,
+			personalIds: personalPayload,
+		});
+
+		if (!result.success) {
+			setRotationError(result.error);
 			setIsConfirming(false);
+			return;
 		}
+
+		setRotation(null);
+		setFamilyAssignments({});
+		setPersonalSelections({});
+		await refreshAll(user.$id);
+		setIsConfirming(false);
 	}
 
 	function openFamilyEditor(family: Family) {
 		const category = family.categoryTag ?? "none";
-		let lastPrayedDate = "";
-		if (family.lastPrayedAt) {
-			const parsedDate = new Date(family.lastPrayedAt);
-			if (!Number.isNaN(parsedDate.getTime())) {
-				lastPrayedDate = parsedDate.toISOString().slice(0, 10);
-			}
-		}
+		const lastPrayedDate = isoToDateInput(family.lastPrayedAt);
+
 		setFamilySheet({
 			id: family.id,
 			familyName: family.familyName,
@@ -447,160 +412,116 @@ export default function PrayerTrackerPage() {
 
 	async function saveFamilySheet() {
 		if (!user || !familySheet.id) return;
+
+		// Validate name
 		const trimmedName = familySheet.familyName.trim();
 		if (!trimmedName) {
 			setFamilySheetError("Family name is required.");
 			return;
 		}
 
-		const selected = familySheet.categorySelect;
-		const custom = familySheet.customCategory.trim();
-		const resolvedCategory =
-			selected === "__custom" ? custom : selected === "none" ? "" : selected;
+		// Resolve category
+		const resolvedCategory = resolveCategoryTag(
+			familySheet.categorySelect,
+			familySheet.customCategory
+		);
 
-		if (selected === "__custom" && !resolvedCategory) {
+		if (familySheet.categorySelect === "__custom" && !resolvedCategory) {
 			setFamilySheetError("Please provide a category name.");
 			return;
 		}
 
-		const dateValue = familySheet.lastPrayedAt.trim();
-		let lastPrayedAtIso: string | null = null;
-		if (dateValue) {
-			const parsed = new Date(dateValue);
-			if (Number.isNaN(parsed.getTime())) {
-				setFamilySheetError("Please choose a valid last prayed date.");
-				return;
-			}
-			lastPrayedAtIso = parsed.toISOString();
+		// Convert date using utility
+		const lastPrayedAtIso = dateInputToIso(familySheet.lastPrayedAt);
+		if (familySheet.lastPrayedAt.trim() && !lastPrayedAtIso) {
+			setFamilySheetError("Please choose a valid last prayed date.");
+			return;
 		}
 
 		setFamilySheetLoading(true);
 		setFamilySheetError(null);
-		try {
-			const response = await fetch(
-				appendUserId(`/api/prayer-tracker/families/${familySheet.id}`, user.$id),
-				{
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						userId: user.$id,
-						familyName: trimmedName,
-						parents: familySheet.parents.trim(),
-						children: normalizeChildren(familySheet.children),
-						categoryTag: resolvedCategory || null,
-						lastPrayedAt: lastPrayedAtIso,
-					}),
-				}
-			);
-			if (!response.ok) {
-				const message = await readErrorMessage(response);
-				setFamilySheetError(message || "Unable to update this family right now.");
-				return;
-			}
-			resetFamilySheet();
-			setIsFamilySheetOpen(false);
-			await refreshLists(user.$id);
-		} catch (error) {
-			console.error("Failed to update family", error);
-			setFamilySheetError("Unable to update this family right now.");
-		} finally {
+
+		const result = await api.updateFamily(user.$id, familySheet.id, {
+			familyName: trimmedName,
+			parents: familySheet.parents.trim(),
+			children: normalizeChildren(familySheet.children),
+			categoryTag: resolvedCategory || null,
+			lastPrayedAt: lastPrayedAtIso,
+		});
+
+		if (!result.success) {
+			setFamilySheetError(result.error);
 			setFamilySheetLoading(false);
+			return;
 		}
+
+		resetFamilySheet();
+		setIsFamilySheetOpen(false);
+		await refreshLists(user.$id);
+		setFamilySheetLoading(false);
 	}
 
 	async function archiveFamily() {
 		if (!user || !familySheet.id) return;
 		setFamilySheetLoading(true);
 		setFamilySheetError(null);
-		try {
-			const response = await fetch(
-				appendUserId(`/api/prayer-tracker/families/${familySheet.id}`, user.$id),
-				{
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						userId: user.$id,
-						archive: true,
-						categoryTag: ARCHIVED_CATEGORY,
-					}),
-				}
-			);
-			if (!response.ok) {
-				const message = await readErrorMessage(response);
-				setFamilySheetError(message || "Unable to archive this family right now.");
-				return;
-			}
-			resetFamilySheet();
-			setIsFamilySheetOpen(false);
-			await refreshLists(user.$id);
-		} catch (error) {
-			console.error("Failed to archive family", error);
-			setFamilySheetError("Unable to archive this family right now.");
-		} finally {
+
+		const result = await api.updateFamily(user.$id, familySheet.id, {
+			archive: true,
+			categoryTag: ARCHIVED_CATEGORY,
+		});
+
+		if (!result.success) {
+			setFamilySheetError(result.error);
 			setFamilySheetLoading(false);
+			return;
 		}
+
+		resetFamilySheet();
+		setIsFamilySheetOpen(false);
+		await refreshLists(user.$id);
+		setFamilySheetLoading(false);
 	}
 
 	async function restoreFamily() {
 		if (!user || !familySheet.id) return;
 		setFamilySheetLoading(true);
 		setFamilySheetError(null);
-		try {
-			const response = await fetch(
-				appendUserId(`/api/prayer-tracker/families/${familySheet.id}`, user.$id),
-				{
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						userId: user.$id,
-						unarchive: true,
-						categoryTag: null,
-					}),
-				}
-			);
-			if (!response.ok) {
-				const message = await readErrorMessage(response);
-				setFamilySheetError(message || "Unable to restore this family right now.");
-				return;
-			}
-			resetFamilySheet();
-			setIsFamilySheetOpen(false);
-			await refreshLists(user.$id);
-		} catch (error) {
-			console.error("Failed to restore family", error);
-			setFamilySheetError("Unable to restore this family right now.");
-		} finally {
+
+		const result = await api.updateFamily(user.$id, familySheet.id, {
+			unarchive: true,
+			categoryTag: null,
+		});
+
+		if (!result.success) {
+			setFamilySheetError(result.error);
 			setFamilySheetLoading(false);
+			return;
 		}
+
+		resetFamilySheet();
+		setIsFamilySheetOpen(false);
+		await refreshLists(user.$id);
+		setFamilySheetLoading(false);
 	}
 
 	async function deleteFamily() {
 		if (!user || !familySheet.id) return;
 		setFamilySheetLoading(true);
 		setFamilySheetError(null);
-		try {
-			const response = await fetch(
-				appendUserId(`/api/prayer-tracker/families/${familySheet.id}`, user.$id),
-				{
-					method: "DELETE",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ userId: user.$id }),
-				}
-			);
-			if (!response.ok) {
-				const message = await readErrorMessage(response);
-				setFamilySheetError(message || "Unable to delete this family right now.");
-				return;
-			}
-			resetFamilySheet();
-			setIsFamilySheetOpen(false);
-			await refreshLists(user.$id);
-		} catch (error) {
-			console.error("Failed to delete family", error);
-			setFamilySheetError("Unable to delete this family right now.");
-		} finally {
+
+		const result = await api.deleteFamily(user.$id, familySheet.id);
+
+		if (!result.success) {
+			setFamilySheetError(result.error);
 			setFamilySheetLoading(false);
+			return;
 		}
+
+		resetFamilySheet();
+		setIsFamilySheetOpen(false);
+		await refreshLists(user.$id);
+		setFamilySheetLoading(false);
 	}
 
 	function openPersonalEditor(item: PersonalRequest) {
@@ -629,91 +550,63 @@ export default function PrayerTrackerPage() {
 		}
 		setPersonalSheetLoading(true);
 		setPersonalSheetError(null);
-		try {
-			const response = await fetch(
-				appendUserId(`/api/prayer-tracker/personal-requests/${personalSheet.id}`, user.$id),
-				{
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						userId: user.$id,
-						requestText: trimmed,
-						notes: personalSheet.notes.trim() || null,
-					}),
-				}
-			);
-			if (!response.ok) {
-				const message = await readErrorMessage(response);
-				setPersonalSheetError(message || "Unable to update this request right now.");
-				return;
-			}
-			resetPersonalSheet();
-			setIsPersonalSheetOpen(false);
-			await refreshLists(user.$id);
-		} catch (error) {
-			console.error("Failed to update personal request", error);
-			setPersonalSheetError("Unable to update this request right now.");
-		} finally {
+
+		const result = await api.updatePersonalRequest(user.$id, personalSheet.id, {
+			requestText: trimmed,
+			notes: personalSheet.notes.trim() || null,
+		});
+
+		if (!result.success) {
+			setPersonalSheetError(result.error);
 			setPersonalSheetLoading(false);
+			return;
 		}
+
+		resetPersonalSheet();
+		setIsPersonalSheetOpen(false);
+		await refreshLists(user.$id);
+		setPersonalSheetLoading(false);
 	}
 
 	async function deletePersonal(requestId: string) {
 		if (!user) return;
 		setPersonalSheetError(null);
-		try {
-			const response = await fetch(
-				appendUserId(`/api/prayer-tracker/personal-requests/${requestId}`, user.$id),
-				{
-					method: "DELETE",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ userId: user.$id }),
-				}
-			);
-			if (!response.ok) {
-				const message = await readErrorMessage(response);
-				setPersonalSheetError(message || "Unable to delete this request right now.");
-				return;
-			}
-			if (personalSheet.id === requestId) {
-				resetPersonalSheet();
-				setIsPersonalSheetOpen(false);
-			}
-			await refreshLists(user.$id);
-		} catch (error) {
-			console.error("Failed to delete personal request", error);
-			setPersonalSheetError("Unable to delete this request right now.");
+
+		const result = await api.deletePersonalRequest(user.$id, requestId);
+
+		if (!result.success) {
+			setPersonalSheetError(result.error);
+			return;
 		}
+
+		if (personalSheet.id === requestId) {
+			resetPersonalSheet();
+			setIsPersonalSheetOpen(false);
+		}
+		await refreshLists(user.$id);
 	}
 
 	async function markPersonalAnswered(requestId: string) {
 		if (!user) return;
 		setAnsweringPersonalId(requestId);
 		setPersonalSheetError(null);
-		try {
-			const response = await fetch(
-				appendUserId(`/api/prayer-tracker/personal-requests/${requestId}`, user.$id),
-				{
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ userId: user.$id, markAnswered: true }),
-				}
-			);
-			if (!response.ok) {
-				const message = await readErrorMessage(response);
-				setPersonalSheetError(message || "Unable to update this request right now.");
-				return;
-			}
-			if (personalSheet.id === requestId) {
-				resetPersonalSheet();
-				setIsPersonalSheetOpen(false);
-			}
-			await refreshLists(user.$id);
-		} catch (error) {
-			console.error("Failed to mark answered", error);
-		} finally {
+
+		const result = await api.updatePersonalRequest(user.$id, requestId, {
+			markAnswered: true,
+		});
+
+		if (!result.success) {
+			setPersonalSheetError(result.error);
 			setAnsweringPersonalId(null);
+			return;
 		}
+
+		if (personalSheet.id === requestId) {
+			resetPersonalSheet();
+			setIsPersonalSheetOpen(false);
+		}
+		await refreshLists(user.$id);
+		setAnsweringPersonalId(null);
 	}
 
 	const authFallback = (
@@ -772,9 +665,14 @@ export default function PrayerTrackerPage() {
 					<h1 className="text-2xl font-semibold">{spaceName}</h1>
 					<p className="text-sm text-muted-foreground">Prayer partners: {memberNames}</p>
 				</div>
-				<Button onClick={computeRotation} disabled={isComputing}>
-					{isComputing ? "Computing..." : "Compute Tonight's Rotation"}
-				</Button>
+				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+					<Button asChild variant="outline">
+						<Link href="/family-worship">Why Family Worship?</Link>
+					</Button>
+					<Button onClick={computeRotation} disabled={isComputing}>
+						{isComputing ? "Computing..." : "Compute Tonight's Rotation"}
+					</Button>
+				</div>
 			</div>
 
 			{rotationError && (

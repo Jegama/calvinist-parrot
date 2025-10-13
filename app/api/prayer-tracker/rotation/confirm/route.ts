@@ -30,6 +30,7 @@ export async function POST(request: Request) {
 
   const now = new Date();
   const transactions: Prisma.PrismaPromise<unknown>[] = [];
+  const assignedUserIds = new Set<string>();
 
   const assignments = Array.isArray(body.familyAssignments)
     ? body.familyAssignments.filter((item): item is FamilyAssignment => Boolean(item?.familyId))
@@ -55,10 +56,15 @@ export async function POST(request: Request) {
     if (prayedByIds.length) {
       const members = await prisma.prayerMember.findMany({
         where: { spaceId: membership.spaceId, id: { in: prayedByIds } },
-        select: { id: true },
+        select: { id: true, appwriteUserId: true },
       });
       if (members.length !== prayedByIds.length)
         return NextResponse.json({ error: "Invalid member assignment" }, { status: 400 });
+
+      prayedByIds.forEach((memberId) => {
+        const member = members.find((item) => item.id === memberId);
+        if (member?.appwriteUserId) assignedUserIds.add(member.appwriteUserId);
+      });
     }
 
     assignments.forEach(({ familyId, prayedByMemberId }) => {
@@ -103,12 +109,25 @@ export async function POST(request: Request) {
     await prisma.$transaction(transactions);
   }
 
+  assignedUserIds.add(userId);
+
   await prisma.userProfile
     .update({
       where: { appwriteUserId: userId },
       data: { lastPrayerAt: now, lastSeenAt: now },
     })
     .catch(() => null);
+
+  if (assignedUserIds.size > 1) {
+    const otherUserIds = Array.from(assignedUserIds).filter((id) => id !== userId);
+    await Promise.all(
+      otherUserIds.map((otherUserId) =>
+        prisma.userProfile
+          .update({ where: { appwriteUserId: otherUserId }, data: { lastPrayerAt: now } })
+          .catch(() => null)
+      )
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

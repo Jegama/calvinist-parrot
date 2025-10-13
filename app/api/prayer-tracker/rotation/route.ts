@@ -20,6 +20,8 @@ export async function GET(request: Request) {
     },
   });
 
+  const familyLimit = Math.max(2, members.length * 2);
+
   const families = await prisma.prayerFamily.findMany({
     where: { spaceId: membership.spaceId, archivedAt: null },
     include: {
@@ -31,7 +33,7 @@ export async function GET(request: Request) {
       { lastPrayedAt: { sort: "asc", nulls: "first" } },
       { createdAt: "asc" },
     ],
-    take: 4,
+    take: familyLimit,
   });
 
   const startOfToday = new Date();
