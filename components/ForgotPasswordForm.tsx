@@ -41,8 +41,8 @@ export function ForgotPasswordForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {message && <p className="text-green-600 mb-4">{message}</p>}
-          {errorMessage && <p className="text-red-600 mb-4">{errorMessage}</p>}
+          {message && <p className="text-success mb-4">{message}</p>}
+          {errorMessage && <p className="text-destructive mb-4">{errorMessage}</p>}
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>

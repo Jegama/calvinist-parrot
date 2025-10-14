@@ -62,7 +62,7 @@ export function RegisterForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {errorMessage && <p className="text-red-600 mb-4">{errorMessage}</p>}
+          {errorMessage && <p className="text-destructive mb-4">{errorMessage}</p>}
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="name">Name</Label>
