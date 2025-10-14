@@ -389,12 +389,12 @@ export default function Home() {
                   {/* Add the "Please Elaborate" and "Continue in Chat" buttons */}
                   <CardFooter className="flex flex-col w-full gap-4 mt-8">
                     {userId && !result?.elaborated_answer && !isElaborating && (
-                      <Button onClick={handleContinueInChat} className="bg-blue-600 text-white w-full hover:bg-muted/20">
+                      <Button onClick={handleContinueInChat} className="bg-primary text-primary-foreground w-full hover:bg-primary/90">
                         Continue in Chat
                       </Button>
                     )}
                     {!result?.elaborated_answer && !isElaborating && (
-                      <Button onClick={handleElaborate} className="bg-blue-200 text-black w-full hover:bg-secondary/90">
+                      <Button onClick={handleElaborate} className="bg-secondary text-secondary-foreground w-full hover:bg-secondary/90">
                         Please Elaborate
                       </Button>
                     )}

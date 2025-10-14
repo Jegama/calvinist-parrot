@@ -16,73 +16,123 @@ body {
 
 @layer base {
   :root {
-    --background: 48 30% 97%;
+    /* Brand: Cream #F5EEDC - Warm, approachable background like main site */
+    --background: 42 56% 91%;
+    /* Brand: Charcoal #333333 - Body text */
     --foreground: 0 0% 20%;
-    --card: 48 30% 97%;
+    /* Subtle off-white for cards - barely noticeable elevation */
+    --card: 0 0% 98%;
     --card-foreground: 0 0% 20%;
-    --popover: 48 30% 97%;
+    /* Brand: Cream - Popover backgrounds */
+    --popover: 42 56% 91%;
     --popover-foreground: 0 0% 20%;
-    --primary: 220 55% 23%;
-    --primary-foreground: 48 30% 97%;
-    --secondary: 0 0% 90%;
+    /* Brand: Deep Blue #004D70 - Primary actions */
+    --primary: 199 100% 22%;
+    --primary-foreground: 0 0% 100%;
+    /* Very light gray for secondary actions */
+    --secondary: 0 0% 96%;
     --secondary-foreground: 0 0% 20%;
-    --muted: 0 0% 90%;
-    --muted-foreground: 0 0% 40%;
-    --accent: 180 65% 35%;
-    --accent-foreground: 48 30% 97%;
-    --destructive: 341 65% 33%;
-    --destructive-foreground: 48 30% 97%;
+    /* Muted backgrounds - subtle */
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    /* Brand: Deep Teal #004D4D - Accent/links/headers TEXT */
+    --accent: 180 100% 15%;
+    --accent-foreground: 0 0% 100%;
+    /* Destructive/errors - warm red */
+    --destructive: 0 65% 45%;
+    --destructive-foreground: 0 0% 100%;
+    /* Brand: Light Gray #E5E5E5 - Borders */
     --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 220 55% 23%;
-    --chart-1: 180 65% 35%;
-    --chart-2: 220 55% 23%;
-    --chart-3: 341 65% 33%;
-    --chart-4: 82 19% 62%;
-    --chart-5: 167 74% 83%;
+    --input: 0 0% 96%;
+    /* Brand: Deep Blue - Focus rings */
+    --ring: 199 100% 22%;
+    /* Brand: Warm Gold #FFD166 */
+    --chart-1: 42 100% 70%;
+    /* Brand: Deep Teal #004D4D */
+    --chart-2: 180 100% 15%;
+    /* Brand: Royal Purple #5D4777 */
+    --chart-3: 268 25% 37%;
+    /* Brand: Sage Green #A3B18A */
+    --chart-4: 82 21% 62%;
+    /* Brand: Mint Green #5ABFB1 */
+    --chart-5: 172 43% 55%;
     --radius: 1rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
+    /* Success messages - bright green */
+    --success: 142 50% 45%;
+    --success-foreground: 0 0% 100%;
+    /* Brand: Sage Green #A3B18A - User message bubbles */
+    --user-message: 82 21% 62%;
+    --user-message-foreground: 0 0% 20%;
+    /* Brand: Deep Blue #004D70 - Parrot message bubbles */
+    --parrot-message: 199 100% 22%;
+    --parrot-message-foreground: 0 0% 100%;
+    /* Sidebar - Matches background for cohesion */
+    --sidebar-background: 42 56% 91%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 0 0% 20%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Brand: Mint Green #5ABFB1 - Sidebar active states */
+    --sidebar-accent: 172 43% 55%;
+    --sidebar-accent-foreground: 0 0% 20%;
+    --sidebar-border: 0 0% 88%;
+    --sidebar-ring: 199 100% 22%;
   }
   .dark {
-    --background: 0 0% 15%;
-    --foreground: 48 30% 97%;
+    /* Dark background - very dark charcoal */
+    --background: 0 0% 10%;
+    /* Pure white for text readability */
+    --foreground: 0 0% 98%;
+    /* Darker card background */
     --card: 0 0% 15%;
-    --card-foreground: 48 30% 97%;
-    --popover: 0 0% 15%;
-    --popover-foreground: 48 30% 97%;
-    --primary: 220 70% 45%;
-    --primary-foreground: 48 30% 97%;
-    --secondary: 0 0% 25%;
-    --secondary-foreground: 48 30% 97%;
-    --muted: 0 0% 25%;
+    --card-foreground: 0 0% 98%;
+    /* Dark popover */
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 98%;
+    /* Brand: Deep Blue - Lighter for dark mode */
+    --primary: 199 100% 35%;
+    --primary-foreground: 0 0% 98%;
+    /* Lighter secondary for dark mode */
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 98%;
+    /* Muted dark backgrounds */
+    --muted: 0 0% 20%;
     --muted-foreground: 0 0% 70%;
-    --accent: 180 65% 45%;
-    --accent-foreground: 48 30% 97%;
-    --destructive: 341 65% 45%;
-    --destructive-foreground: 48 30% 97%;
+    /* Brand: Deep Teal - Lighter for dark mode */
+    --accent: 180 100% 30%;
+    --accent-foreground: 0 0% 98%;
+    /* Destructive/errors - lighter for dark mode */
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 0 0% 98%;
+    /* Dark borders */
     --border: 0 0% 25%;
     --input: 0 0% 25%;
-    --ring: 48 30% 97%;
-    --chart-1: 180 65% 45%;
-    --chart-2: 220 70% 45%;
-    --chart-3: 341 65% 45%;
-    --chart-4: 82 19% 50%;
-    --chart-5: 167 60% 70%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Light ring for dark mode */
+    --ring: 0 0% 98%;
+    /* Brand colors - adjusted for dark mode */
+    --chart-1: 42 100% 70%;
+    --chart-2: 180 100% 30%;
+    --chart-3: 268 35% 55%;
+    --chart-4: 82 25% 65%;
+    --chart-5: 172 50% 60%;
+    /* Success - brighter for dark mode */
+    --success: 142 60% 50%;
+    --success-foreground: 0 0% 98%;
+    /* Brand: Sage Green - Darker with white text (inverted for dark mode) */
+    --user-message: 82 25% 35%;
+    --user-message-foreground: 0 0% 98%;
+    /* Brand: Deep Blue - Lighter for dark mode */
+    --parrot-message: 199 100% 35%;
+    --parrot-message-foreground: 0 0% 98%;
+    /* Dark sidebar */
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 199 100% 35%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    /* Brand: Mint Green - Sidebar active (slightly lighter) */
+    --sidebar-accent: 172 45% 45%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 199 100% 35%;
   }
 }
 
@@ -108,5 +158,51 @@ body {
   .sidebar-button[data-active="true"] {
     background-color: hsl(var(--sidebar-accent));
     color: hsl(var(--sidebar-accent-foreground));
+  }
+
+  /* Brand: Deep Teal text on cream background - matches main site header */
+  .app-header {
+    background-color: hsl(var(--background));
+    color: hsl(var(--accent));
+    border-bottom: 1px solid hsl(var(--border));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .dark .app-header {
+    background-color: hsl(var(--card));
+    border-bottom: 1px solid hsl(var(--border));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .app-header a {
+    color: hsl(var(--accent));
+  }
+
+  .dark .app-header a {
+    color: hsl(var(--foreground));
+  }
+
+  .app-header a:hover {
+    color: hsl(var(--accent) / 0.7);
+  }
+
+  .dark .app-header a:hover {
+    color: hsl(var(--foreground) / 0.7);
+  }
+
+  /* Logo stands out with larger size and slight weight */
+  .app-logo {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  /* Header separator - visible in both modes */
+  .header-separator {
+    background-color: hsl(var(--accent) / 0.3);
+  }
+
+  .dark .header-separator {
+    background-color: hsl(var(--border));
   }
 }

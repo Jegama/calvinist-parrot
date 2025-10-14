@@ -117,7 +117,7 @@ export default function MainChatPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {errorMessage && <p className="mb-4 text-red-600">{errorMessage}</p>}
+              {errorMessage && <p className="mb-4 text-destructive">{errorMessage}</p>}
               <form onSubmit={handleStartNewChat} className="space-y-4">
                 <Textarea
                   placeholder="Enter your question here..."

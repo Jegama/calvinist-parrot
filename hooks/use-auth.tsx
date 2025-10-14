@@ -38,6 +38,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const currentUser = await account.get();
       setUserState(currentUser);
+      
+      // Ensure user profile exists in database
+      await fetch("/api/user-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser.$id,
+          name: currentUser.name,
+          email: currentUser.email,
+        }),
+      }).catch((error) => {
+        console.warn("Failed to ensure user profile:", error);
+      });
     } catch {
       setUserState(null);
     } finally {

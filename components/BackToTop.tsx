@@ -26,7 +26,7 @@ export const BackToTop: React.FC = () => {
     showButton && (
       <button
         onClick={scrollToTop}
-        className="fixed bottom-4 right-4 p-3 rounded-full bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="fixed bottom-4 right-4 p-3 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring"
         aria-label="Back to top"
       >
         ↑

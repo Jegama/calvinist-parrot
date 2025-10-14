@@ -80,7 +80,7 @@ export function BibleCommentary({ reference, onCommentaryExtracted }: BibleComme
         <AccordionItem value={`commentary-${reference}`}>
           <AccordionTrigger>Commentary on {reference}</AccordionTrigger>
           <AccordionContent>
-            <p className="text-red-500">{error}</p>
+            <p className="text-destructive">{error}</p>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

@@ -334,7 +334,7 @@ export default function ChatPage() {
   if (errorMessage) {
     return (
       <div className="flex flex-1 overflow-hidden">
-        <p className="text-red-600">{errorMessage}</p>
+        <p className="text-destructive">{errorMessage}</p>
       </div>
     );
   }
@@ -364,7 +364,7 @@ export default function ChatPage() {
                   switch (msg.sender) {
                     case "user":
                       return (
-                        <div key={i} className="ml-auto max-w-[80%] rounded-md bg-[#A3B18A] p-3 text-white shadow">
+                        <div key={i} className="ml-auto max-w-[80%] rounded-md bg-user-message p-3 text-user-message-foreground shadow">
                           <div className="mb-1 text-sm font-bold">You</div>
                           <MarkdownWithBibleVerses content={msg.content} />
                         </div>
@@ -373,7 +373,7 @@ export default function ChatPage() {
                       return (
                         <div
                           key={i}
-                          className="group relative mr-auto max-w-[80%] rounded-md bg-[#004D70] p-3 text-white shadow"
+                          className="group relative mr-auto max-w-[80%] rounded-md bg-parrot-message p-3 text-parrot-message-foreground shadow"
                         >
                           <div className="mb-1 text-sm font-bold">Parrot</div>
                           <MarkdownWithBibleVerses content={msg.content} />
@@ -384,7 +384,7 @@ export default function ChatPage() {
                             aria-label={
                               copiedMessageIndex === i ? "Markdown copied" : "Copy markdown"
                             }
-                            className="absolute right-3 top-3 h-7 w-7 rounded-full bg-black/30 text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-black/40"
+                            className="absolute right-3 top-3 h-7 w-7 rounded-full bg-muted/30 text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-muted/40"
                             onClick={async () => {
                               try {
                                 await navigator.clipboard.writeText(msg.content);

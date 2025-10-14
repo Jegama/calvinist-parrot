@@ -147,7 +147,7 @@ export function PersonalRequestsSection({
                         Last prayed: {formatTimeSince(item.lastPrayedAt)} - Added {formatRelative(item.dateAdded)}
                       </p>
                       {item.status === "ANSWERED" && item.answeredAt && (
-                        <p className="text-xs text-emerald-600">Answered {formatRelative(item.answeredAt)}</p>
+                        <p className="text-xs text-success">Answered {formatRelative(item.answeredAt)}</p>
                       )}
                     </div>
                     <div className="flex flex-col gap-2">

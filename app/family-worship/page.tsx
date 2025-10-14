@@ -16,11 +16,24 @@ Family worship matters because it helps households honor God together, pass bibl
 - **It unites the household in spiritual rhythms.** The home becomes a "little church," echoing the corporate practices of praise, Scripture, prayer, and fellowship (Colossians 3:16-17; Hebrews 10:24-25).
 - **It forms spiritual habits for life.** Consistent time in the Word and prayer equips families to endure trials, grow in holiness, and live out the Great Commission (Matthew 28:19-20; Philippians 1:6).
 
+#### For Singles and Roommates
+Family worship is not limited to married households. Singles and those living with roommates can and should cultivate regular worship rhythms.
+
+- **Singles living alone:** Set a daily time to meet with God—read a passage, pray, and sing or meditate on a hymn. Jesus commends secret prayer as a vital practice (Matthew 6:6). Singing alone may feel awkward, but Scripture calls all believers to sing to the Lord (Psalm 92:1-2; Colossians 3:16-17). Your room can be a sanctuary where Christ's Word dwells richly and shapes your day.
+- **Singles with roommates:** Consider a simple shared "worship time"—read a chapter, discuss briefly, pray for one another, and sing a hymn together. This is a sweet way to stir one another to love and good works (Hebrews 10:24-25). Your home can function as a "little church" even before marriage, modeling the same patterns many families use.
+- **Unique advantages:** Many singles have fewer divided obligations and can pursue undistracted devotion to the Lord (1 Corinthians 7:32-35). Use this season to deepen Scripture intake, prayer, and praise.
+
+Whether married or single, the aim is the same: let the Word of Christ dwell richly in you and in your household patterns, however your household is presently arranged (Colossians 3:16-17).
+
 #### Practical Blessings
-- Children learn the language of faith: how to read Scripture, pray, confess sin, and worship God.
-- Parents get to model repentance, faith, and daily reliance on God's grace.
-- The family builds a treasury of shared spiritual memories and a common language for navigating life.
-- It keeps the gospel at the center of the home, continually reminding the household of God's faithfulness.
+- Children learn the language of faith: how to read Scripture, pray, confess sin, and worship God (Deuteronomy 6:6-7; Psalm 78:5-7; 2 Timothy 3:14-15).
+- Parents get to model repentance, faith, and daily reliance on God's grace (Ephesians 6:4; 1 Corinthians 11:1; Proverbs 20:7).
+- The family builds a treasury of shared spiritual memories and a common language for navigating life (Joshua 4:6-7; Psalm 145:4; Deuteronomy 6:20-21).
+- It keeps the gospel at the center of the home, continually reminding the household of God's faithfulness (Colossians 3:16-17; Psalm 103:2; Philippians 1:6).
+- Singles cultivate undivided habits of Scripture, prayer, and song that anchor their days (1 Corinthians 7:32-35; Matthew 6:6; Psalm 92:1-2).
+- Roommates deepen fellowship and mutual exhortation through shared worship rhythms (Hebrews 10:24-25; Colossians 3:16-17).
+- Hospitality and evangelism flourish as you invite guests into simple worship, letting the light of Christ be seen (Matthew 5:16; Romans 12:13; 1 Peter 2:9).
+- Courage grows as you pray and sing aloud regularly—even when it feels awkward at first (Ephesians 5:19; James 5:13).
 
 #### Simple Steps to Get Started
 - **Keep it short and consistent.** Five to fifteen minutes daily is more fruitful than an hour once a month. Faithfulness matters more than perfection (Luke 16:10).
@@ -56,7 +69,7 @@ Evenings often fill with hospitality and church gatherings, so meeting in the mo
 
 We use the [Calvinist Parrot prayer tracker](/prayer-tracker) to steward intercession faithfully. The rotation keeps our requests from slipping through the cracks, and logging answers stirs our faith to keep approaching the throne of grace (Philippians 4:6-7; Hebrews 4:14-16). Whether you are new to family worship or simply looking for structure, we hope this tool helps your household persevere in prayer.
 
-Turn from self-reliance, trust Jesus Christ who died and rose for sinners, and join us in worshiping Him together at home. If you have any questions [please let reach out](mailto:jesusmancilla@calvinistparrotministries.org)!
+Turn from self-reliance, trust Jesus Christ who died and rose for sinners, and join us in worshiping Him together at home. If you have any questions [please reach out](mailto:jesusmancilla@calvinistparrotministries.org)!
 
 # Soli Deo Gloria
 
