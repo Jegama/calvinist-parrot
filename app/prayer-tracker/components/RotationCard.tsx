@@ -28,11 +28,6 @@ const getMemberColor = (memberId: string, members: Member[]): string => {
   return index >= 0 ? MEMBER_COLORS[index % MEMBER_COLORS.length] : "transparent";
 };
 
-const getMemberName = (memberId: string, members: Member[]): string | null => {
-  const member = members.find(m => m.id === memberId);
-  return member?.displayName || null;
-};
-
 type RotationCardProps = {
   rotation: Rotation | null;
   members: Member[];
