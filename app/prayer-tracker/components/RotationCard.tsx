@@ -90,9 +90,6 @@ export function RotationCard({
                     const memberColor = assignedMemberId !== "skip" 
                       ? getMemberColor(assignedMemberId, members) 
                       : "transparent";
-                    const memberName = assignedMemberId !== "skip" 
-                      ? getMemberName(assignedMemberId, members) 
-                      : null;
                     
                     return (
                       <div 
