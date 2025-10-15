@@ -161,11 +161,13 @@ body {
   }
 
   /* Brand: Deep Teal text on cream background - matches main site header */
+  /* Header dynamically adjusts height: 3.5rem (expanded) → 3rem (scrolled) */
   .app-header {
     background-color: hsl(var(--background));
     color: hsl(var(--accent));
     border-bottom: 1px solid hsl(var(--border));
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease-in-out;
   }
 
   .dark .app-header {
@@ -176,6 +178,7 @@ body {
 
   .app-header a {
     color: hsl(var(--accent));
+    transition: color 0.2s ease-in-out;
   }
 
   .dark .app-header a {
@@ -191,10 +194,12 @@ body {
   }
 
   /* Logo stands out with larger size and slight weight */
+  /* Dynamically adjusts: 3rem (expanded) → 2rem (scrolled) with text fade */
   .app-logo {
     font-size: 1.25rem;
     font-weight: 700;
     letter-spacing: -0.025em;
+    transition: all 0.3s ease-in-out;
   }
 
   /* Header separator - visible in both modes */

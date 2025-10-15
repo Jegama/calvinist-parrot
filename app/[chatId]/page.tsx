@@ -55,6 +55,8 @@ export default function ChatPage() {
   const autoSentRef = useRef(false);
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
   const copyResetTimeoutRef = useRef<number | null>(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   // Add refs to track data loading state
   const isFetchingChatRef = useRef(false);
   const isFetchingChatsRef = useRef(false);
@@ -173,6 +175,32 @@ export default function ChatPage() {
       if (copyResetTimeoutRef.current !== null) {
         window.clearTimeout(copyResetTimeoutRef.current);
       }
+    };
+  }, []);
+
+  // Add scroll detection for both the window and the messages container (mobile Safari may scroll the window)
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+
+    const computeScrolled = () => {
+      const containerScrolled = container ? container.scrollTop > 30 : false;
+      const windowScrolled = typeof window !== "undefined" ? window.scrollY > 30 : false;
+      return containerScrolled || windowScrolled;
+    };
+
+    const handleScroll = () => {
+      setIsScrolled(computeScrolled());
+    };
+
+    // Initialize on mount in case we land mid-scroll (e.g., browser restore)
+    setIsScrolled(computeScrolled());
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    if (container) container.addEventListener("scroll", handleScroll, { passive: true } as any);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      if (container) container.removeEventListener("scroll", handleScroll as any);
     };
   }, []);
 
@@ -352,14 +380,29 @@ export default function ChatPage() {
       <AppSidebar chats={chats} currentChatId={params.chatId} />
       <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))]">
         <div className="flex min-h-full flex-col">
-          <header className="sticky top-[var(--app-header-height)] z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <header 
+            className="sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 ease-in-out"
+            style={{
+              height: isScrolled ? "3rem" : "4rem",
+            }}
+          >
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
-            <h2 className="text-lg font-semibold">{chat.conversationName}</h2>
+            <h2 
+              className="font-semibold leading-tight transition-all duration-300 ease-in-out truncate"
+              style={{
+                fontSize: isScrolled ? "0.875rem" : "1.125rem",
+              }}
+            >
+              {chat.conversationName}
+            </h2>
           </header>
           <div className="flex-1 overflow-hidden px-4 pb-6 pt-4">
             <Card className="mx-auto flex h-full w-full max-w-2xl flex-col">
-              <CardContent className="flex-1 space-y-4 overflow-y-auto p-6">
+              <CardContent 
+                ref={messagesContainerRef}
+                className="flex-1 space-y-4 overflow-y-auto p-6"
+              >
                 {messages.map((msg, i) => {
                   switch (msg.sender) {
                     case "user":

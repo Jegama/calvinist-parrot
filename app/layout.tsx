@@ -23,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   const bodyStyle = {
-    "--app-header-height": "4.5rem",
+    "--app-header-height": "3.5rem",
   } as CSSProperties
 
   return (
