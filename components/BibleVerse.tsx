@@ -21,6 +21,11 @@ type BibleVerseProps = {
   reference: string;
 };
 
+// Simple in-memory cache to avoid refetching the same chapter repeatedly
+type ChapterKey = string; // `${translation}:${bookId}:${chapter}`
+const chapterCache = new Map<ChapterKey, TranslationBookChapter>();
+const inflightCache = new Map<ChapterKey, Promise<TranslationBookChapter>>();
+
 export function BibleVerse({ reference }: BibleVerseProps) {
   const [verseText, setVerseText] = useState<string>('Loading...');
 
@@ -49,14 +54,36 @@ export function BibleVerse({ reference }: BibleVerseProps) {
 
       // Use the BSB translation
       const translation = 'BSB';
+      const key: ChapterKey = `${translation}:${bookId}:${chapter}`;
 
-      const response = await fetch(`https://bible.helloao.org/api/${translation}/${bookId}/${chapter}.json`);
-      if (!response.ok) {
-        setVerseText('Error fetching data');
-        return;
+      let data: TranslationBookChapter | undefined = chapterCache.get(key);
+      if (!data) {
+        let promise = inflightCache.get(key);
+        if (!promise) {
+          promise = fetch(`https://bible.helloao.org/api/${translation}/${bookId}/${chapter}.json`)
+            .then((res) => {
+              if (!res.ok) throw new Error('Network error');
+              return res.json();
+            })
+            .then((json: TranslationBookChapter) => {
+              chapterCache.set(key, json);
+              inflightCache.delete(key);
+              return json;
+            })
+            .catch((err) => {
+              inflightCache.delete(key);
+              throw err;
+            });
+          inflightCache.set(key, promise);
+        }
+        try {
+          data = await promise;
+        } catch (e) {
+          console.error('Error fetching data', e);
+          setVerseText('Error fetching data');
+          return;
+        }
       }
-
-      const data: TranslationBookChapter = await response.json();
 
       // Extract verses
       extractVerses(data, parsed);
