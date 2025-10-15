@@ -56,6 +56,7 @@ export default function ChatPage() {
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
   const copyResetTimeoutRef = useRef<number | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const lastChatScrolledRef = useRef<boolean>(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   // Add refs to track data loading state
   const isFetchingChatRef = useRef(false);
@@ -189,7 +190,11 @@ export default function ChatPage() {
     };
 
     const handleScroll = () => {
-      setIsScrolled(computeScrolled());
+      const next = computeScrolled();
+      if (next !== lastChatScrolledRef.current) {
+        lastChatScrolledRef.current = next;
+        setIsScrolled(next);
+      }
     };
 
     // Initialize on mount in case we land mid-scroll (e.g., browser restore)
@@ -381,7 +386,7 @@ export default function ChatPage() {
       <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))]">
         <div className="flex min-h-full flex-col">
           <header 
-            className="sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-300 ease-in-out"
+            className="sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-700 ease-in-out"
             style={{
               height: isScrolled ? "3rem" : "4rem",
             }}
@@ -389,7 +394,7 @@ export default function ChatPage() {
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             <h2 
-              className="font-semibold leading-tight transition-all duration-300 ease-in-out truncate"
+              className="font-semibold leading-tight transition-all duration-700 ease-in-out truncate"
               style={{
                 fontSize: isScrolled ? "0.875rem" : "1.125rem",
               }}

@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from 'next/image';
 import { Button } from "@/components/ui/button";
@@ -19,43 +19,48 @@ import { useAuth } from "@/hooks/use-auth";
 export function Header() {
   const { user, loading } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
+  const lastScrolledRef = useRef<boolean>(false);
 
   useEffect(() => {
     const handleScroll = () => {
       // Shrink header when scrolled down more than 50px
       const scrolled = window.scrollY > 50;
-      setIsScrolled(scrolled);
-      
-      // Update CSS variable for header height so other components can adapt
-      const newHeight = scrolled ? "3rem" : "3.5rem";
-      document.documentElement.style.setProperty("--app-header-height", newHeight);
+      if (scrolled !== lastScrolledRef.current) {
+        lastScrolledRef.current = scrolled;
+        setIsScrolled(scrolled);
+        // Update CSS variable for header height so other components can adapt
+        const newHeight = scrolled ? "3rem" : "3.5rem";
+        document.documentElement.style.setProperty("--app-header-height", newHeight);
+      }
     };
 
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    // Initialize once on mount
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll as any);
   }, []);
 
   return (
     <header 
-      className="app-header sticky top-0 z-50 w-full px-4 transition-all duration-300 ease-in-out"
+      className="app-header sticky top-0 z-50 w-full px-4 transition-all duration-700 ease-in-out"
       style={{
         paddingTop: isScrolled ? "0.25rem" : "0.5rem",
         paddingBottom: isScrolled ? "0.25rem" : "0.5rem",
       }}
     >
       <div 
-        className="container mx-auto flex items-center transition-all duration-300 ease-in-out"
+        className="container mx-auto flex items-center transition-all duration-700 ease-in-out"
         style={{
           height: isScrolled ? "3rem" : "3.5rem",
         }}
       >
         {/* Left side: Logo and Navigation */}
         <div className="flex items-center space-x-2">
-          <Link href="/" className="flex items-center space-x-2 hover:opacity-70 transition-opacity">
+          <Link href="/" prefetch={false} className="flex items-center space-x-2 hover:opacity-70 transition-opacity">
             <Image
               src="/Logo.png"
               alt="Calvinist Parrot"
-              className="transition-all duration-300 ease-in-out"
+              className="transition-all duration-700 ease-in-out"
               style={{
                 width: isScrolled ? "2rem" : "3rem",
                 height: isScrolled ? "2rem" : "3rem",
@@ -64,7 +69,7 @@ export function Header() {
               height={50}
             />
             <span 
-              className="app-logo overflow-hidden transition-all duration-300 ease-in-out"
+              className="app-logo overflow-hidden transition-all duration-700 ease-in-out"
               style={{
                 maxWidth: isScrolled ? "0" : "200px",
                 opacity: isScrolled ? 0 : 1,
@@ -79,10 +84,10 @@ export function Header() {
 
           {/* Desktop Navigation (visible on md and above) */}
           <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
-            <Link href="/devotional" className="hover:opacity-70 transition-opacity">Devotional</Link>
-            <Link href="/parrot-qa" className="hover:opacity-70 transition-opacity">Parrot QA</Link>
-            <Link href="/prayer-tracker" className="hover:opacity-70 transition-opacity">Prayer Tracker</Link>
-            <Link href="/about" className="hover:opacity-70 transition-opacity">About</Link>
+            <Link href="/devotional" prefetch={false} className="hover:opacity-70 transition-opacity">Devotional</Link>
+            <Link href="/parrot-qa" prefetch={false} className="hover:opacity-70 transition-opacity">Parrot QA</Link>
+            <Link href="/prayer-tracker" prefetch={false} className="hover:opacity-70 transition-opacity">Prayer Tracker</Link>
+            <Link href="/about" prefetch={false} className="hover:opacity-70 transition-opacity">About</Link>
           </nav>
 
           {/* Mobile Dropdown (hidden on md and above) */}
@@ -93,22 +98,22 @@ export function Header() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-[8rem]">
                 <DropdownMenuItem asChild>
-                  <Link href="/devotional" className="w-full">
+                  <Link href="/devotional" prefetch={false} className="w-full">
                     Devotional
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/parrot-qa" className="w-full">
+                  <Link href="/parrot-qa" prefetch={false} className="w-full">
                     Parrot QA
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/prayer-tracker" className="w-full">
+                  <Link href="/prayer-tracker" prefetch={false} className="w-full">
                     Prayer Tracker
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/about" className="w-full">
+                  <Link href="/about" prefetch={false} className="w-full">
                     About
                   </Link>
                 </DropdownMenuItem>
@@ -125,7 +130,7 @@ export function Header() {
           <ThemeToggle />
           {loading ? null : user ? (
             // If logged in, show the user's name linking to profile
-            <Link href="/profile">
+            <Link href="/profile" prefetch={false}>
               <Button 
                 variant="outline" 
                 className="hover:bg-muted/50"
@@ -137,7 +142,7 @@ export function Header() {
           ) : (
             <>
               {/* If not logged in, show Login and Register */}
-              <Link href="/login">
+              <Link href="/login" prefetch={false}>
                 <Button 
                   variant="outline" 
                   className="hover:bg-muted/50"
@@ -146,7 +151,7 @@ export function Header() {
                   Login
                 </Button>
               </Link>
-              <Link href="/register">
+              <Link href="/register" prefetch={false}>
                 <Button 
                   className="bg-accent text-accent-foreground hover:bg-accent/90"
                   size={isScrolled ? "sm" : "default"}

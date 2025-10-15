@@ -46,7 +46,7 @@ export function AppSidebar({ chats, currentChatId, className, style, ...props }:
                       isActive={c.id === currentChatId}
                       className="sidebar-button"
                     >
-                      <Link href={`/${c.id}`}>{c.conversationName || "Unnamed Conversation"}</Link>
+                      <Link href={`/${c.id}`} prefetch={false}>{c.conversationName || "Unnamed Conversation"}</Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   {index < chats.length - 1 && (
