@@ -389,30 +389,28 @@ export default function ChatPage() {
         <div className="flex min-h-full flex-col">
           <header 
             className={`sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center transition-all duration-500 ease-in-out ${
-              isMobile && isScrolled ? "" : "border-b"
-            }`}
+              isMobile && isScrolled ? "!bg-transparent" : "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+            } ${isMobile && !isScrolled ? "!bg-transparent !backdrop-blur-none" : ""}`}
             style={{
               height: isMobile ? (isScrolled ? "2.5rem" : "3.5rem") : (isScrolled ? "3rem" : "4rem"),
               justifyContent: isMobile && isScrolled ? "center" : "flex-start",
               paddingLeft: isMobile && isScrolled ? 0 : "1rem",
               paddingRight: isMobile && isScrolled ? 0 : "1rem",
-              background: isMobile ? "transparent !important" : "hsl(var(--background) / 0.95)",
-              backdropFilter: isMobile ? "none" : "blur(8px)",
-              backgroundColor: isMobile ? "transparent !important" : undefined,
             }}
           >
             <div
               className="flex items-center transition-all duration-500 ease-in-out"
               style={{
                 justifyContent: isMobile && isScrolled ? "center" : "flex-start",
-                background: isMobile && isScrolled ? "hsl(var(--background) / 0.95)" : "transparent",
+                background: isMobile && isScrolled ? "hsl(var(--background) / 0.1)" : "transparent",
                 backdropFilter: isMobile && isScrolled ? "blur(12px)" : "none",
                 borderRadius: isMobile && isScrolled ? "9999px" : "0",
-                border: isMobile && isScrolled ? "1px solid hsl(var(--border))" : "none",
+                border: isMobile && isScrolled ? "1px solid hsl(var(--border) / 0.1)" : "none",
                 paddingLeft: isMobile && isScrolled ? "0.625rem" : "0",
                 paddingRight: isMobile && isScrolled ? "0.625rem" : "0",
-                paddingTop: isMobile && isScrolled ? "0.25rem" : "0",
-                paddingBottom: isMobile && isScrolled ? "0.25rem" : "0",
+                paddingTop: isMobile && isScrolled ? "0.01rem" : "0",
+                paddingBottom: isMobile && isScrolled ? "0.01rem" : "0",
+                marginTop: isMobile && isScrolled ? "0.5rem" : "0",
                 width: isMobile && isScrolled ? "50%" : "100%",
                 maxWidth: isMobile && isScrolled ? "20rem" : "none",
                 boxShadow: isMobile && isScrolled ? "0 4px 12px rgba(0, 0, 0, 0.08)" : "none",
