@@ -69,29 +69,49 @@ export function Header() {
               height={50}
             />
             <span 
-              className="app-logo overflow-hidden transition-all duration-700 ease-in-out"
+              className="app-logo overflow-hidden transition-opacity duration-700 ease-in-out"
               style={{
-                maxWidth: isScrolled ? "0" : "200px",
+                // Keep width stable and only fade to avoid layout glitches
+                maxWidth: "200px",
                 opacity: isScrolled ? 0 : 1,
-                whiteSpace: isScrolled ? "nowrap" : "normal",
+                display: "-webkit-box",
+                WebkitLineClamp: 2 as any,
+                WebkitBoxOrient: "vertical" as any,
               }}
             >
               Calvinist Parrot
             </span>
           </Link>
 
-          <Separator orientation="vertical" className="header-separator mr-2 h-4" />
+          {/* Fade-out separator when scrolled */}
+          <span
+            className="transition-opacity duration-700 ease-in-out"
+            style={{ opacity: isScrolled ? 0 : 1, pointerEvents: isScrolled ? "none" : "auto" }}
+            aria-hidden={isScrolled}
+          >
+            <Separator orientation="vertical" className="header-separator mr-2 h-4" />
+          </span>
 
-          {/* Desktop Navigation (visible on md and above) */}
-          <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
-            <Link href="/devotional" prefetch={false} className="hover:opacity-70 transition-opacity">Devotional</Link>
-            <Link href="/parrot-qa" prefetch={false} className="hover:opacity-70 transition-opacity">Parrot QA</Link>
-            <Link href="/prayer-tracker" prefetch={false} className="hover:opacity-70 transition-opacity">Prayer Tracker</Link>
-            <Link href="/about" prefetch={false} className="hover:opacity-70 transition-opacity">About</Link>
-          </nav>
+          {/* Desktop Navigation (visible on md and above) - fade out when scrolled */}
+          <div
+            className="hidden md:flex items-center transition-opacity duration-700 ease-in-out"
+            style={{ opacity: isScrolled ? 0 : 1, pointerEvents: isScrolled ? "none" : "auto" }}
+            aria-hidden={isScrolled}
+          >
+            <nav className="flex items-center space-x-6 text-sm font-medium">
+              <Link href="/devotional" prefetch={false} className="hover:opacity-70 transition-opacity">Devotional</Link>
+              <Link href="/parrot-qa" prefetch={false} className="hover:opacity-70 transition-opacity">Parrot QA</Link>
+              <Link href="/prayer-tracker" prefetch={false} className="hover:opacity-70 transition-opacity">Prayer Tracker</Link>
+              <Link href="/about" prefetch={false} className="hover:opacity-70 transition-opacity">About</Link>
+            </nav>
+          </div>
 
-          {/* Mobile Dropdown (hidden on md and above) */}
-          <div className="md:hidden">
+          {/* Mobile Dropdown (hidden on md and above) - fade out when scrolled */}
+          <div
+            className="md:hidden transition-opacity duration-700 ease-in-out"
+            style={{ opacity: isScrolled ? 0 : 1, pointerEvents: isScrolled ? "none" : "auto" }}
+            aria-hidden={isScrolled}
+          >
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="hover:bg-muted/50">More</Button>
@@ -127,7 +147,8 @@ export function Header() {
 
         {/* Right side: Theme toggle and user session actions */}
         <div className="flex items-center space-x-2">
-          <ThemeToggle />
+          {/* Hide ThemeToggle when scrolled for a cleaner compact header */}
+          {!isScrolled && <ThemeToggle />}
           {loading ? null : user ? (
             // If logged in, show the user's name linking to profile
             <Link href="/profile" prefetch={false}>
