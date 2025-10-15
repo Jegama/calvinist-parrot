@@ -203,11 +203,11 @@ export default function ChatPage() {
     setIsScrolled(computeScrolled());
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    if (container) container.addEventListener("scroll", handleScroll, { passive: true } as any);
+    if (container) container.addEventListener("scroll", handleScroll, { passive: true } as AddEventListenerOptions);
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
-      if (container) container.removeEventListener("scroll", handleScroll as any);
+      if (container) container.removeEventListener("scroll", handleScroll);
     };
   }, []);
 

@@ -37,7 +37,7 @@ export function Header() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     // Initialize once on mount
     handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll as any);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
@@ -75,9 +75,9 @@ export function Header() {
                 maxWidth: "200px",
                 opacity: isScrolled ? 0 : 1,
                 display: "-webkit-box",
-                WebkitLineClamp: 2 as any,
-                WebkitBoxOrient: "vertical" as any,
-              }}
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+              } as React.CSSProperties}
             >
               Calvinist Parrot
             </span>
