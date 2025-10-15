@@ -10,6 +10,7 @@ import { Loader2, Copy, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Accordion,
   AccordionItem,
@@ -44,6 +45,7 @@ export default function ChatPage() {
   const params = useParams() as { chatId: string };
   const searchParams = useSearchParams();
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -383,24 +385,74 @@ export default function ChatPage() {
   return (
     <SidebarProvider>
       <AppSidebar chats={chats} currentChatId={params.chatId} />
-      <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))]">
+      <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))] !bg-transparent">
         <div className="flex min-h-full flex-col">
           <header 
-            className="sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 transition-all duration-700 ease-in-out"
+            className={`sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center transition-all duration-500 ease-in-out ${
+              isMobile && isScrolled ? "" : "border-b"
+            }`}
             style={{
-              height: isScrolled ? "3rem" : "4rem",
+              height: isMobile ? (isScrolled ? "2.5rem" : "3.5rem") : (isScrolled ? "3rem" : "4rem"),
+              justifyContent: isMobile && isScrolled ? "center" : "flex-start",
+              paddingLeft: isMobile && isScrolled ? 0 : "1rem",
+              paddingRight: isMobile && isScrolled ? 0 : "1rem",
+              background: isMobile ? "transparent !important" : "hsl(var(--background) / 0.95)",
+              backdropFilter: isMobile ? "none" : "blur(8px)",
+              backgroundColor: isMobile ? "transparent !important" : undefined,
             }}
           >
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-4" />
-            <h2 
-              className="font-semibold leading-tight transition-all duration-700 ease-in-out truncate"
+            <div
+              className="flex items-center transition-all duration-500 ease-in-out"
               style={{
-                fontSize: isScrolled ? "0.875rem" : "1.125rem",
+                justifyContent: isMobile && isScrolled ? "center" : "flex-start",
+                background: isMobile && isScrolled ? "hsl(var(--background) / 0.95)" : "transparent",
+                backdropFilter: isMobile && isScrolled ? "blur(12px)" : "none",
+                borderRadius: isMobile && isScrolled ? "9999px" : "0",
+                border: isMobile && isScrolled ? "1px solid hsl(var(--border))" : "none",
+                paddingLeft: isMobile && isScrolled ? "0.625rem" : "0",
+                paddingRight: isMobile && isScrolled ? "0.625rem" : "0",
+                paddingTop: isMobile && isScrolled ? "0.25rem" : "0",
+                paddingBottom: isMobile && isScrolled ? "0.25rem" : "0",
+                width: isMobile && isScrolled ? "50%" : "100%",
+                maxWidth: isMobile && isScrolled ? "20rem" : "none",
+                boxShadow: isMobile && isScrolled ? "0 4px 12px rgba(0, 0, 0, 0.08)" : "none",
+                gap: isMobile && isScrolled ? 0 : "0.5rem",
               }}
             >
-              {chat.conversationName}
-            </h2>
+              <SidebarTrigger 
+                className="-ml-1 transition-all duration-500 ease-in-out" 
+                style={{
+                  opacity: isMobile && isScrolled ? 0 : 1,
+                  width: isMobile && isScrolled ? 0 : "auto",
+                  marginLeft: isMobile && isScrolled ? 0 : undefined,
+                  marginRight: isMobile && isScrolled ? 0 : undefined,
+                  pointerEvents: isMobile && isScrolled ? "none" : "auto",
+                  transform: isMobile && isScrolled ? "scale(0)" : "scale(1)",
+                }}
+              />
+              <Separator 
+                orientation="vertical" 
+                className="h-4 transition-all duration-500 ease-in-out"
+                style={{
+                  opacity: isMobile && isScrolled ? 0 : 1,
+                  width: isMobile && isScrolled ? 0 : "auto",
+                  marginLeft: isMobile && isScrolled ? 0 : undefined,
+                  marginRight: isMobile && isScrolled ? 0 : "0.5rem",
+                  transform: isMobile && isScrolled ? "scale(0)" : "scale(1)",
+                }}
+              />
+              <h2 
+                className="leading-tight transition-all duration-500 ease-in-out truncate"
+                style={{
+                  fontSize: isMobile ? (isScrolled ? "0.75rem" : "1rem") : (isScrolled ? "0.875rem" : "1.125rem"),
+                  fontWeight: isMobile && isScrolled ? 500 : 600,
+                  textAlign: isMobile && isScrolled ? "center" : "left",
+                  flex: isMobile && isScrolled ? "1" : "0 1 auto",
+                }}
+              >
+                {chat.conversationName}
+              </h2>
+            </div>
           </header>
           <div className="flex-1 overflow-hidden px-4 pb-6 pt-4">
             <Card className="mx-auto flex h-full w-full max-w-2xl flex-col">
