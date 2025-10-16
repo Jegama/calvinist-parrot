@@ -43,7 +43,7 @@ export function Header() {
   return (
     <header 
       className={`app-header sticky top-0 z-50 w-full px-4 transition-all duration-700 ease-in-out ${
-        isScrolled ? "!bg-background/95 backdrop-blur supports-[backdrop-filter]:!bg-background/60 !border-b-0 !shadow-none" : ""
+        isScrolled ? "liquid-glass-header" : ""
       }`}
       style={{
         paddingTop: isScrolled ? "0.25rem" : "0.5rem",
