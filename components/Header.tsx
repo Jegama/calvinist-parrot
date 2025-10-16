@@ -42,7 +42,9 @@ export function Header() {
 
   return (
     <header 
-      className="app-header sticky top-0 z-50 w-full px-4 transition-all duration-700 ease-in-out"
+      className={`app-header sticky top-0 z-50 w-full px-4 transition-all duration-700 ease-in-out ${
+        isScrolled ? "liquid-glass-header" : ""
+      }`}
       style={{
         paddingTop: isScrolled ? "0.25rem" : "0.5rem",
         paddingBottom: isScrolled ? "0.25rem" : "0.5rem",

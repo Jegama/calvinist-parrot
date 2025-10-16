@@ -388,8 +388,8 @@ export default function ChatPage() {
       <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))] !bg-transparent">
         <div className="flex min-h-full flex-col">
           <header 
-            className={`sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center transition-all duration-500 ease-in-out ${
-              isMobile && isScrolled ? "!bg-transparent" : "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+            className={`sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center transition-all duration-200 ease-in-out ${
+              isMobile && isScrolled ? "!bg-transparent" : isScrolled ? "!bg-transparent" : "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
             } ${isMobile && !isScrolled ? "!bg-transparent !backdrop-blur-none" : ""}`}
             style={{
               height: isMobile ? (isScrolled ? "2.5rem" : "3.5rem") : (isScrolled ? "3rem" : "4rem"),
@@ -399,13 +399,13 @@ export default function ChatPage() {
             }}
           >
             <div
-              className="flex items-center transition-all duration-500 ease-in-out"
+              className={`flex items-center transition-all duration-700 ease-in-out ${isMobile && isScrolled ? "liquid-glass-pill" : ""}`}
               style={{
                 justifyContent: isMobile && isScrolled ? "center" : "flex-start",
-                background: isMobile && isScrolled ? "hsl(var(--background) / 0.1)" : "transparent",
-                backdropFilter: isMobile && isScrolled ? "blur(12px)" : "none",
+                background: isMobile && isScrolled ? "transparent" : "transparent",
+                backdropFilter: "none",
                 borderRadius: isMobile && isScrolled ? "9999px" : "0",
-                border: isMobile && isScrolled ? "1px solid hsl(var(--border) / 0.1)" : "none",
+                border: "none",
                 paddingLeft: isMobile && isScrolled ? "0.625rem" : "0",
                 paddingRight: isMobile && isScrolled ? "0.625rem" : "0",
                 paddingTop: isMobile && isScrolled ? "0.01rem" : "0",
@@ -413,12 +413,12 @@ export default function ChatPage() {
                 marginTop: isMobile && isScrolled ? "0.5rem" : "0",
                 width: isMobile && isScrolled ? "50%" : "100%",
                 maxWidth: isMobile && isScrolled ? "20rem" : "none",
-                boxShadow: isMobile && isScrolled ? "0 4px 12px rgba(0, 0, 0, 0.08)" : "none",
+                boxShadow: "none",
                 gap: isMobile && isScrolled ? 0 : "0.5rem",
               }}
             >
               <SidebarTrigger 
-                className="-ml-1 transition-all duration-500 ease-in-out" 
+                className="-ml-1 transition-all duration-700 ease-in-out" 
                 style={{
                   opacity: isMobile && isScrolled ? 0 : 1,
                   width: isMobile && isScrolled ? 0 : "auto",
@@ -430,7 +430,7 @@ export default function ChatPage() {
               />
               <Separator 
                 orientation="vertical" 
-                className="h-4 transition-all duration-500 ease-in-out"
+                className="h-4 transition-all duration-700 ease-in-out"
                 style={{
                   opacity: isMobile && isScrolled ? 0 : 1,
                   width: isMobile && isScrolled ? 0 : "auto",
@@ -440,7 +440,7 @@ export default function ChatPage() {
                 }}
               />
               <h2 
-                className="leading-tight transition-all duration-500 ease-in-out truncate"
+                className="leading-tight transition-all duration-700 ease-in-out truncate"
                 style={{
                   fontSize: isMobile ? (isScrolled ? "0.75rem" : "1rem") : (isScrolled ? "0.875rem" : "1.125rem"),
                   fontWeight: isMobile && isScrolled ? 500 : 600,
