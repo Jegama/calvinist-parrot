@@ -112,14 +112,20 @@ export async function findDevotional(devotionalId: string) {
     });
 }
 
-// Create a new devotional in the database
+// Create or update a devotional in the database (handles race conditions)
 export async function createDevotional(devotionalId: string, data: {
     bible_verse: string;
     title: string;
     devotional: string;
 }) {
-    return await prisma.parrotDevotionals.create({
-        data: {
+    return await prisma.parrotDevotionals.upsert({
+        where: { devotional_id: devotionalId },
+        update: {
+            bible_verse: data.bible_verse,
+            title: data.title,
+            devotional_text: data.devotional,
+        },
+        create: {
             devotional_id: devotionalId,
             bible_verse: data.bible_verse,
             title: data.title,

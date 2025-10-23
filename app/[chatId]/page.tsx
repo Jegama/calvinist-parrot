@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
 import { Loader2, Copy, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -326,9 +327,36 @@ export default function ChatPage() {
 
   if (!chat) {
     return (
-      <div className="flex flex-1 overflow-hidden">
-        <p>Loading chat...</p>
-      </div>
+      <SidebarProvider>
+        <AppSidebar chats={chats} currentChatId={params.chatId} />
+        <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))] !bg-transparent">
+          <div className="flex min-h-full flex-col">
+            <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="h-4 mr-2" />
+              <Skeleton className="h-6 w-48" />
+            </header>
+            <div className="flex-1 overflow-hidden px-4 pb-6 pt-4">
+              <Card className="mx-auto flex h-full w-full max-w-2xl flex-col">
+                <CardContent className="flex-1 space-y-4 overflow-y-auto p-6">
+                  <p className="text-lg text-muted-foreground">Loading chat...</p>
+                  <div className="ml-auto max-w-[80%] space-y-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-20 w-full" />
+                  </div>
+                  <div className="mr-auto max-w-[80%] space-y-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-32 w-full" />
+                  </div>
+                </CardContent>
+                <div className="border-t bg-card/80 p-4 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+                  <Skeleton className="h-20 w-full" />
+                </div>
+              </Card>
+            </div>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
     );
   }
 

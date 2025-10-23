@@ -50,11 +50,11 @@ export default function MainChatPage() {
   return (
     <SidebarProvider>
       <AppSidebar chats={chats} />
-      <SidebarInset className="flex min-h-[calc(100vh-var(--app-header-height)-4rem)] flex-col">
-        <header className="sticky top-[var(--app-header-height)] z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <SidebarInset className="flex h-[calc(100vh-var(--app-header-height))] flex-col overflow-hidden">
+        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <SidebarTrigger className="-ml-1" />
         </header>
-        <div className="flex flex-1 items-center justify-center px-4 py-6">
+        <div className="flex flex-1 items-center justify-center overflow-y-auto px-4 py-6">
           <Card className="w-full max-w-3xl">
             <CardHeader>
               <div className="flex items-center space-x-4">
