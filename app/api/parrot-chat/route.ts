@@ -346,6 +346,12 @@ export async function POST(request: Request) {
                     toolOutput = JSON.parse(data.output.content);
                   } catch (e) {
                     console.error("Failed to parse supplementalArticleSearch output", e);
+                    console.error("Raw content:", data.output.content);
+                    return;
+                  }
+                  // Check for error in the tool response
+                  if (toolOutput.error) {
+                    console.error("supplementalArticleSearch returned error:", toolOutput.error);
                     return;
                   }
                   // Ensure results exist

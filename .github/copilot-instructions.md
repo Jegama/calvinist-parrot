@@ -1,15 +1,22 @@
 # Calvinist Parrot – AI Agent Guide
 ## Overview & Entry Points
 - Next.js 15 App Router with TypeScript; route handlers under `app/api/**`, router pages/layouts under `app/**`.
-- Auth flows lean on Appwrite (`hooks/use-auth.tsx`) with a `userId` cookie fallback (`app/page.tsx`, `app/[chatId]/page.tsx`).
+- Global providers live in `components/providers/app-providers.tsx`, wrapping `AuthProvider`, `ReactQueryProvider`, and the theme provider for every page.
+- Auth flows lean on Appwrite via `hooks/use-auth.tsx`; anonymous continuity now comes from `hooks/use-user-identifier.ts`, consumed in `app/page.tsx` and `app/[chatId]/page.tsx`.
 - Prisma Postgres schema lives in `prisma/schema.prisma`; run `npx prisma migrate dev` after edits to keep migrations in sync.
 - Shared UI primitives follow the shadcn pattern in `components/ui/**`; compose them inside page-level components and feature modules.
+
+## State & Caching
+- TanStack Query is polyfilled in `lib/vendor/tanstack-react-query.tsx`, exposed through the `@tanstack/react-query` path alias (see `tsconfig.json`) and configured globally in `ReactQueryProvider` with a five-minute stale window.
+- Sidebar chat data is sourced from `hooks/use-chat-list.ts`; reuse its query key helpers (`["chat-list", userId]`), mutation hooks, and cache update helpers when adding chat actions.
+- Profile UI state is centralized in the Zustand-style store `app/profile/ui-store.ts` (aliased through `lib/vendor/zustand.ts`); extend it instead of scattering `useState` when touching profile dialogs or alerts.
 
 ## Conversational Pipelines
 - `/api/parrot-chat` streams JSONL events via `lib/progressUtils.sendProgress`; the chat UI keys on `{type}` values (`progress`, `parrot`, `gotQuestions`, etc.).
 - `utils/langChainAgents/mainAgent.ts` defines the LangGraph agent; new tools register in `utils/langChainAgents/tools/index.ts` and follow the Tavily whitelist in `supplementalArticleSearchTool.ts`.
 - `/api/parrot-qa` orchestrates the "Counsel of Three" workflow, Calvin review, and stores results in Prisma `questionHistory`.
 - Conversation titles and categories reuse mini OpenAI models through `utils/generateConversationName.ts` and prompt constants in `lib/prompts.ts`.
+- `app/page.tsx` and `app/[chatId]/page.tsx` invalidate the chat list query after streaming completes; make sure new mutations call `invalidate`/`upsertChat` so the sidebar stays in sync.
 
 ## Prayer Tracker Module
 - Feature lives in `app/prayer-tracker/**` with sheets, rotation logic, and helpers split into `components/` and `utils.ts`.
@@ -19,6 +26,7 @@
 
 ## Data & Integrations
 - Chat history tables: `prisma/chatHistory`, `prisma/chatMessage`; QA uses `questionHistory`; devotionals persist in `parrotDevotionals`; prayer tracker tables defined in latest migrations (`20250103*`, `20251011*`).
+- Profile pages hydrate from `app/api/profile/overview/route.ts`, which batches Prisma reads for `questionHistory`, `userProfile`, and the `prayerMember` + `space` graph—keep related fields in that handler so cached queries stay coherent.
 - Bible references use AO Lab endpoints through `utils/bibleUtils.ts` and mapping helpers in `utils/bookMappings.ts`.
 - Daily devotionals rely on Tavily plus OpenAI JSON schema (`utils/devotionalUtils.ts`); guard execution when `TAVILY_API_KEY` is missing and require `Authorization: Bearer ${CRON_SECRET}` for cron routes.
 
@@ -26,6 +34,7 @@
 - Treat pages with hooks/effects as client components (`"use client"`); keep server components free of browser-only APIs.
 - Streamed chat rendering in `app/[chatId]/page.tsx` depends on the `DataEvent` discriminated union—update types before emitting new events.
 - Wrap any LLM output with `components/MarkdownWithBibleVerses.tsx` to preserve verse popovers; avoid duplicating parsing logic elsewhere.
+- When adding stateful profile features, prefer `useProfileUiStore` for UI flags and `useQueryClient` updates (`updateProfileOverview`) over ad-hoc states.
 - Shared styling leans on Tailwind and `components/ui/**`; reuse `Card`, `Button`, `Sheet`, etc. instead of bespoke markup.
 
 ## Brand Colors & Design System
