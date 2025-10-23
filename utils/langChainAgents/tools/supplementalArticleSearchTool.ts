@@ -18,7 +18,11 @@ async function supplementalArticleSearch(query: { query: string }): Promise<stri
     // 'response' is already a JSON object.
     return JSON.stringify(response);
   } catch (error) {
-    return `Error: ${error}`;
+    // Return valid JSON even on error so parsing doesn't fail downstream
+    return JSON.stringify({ 
+      results: [], 
+      error: error instanceof Error ? error.message : String(error) 
+    });
   }
 }
 

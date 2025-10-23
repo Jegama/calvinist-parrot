@@ -1,3 +1,5 @@
+import path from 'path'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -17,6 +19,15 @@ const nextConfig = {
         destination: 'https://bible.helloao.org/api/:path*',
       },
     ];
+  },
+  webpack: (config) => {
+    config.resolve = config.resolve || {}
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      '@tanstack/react-query': path.join(process.cwd(), 'lib/vendor/tanstack-react-query'),
+      zustand: path.join(process.cwd(), 'lib/vendor/zustand'),
+    }
+    return config
   },
 }
 

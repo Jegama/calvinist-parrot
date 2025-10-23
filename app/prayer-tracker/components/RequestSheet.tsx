@@ -4,6 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Sheet,
   SheetClose,
   SheetContent,
@@ -12,14 +21,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { PersonalSheetState } from "../types";
+import { PersonalSheetState, Family } from "../types";
+import { useMemo } from "react";
 
-type PersonalSheetProps = {
+type RequestSheetProps = {
   isOpen: boolean;
   sheetState: PersonalSheetState;
+  families: Family[];
   isLoading: boolean;
   error: string | null;
-  answeringPersonalId: string | null;
+  answeringRequestId: string | null;
   onOpenChange: (open: boolean) => void;
   onUpdate: (changes: Partial<PersonalSheetState>) => void;
   onSave: () => void;
@@ -27,27 +38,41 @@ type PersonalSheetProps = {
   onDelete: () => void;
 };
 
-export function PersonalSheet({
+export function RequestSheet({
   isOpen,
   sheetState,
+  families,
   isLoading,
   error,
-  answeringPersonalId,
+  answeringRequestId,
   onOpenChange,
   onUpdate,
   onSave,
   onMarkAnswered,
   onDelete,
-}: PersonalSheetProps) {
+}: RequestSheetProps) {
   const isAnswered = sheetState.status === "ANSWERED";
-  const isMarking = answeringPersonalId === sheetState.id;
+  const isMarking = answeringRequestId === sheetState.id;
+
+  // Group families by category for the dropdown
+  const familiesByCategory = useMemo(() => {
+    const grouped: Record<string, Family[]> = {};
+    families.forEach((family) => {
+      const category = family.categoryTag || "Uncategorized";
+      if (!grouped[category]) grouped[category] = [];
+      grouped[category].push(family);
+    });
+    return grouped;
+  }, [families]);
+
+  const categoryKeys = useMemo(() => Object.keys(familiesByCategory).sort(), [familiesByCategory]);
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>Edit request</SheetTitle>
-          <SheetDescription>Update or celebrate answered prayer for your family.</SheetDescription>
+          <SheetDescription>Update or celebrate answered prayer.</SheetDescription>
         </SheetHeader>
         <div className="mt-6 space-y-4">
           <Input
@@ -60,6 +85,30 @@ export function PersonalSheet({
             value={sheetState.notes}
             onChange={(event) => onUpdate({ notes: event.target.value })}
           />
+          <Select
+            value={sheetState.linkedToFamily}
+            onValueChange={(value) => onUpdate({ linkedToFamily: value })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Link to..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Your Household</SelectLabel>
+                <SelectItem value="household">Our Family</SelectItem>
+              </SelectGroup>
+              {categoryKeys.map((category) => (
+                <SelectGroup key={category}>
+                  <SelectLabel>{category}</SelectLabel>
+                  {familiesByCategory[category].map((family) => (
+                    <SelectItem key={family.id} value={family.id}>
+                      {family.familyName}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))}
+            </SelectContent>
+          </Select>
           <p className="text-xs text-muted-foreground">
             Status: {isAnswered ? "Answered" : "Active"}
           </p>

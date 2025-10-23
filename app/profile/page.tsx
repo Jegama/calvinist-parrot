@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,172 +31,118 @@ import {
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
 import { ProtectedView } from "@/components/ProtectedView";
 import { useAuth } from "@/hooks/use-auth";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  type ProfileStats,
+  type Question,
+  type RawMembershipInfo,
+  type RawPrayerSpace,
+  toMembershipInfo,
+  toPrayerSpace,
+} from "./types";
+import { useProfileUiStore } from "./ui-store";
 
-type Question = {
-  id: string;
-  question: string;
-  reviewed_answer: string;
+type ProfileOverviewResponse = {
+  questions: Question[];
+  profile: ProfileStats | null;
+  space: RawPrayerSpace;
+  membership: RawMembershipInfo | null;
 };
 
-type ProfileStats = {
-  answeredFamilyCount: number;
-  answeredPersonalCount: number;
-  lastPrayerAt?: string | null;
-};
-
-type SpaceMember = {
-  id: string;
-  displayName: string;
-  appwriteUserId: string;
-  role: "OWNER" | "MEMBER";
-  joinedAt: string;
-};
-
-type MembershipInfo = SpaceMember & {
-  spaceId: string;
-};
-
-type PrayerSpace = {
-  id: string;
-  spaceName: string;
-  shareCode: string;
-  members: SpaceMember[];
-};
-
-type RawSpaceMember = Partial<{
-  id: string | number;
-  displayName: string;
-  appwriteUserId: string;
-  role: string;
-  joinedAt: string | Date;
-}> | null | undefined;
-
-type RawPrayerSpace = Partial<{
-  id: string | number;
-  spaceName: string;
-  shareCode: string;
-  members: RawSpaceMember[];
-}> | null | undefined;
-
-type RawMembershipInfo = RawSpaceMember & { spaceId?: string | number };
-
-const toSpaceMember = (raw: RawSpaceMember): SpaceMember => ({
-  id: String(raw?.id ?? ""),
-  displayName: String(raw?.displayName ?? "Member"),
-  appwriteUserId: String(raw?.appwriteUserId ?? ""),
-  role: raw?.role === "OWNER" ? "OWNER" : "MEMBER",
-  joinedAt: String(raw?.joinedAt ?? new Date().toISOString()),
-});
-
-const toPrayerSpace = (raw: RawPrayerSpace): PrayerSpace => ({
-  id: String(raw?.id ?? ""),
-  spaceName: String(raw?.spaceName ?? "Prayer Space"),
-  shareCode: String(raw?.shareCode ?? ""),
-  members: Array.isArray(raw?.members) ? raw.members.map(toSpaceMember) : [],
-});
-
-const toMembershipInfo = (raw: RawMembershipInfo): MembershipInfo => ({
-  ...toSpaceMember(raw),
-  spaceId: String(raw?.spaceId ?? ""),
-});
+async function fetchProfileOverview(userId: string): Promise<ProfileOverviewResponse> {
+  const response = await fetch(`/api/profile/overview?userId=${encodeURIComponent(userId)}`);
+  if (!response.ok) {
+    throw new Error("Failed to load profile overview");
+  }
+  return (await response.json()) as ProfileOverviewResponse;
+}
 
 export default function ProfilePage() {
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [space, setSpace] = useState<PrayerSpace | null>(null);
-  const [membership, setMembership] = useState<MembershipInfo | null>(null);
-  const [pendingCode, setPendingCode] = useState<string>("");
-  const [spaceNameInput, setSpaceNameInput] = useState<string>("");
-  const [profileStats, setProfileStats] = useState<ProfileStats | null>(null);
-  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
-  const [pendingRename, setPendingRename] = useState("");
-  const [renameSubmitting, setRenameSubmitting] = useState(false);
-  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
-  const [memberToRemove, setMemberToRemove] = useState<SpaceMember | null>(null);
-  const [isRemovingMember, setIsRemovingMember] = useState(false);
-  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-  const [isLeavingSpace, setIsLeavingSpace] = useState(false);
-  const [transferOwnerId, setTransferOwnerId] = useState<string>("");
-  const [copySuccess, setCopySuccess] = useState(false);
-  const [regenerateSuccess, setRegenerateSuccess] = useState(false);
-  const [isRegenerating, setIsRegenerating] = useState(false);
-  const [joinError, setJoinError] = useState<string>("");
+  const {
+    pendingCode,
+    spaceNameInput,
+    renameDialogOpen,
+    pendingRename,
+    renameSubmitting,
+    removeDialogOpen,
+    memberToRemove,
+    isRemovingMember,
+    leaveDialogOpen,
+    isLeavingSpace,
+    transferOwnerId,
+    copySuccess,
+    regenerateSuccess,
+    isRegenerating,
+    joinError,
+    setPendingCode,
+    setSpaceNameInput,
+    setRenameDialogOpen,
+    setPendingRename,
+    setRenameSubmitting,
+    setRemoveDialogOpen,
+    setMemberToRemove,
+    setIsRemovingMember,
+    setLeaveDialogOpen,
+    setIsLeavingSpace,
+    setTransferOwnerId,
+    setCopySuccess,
+    setRegenerateSuccess,
+    setIsRegenerating,
+    setJoinError,
+    resetUi,
+  } = useProfileUiStore();
   const router = useRouter();
-  const hasFetchedForUser = useRef<string | null>(null);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const regenerateTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const { user, loading, logout } = useAuth();
-
-  const fetchProfileData = useCallback(async (userId: string) => {
-    try {
-      const [questionsRes, profileRes, spaceRes] = await Promise.all([
-        fetch(`/api/user-questions?userId=${userId}`),
-        fetch(`/api/user-profile?userId=${userId}`),
-        fetch(`/api/prayer-tracker/spaces?userId=${userId}`),
-      ]);
-
-      if (questionsRes.ok) {
-        const fetchedQuestions = await questionsRes.json();
-        setQuestions(fetchedQuestions);
-      } else {
-        setQuestions([]);
-      }
-
-      if (profileRes.ok) {
-        const profileData = await profileRes.json();
-        setProfileStats(profileData ?? null);
-      } else {
-        setProfileStats(null);
-      }
-
-      if (spaceRes.ok) {
-        const data = await spaceRes.json();
-        if (data?.space) {
-          const mappedSpace = toPrayerSpace(data.space);
-          setSpace(mappedSpace);
-          setSpaceNameInput(mappedSpace.spaceName ?? "");
-        } else {
-          setSpace(null);
-          setSpaceNameInput("");
-        }
-        if (data?.membership) {
-          setMembership(toMembershipInfo(data.membership));
-        } else {
-          setMembership(null);
-        }
-      } else if (spaceRes.status === 404) {
-        setSpace(null);
-        setMembership(null);
-        setSpaceNameInput("");
-      }
-    } catch (error) {
-      console.error("Error fetching profile info:", error);
-    }
-  }, []);
+  const { user, logout } = useAuth();
+  const queryClient = useQueryClient();
+  const profileQueryKey = useMemo(() => ["profile-overview", user?.$id ?? "guest"], [user?.$id]);
+  const profileOverview = useQuery({
+    queryKey: profileQueryKey,
+    enabled: Boolean(user?.$id),
+    queryFn: () => fetchProfileOverview(user!.$id),
+    staleTime: 1000 * 60 * 5,
+  });
+  const questions = profileOverview.data?.questions ?? [];
+  const profileStats = profileOverview.data?.profile ?? null;
+  const space = useMemo(() => {
+    const rawSpace = profileOverview.data?.space ?? null;
+    return rawSpace ? toPrayerSpace(rawSpace) : null;
+  }, [profileOverview.data]);
+  const membership = useMemo(() => {
+    const rawMembership = profileOverview.data?.membership ?? null;
+    return rawMembership ? toMembershipInfo(rawMembership) : null;
+  }, [profileOverview.data]);
+  const updateProfileOverview = useCallback(
+    (updater: (current: ProfileOverviewResponse) => ProfileOverviewResponse) => {
+      if (!user?.$id) return;
+      queryClient.setQueryData<ProfileOverviewResponse>(profileQueryKey, (current) => {
+        const base: ProfileOverviewResponse =
+          current ?? {
+            questions: [],
+            profile: null,
+            space: null,
+            membership: null,
+          };
+        return updater(base);
+      });
+    },
+    [profileQueryKey, queryClient, user?.$id],
+  );
 
   useEffect(() => {
-    if (loading) return;
     if (!user) {
-      hasFetchedForUser.current = null;
-      setQuestions([]);
-      setProfileStats(null);
-      setSpace(null);
-      setMembership(null);
-      setSpaceNameInput("");
-      setPendingCode("");
-      setJoinError("");
-      setRenameDialogOpen(false);
-      setPendingRename("");
-      setRemoveDialogOpen(false);
-      setMemberToRemove(null);
-      setLeaveDialogOpen(false);
-      setTransferOwnerId("");
-      setCopySuccess(false);
-      return;
+      resetUi();
     }
-    if (hasFetchedForUser.current === user.$id) return;
-    hasFetchedForUser.current = user.$id;
-    fetchProfileData(user.$id);
-  }, [loading, user, fetchProfileData]);
+  }, [resetUi, user]);
+
+  useEffect(() => {
+    if (space) {
+      setSpaceNameInput(space.spaceName ?? "");
+    } else {
+      setSpaceNameInput("");
+    }
+  }, [setSpaceNameInput, space]);
 
   // Cleanup timeout on unmount only
   useEffect(() => {
@@ -251,10 +197,10 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="grid gap-2 text-sm">
             <p>
-              <span className="font-semibold">Answered for our family:</span> {profileStats.answeredFamilyCount ?? 0}
+              <span className="font-semibold">Answered for our family:</span> {profileStats.answeredPersonalCount ?? 0}
             </p>
             <p>
-              <span className="font-semibold">Answered for others:</span> {profileStats.answeredPersonalCount ?? 0}
+              <span className="font-semibold">Answered for other families:</span> {profileStats.answeredFamilyCount ?? 0}
             </p>
             {profileStats.lastPrayerAt && (
               <p>
@@ -326,7 +272,12 @@ export default function ProfilePage() {
                         setIsRegenerating(false);
                         if (res.ok) {
                           const d = await res.json();
-                          setSpace((prev) => (prev ? { ...prev, shareCode: d.shareCode } : prev));
+                          updateProfileOverview((current) => ({
+                            ...current,
+                            space: current.space
+                              ? { ...current.space, shareCode: d.shareCode }
+                              : current.space,
+                          }));
                           setRegenerateSuccess(true);
                           if (regenerateTimeoutRef.current) clearTimeout(regenerateTimeoutRef.current);
                           regenerateTimeoutRef.current = setTimeout(() => {
@@ -408,13 +359,13 @@ export default function ProfilePage() {
                       });
                       if (res.ok) {
                         const data = await res.json();
-                        if (data?.space) {
-                          const mapped = toPrayerSpace(data.space);
-                          setSpace(mapped);
-                          setSpaceNameInput(mapped.spaceName ?? "");
-                        }
-                        if (data?.membership) {
-                          setMembership(toMembershipInfo(data.membership));
+                        updateProfileOverview((current) => ({
+                          ...current,
+                          space: data?.space ?? current.space,
+                          membership: data?.membership ?? current.membership,
+                        }));
+                        if (data?.space?.spaceName) {
+                          setSpaceNameInput(String(data.space.spaceName));
                         }
                       }
                     }}
@@ -450,13 +401,13 @@ export default function ProfilePage() {
                         });
                         if (res.ok) {
                           const d = await res.json();
-                          if (d?.space) {
-                            const mappedSpace = toPrayerSpace(d.space);
-                            setSpace(mappedSpace);
-                            setSpaceNameInput(mappedSpace.spaceName ?? "");
-                          }
-                          if (d?.membership) {
-                            setMembership(toMembershipInfo(d.membership));
+                          updateProfileOverview((current) => ({
+                            ...current,
+                            space: d?.space ?? current.space,
+                            membership: d?.membership ?? current.membership,
+                          }));
+                          if (d?.space?.spaceName) {
+                            setSpaceNameInput(String(d.space.spaceName));
                           }
                           setPendingCode("");
                           setJoinError("");
@@ -541,13 +492,9 @@ export default function ProfilePage() {
                 });
                 setRenameSubmitting(false);
                 if (res.ok) {
-                  const d = await res.json();
-                  if (d?.space) {
-                    const mapped = toPrayerSpace(d.space);
-                    setSpace(mapped);
-                    setSpaceNameInput(mapped.spaceName ?? "");
-                  }
+                  await profileOverview.refetch();
                   setRenameDialogOpen(false);
+                  setPendingRename("");
                 }
               }}
               disabled={renameSubmitting || !pendingRename.trim()}
@@ -593,7 +540,7 @@ export default function ProfilePage() {
                 });
                 setIsRemovingMember(false);
                 if (res.ok) {
-                  await fetchProfileData(user.$id);
+                  await profileOverview.refetch();
                   setRemoveDialogOpen(false);
                   setMemberToRemove(null);
                 }
@@ -674,7 +621,7 @@ export default function ProfilePage() {
                 if (res.ok) {
                   setLeaveDialogOpen(false);
                   setTransferOwnerId("");
-                  await fetchProfileData(user.$id);
+                  await profileOverview.refetch();
                 }
               }}
               disabled={isLeavingSpace || (membership?.role === "OWNER" && !transferOwnerId)}

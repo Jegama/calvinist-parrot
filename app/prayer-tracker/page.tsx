@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useQueryClient } from "@tanstack/react-query";
 import { RotationCard } from "./components/RotationCard";
 import { FamilySection } from "./components/FamilySection";
-import { PersonalRequestsSection } from "./components/PersonalRequestsSection";
+import { RequestsSection } from "./components/RequestsSection";
 import { FamilySheet } from "./components/FamilySheet";
-import { PersonalSheet } from "./components/PersonalSheet";
+import { RequestSheet } from "./components/RequestSheet";
+import { FamilyDetailDialog } from "./components/FamilyDetailDialog";
 import { ARCHIVED_CATEGORY } from "./constants";
 import { useAuth } from "@/hooks/use-auth";
 import { ProtectedView } from "@/components/ProtectedView";
@@ -22,9 +24,7 @@ import {
 	dateInputToIso,
 	isoToDateInput,
 	buildFamilyPayload,
-	buildPersonalRequestPayload,
 	resetFamilyForm,
-	resetPersonalForm,
 } from "./utils";
 import {
 	Family,
@@ -32,19 +32,20 @@ import {
 	Member,
 	NewFamilyFormState,
 	NewPersonalFormState,
-	PersonalRequest,
 	PersonalSheetState,
 	Rotation,
+	UnifiedRequest,
 } from "./types";
 import * as api from "./api";
 
 export default function PrayerTrackerPage() {
 	const { user, loading: authLoading } = useAuth();
+	const queryClient = useQueryClient();
 	const [spaceName, setSpaceName] = useState<string | null>(null);
 	const [spaceLoaded, setSpaceLoaded] = useState(false);
 	const [members, setMembers] = useState<Member[]>([]);
 	const [families, setFamilies] = useState<Family[]>([]);
-	const [personal, setPersonal] = useState<PersonalRequest[]>([]);
+	const [requests, setRequests] = useState<UnifiedRequest[]>([]);
 	const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
 	const [newFamily, setNewFamily] = useState<NewFamilyFormState>({
@@ -56,7 +57,7 @@ export default function PrayerTrackerPage() {
 	});
 	const [familyFormError, setFamilyFormError] = useState<string | null>(null);
 
-	const [newPersonal, setNewPersonal] = useState<NewPersonalFormState>({ text: "", notes: "" });
+	const [newPersonal, setNewPersonal] = useState<NewPersonalFormState>({ text: "", notes: "", linkedToFamily: "household" });
 	const [personalFormError, setPersonalFormError] = useState<string | null>(null);
 
 	const [rotation, setRotation] = useState<Rotation | null>(null);
@@ -87,9 +88,12 @@ export default function PrayerTrackerPage() {
 		requestText: "",
 		notes: "",
 		status: "ACTIVE",
+		linkedToFamily: "household",
 	}));
 	const [personalSheetError, setPersonalSheetError] = useState<string | null>(null);
 	const [answeringPersonalId, setAnsweringPersonalId] = useState<string | null>(null);
+	const [familyDetailDialogOpen, setFamilyDetailDialogOpen] = useState(false);
+	const [selectedFamilyForDetail, setSelectedFamilyForDetail] = useState<Family | null>(null);
 	const initializedForUser = useRef<string | null>(null);
 
 	const categories = useMemo(() => {
@@ -177,14 +181,15 @@ export default function PrayerTrackerPage() {
 	}, []);
 
 	const refreshLists = useCallback(async (userId: string) => {
-		const { families, personal } = await api.fetchFamiliesAndPersonal(userId);
+		const families = await api.fetchFamilies(userId);
+		const requests = await api.fetchUnifiedRequests(userId);
 		
 		if (families.success) {
 			setFamilies(families.data);
 		}
 		
-		if (personal.success) {
-			setPersonal(personal.data);
+		if (requests.success) {
+			setRequests(requests.data);
 		}
 	}, []);
 
@@ -205,7 +210,7 @@ export default function PrayerTrackerPage() {
 			setSpaceName(null);
 			setMembers([]);
 			setFamilies([]);
-			setPersonal([]);
+			setRequests([]);
 			setRotation(null);
 			setFamilyAssignments({});
 			setPersonalSelections({});
@@ -253,7 +258,7 @@ export default function PrayerTrackerPage() {
 		await refreshLists(user.$id);
 	}
 
-	async function createPersonal() {
+	async function createRequest() {
 		if (!user) return;
 
 		const validationError = validatePersonalForm(newPersonal);
@@ -264,17 +269,21 @@ export default function PrayerTrackerPage() {
 
 		setPersonalFormError(null);
 
-		const payload = buildPersonalRequestPayload(user.$id, newPersonal);
+		const payload = {
+			requestText: newPersonal.text.trim(),
+			notes: newPersonal.notes.trim() || undefined,
+			linkedToFamily: newPersonal.linkedToFamily,
+		};
 
-		// Use API client
-		const result = await api.createPersonalRequest(user.$id, payload);
+		// Use unified API client
+		const result = await api.createUnifiedRequest(user.$id, payload);
 
 		if (!result.success) {
 			setPersonalFormError(result.error);
 			return;
 		}
 
-		setNewPersonal(resetPersonalForm());
+		setNewPersonal({ text: "", notes: "", linkedToFamily: "household" });
 		await refreshLists(user.$id);
 	}
 
@@ -524,24 +533,27 @@ export default function PrayerTrackerPage() {
 		setFamilySheetLoading(false);
 	}
 
-	function openPersonalEditor(item: PersonalRequest) {
+	function openRequestEditor(item: UnifiedRequest) {
+		const linkedTo = item.familyId || "household";
 		setPersonalSheet({
 			id: item.id,
 			requestText: item.requestText,
 			notes: item.notes ?? "",
 			status: item.status ?? "ACTIVE",
+			linkedToFamily: linkedTo,
+			originalLinkedToFamily: linkedTo, // Track original for change detection
 		});
 		setPersonalSheetError(null);
 		setIsPersonalSheetOpen(true);
 	}
 
-	function resetPersonalSheet() {
-		setPersonalSheet({ id: "", requestText: "", notes: "", status: "ACTIVE" });
+	function resetRequestSheet() {
+		setPersonalSheet({ id: "", requestText: "", notes: "", status: "ACTIVE", linkedToFamily: "household" });
 		setPersonalSheetLoading(false);
 		setPersonalSheetError(null);
 	}
 
-	async function savePersonalSheet() {
+	async function saveRequestSheet() {
 		if (!user || !personalSheet.id) return;
 		const trimmed = personalSheet.requestText.trim();
 		if (!trimmed) {
@@ -551,9 +563,13 @@ export default function PrayerTrackerPage() {
 		setPersonalSheetLoading(true);
 		setPersonalSheetError(null);
 
-		const result = await api.updatePersonalRequest(user.$id, personalSheet.id, {
+		const isHouseholdRequest = (personalSheet.originalLinkedToFamily || personalSheet.linkedToFamily) === "household";
+		const result = await api.updateUnifiedRequest(user.$id, personalSheet.id, {
 			requestText: trimmed,
 			notes: personalSheet.notes.trim() || null,
+			isHouseholdRequest,
+			linkedToFamily: personalSheet.linkedToFamily,
+			originalLinkedToFamily: personalSheet.originalLinkedToFamily,
 		});
 
 		if (!result.success) {
@@ -562,17 +578,17 @@ export default function PrayerTrackerPage() {
 			return;
 		}
 
-		resetPersonalSheet();
+		resetRequestSheet();
 		setIsPersonalSheetOpen(false);
 		await refreshLists(user.$id);
 		setPersonalSheetLoading(false);
 	}
 
-	async function deletePersonal(requestId: string) {
+	async function deleteRequest(requestId: string, isHouseholdRequest: boolean) {
 		if (!user) return;
 		setPersonalSheetError(null);
 
-		const result = await api.deletePersonalRequest(user.$id, requestId);
+		const result = await api.deleteUnifiedRequest(user.$id, requestId, isHouseholdRequest);
 
 		if (!result.success) {
 			setPersonalSheetError(result.error);
@@ -580,19 +596,20 @@ export default function PrayerTrackerPage() {
 		}
 
 		if (personalSheet.id === requestId) {
-			resetPersonalSheet();
+			resetRequestSheet();
 			setIsPersonalSheetOpen(false);
 		}
 		await refreshLists(user.$id);
 	}
 
-	async function markPersonalAnswered(requestId: string) {
+	async function markRequestAnswered(requestId: string, isHouseholdRequest: boolean) {
 		if (!user) return;
 		setAnsweringPersonalId(requestId);
 		setPersonalSheetError(null);
 
-		const result = await api.updatePersonalRequest(user.$id, requestId, {
+		const result = await api.updateUnifiedRequest(user.$id, requestId, {
 			markAnswered: true,
+			isHouseholdRequest,
 		});
 
 		if (!result.success) {
@@ -602,11 +619,32 @@ export default function PrayerTrackerPage() {
 		}
 
 		if (personalSheet.id === requestId) {
-			resetPersonalSheet();
+			resetRequestSheet();
 			setIsPersonalSheetOpen(false);
 		}
 		await refreshLists(user.$id);
 		setAnsweringPersonalId(null);
+		
+		// Update profile cache optimistically to avoid refetch
+		queryClient.setQueryData(["profile-overview", user.$id], (oldData: unknown) => {
+			if (!oldData || typeof oldData !== "object" || !("profile" in oldData)) return oldData;
+			const data = oldData as { profile?: { answeredPersonalCount?: number; answeredFamilyCount?: number } };
+			if (!data.profile) return oldData;
+			const profile = data.profile;
+			return {
+				...data,
+				profile: {
+					...profile,
+					// Increment the appropriate counter based on request type
+					answeredPersonalCount: isHouseholdRequest 
+						? (profile.answeredPersonalCount || 0) + 1 
+						: profile.answeredPersonalCount,
+					answeredFamilyCount: !isHouseholdRequest 
+						? (profile.answeredFamilyCount || 0) + 1 
+						: profile.answeredFamilyCount,
+				},
+			};
+		});
 	}
 
 	const authFallback = (
@@ -694,18 +732,19 @@ export default function PrayerTrackerPage() {
 				onConfirmRotation={confirmRotation}
 			/>
 
-			{/* Primary actions first: Personal requests on top full width, families below */}
+			{/* Primary actions first: Requests on top full width, families below */}
 			<div className="space-y-6">
-				<PersonalRequestsSection
+				<RequestsSection
 					className="w-full"
-					personal={personal}
-					newPersonal={newPersonal}
-					personalFormError={personalFormError}
-					answeringPersonalId={answeringPersonalId}
-					onNewPersonalChange={handleNewPersonalChange}
-					onCreatePersonal={createPersonal}
-					onEditPersonal={openPersonalEditor}
-					onMarkAnswered={markPersonalAnswered}
+					requests={requests}
+					families={families}
+					newRequest={newPersonal}
+					requestFormError={personalFormError}
+					answeringRequestId={answeringPersonalId}
+					onNewRequestChange={handleNewPersonalChange}
+					onCreateRequest={createRequest}
+					onEditRequest={openRequestEditor}
+					onMarkAnswered={markRequestAnswered}
 				/>
 
 				<FamilySection
@@ -719,6 +758,10 @@ export default function PrayerTrackerPage() {
 					onCreateFamily={createFamily}
 					onCategoryFilterChange={setCategoryFilter}
 					onEditFamily={openFamilyEditor}
+					onViewFamilyDetail={(family) => {
+						setSelectedFamilyForDetail(family);
+						setFamilyDetailDialogOpen(true);
+					}}
 				/>
 			</div>
 
@@ -739,20 +782,41 @@ export default function PrayerTrackerPage() {
 				onDelete={deleteFamily}
 			/>
 
-			<PersonalSheet
+			<RequestSheet
 				isOpen={isPersonalSheetOpen}
 				sheetState={personalSheet}
+				families={families}
 				isLoading={personalSheetLoading}
 				error={personalSheetError}
-				answeringPersonalId={answeringPersonalId}
-				onOpenChange={(open) => {
+				answeringRequestId={answeringPersonalId}
+				onOpenChange={(open: boolean) => {
 					setIsPersonalSheetOpen(open);
-					if (!open) resetPersonalSheet();
+					if (!open) resetRequestSheet();
 				}}
 				onUpdate={handlePersonalSheetChange}
-				onSave={savePersonalSheet}
-				onMarkAnswered={() => personalSheet.id && markPersonalAnswered(personalSheet.id)}
-				onDelete={() => personalSheet.id && deletePersonal(personalSheet.id)}
+				onSave={saveRequestSheet}
+				onMarkAnswered={() => {
+					if (personalSheet.id) {
+						const isHouseholdRequest = personalSheet.linkedToFamily === "household";
+						markRequestAnswered(personalSheet.id, isHouseholdRequest);
+					}
+				}}
+				onDelete={() => {
+					if (personalSheet.id) {
+						const isHouseholdRequest = personalSheet.linkedToFamily === "household";
+						deleteRequest(personalSheet.id, isHouseholdRequest);
+					}
+				}}
+			/>
+
+			<FamilyDetailDialog
+				isOpen={familyDetailDialogOpen}
+				family={selectedFamilyForDetail}
+				requests={requests}
+				answeringRequestId={answeringPersonalId}
+				onOpenChange={setFamilyDetailDialogOpen}
+				onEditRequest={openRequestEditor}
+				onMarkAnswered={(requestId) => markRequestAnswered(requestId, false)}
 			/>
 		</div>
 		</ProtectedView>

@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
 import { Loader2, Copy, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -17,6 +18,8 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
+import { useUserIdentifier } from "@/hooks/use-user-identifier";
+import { useChatList } from "@/hooks/use-chat-list";
 
 type Message = {
   sender: string;
@@ -26,11 +29,6 @@ type Message = {
 type Chat = {
   id: string;
   userId: string;
-  conversationName: string;
-};
-
-type ChatListItem = {
-  id: string;
   conversationName: string;
 };
 
@@ -50,8 +48,8 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [chats, setChats] = useState<ChatListItem[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
+  const { userId } = useUserIdentifier();
+  const { chats, invalidate: invalidateChatList, upsertChat } = useChatList(userId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState<{ title: string; content: string } | null>(null);
   const autoSentRef = useRef(false);
@@ -62,7 +60,6 @@ export default function ChatPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   // Add refs to track data loading state
   const isFetchingChatRef = useRef(false);
-  const isFetchingChatsRef = useRef(false);
   const chatFetchedRef = useRef(false);
   const seededInitialMessageRef = useRef(false);
   const urlNormalizedRef = useRef(false);
@@ -110,6 +107,10 @@ export default function ChatPage() {
       }
       setChat(data.chat);
       setMessages(data.messages);
+      upsertChat({
+        id: data.chat.id,
+        conversationName: data.chat.conversationName ?? "New Conversation",
+      });
       chatFetchedRef.current = true;
       setErrorMessage("");
       if (initialQuestionParam && !urlNormalizedRef.current) {
@@ -124,50 +125,7 @@ export default function ChatPage() {
     } finally {
       isFetchingChatRef.current = false;
     }
-  }, [params.chatId, initialQuestionParam, router, userId]);
-
-  const fetchChats = useCallback(async () => {
-    // Only fetch if we have a userId and aren't already fetching
-    if (!userId || isFetchingChatsRef.current) return;
-    
-    try {
-      isFetchingChatsRef.current = true;
-      const res = await fetch(`/api/user-chats?userId=${userId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setChats(data.chats);
-      } else {
-        console.error("Error fetching chats: non-OK response");
-      }
-    } catch (error) {
-      console.error("Error fetching chats:", error);
-    } finally {
-      isFetchingChatsRef.current = false;
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    async function initUser() {
-      try {
-        const { account } = await import("@/utils/appwrite");
-        const currentUser = await account.get();
-        setUserId(currentUser.$id);
-      } catch (error) {
-        console.log("Error getting user:", error);
-        const getCookieUserId = () => {
-          const match = document.cookie.match(new RegExp('(^| )userId=([^;]+)'));
-          return match ? match[2] : null;
-        };
-        let cookieUserId = getCookieUserId();
-        if (!cookieUserId) {
-          cookieUserId = crypto.randomUUID();
-          document.cookie = `userId=${cookieUserId}; path=/; max-age=31536000`;
-        }
-        setUserId(cookieUserId);
-      }
-    }
-    initUser();
-  }, []);
+  }, [params.chatId, initialQuestionParam, router, upsertChat, userId]);
 
   useEffect(() => {
     urlNormalizedRef.current = false;
@@ -217,13 +175,6 @@ export default function ChatPage() {
       fetchChat();
     }
   }, [params.chatId, fetchChat]);
-
-  // Load chat list when userId is available and whenever we need to refresh
-  useEffect(() => {
-    if (userId) {
-      fetchChats();
-    }
-  }, [userId, fetchChats]);
 
   // Seed the initial user message immediately when navigating from the landing page.
   useEffect(() => {
@@ -297,7 +248,7 @@ export default function ChatPage() {
           chatFetchedRef.current = false;
           fetchChat();
           // Also refresh the chat list to update the sidebar
-          fetchChats();
+          invalidateChatList();
           break;
         }
 
@@ -335,7 +286,7 @@ export default function ChatPage() {
               fetchChat();
 
               // Refresh chat list to update sidebar
-              fetchChats();
+              invalidateChatList();
               if (initialQuestionParam && !urlNormalizedRef.current) {
                 router.replace(`/${params.chatId}`);
                 urlNormalizedRef.current = true;
@@ -347,7 +298,7 @@ export default function ChatPage() {
         }
       }
     },
-    [input, params.chatId, fetchChat, fetchChats, initialQuestionParam, router]
+    [input, params.chatId, fetchChat, invalidateChatList, initialQuestionParam, router]
   );
 
   // --- Auto-trigger sending if only the initial user message exists ---
@@ -376,9 +327,36 @@ export default function ChatPage() {
 
   if (!chat) {
     return (
-      <div className="flex flex-1 overflow-hidden">
-        <p>Loading chat...</p>
-      </div>
+      <SidebarProvider>
+        <AppSidebar chats={chats} currentChatId={params.chatId} />
+        <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))] !bg-transparent">
+          <div className="flex min-h-full flex-col">
+            <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="h-4 mr-2" />
+              <Skeleton className="h-6 w-48" />
+            </header>
+            <div className="flex-1 overflow-hidden px-4 pb-6 pt-4">
+              <Card className="mx-auto flex h-full w-full max-w-2xl flex-col">
+                <CardContent className="flex-1 space-y-4 overflow-y-auto p-6">
+                  <p className="text-lg text-muted-foreground">Loading chat...</p>
+                  <div className="ml-auto max-w-[80%] space-y-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-20 w-full" />
+                  </div>
+                  <div className="mr-auto max-w-[80%] space-y-2">
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-32 w-full" />
+                  </div>
+                </CardContent>
+                <div className="border-t bg-card/80 p-4 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+                  <Skeleton className="h-20 w-full" />
+                </div>
+              </Card>
+            </div>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
     );
   }
 

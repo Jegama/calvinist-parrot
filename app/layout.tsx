@@ -4,9 +4,8 @@ import type { CSSProperties } from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
 import { Header } from "@/components/Header"
-import { AuthProvider } from "@/hooks/use-auth"
+import { AppProviders } from "@/components/providers/app-providers"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Analytics } from "@vercel/analytics/react"
 
@@ -29,17 +28,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning style={bodyStyle}>
-        <AuthProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <Header />
-            {children}
-          </ThemeProvider>
-        </AuthProvider>
+        <AppProviders>
+          <Header />
+          {children}
+        </AppProviders>
         <SpeedInsights />
         <Analytics />
       </body>

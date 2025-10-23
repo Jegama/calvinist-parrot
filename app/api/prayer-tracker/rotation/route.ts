@@ -28,6 +28,13 @@ export async function GET(request: Request) {
       lastPrayedBy: {
         select: { id: true, displayName: true },
       },
+      requests: {
+        where: { status: "ACTIVE" },
+        orderBy: [
+          { lastPrayedAt: { sort: "asc", nulls: "first" } },
+          { dateAdded: "asc" },
+        ],
+      },
     },
     orderBy: [
       { lastPrayedAt: { sort: "asc", nulls: "first" } },

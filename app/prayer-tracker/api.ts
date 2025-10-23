@@ -1,5 +1,5 @@
 import { appendUserId, handleApiError } from "./utils";
-import type { Family, Member, PersonalRequest } from "./types";
+import type { Family, Member, PersonalRequest, UnifiedRequest } from "./types";
 
 /**
  * Result type for API operations - either success with data or failure with error message
@@ -188,15 +188,15 @@ export async function deleteFamily(
 }
 
 // ============================================================================
-// PERSONAL REQUESTS API
+// UNIFIED REQUESTS API (NEW)
 // ============================================================================
 
 /**
- * Fetches all personal requests for the user
+ * Fetches all requests (both household and family-specific) in unified format
  */
-export async function fetchPersonalRequests(userId: string): Promise<Result<PersonalRequest[]>> {
+export async function fetchUnifiedRequests(userId: string): Promise<Result<UnifiedRequest[]>> {
   try {
-    const res = await fetch(appendUserId(`/api/prayer-tracker/personal-requests`, userId));
+    const res = await fetch(appendUserId(`/api/prayer-tracker/requests`, userId));
     
     if (!res.ok) {
       const message = await handleApiError(res, "Unable to load requests right now.");
@@ -204,26 +204,27 @@ export async function fetchPersonalRequests(userId: string): Promise<Result<Pers
     }
 
     const data = await res.json();
-    const personal = Array.isArray(data) ? data : [];
-    return { success: true, data: personal };
+    const requests = Array.isArray(data) ? data : [];
+    return { success: true, data: requests };
   } catch (error) {
-    console.error("Failed to fetch personal requests", error);
+    console.error("Failed to fetch unified requests", error);
     return { success: false, error: "Unable to load requests right now." };
   }
 }
 
 /**
- * Creates a new personal request
+ * Creates a new request (either household or family-specific)
  */
-export async function createPersonalRequest(
+export async function createUnifiedRequest(
   userId: string,
   payload: {
     requestText: string;
     notes?: string;
+    linkedToFamily: string; // "household" or familyId
   }
-): Promise<Result<PersonalRequest>> {
+): Promise<Result<UnifiedRequest>> {
   try {
-    const response = await fetch(`/api/prayer-tracker/personal-requests`, {
+    const response = await fetch(`/api/prayer-tracker/requests`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, ...payload }),
@@ -237,26 +238,30 @@ export async function createPersonalRequest(
     const request = await response.json();
     return { success: true, data: request };
   } catch (error) {
-    console.error("Failed to create personal request", error);
+    console.error("Failed to create unified request", error);
     return { success: false, error: "Unable to save request right now." };
   }
 }
 
 /**
- * Updates an existing personal request
+ * Updates an existing request (handles both types)
+ * Supports moving requests between tables when linkedToFamily changes
  */
-export async function updatePersonalRequest(
+export async function updateUnifiedRequest(
   userId: string,
   requestId: string,
   payload: {
     requestText?: string;
     notes?: string | null;
     markAnswered?: boolean;
+    isHouseholdRequest: boolean;
+    linkedToFamily?: string;
+    originalLinkedToFamily?: string;
   }
-): Promise<Result<PersonalRequest>> {
+): Promise<Result<UnifiedRequest>> {
   try {
     const response = await fetch(
-      appendUserId(`/api/prayer-tracker/personal-requests/${requestId}`, userId),
+      appendUserId(`/api/prayer-tracker/requests/${requestId}`, userId),
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -272,25 +277,26 @@ export async function updatePersonalRequest(
     const request = await response.json();
     return { success: true, data: request };
   } catch (error) {
-    console.error("Failed to update personal request", error);
+    console.error("Failed to update unified request", error);
     return { success: false, error: "Unable to update this request right now." };
   }
 }
 
 /**
- * Deletes a personal request
+ * Deletes a request (handles both types)
  */
-export async function deletePersonalRequest(
+export async function deleteUnifiedRequest(
   userId: string,
-  requestId: string
+  requestId: string,
+  isHouseholdRequest: boolean
 ): Promise<Result<void>> {
   try {
     const response = await fetch(
-      appendUserId(`/api/prayer-tracker/personal-requests/${requestId}`, userId),
+      appendUserId(`/api/prayer-tracker/requests/${requestId}`, userId),
       {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, isHouseholdRequest }),
       }
     );
 
@@ -301,8 +307,36 @@ export async function deletePersonalRequest(
 
     return { success: true, data: undefined };
   } catch (error) {
-    console.error("Failed to delete personal request", error);
+    console.error("Failed to delete unified request", error);
     return { success: false, error: "Unable to delete this request right now." };
+  }
+}
+
+/**
+ * Fetches family-specific requests for a single family
+ */
+export async function fetchFamilyRequests(
+  userId: string,
+  familyId: string
+): Promise<Result<UnifiedRequest[]>> {
+  try {
+    const res = await fetch(
+      appendUserId(`/api/prayer-tracker/families/${familyId}/requests`, userId)
+    );
+    
+    if (!res.ok) {
+      const message = await handleApiError(res, "Unable to load family requests right now.");
+      return { success: false, error: message };
+    }
+
+    const data = await res.json();
+    const requests = Array.isArray(data) 
+      ? data.map((req: UnifiedRequest) => ({ ...req, familyId, familyName: null }))
+      : [];
+    return { success: true, data: requests };
+  } catch (error) {
+    console.error("Failed to fetch family requests", error);
+    return { success: false, error: "Unable to load family requests right now." };
   }
 }
 
@@ -360,42 +394,4 @@ export async function confirmRotation(
     console.error("Failed to confirm rotation", error);
     return { success: false, error: "Unable to save updates right now. Please try again." };
   }
-}
-
-// ============================================================================
-// COMPOSITE OPERATIONS
-// ============================================================================
-
-/**
- * Fetches both families and personal requests in parallel
- */
-export async function fetchFamiliesAndPersonal(
-  userId: string
-): Promise<{
-  families: Result<Family[]>;
-  personal: Result<PersonalRequest[]>;
-}> {
-  const [families, personal] = await Promise.all([
-    fetchFamilies(userId),
-    fetchPersonalRequests(userId),
-  ]);
-
-  return { families, personal };
-}
-
-/**
- * Fetches all prayer tracker data (space, families, personal requests)
- */
-export async function fetchAllPrayerData(userId: string): Promise<{
-  space: Result<SpaceData | null>;
-  families: Result<Family[]>;
-  personal: Result<PersonalRequest[]>;
-}> {
-  const [space, families, personal] = await Promise.all([
-    fetchSpace(userId),
-    fetchFamilies(userId),
-    fetchPersonalRequests(userId),
-  ]);
-
-  return { space, families, personal };
 }

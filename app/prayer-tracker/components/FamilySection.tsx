@@ -33,6 +33,7 @@ type FamilySectionProps = {
   onCreateFamily: () => void;
   onCategoryFilterChange: (value: string) => void;
   onEditFamily: (family: Family) => void;
+  onViewFamilyDetail: (family: Family) => void;
 };
 
 export function FamilySection({
@@ -46,6 +47,7 @@ export function FamilySection({
   onCreateFamily,
   onCategoryFilterChange,
   onEditFamily,
+  onViewFamilyDetail,
 }: FamilySectionProps) {
   // Pagination state
   const PAGE_SIZE = 10;
@@ -207,8 +209,10 @@ export function FamilySection({
               {pagedFamilies.map((family) => (
                 <div key={family.id} className="rounded-lg border bg-card p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h4 className="text-base font-semibold">{family.familyName}</h4>
+                    <div className="flex-1 cursor-pointer" onClick={() => onViewFamilyDetail(family)}>
+                      <h4 className="text-base font-semibold hover:text-primary transition-colors">
+                        {family.familyName}
+                      </h4>
                       {family.categoryTag && (
                         <span className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium">
                           {family.categoryTag}

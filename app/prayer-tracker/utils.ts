@@ -23,10 +23,16 @@ export function formatTimeSince(dateString?: string | null) {
   if (!dateString) return "Not yet";
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) return "Not yet";
-  const diff = Date.now() - date.getTime();
+  
+  // Compare calendar dates, not just time difference
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const prayerDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffMs = today.getTime() - prayerDate.getTime();
   const dayMs = 1000 * 60 * 60 * 24;
-  const days = Math.floor(diff / dayMs);
-  if (days <= 0) return "Today";
+  const days = Math.round(diffMs / dayMs);
+  
+  if (days === 0) return "Today";
   if (days === 1) return "Yesterday";
   return `${days} days ago`;
 }
@@ -99,7 +105,7 @@ export function validateFamilyForm(form: NewFamilyFormState): string | null {
 }
 
 /**
- * Validates personal request form data.
+ * Validates request form data.
  * Returns error message string if invalid, null if valid.
  */
 export function validatePersonalForm(form: NewPersonalFormState): string | null {
@@ -173,7 +179,7 @@ export function buildFamilyPayload(
 }
 
 /**
- * Builds the payload for creating a new personal request.
+ * Builds the payload for creating a new request (household or family-specific).
  */
 export function buildPersonalRequestPayload(
   userId: string,
@@ -182,11 +188,13 @@ export function buildPersonalRequestPayload(
   userId: string;
   requestText: string;
   notes?: string;
+  linkedToFamily: string;
 } {
   return {
     userId,
     requestText: form.text.trim(),
     notes: form.notes.trim() || undefined,
+    linkedToFamily: form.linkedToFamily,
   };
 }
 
@@ -206,11 +214,12 @@ export function resetFamilyForm(
 }
 
 /**
- * Resets personal request form state.
+ * Resets request form state.
  */
 export function resetPersonalForm(): NewPersonalFormState {
   return {
     text: "",
     notes: "",
+    linkedToFamily: "household",
   };
 }

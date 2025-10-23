@@ -2,60 +2,23 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
-import { account } from "@/utils/appwrite";
 import { AppSidebar } from "@/components/chat-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-
-type Chat = {
-  id: string;
-  conversationName: string;
-};
+import { useUserIdentifier } from "@/hooks/use-user-identifier";
+import { useChatList } from "@/hooks/use-chat-list";
 
 export default function MainChatPage() {
-  const [userId, setUserId] = useState<string | null>(null);
   const [initialQuestion, setInitialQuestion] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [chats, setChats] = useState<Chat[]>([]);
   const router = useRouter();
-
-  useEffect(() => {
-    async function initUser() {
-      try {
-        const currentUser = await account.get();
-        setUserId(currentUser.$id);
-      } catch {
-        const getCookieUserId = () => {
-          const match = document.cookie.match(new RegExp('(^| )userId=([^;]+)'));
-          return match ? match[2] : null;
-        };
-        let cookieUserId = getCookieUserId();
-        if (!cookieUserId) {
-          cookieUserId = crypto.randomUUID();
-          document.cookie = `userId=${cookieUserId}; path=/; max-age=31536000`;
-        }
-        setUserId(cookieUserId);
-      }
-    }
-    initUser();
-  }, []);
-
-  useEffect(() => {
-    const fetchChats = async () => {
-      if (!userId) return;
-      const res = await fetch(`/api/user-chats?userId=${userId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setChats(data.chats);
-      }
-    };
-    fetchChats();
-  }, [userId]);
+  const { userId, ensureCookieId } = useUserIdentifier();
+  const { chats, createChat, upsertChat } = useChatList(userId);
 
   const handleStartNewChat = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,27 +29,20 @@ export default function MainChatPage() {
 
     setErrorMessage("");
 
-    void (async () => {
-      try {
-        const createResponse = await fetch('/api/parrot-chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, initialQuestion: question, clientChatId: newChatId }),
-        });
+    const activeUserId = userId ?? ensureCookieId();
 
-        if (!createResponse.ok) {
-          throw new Error('Failed to create chat session');
-        }
-
-        const { chatId } = await createResponse.json();
-        if (!chatId) {
-          throw new Error('Chat session created without an ID');
-        }
-      } catch (error) {
-        console.error("Error starting new chat:", error);
-        setErrorMessage("An error occurred while starting a new chat.");
-      }
-    })();
+    createChat.mutate(
+      { userId: activeUserId, initialQuestion: question, clientChatId: newChatId },
+      {
+        onSuccess: ({ chatId }) => {
+          upsertChat({ id: chatId, conversationName: "New Conversation" });
+        },
+        onError: (error) => {
+          console.error("Error starting new chat:", error);
+          setErrorMessage("An error occurred while starting a new chat.");
+        },
+      },
+    );
 
     router.push(`/${newChatId}?initialQuestion=${encodeURIComponent(question)}`);
   };
@@ -94,11 +50,11 @@ export default function MainChatPage() {
   return (
     <SidebarProvider>
       <AppSidebar chats={chats} />
-      <SidebarInset className="flex min-h-[calc(100vh-var(--app-header-height))] flex-col">
-        <header className="sticky top-[var(--app-header-height)] z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <SidebarInset className="flex h-[calc(100vh-var(--app-header-height))] flex-col overflow-hidden">
+        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <SidebarTrigger className="-ml-1" />
         </header>
-        <div className="flex flex-1 items-center justify-center px-4 py-6">
+        <div className="flex flex-1 items-center justify-center overflow-y-auto px-4 py-6">
           <Card className="w-full max-w-3xl">
             <CardHeader>
               <div className="flex items-center space-x-4">
