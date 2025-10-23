@@ -20,9 +20,11 @@
 
 ## Prayer Tracker Module
 - Feature lives in `app/prayer-tracker/**` with sheets, rotation logic, and helpers split into `components/` and `utils.ts`.
-- API routes mirror the UI: `spaces`, `families`, `personal-requests`, `rotation`, `rotation/confirm`, `journal`, and `invite`; each expects an Appwrite `userId` (use `appendUserId` when invoking from server code).
-- Rotations compute member assignments in `/api/prayer-tracker/rotation/route.ts`; confirm endpoint writes Prisma records to `prayerRotation`, `prayerLog`, and personal request statuses.
-- `app/prayer-tracker/page.tsx` keeps rotation state client-side; follow the existing `fetch` patterns for optimistic updates, error messaging via `readErrorMessage`, and category normalization helpers.
+- API routes mirror the UI: `spaces`, `families`, `requests`, `rotation`, `rotation/confirm`, `journal`, and `invite`; each expects an Appwrite `userId` (use `appendUserId` when invoking from server code).
+- **Unified Request System**: `personal-requests` routes were refactored to `requests`; now handles both household-level requests (`prayerPersonalRequest`) and family-specific requests (`prayerFamilyRequest`) through a single unified API using the `UnifiedRequest` type with a `familyId` discriminator (null = household, set = family-specific).
+- Rotations compute member assignments in `/api/prayer-tracker/rotation/route.ts`; confirm endpoint writes Prisma records to `prayerRotation`, `prayerLog`, and request statuses for both household and family requests.
+- `app/prayer-tracker/page.tsx` keeps rotation state client-side with unified request management; components include `RequestSheet` (formerly `PersonalSheet`), `RequestsSection` (formerly `PersonalRequestsSection`), and new `FamilyDetailDialog` for viewing family info and their specific requests.
+- Follow the existing `fetch` patterns in `app/prayer-tracker/api.ts` for optimistic updates, error messaging via `handleApiError`, and category normalization helpers; API module exports typed `Result<T, E>` for consistent error handling.
 
 ## Data & Integrations
 - Chat history tables: `prisma/chatHistory`, `prisma/chatMessage`; QA uses `questionHistory`; devotionals persist in `parrotDevotionals`; prayer tracker tables defined in latest migrations (`20250103*`, `20251011*`).
