@@ -33,13 +33,10 @@ import { ProtectedView } from "@/components/ProtectedView";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  type MembershipInfo,
-  type PrayerSpace,
   type ProfileStats,
   type Question,
   type RawMembershipInfo,
   type RawPrayerSpace,
-  type SpaceMember,
   toMembershipInfo,
   toPrayerSpace,
 } from "./types";
