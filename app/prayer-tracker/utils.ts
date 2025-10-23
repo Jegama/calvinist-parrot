@@ -23,10 +23,16 @@ export function formatTimeSince(dateString?: string | null) {
   if (!dateString) return "Not yet";
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) return "Not yet";
-  const diff = Date.now() - date.getTime();
+  
+  // Compare calendar dates, not just time difference
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const prayerDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffMs = today.getTime() - prayerDate.getTime();
   const dayMs = 1000 * 60 * 60 * 24;
-  const days = Math.floor(diff / dayMs);
-  if (days <= 0) return "Today";
+  const days = Math.round(diffMs / dayMs);
+  
+  if (days === 0) return "Today";
   if (days === 1) return "Yesterday";
   return `${days} days ago`;
 }

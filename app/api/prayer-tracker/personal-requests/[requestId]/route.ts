@@ -64,41 +64,78 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "No updates provided" }, { status: 400 });
   }
 
-  const profileTransaction = prisma.userProfile.upsert({
-    where: { appwriteUserId: userId },
-    update: markAnswered
-      ? {
-          answeredFamilyCount: { increment: 1 },
-          answeredPersonalCount: { increment: 1 },
-          lastSeenAt: now,
-        }
-      : {
-          lastSeenAt: now,
-        },
-    create: markAnswered
-      ? {
-          appwriteUserId: userId,
-          displayName: membership.displayName,
-          email: null,
-          answeredFamilyCount: 1,
-          answeredPersonalCount: 1,
-          lastSeenAt: now,
-        }
-      : {
-          appwriteUserId: userId,
-          displayName: membership.displayName,
-          email: null,
-          lastSeenAt: now,
-        },
-  });
+  // Get all members in this space to update their profiles
+  const spaceMembers = markAnswered
+    ? await prisma.prayerMember.findMany({
+        where: { spaceId: membership.spaceId },
+        select: { appwriteUserId: true, displayName: true },
+      })
+    : [];
 
-  const [updated] = await prisma.$transaction([
+  const transactions: any[] = [
     prisma.prayerPersonalRequest.update({
       where: { id: requestId },
       data,
     }),
-    profileTransaction,
-  ]);
+  ];
+
+  // Update current user's profile
+  transactions.push(
+    prisma.userProfile.upsert({
+      where: { appwriteUserId: userId },
+      update: markAnswered
+        ? {
+            answeredFamilyCount: { increment: 1 },
+            answeredPersonalCount: { increment: 1 },
+            lastSeenAt: now,
+          }
+        : {
+            lastSeenAt: now,
+          },
+      create: markAnswered
+        ? {
+            appwriteUserId: userId,
+            displayName: membership.displayName,
+            email: null,
+            answeredFamilyCount: 1,
+            answeredPersonalCount: 1,
+            lastSeenAt: now,
+          }
+        : {
+            appwriteUserId: userId,
+            displayName: membership.displayName,
+            email: null,
+            lastSeenAt: now,
+          },
+    })
+  );
+
+  // Update profiles for all other members in the space when marking as answered
+  if (markAnswered && spaceMembers.length > 0) {
+    spaceMembers.forEach((member) => {
+      if (member.appwriteUserId !== userId) {
+        transactions.push(
+          prisma.userProfile.upsert({
+            where: { appwriteUserId: member.appwriteUserId },
+            update: {
+              answeredFamilyCount: { increment: 1 },
+              answeredPersonalCount: { increment: 1 },
+            },
+            create: {
+              appwriteUserId: member.appwriteUserId,
+              displayName: member.displayName,
+              email: null,
+              answeredFamilyCount: 1,
+              answeredPersonalCount: 1,
+              lastSeenAt: now,
+            },
+          })
+        );
+      }
+    });
+  }
+
+  const [updated] = await prisma.$transaction(transactions);
 
   return NextResponse.json(updated);
 }
