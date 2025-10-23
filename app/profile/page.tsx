@@ -197,10 +197,10 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="grid gap-2 text-sm">
             <p>
-              <span className="font-semibold">Answered for our family:</span> {profileStats.answeredFamilyCount ?? 0}
+              <span className="font-semibold">Answered for our family:</span> {profileStats.answeredPersonalCount ?? 0}
             </p>
             <p>
-              <span className="font-semibold">Answered for others:</span> {profileStats.answeredPersonalCount ?? 0}
+              <span className="font-semibold">Answered for other families:</span> {profileStats.answeredFamilyCount ?? 0}
             </p>
             {profileStats.lastPrayerAt && (
               <p>

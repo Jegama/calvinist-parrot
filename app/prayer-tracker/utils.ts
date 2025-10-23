@@ -105,7 +105,7 @@ export function validateFamilyForm(form: NewFamilyFormState): string | null {
 }
 
 /**
- * Validates personal request form data.
+ * Validates request form data.
  * Returns error message string if invalid, null if valid.
  */
 export function validatePersonalForm(form: NewPersonalFormState): string | null {
@@ -179,7 +179,7 @@ export function buildFamilyPayload(
 }
 
 /**
- * Builds the payload for creating a new personal request.
+ * Builds the payload for creating a new request (household or family-specific).
  */
 export function buildPersonalRequestPayload(
   userId: string,
@@ -188,11 +188,13 @@ export function buildPersonalRequestPayload(
   userId: string;
   requestText: string;
   notes?: string;
+  linkedToFamily: string;
 } {
   return {
     userId,
     requestText: form.text.trim(),
     notes: form.notes.trim() || undefined,
+    linkedToFamily: form.linkedToFamily,
   };
 }
 
@@ -212,11 +214,12 @@ export function resetFamilyForm(
 }
 
 /**
- * Resets personal request form state.
+ * Resets request form state.
  */
 export function resetPersonalForm(): NewPersonalFormState {
   return {
     text: "",
     notes: "",
+    linkedToFamily: "household",
   };
 }

@@ -112,6 +112,19 @@ export function RotationCard({
                               Last prayed: {formatRelative(family.lastPrayedAt)} ({formatTimeSince(family.lastPrayedAt)})
                               {family.lastPrayedBy?.displayName && ` - by ${family.lastPrayedBy.displayName}`}
                             </p>
+                            {family.requests && family.requests.length > 0 && (
+                              <div className="mt-3 space-y-2 border-t pt-3">
+                                <p className="text-xs font-semibold text-muted-foreground">Prayer Requests for this family:</p>
+                                {family.requests.map((req) => (
+                                  <div key={req.id} className="rounded-md bg-muted/50 px-3 py-2">
+                                    <p className="text-sm">{req.requestText}</p>
+                                    {req.notes && (
+                                      <p className="mt-1 text-xs text-muted-foreground">{req.notes}</p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <Select
                             value={familyAssignments[family.id] ?? "skip"}
