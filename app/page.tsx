@@ -50,7 +50,7 @@ export default function MainChatPage() {
   return (
     <SidebarProvider>
       <AppSidebar chats={chats} />
-      <SidebarInset className="flex min-h-[calc(100vh-var(--app-header-height))] flex-col">
+      <SidebarInset className="flex min-h-[calc(100vh-var(--app-header-height)-4rem)] flex-col">
         <header className="sticky top-[var(--app-header-height)] z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <SidebarTrigger className="-ml-1" />
         </header>
