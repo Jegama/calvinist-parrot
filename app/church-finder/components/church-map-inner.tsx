@@ -24,6 +24,7 @@ const DefaultIcon = L.icon({
   shadowSize: [41, 41],
 });
 
+// @ts-ignore - Leaflet marker icon setup
 L.Marker.prototype.options.icon = DefaultIcon;
 
 type ChurchMapInnerProps = {

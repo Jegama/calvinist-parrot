@@ -8,7 +8,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
 import type { ChurchDetail, CoreDoctrineKey } from "@/types/church";
+import coreDoctrinesJson from "@/lib/core_doctrines.json";
+import canNotEndorseJson from "@/lib/can_not_endorse_churches.json";
+import { cn } from "@/lib/utils";
 
 const CORE_LABELS: Record<CoreDoctrineKey, string> = {
   trinity: "Trinity",
@@ -29,6 +34,36 @@ const DOCTRINE_STYLE: Record<string, string> = {
   unknown: "text-muted-foreground",
 };
 
+const STATUS_CONFIG = {
+  pass: {
+    icon: CheckCircle2,
+    bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
+    borderColor: "border-emerald-200 dark:border-emerald-800",
+    textColor: "text-emerald-800 dark:text-emerald-300",
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+    title: "✅ We Can Endorse This Church",
+    description: "This church affirms all essential doctrines or has adopted a historic Reformed confession.",
+  },
+  caution: {
+    icon: AlertTriangle,
+    bgColor: "bg-amber-50 dark:bg-amber-950/30",
+    borderColor: "border-amber-200 dark:border-amber-800",
+    textColor: "text-amber-800 dark:text-amber-300",
+    iconColor: "text-amber-600 dark:text-amber-400",
+    title: "⚠️ Exercise Caution",
+    description: "This church has limited doctrinal information available. We recommend further investigation before joining.",
+  },
+  red_flag: {
+    icon: AlertCircle,
+    bgColor: "bg-red-50 dark:bg-red-950/30",
+    borderColor: "border-red-200 dark:border-red-800",
+    textColor: "text-red-800 dark:text-red-300",
+    iconColor: "text-red-600 dark:text-red-400",
+    title: "🚫 We Cannot Endorse This Church",
+    description: "This church denies one or more essential Christian doctrines.",
+  },
+} as const;
+
 type ChurchDetailDialogProps = {
   church: ChurchDetail | null;
   open: boolean;
@@ -37,6 +72,20 @@ type ChurchDetailDialogProps = {
 
 export function ChurchDetailDialog({ church, open, onOpenChange }: ChurchDetailDialogProps) {
   const evaluation = church?.evaluation;
+  const status = evaluation?.status ?? null;
+  
+  // Find false doctrines
+  const falseDoctrine = evaluation?.coreDoctrines
+    ? (Object.entries(evaluation.coreDoctrines)
+        .filter(([_, value]) => value === "false")
+        .map(([key]) => key as CoreDoctrineKey))
+    : [];
+
+  // Check if denomination is in the non-endorsement list
+  const denominationLabel = church?.denomination?.label?.trim();
+  const denominationNote = denominationLabel && denominationLabel in canNotEndorseJson
+    ? canNotEndorseJson[denominationLabel as keyof typeof canNotEndorseJson]
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,6 +98,74 @@ export function ChurchDetailDialog({ church, open, onOpenChange }: ChurchDetailD
                 {church.city && church.state ? `${church.city}, ${church.state}` : church.city ?? church.state ?? "Location unknown"}
               </DialogDescription>
             </DialogHeader>
+
+            {/* Endorsement Status Alert */}
+            {status && STATUS_CONFIG[status] && (
+              <Alert className={cn(STATUS_CONFIG[status].bgColor, STATUS_CONFIG[status].borderColor)}>
+                {(() => {
+                  const Icon = STATUS_CONFIG[status].icon;
+                  return <Icon className={cn("h-4 w-4", STATUS_CONFIG[status].iconColor)} />;
+                })()}
+                <AlertTitle className={STATUS_CONFIG[status].textColor}>
+                  {STATUS_CONFIG[status].title}
+                </AlertTitle>
+                <AlertDescription className={STATUS_CONFIG[status].textColor}>
+                  {STATUS_CONFIG[status].description}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* False Doctrines Warning */}
+            {falseDoctrine.length > 0 && (
+              <div className="space-y-4 rounded-lg border-2 border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30">
+                <h3 className="text-lg font-semibold text-red-800 dark:text-red-300">
+                  ⚠️ Doctrinal Concerns
+                </h3>
+                <p className="text-sm text-red-700 dark:text-red-400">
+                  This church explicitly denies the following essential Christian doctrine(s):
+                </p>
+                <div className="space-y-4">
+                  {falseDoctrine.map((key) => (
+                    <div key={key} className="rounded-md border border-red-300 bg-white/50 p-3 dark:border-red-700 dark:bg-black/20">
+                      <p className="mb-2 font-semibold text-red-900 dark:text-red-200">
+                        ❌ {CORE_LABELS[key]}
+                      </p>
+                      <div className="space-y-2 text-sm">
+                        <p className="text-red-800 dark:text-red-300">
+                          <span className="font-medium">What we believe:</span>
+                        </p>
+                        <p className="italic text-red-700 dark:text-red-400">
+                          "{coreDoctrinesJson[key]}"
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Denomination-Specific Note */}
+            {denominationNote && (
+              <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <AlertTitle className="text-amber-800 dark:text-amber-300">
+                  About {denominationLabel}
+                </AlertTitle>
+                <AlertDescription className="text-amber-700 dark:text-amber-400">
+                  <p className="mb-2">{denominationNote.note}</p>
+                  {denominationNote.denies && denominationNote.denies.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      <p className="font-medium">This denomination typically denies:</p>
+                      <ul className="ml-4 list-disc space-y-1">
+                        {denominationNote.denies.map((item, idx) => (
+                          <li key={idx}>{item.doctrine}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
 
             <section className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4 md:grid-cols-2">
               <div className="space-y-2 text-sm">

@@ -67,10 +67,12 @@ export function ChurchFiltersBar({
         <div className="space-y-2">
           <label className="block text-sm font-medium text-muted-foreground">State</label>
           <Select
-            value={filters.state ?? "all"}
-            onValueChange={(value) =>
-              onFiltersChange({ ...filters, page: 1, state: value === "all" ? null : value })
-            }
+            value={filters.state || "all"}
+            onValueChange={(value) => {
+              if ((filters.state || "all") === value) return;
+              const newState = value === "all" ? null : value;
+              onFiltersChange({ ...filters, page: 1, state: newState });
+            }}
           >
             <SelectTrigger>
               <SelectValue placeholder="All states" />
@@ -89,9 +91,10 @@ export function ChurchFiltersBar({
           <label className="block text-sm font-medium text-muted-foreground">City</label>
           <Input
             value={filters.city ?? ""}
-            onChange={(event) =>
-              onFiltersChange({ ...filters, page: 1, city: event.target.value || null })
-            }
+            onChange={(event) => {
+              const newCity = event.target.value || null;
+              onFiltersChange({ ...filters, page: 1, city: newCity });
+            }}
             placeholder="e.g., Houston"
           />
         </div>
@@ -99,14 +102,12 @@ export function ChurchFiltersBar({
         <div className="space-y-2">
           <label className="block text-sm font-medium text-muted-foreground">Denomination</label>
           <Select
-            value={filters.denomination ?? "all"}
-            onValueChange={(value) =>
-              onFiltersChange({
-                ...filters,
-                page: 1,
-                denomination: value === "all" ? null : value,
-              })
-            }
+            value={filters.denomination || "all"}
+            onValueChange={(value) => {
+              if ((filters.denomination || "all") === value) return;
+              const newDenomination = value === "all" ? null : value;
+              onFiltersChange({ ...filters, page: 1, denomination: newDenomination });
+            }}
           >
             <SelectTrigger>
               <SelectValue placeholder="All" />
@@ -124,14 +125,12 @@ export function ChurchFiltersBar({
         <div className="space-y-2">
           <label className="block text-sm font-medium text-muted-foreground">Confessional</label>
           <Select
-            value={filters.confessional ?? "all"}
-            onValueChange={(value) =>
-              onFiltersChange({
-                ...filters,
-                page: 1,
-                confessional: value === "all" ? null : (value as "true" | "false"),
-              })
-            }
+            value={filters.confessional || "all"}
+            onValueChange={(value) => {
+              if ((filters.confessional || "all") === value) return;
+              const newConfessional = value === "all" ? null : (value as "true" | "false");
+              onFiltersChange({ ...filters, page: 1, confessional: newConfessional });
+            }}
           >
             <SelectTrigger>
               <SelectValue placeholder="All" />

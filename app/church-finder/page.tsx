@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -49,7 +49,6 @@ export default function ChurchFinderPage() {
   const churchQuery = useQuery({
     queryKey: churchQueryKey,
     queryFn: () => fetchChurches(filters),
-    keepPreviousData: true,
   });
 
   const metaQuery = useQuery({
@@ -71,21 +70,21 @@ export default function ChurchFinderPage() {
     detailMutation.mutate(church.id);
   };
 
-  const handleFiltersChange = (next: ChurchFilters) => {
+  const handleFiltersChange = useCallback((next: ChurchFilters) => {
     setFilters(next);
-  };
+  }, []);
 
-  const handleResetFilters = () => {
+  const handleResetFilters = useCallback(() => {
     setFilters({ ...DEFAULT_FILTERS });
-  };
+  }, []);
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     setFilters((prev) => ({ ...prev, page }));
-  };
+  }, []);
 
   const handleChurchCreated = (church: ChurchDetail) => {
     setFilters((prev) => ({ ...prev, page: 1 }));
-    queryClient.invalidateQueries({ queryKey: ["churches"] });
+    void queryClient.invalidateQueries(["churches"]);
     setSelectedChurch(church);
     setDetailOpen(true);
   };
@@ -118,7 +117,7 @@ export default function ChurchFinderPage() {
       <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
         <div className="space-y-4">
           {viewMode === "list" ? (
-            churchQuery.isLoading && !churchQuery.data ? (
+            churchQuery.status === "loading" && !churchQuery.data ? (
               <div className="rounded-lg border border-border bg-card/80 p-6 text-center text-sm text-muted-foreground">
                 Loading churches…
               </div>
@@ -128,12 +127,12 @@ export default function ChurchFinderPage() {
                 page={page}
                 pageSize={pageSize}
                 total={total}
-                loading={churchQuery.isFetching}
+                loading={churchQuery.status === "loading"}
                 onPageChange={handlePageChange}
                 onSelect={handleSelect}
               />
             )
-          ) : churchQuery.isLoading && !churchQuery.data ? (
+          ) : churchQuery.status === "loading" && !churchQuery.data ? (
             <div className="rounded-lg border border-border bg-card/80 p-6 text-center text-sm text-muted-foreground">
               Loading map data…
             </div>

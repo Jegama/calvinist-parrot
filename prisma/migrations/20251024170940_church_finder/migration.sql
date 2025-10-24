@@ -13,7 +13,7 @@ CREATE TABLE "church" (
     "email" TEXT,
     "denominationLabel" TEXT,
     "denominationConfidence" DOUBLE PRECISION,
-    "denominationSignals" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "denominationSignals" TEXT[],
     "confessionAdopted" BOOLEAN NOT NULL DEFAULT false,
     "confessionName" TEXT,
     "confessionSourceUrl" TEXT,
@@ -22,7 +22,8 @@ CREATE TABLE "church" (
     "bestAboutUrl" TEXT,
     "bestLeadershipUrl" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
     CONSTRAINT "church_pkey" PRIMARY KEY ("id")
 );
 
@@ -40,7 +41,8 @@ CREATE TABLE "churchAddress" (
     "sourceUrl" TEXT,
     "isPrimary" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
     CONSTRAINT "churchAddress_pkey" PRIMARY KEY ("id")
 );
 
@@ -50,7 +52,8 @@ CREATE TABLE "churchServiceTime" (
     "churchId" TEXT NOT NULL,
     "label" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
     CONSTRAINT "churchServiceTime_pkey" PRIMARY KEY ("id")
 );
 
@@ -59,7 +62,7 @@ CREATE TABLE "churchEvaluation" (
     "id" TEXT NOT NULL,
     "churchId" TEXT NOT NULL,
     "rawEvaluation" JSONB NOT NULL,
-    "badges" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    "badges" TEXT[],
     "secondary" JSONB,
     "tertiary" JSONB,
     "coreOnSiteCount" INTEGER NOT NULL,
@@ -77,6 +80,7 @@ CREATE TABLE "churchEvaluation" (
     "coreReturnAndJudgment" "CoreDoctrineStatus" NOT NULL,
     "coreCharacterOfGod" "CoreDoctrineStatus" NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
     CONSTRAINT "churchEvaluation_pkey" PRIMARY KEY ("id")
 );
 

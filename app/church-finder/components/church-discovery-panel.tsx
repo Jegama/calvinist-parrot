@@ -85,8 +85,8 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
               placeholder="State (optional)"
               aria-label="State name"
             />
-            <Button type="button" onClick={() => searchMutation.mutate()} disabled={searchMutation.isPending}>
-              {searchMutation.isPending ? "Searching…" : "Search"}
+            <Button type="button" onClick={() => searchMutation.mutate()} disabled={searchMutation.status === "pending"}>
+              {searchMutation.status === "pending" ? "Searching…" : "Search"}
             </Button>
           </div>
           {searchError ? <p className="text-sm text-red-500">{searchError}</p> : null}
@@ -122,10 +122,10 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
             <Button
               type="button"
               onClick={() => createMutation.mutate()}
-              disabled={createMutation.isPending}
+              disabled={createMutation.status === "pending"}
               className="md:w-48"
             >
-              {createMutation.isPending ? "Evaluating…" : "Evaluate & add"}
+              {createMutation.status === "pending" ? "Evaluating…" : "Evaluate & add"}
             </Button>
           </div>
           {creationError ? <p className="text-sm text-red-500">{creationError}</p> : null}

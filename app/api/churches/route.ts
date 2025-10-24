@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   const denomination = searchParams.get("denomination");
   const confessional = parseBooleanParam(searchParams.get("confessional"));
 
-  const addressFilter: Prisma.ChurchAddressWhereInput = {};
+  const addressFilter: Prisma.churchAddressWhereInput = {};
   if (state) {
     addressFilter.state = { equals: state, mode: "insensitive" };
   }
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     addressFilter.city = { equals: city, mode: "insensitive" };
   }
 
-  const where: Prisma.ChurchWhereInput = {};
+  const where: Prisma.churchWhereInput = {};
 
   if (Object.keys(addressFilter).length > 0) {
     where.addresses = { some: addressFilter };

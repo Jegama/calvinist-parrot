@@ -12,6 +12,8 @@ type NominatimResponse = Array<{
     village?: string;
     state?: string;
     country?: string;
+    church?: string;
+    place?: string;
   };
 }>;
 

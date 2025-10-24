@@ -102,8 +102,8 @@ export function Header() {
           >
             <nav className="flex items-center space-x-6 text-sm font-medium">
               <Link href="/devotional" prefetch={false} className="hover:opacity-70 transition-opacity">Devotional</Link>
-              <Link href="/parrot-qa" prefetch={false} className="hover:opacity-70 transition-opacity">Parrot QA</Link>
               <Link href="/prayer-tracker" prefetch={false} className="hover:opacity-70 transition-opacity">Prayer Tracker</Link>
+              <Link href="/church-finder" prefetch={false} className="hover:opacity-70 transition-opacity">Church Finder</Link>
               <Link href="/about" prefetch={false} className="hover:opacity-70 transition-opacity">About</Link>
             </nav>
           </div>
@@ -125,13 +125,13 @@ export function Header() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/parrot-qa" prefetch={false} className="w-full">
-                    Parrot QA
+                  <Link href="/prayer-tracker" prefetch={false} className="w-full">
+                    Prayer Tracker
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/prayer-tracker" prefetch={false} className="w-full">
-                    Prayer Tracker
+                  <Link href="/church-finder" prefetch={false} className="w-full">
+                    Church Finder
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
