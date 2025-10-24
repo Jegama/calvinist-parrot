@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma, churchEvaluation } from "@prisma/client";
 
 import type {
   ChurchDetail,
@@ -11,7 +11,7 @@ import type {
 } from "@/types/church";
 import { CORE_DOCTRINE_KEYS } from "@/utils/churchEvaluation";
 
-type ChurchWithRelations = Prisma.ChurchGetPayload<{
+type ChurchWithRelations = Prisma.churchGetPayload<{
   include: {
     addresses: true;
     serviceTimes: true;
@@ -33,10 +33,10 @@ function mapEvaluationStatus(value: string): EvaluationStatus {
 
 function parseRawEvaluation(raw: Prisma.JsonValue): ChurchEvaluationRaw | null {
   if (!raw || typeof raw !== "object") return null;
-  return raw as ChurchEvaluationRaw;
+  return raw as unknown as ChurchEvaluationRaw;
 }
 
-function toCoreDoctrineMap(evaluation: Prisma.ChurchEvaluation): CoreDoctrineMap {
+function toCoreDoctrineMap(evaluation: churchEvaluation): CoreDoctrineMap {
   const entries: Array<[string, CoreDoctrineStatusValue]> = [
     ["trinity", mapDoctrineValue(evaluation.coreTrinity)],
     ["gospel", mapDoctrineValue(evaluation.coreGospel)],
@@ -54,7 +54,7 @@ function toCoreDoctrineMap(evaluation: Prisma.ChurchEvaluation): CoreDoctrineMap
 }
 
 export function toEvaluationRecord(
-  evaluation: Prisma.ChurchEvaluation | null | undefined
+  evaluation: churchEvaluation | null | undefined
 ): ChurchEvaluationRecord | null {
   if (!evaluation) return null;
   const raw = parseRawEvaluation(evaluation.rawEvaluation);
@@ -78,7 +78,7 @@ export function toEvaluationRecord(
 export function mapChurchToListItem(church: ChurchWithRelations): ChurchListItem {
   const latestEvaluation = church.evaluations[0];
   const primaryAddress =
-    church.addresses.find((address) => address.isPrimary) ?? church.addresses[0] ?? null;
+    church.addresses.find((address: { isPrimary: boolean }) => address.isPrimary) ?? church.addresses[0] ?? null;
 
   return {
     id: church.id,
@@ -97,7 +97,7 @@ export function mapChurchToListItem(church: ChurchWithRelations): ChurchListItem
     status: latestEvaluation ? mapEvaluationStatus(latestEvaluation.status) : null,
     coverageRatio: latestEvaluation?.coverageRatio ?? null,
     badges: latestEvaluation?.badges ?? [],
-    serviceTimes: church.serviceTimes.map((service) => ({ id: service.id, label: service.label })),
+    serviceTimes: church.serviceTimes.map((service: { id: string; label: string }) => ({ id: service.id, label: service.label })),
   };
 }
 
@@ -109,7 +109,18 @@ export function mapChurchToDetail(church: ChurchWithRelations): ChurchDetail {
     ...listItem,
     email: church.email ?? null,
     phone: church.phone ?? null,
-    addresses: church.addresses.map((address) => ({
+    addresses: church.addresses.map((address: {
+      id: string;
+      street1: string | null;
+      street2: string | null;
+      city: string | null;
+      state: string | null;
+      postCode: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      sourceUrl: string | null;
+      isPrimary: boolean;
+    }) => ({
       id: address.id,
       street1: address.street1 ?? null,
       street2: address.street2 ?? null,
@@ -131,7 +142,7 @@ export function mapChurchToDetail(church: ChurchWithRelations): ChurchDetail {
   };
 }
 
-export type MinimalChurch = Prisma.ChurchGetPayload<{
+export type MinimalChurch = Prisma.churchGetPayload<{
   include: { addresses: true; serviceTimes: true; evaluations: { orderBy: { createdAt: "desc" }; take: number } };
 }>;
 

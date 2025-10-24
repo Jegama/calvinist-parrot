@@ -155,12 +155,16 @@ export async function POST(request: Request) {
         bestLeadershipUrl: churchData.best_pages_for?.leadership ?? null,
       };
 
-      let church = existing
-        ? await tx.church.update({ where: { id: existing.id }, data: baseData })
-        : await tx.church.create({ data: baseData });
+      const churchId = existing
+        ? existing.id
+        : (await tx.church.create({ data: baseData })).id;
 
-      await tx.churchAddress.deleteMany({ where: { churchId: church.id } });
-      await tx.churchServiceTime.deleteMany({ where: { churchId: church.id } });
+      if (existing) {
+        await tx.church.update({ where: { id: churchId }, data: baseData });
+      }
+
+      await tx.churchAddress.deleteMany({ where: { churchId } });
+      await tx.churchServiceTime.deleteMany({ where: { churchId } });
 
       await Promise.all(
         addresses.map((address, index) => {
@@ -170,7 +174,7 @@ export async function POST(request: Request) {
           };
           return tx.churchAddress.create({
             data: {
-              churchId: church.id,
+              churchId,
               street1: address.street_1 ?? null,
               street2: address.street_2 ?? null,
               city: address.city ?? null,
@@ -189,7 +193,7 @@ export async function POST(request: Request) {
         serviceTimes.map((label) =>
           tx.churchServiceTime.create({
             data: {
-              churchId: church.id,
+              churchId,
               label,
             },
           })
@@ -198,7 +202,7 @@ export async function POST(request: Request) {
 
       await tx.churchEvaluation.create({
         data: {
-          churchId: church.id,
+          churchId,
           rawEvaluation: rawEvaluation as unknown as Prisma.JsonObject,
           badges: processed.badges,
           secondary: (churchData.secondary ?? null) as Prisma.InputJsonValue,
@@ -234,8 +238,8 @@ export async function POST(request: Request) {
         },
       });
 
-      church = await tx.church.findUniqueOrThrow({
-        where: { id: church.id },
+      const church = await tx.church.findUniqueOrThrow({
+        where: { id: churchId },
         include: {
           addresses: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
           serviceTimes: { orderBy: { createdAt: "asc" } },
