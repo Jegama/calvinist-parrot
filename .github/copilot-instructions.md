@@ -7,9 +7,9 @@
 - Shared UI primitives follow the shadcn pattern in `components/ui/**`; compose them inside page-level components and feature modules.
 
 ## State & Caching
-- TanStack Query is polyfilled in `lib/vendor/tanstack-react-query.tsx`, exposed through the `@tanstack/react-query` path alias (see `tsconfig.json`) and configured globally in `ReactQueryProvider` with a five-minute stale window.
+- TanStack Query v5 is configured globally in `ReactQueryProvider` with a five-minute stale window; use standard `@tanstack/react-query` imports throughout the app.
 - Sidebar chat data is sourced from `hooks/use-chat-list.ts`; reuse its query key helpers (`["chat-list", userId]`), mutation hooks, and cache update helpers when adding chat actions.
-- Profile UI state is centralized in the Zustand-style store `app/profile/ui-store.ts` (aliased through `lib/vendor/zustand.ts`); extend it instead of scattering `useState` when touching profile dialogs or alerts.
+- Profile UI state is centralized in the Zustand store `app/profile/ui-store.ts`; extend it instead of scattering `useState` when touching profile dialogs or alerts.
 
 ## Conversational Pipelines
 - `/api/parrot-chat` streams JSONL events via `lib/progressUtils.sendProgress`; the chat UI keys on `{type}` values (`progress`, `parrot`, `gotQuestions`, etc.).

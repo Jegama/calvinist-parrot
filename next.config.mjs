@@ -18,13 +18,6 @@ const nextConfig = {
       },
     ];
   },
-  // Turbopack configuration
-  turbopack: {
-    resolveAlias: {
-      '@tanstack/react-query': './lib/vendor/tanstack-react-query',
-      'zustand': './lib/vendor/zustand',
-    },
-  },
 }
 
 export default nextConfig

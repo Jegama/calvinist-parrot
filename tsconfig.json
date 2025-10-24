@@ -24,18 +24,6 @@
     "paths": {
       "@/*": [
         "./*"
-      ],
-      "@tanstack/react-query": [
-        "./lib/vendor/tanstack-react-query"
-      ],
-      "@tanstack/react-query/*": [
-        "./lib/vendor/tanstack-react-query"
-      ],
-      "zustand": [
-        "./lib/vendor/zustand"
-      ],
-      "zustand/*": [
-        "./lib/vendor/zustand"
       ]
     },
     "target": "ES2017"
@@ -46,7 +34,8 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next\\dev/types/**/*.ts",
-    ".next\\dev/types/**/*.ts"
+    ".next\\dev/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

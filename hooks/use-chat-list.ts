@@ -56,7 +56,7 @@ export function useChatList(userId: string | null | undefined) {
 
   const invalidate = useCallback(() => {
     if (!userId) return;
-    queryClient.invalidateQueries(queryKey);
+    queryClient.invalidateQueries({ queryKey });
   }, [queryClient, queryKey, userId]);
 
   const createMutation = useMutation({
@@ -85,8 +85,8 @@ export function useChatList(userId: string | null | undefined) {
 
   return {
     chats: query.data ?? [],
-    isLoading: query.status === "loading" && query.data === undefined,
-    isError: query.status === "error",
+    isLoading: query.isPending,
+    isError: query.isError,
     error: query.error,
     refetch: query.refetch,
     status: query.status,

@@ -70,19 +70,21 @@ export default function ChurchFinderPage() {
     detailMutation.mutate(church.id);
   };
 
-  const handleFiltersChange = useCallback((next: ChurchFilters) => {
+  const handleFiltersChange = useCallback((next: ChurchFilters | ((prev: ChurchFilters) => ChurchFilters)) => {
     setFilters((prev) => {
+      const nextFilters = typeof next === "function" ? next(prev) : next;
+      
       // Only update if filters actually changed
       if (
-        prev.page === next.page &&
-        prev.state === next.state &&
-        prev.city === next.city &&
-        prev.denomination === next.denomination &&
-        prev.confessional === next.confessional
+        prev.page === nextFilters.page &&
+        prev.state === nextFilters.state &&
+        prev.city === nextFilters.city &&
+        prev.denomination === nextFilters.denomination &&
+        prev.confessional === nextFilters.confessional
       ) {
         return prev;
       }
-      return next;
+      return nextFilters;
     });
   }, []);
 
@@ -108,7 +110,7 @@ export default function ChurchFinderPage() {
 
   const handleChurchCreated = useCallback((church: ChurchDetail) => {
     setFilters((prev) => ({ ...prev, page: 1 }));
-    void queryClient.invalidateQueries(["churches"]);
+    void queryClient.invalidateQueries({ queryKey: ["churches"] });
     setSelectedChurch(church);
     setDetailOpen(true);
   }, [queryClient]);
@@ -141,7 +143,7 @@ export default function ChurchFinderPage() {
       <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
         <div className="space-y-4">
           {viewMode === "list" ? (
-            churchQuery.status === "loading" && !churchQuery.data ? (
+            churchQuery.isPending ? (
               <div className="rounded-lg border border-border bg-card/80 p-6 text-center text-sm text-muted-foreground">
                 Loading churches…
               </div>
@@ -151,12 +153,12 @@ export default function ChurchFinderPage() {
                 page={page}
                 pageSize={pageSize}
                 total={total}
-                loading={churchQuery.status === "loading"}
+                loading={churchQuery.isFetching}
                 onPageChange={handlePageChange}
                 onSelect={handleSelect}
               />
             )
-          ) : churchQuery.status === "loading" && !churchQuery.data ? (
+          ) : churchQuery.isPending ? (
             <div className="rounded-lg border border-border bg-card/80 p-6 text-center text-sm text-muted-foreground">
               Loading map data…
             </div>

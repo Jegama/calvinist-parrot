@@ -19,7 +19,7 @@ type ChurchFiltersProps = {
   availableStates: string[];
   denominations: string[];
   filters: ChurchFilters;
-  onFiltersChange: (next: ChurchFilters) => void;
+  onFiltersChange: (next: ChurchFilters | ((prev: ChurchFilters) => ChurchFilters)) => void;
   onReset: () => void;
   viewMode: ViewMode;
   onViewModeChange: (view: ViewMode) => void;
@@ -44,37 +44,43 @@ export function ChurchFiltersBar({
 
   const handleStateChange = useCallback(
     (value: string) => {
-      if (stateValue === value) return;
-      const newState = value === "all" ? null : value;
-      onFiltersChange({ ...filters, page: 1, state: newState });
+      onFiltersChange((prev) => {
+        if ((prev.state ?? "all") === value) return prev;
+        const newState = value === "all" ? null : value;
+        return { ...prev, page: 1, state: newState };
+      });
     },
-    [stateValue, filters, onFiltersChange]
+    [onFiltersChange]
   );
 
   const handleCityChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const newCity = event.target.value || null;
-      onFiltersChange({ ...filters, page: 1, city: newCity });
+      onFiltersChange((prev) => ({ ...prev, page: 1, city: newCity }));
     },
-    [filters, onFiltersChange]
+    [onFiltersChange]
   );
 
   const handleDenominationChange = useCallback(
     (value: string) => {
-      if (denominationValue === value) return;
-      const newDenomination = value === "all" ? null : value;
-      onFiltersChange({ ...filters, page: 1, denomination: newDenomination });
+      onFiltersChange((prev) => {
+        if ((prev.denomination ?? "all") === value) return prev;
+        const newDenomination = value === "all" ? null : value;
+        return { ...prev, page: 1, denomination: newDenomination };
+      });
     },
-    [denominationValue, filters, onFiltersChange]
+    [onFiltersChange]
   );
 
   const handleConfessionalChange = useCallback(
     (value: string) => {
-      if (confessionalValue === value) return;
-      const newConfessional = value === "all" ? null : (value as "true" | "false");
-      onFiltersChange({ ...filters, page: 1, confessional: newConfessional });
+      onFiltersChange((prev) => {
+        if ((prev.confessional ?? "all") === value) return prev;
+        const newConfessional = value === "all" ? null : (value as "true" | "false");
+        return { ...prev, page: 1, confessional: newConfessional };
+      });
     },
-    [confessionalValue, filters, onFiltersChange]
+    [onFiltersChange]
   );
 
   return (

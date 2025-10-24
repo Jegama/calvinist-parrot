@@ -3,10 +3,10 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { mapChurchToDetail } from "@/lib/churchMapper";
 
-type RouteParams = { params: { id: string } };
+type RouteParams = { params: Promise<{ id: string }> };
 
 export async function GET(_request: Request, context: RouteParams) {
-  const { id } = context.params;
+  const { id } = await context.params;
 
   if (!id) {
     return NextResponse.json({ error: "Missing church id" }, { status: 400 });
