@@ -240,11 +240,11 @@ export function ChurchDetailDialog({ church, open, onOpenChange }: ChurchDetailD
             ) : null}
 
             {church.serviceTimes.length > 0 ? (
-              <section className="space-y-2">
+              <section className="space-y-3">
                 <h3 className="text-lg font-semibold text-foreground">Service times</h3>
                 <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
                   {church.serviceTimes.map((service) => (
-                    <span key={service.id} className="rounded-md bg-muted px-2 py-1">
+                    <span key={service.id} className="rounded-md bg-muted px-3 py-1.5">
                       {service.label}
                     </span>
                   ))}
@@ -346,8 +346,14 @@ export function ChurchDetailDialog({ church, open, onOpenChange }: ChurchDetailD
             </section>
           </div>
         ) : (
-          <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
-            Loading church details…
+          <div>
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-semibold text-foreground">Loading...</DialogTitle>
+              <DialogDescription>Please wait while we fetch church details.</DialogDescription>
+            </DialogHeader>
+            <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+              Loading church details…
+            </div>
           </div>
         )}
       </DialogContent>

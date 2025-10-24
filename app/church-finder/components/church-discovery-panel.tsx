@@ -22,6 +22,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
   const [searchError, setSearchError] = useState<string | null>(null);
   const [website, setWebsite] = useState("");
   const [creationError, setCreationError] = useState<string | null>(null);
+  const [evaluatingId, setEvaluatingId] = useState<string | null>(null);
 
   const searchMutation = useMutation({
     mutationFn: async () => {
@@ -43,23 +44,31 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
   });
 
   const createMutation = useMutation({
-    mutationFn: async () => {
-      const trimmedWebsite = website.trim();
-      if (!trimmedWebsite) {
+    mutationFn: async (websiteUrl: string) => {
+      if (!websiteUrl.trim()) {
         throw new Error("Website is required");
       }
-      const church = await createChurch({ website: trimmedWebsite });
+      const church = await createChurch({ website: websiteUrl.trim() });
       return church;
     },
     onSuccess: (church) => {
       setCreationError(null);
       setWebsite("");
+      setEvaluatingId(null);
       onChurchCreated(church);
     },
     onError: (error: Error) => {
       setCreationError(error.message || "Unable to add church right now");
+      setEvaluatingId(null);
     },
   });
+
+  const handleEvaluateFromSearch = (result: ChurchSearchResult) => {
+    if (!result.website) return;
+    setEvaluatingId(result.id);
+    setCreationError(null);
+    createMutation.mutate(result.website);
+  };
 
   return (
     <Card className="border border-border bg-card/80 shadow-sm">
@@ -91,16 +100,47 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
           </div>
           {searchError ? <p className="text-sm text-red-500">{searchError}</p> : null}
           {searchResults.length > 0 ? (
-            <div className="rounded-md border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
-              <p className="mb-2 font-semibold text-foreground">Results</p>
-              <ul className="space-y-2">
+            <div className="rounded-md border border-border bg-muted/20 p-3 text-sm">
+              <p className="mb-3 font-semibold text-foreground">
+                Found {searchResults.length} {searchResults.length === 1 ? "result" : "results"}
+              </p>
+              <ul className="space-y-3">
                 {searchResults.map((result) => (
-                  <li key={result.id} className="rounded-md bg-card/60 p-2">
-                    <p className="font-medium text-foreground">{result.name}</p>
-                    <p>
-                      {result.address.city || "Unknown city"}, {result.address.state || "Unknown state"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{result.displayName}</p>
+                  <li key={result.id} className="rounded-md border border-border bg-card p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground">{result.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {result.address.city || "Unknown city"}, {result.address.state || "Unknown state"}
+                        </p>
+                        {result.displayName && (
+                          <p className="text-xs text-muted-foreground mt-1 truncate">{result.displayName}</p>
+                        )}
+                        {result.website ? (
+                          <a
+                            href={result.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline mt-1 inline-block"
+                          >
+                            {result.website}
+                          </a>
+                        ) : (
+                          <p className="text-xs text-muted-foreground/60 italic mt-1">No website available</p>
+                        )}
+                      </div>
+                      {result.website && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => handleEvaluateFromSearch(result)}
+                          disabled={evaluatingId === result.id}
+                          className="shrink-0"
+                        >
+                          {evaluatingId === result.id ? "Evaluating…" : "Evaluate"}
+                        </Button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -121,8 +161,8 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
             />
             <Button
               type="button"
-              onClick={() => createMutation.mutate()}
-              disabled={createMutation.status === "pending"}
+              onClick={() => createMutation.mutate(website)}
+              disabled={createMutation.status === "pending" || !website.trim()}
               className="md:w-48"
             >
               {createMutation.status === "pending" ? "Evaluating…" : "Evaluate & add"}

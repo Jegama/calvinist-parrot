@@ -136,10 +136,10 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                 {church.serviceTimes.length > 0 ? (
                   <Fragment>
                     <Separator />
-                    <CardContent className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                    <CardContent className="flex flex-wrap items-center gap-3 pt-4 text-sm text-muted-foreground">
                       <span className="font-medium text-foreground">Services:</span>
                       {church.serviceTimes.slice(0, 3).map((service) => (
-                        <span key={service.id} className="rounded-md bg-muted px-2 py-1">
+                        <span key={service.id} className="rounded-md bg-muted px-3 py-1.5">
                           {service.label}
                         </span>
                       ))}

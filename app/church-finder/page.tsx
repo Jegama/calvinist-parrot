@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { ChurchDetail, ChurchListItem } from "@/types/church";
+import { Button } from "@/components/ui/button";
 
 import {
   ChurchDetailDialog,
@@ -121,27 +123,34 @@ export default function ChurchFinderPage() {
   const pageSize = churchQuery.data?.pageSize ?? 10;
 
   return (
-    <div className="space-y-8">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-bold text-foreground">Church Finder</h1>
-        <p className="max-w-3xl text-muted-foreground">
-          Evaluate churches through the Calvinist Parrot doctrinal framework, filter by region and denominational distinctives,
-          and discover new ministries to review.
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold text-foreground mb-2">Church Finder</h1>
+        <p className="text-muted-foreground max-w-3xl mb-4">
+          A crowd-sourced directory of churches evaluated through the Calvinist Parrot doctrinal framework. 
+          Browse churches filtered by region and denominational distinctives, or contribute by adding new churches to help others find sound biblical teaching.
         </p>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/doctrinal-statement">View Our Doctrinal Statement</Link>
+        </Button>
       </header>
 
-      <ChurchFiltersBar
-        availableStates={metaQuery.data?.states ?? []}
-        denominations={metaQuery.data?.denominations ?? []}
-        filters={filters}
-        onFiltersChange={handleFiltersChange}
-        onReset={handleResetFilters}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-      />
-
-      <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+      {/* Main content grid: List on left, Filters on right (desktop) */}
+      <div className="grid gap-6 lg:grid-cols-[1fr,400px]">
         <div className="space-y-4">
+          {/* Filters shown between discovery and list on mobile */}
+          <div className="lg:hidden">
+            <ChurchFiltersBar
+              availableStates={metaQuery.data?.states ?? []}
+              denominations={metaQuery.data?.denominations ?? []}
+              filters={filters}
+              onFiltersChange={handleFiltersChange}
+              onReset={handleResetFilters}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+            />
+          </div>
+
           {viewMode === "list" ? (
             churchQuery.isPending ? (
               <div className="rounded-lg border border-border bg-card/80 p-6 text-center text-sm text-muted-foreground">
@@ -167,6 +176,22 @@ export default function ChurchFinderPage() {
           )}
         </div>
 
+        {/* Filters sidebar - Desktop only */}
+        <div className="hidden lg:block">
+          <ChurchFiltersBar
+            availableStates={metaQuery.data?.states ?? []}
+            denominations={metaQuery.data?.denominations ?? []}
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            onReset={handleResetFilters}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
+        </div>
+      </div>
+
+      {/* Discovery Panel - moved to bottom for crowd-sourced contribution */}
+      <div className="mt-8">
         <ChurchDiscoveryPanel onChurchCreated={handleChurchCreated} />
       </div>
 

@@ -161,6 +161,9 @@ export interface ChurchSearchResult {
     state?: string;
     country?: string;
   };
+  website?: string | null;
+  osmType?: string;
+  osmId?: number;
 }
 
 export interface ChurchMetaResponse {

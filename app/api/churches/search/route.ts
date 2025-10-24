@@ -6,6 +6,8 @@ type NominatimResponse = Array<{
   lat?: string;
   lon?: string;
   name?: string;
+  osm_type?: string;
+  osm_id?: number;
   address?: {
     city?: string;
     town?: string;
@@ -14,6 +16,10 @@ type NominatimResponse = Array<{
     country?: string;
     church?: string;
     place?: string;
+  };
+  extratags?: {
+    website?: string;
+    "contact:website"?: string;
   };
 }>;
 
@@ -40,6 +46,7 @@ export async function GET(request: Request) {
   url.searchParams.set("format", "json");
   url.searchParams.set("limit", "10");
   url.searchParams.set("addressdetails", "1");
+  url.searchParams.set("extratags", "1"); // Request extra tags including website
 
   try {
     const response = await fetch(url.toString(), {
@@ -56,6 +63,10 @@ export async function GET(request: Request) {
       ? data.map((item) => {
           const latitude = item.lat ? Number.parseFloat(item.lat) : null;
           const longitude = item.lon ? Number.parseFloat(item.lon) : null;
+          
+          // Extract website from extratags
+          const website = item.extratags?.website || item.extratags?.["contact:website"] || null;
+          
           return {
             id: String(item.place_id),
             name: item.name ?? item.address?.church ?? item.address?.place ?? item.display_name ?? "Unknown",
@@ -67,6 +78,9 @@ export async function GET(request: Request) {
               state: item.address?.state,
               country: item.address?.country,
             },
+            website,
+            osmType: item.osm_type,
+            osmId: item.osm_id,
           };
         })
       : [];

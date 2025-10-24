@@ -31,7 +31,7 @@ type TavilyCrawlResult = {
   base_url?: string;
   results?: Array<{
     url?: string;
-    raw_content?: string;
+    rawContent?: string; // Tavily returns camelCase, not snake_case
     favicon?: string | null;
   }>;
 };
@@ -251,37 +251,52 @@ export function dropAnchorDupes(data: TavilyCrawlResult): TavilyCrawlResult {
 
   for (const item of results) {
     const url = item.url?.trim();
-    const raw = normalizeWhitespace(item.raw_content ?? "");
-    if (!url || !raw) continue;
+    if (!url) continue;
+    
+    const raw = normalizeWhitespace(item.rawContent ?? "");
+    
     if (url.includes("#")) {
-      fragments.push({ url, raw_content: raw, favicon: item.favicon });
+      fragments.push({ url, rawContent: raw, favicon: item.favicon });
     } else {
-      clean.push({ url, raw_content: raw, favicon: item.favicon });
+      clean.push({ url, rawContent: raw, favicon: item.favicon });
     }
-  }
-
-  const cleanHashes = new Set<string>();
+  }  const cleanHashes = new Set<string>();
   const cleanUrls = new Set<string>();
   const normalizedResults: typeof results = [];
 
   for (const entry of clean) {
     if (cleanUrls.has(entry.url!)) continue;
-    const hash = createContentHash(entry.raw_content!);
-    if (cleanHashes.has(hash)) continue;
+
+    // Only skip if content is truly empty AND we already have content for this URL
+    const raw = entry.rawContent || "";
+    if (!raw && normalizedResults.some((r) => r.url === entry.url)) continue;
+
+    const hash = createContentHash(raw);
+    // Only deduplicate if we have content to compare
+    if (raw && cleanHashes.has(hash)) continue;
+
     cleanUrls.add(entry.url!);
-    cleanHashes.add(hash);
+    if (raw) cleanHashes.add(hash);
     normalizedResults.push(entry);
   }
 
   const fragmentHashes = new Set<string>();
-  const cleanTexts = normalizedResults.map((entry) => entry.raw_content ?? "");
+  const cleanTexts = normalizedResults.map((entry) => entry.rawContent ?? "").filter(Boolean);
 
   for (const entry of fragments) {
     if (cleanUrls.has(entry.url!)) continue;
-    const hash = createContentHash(entry.raw_content!);
-    if (fragmentHashes.has(hash) || cleanHashes.has(hash)) continue;
-    if (cleanTexts.some((text) => text.includes(entry.raw_content!))) continue;
-    fragmentHashes.add(hash);
+
+    const raw = entry.rawContent || "";
+    const hash = createContentHash(raw);
+
+    // Only deduplicate if we have meaningful content
+    if (raw) {
+      if (fragmentHashes.has(hash) || cleanHashes.has(hash)) continue;
+      // Check if this fragment's content is already included in a clean page
+      if (cleanTexts.some((text) => text.includes(raw))) continue;
+      fragmentHashes.add(hash);
+    }
+
     cleanUrls.add(entry.url!);
     normalizedResults.push(entry);
   }
@@ -305,15 +320,90 @@ export async function crawlChurchSite(website: string): Promise<TavilyCrawlResul
     throw new Error("TAVILY_API_KEY is not configured");
   }
 
-  const response = (await tavilyClient.crawl(website, {
-    instructions:
-      "I need the following:\n1. doctrinal statement, their beliefs, doctrine, teaching statement, or statement of faith.\n2. The address of the church/main campus.\n3. Their pastors and elders.",
-    max_depth: 2,
-    extract_depth: "advanced",
-    allow_external: false,
-  })) as TavilyCrawlResult;
+  try {
+    // console.log("Starting Tavily crawl for:", website);
 
-  return dropAnchorDupes(response);
+    const response = (await tavilyClient.crawl(website, {
+      instructions:
+        "I need the following:\n1. doctrinal statement, their beliefs, doctrine, teaching statement, or statement of faith.\n2. The address of the church/main campus.\n3. Their pastors and elders.",
+      max_depth: 2,
+      extract_depth: "advanced",
+      allow_external: false,
+      format: "markdown",
+    })) as TavilyCrawlResult;
+
+    // Debug: Log the raw response to see what we're actually getting
+    // console.log("Raw Tavily response (first result):", JSON.stringify(response.results?.[0], null, 2));
+
+    // console.log("Tavily crawl response:", {
+    //   base_url: response.base_url,
+    //   results_count: response.results?.length ?? 0,
+    //   has_results: Boolean(response.results?.length),
+    //   first_result_preview: response.results?.[0]
+    //     ? {
+    //       url: response.results[0].url,
+    //       content_length: response.results[0].rawContent?.length ?? 0,
+    //       has_content: Boolean(response.results[0].rawContent?.trim()),
+    //     }
+    //     : null,
+    //   sample_urls: response.results?.slice(0, 5).map((r) => ({
+    //     url: r.url,
+    //     content_length: r.rawContent?.length ?? 0,
+    //   })),
+    // });
+
+    // If crawl returns empty results, try extract as fallback
+    if (!response.results || response.results.length === 0) {
+      // console.log("Crawl returned no results, trying extract fallback...");
+
+      type TavilyExtractResult = {
+        results?: Array<{
+          url?: string;
+          rawContent?: string;
+        }>;
+      };
+
+      const extractResponse = (await tavilyClient.extract([website], {
+        extract_depth: "advanced",
+        format: "markdown",
+      })) as TavilyExtractResult;
+
+      // console.log("Extract response:", {
+      //   results_count: extractResponse.results?.length ?? 0,
+      //   has_results: Boolean(extractResponse.results?.length),
+      // });
+
+      if (extractResponse.results && extractResponse.results.length > 0) {
+        return {
+          base_url: website,
+          results: extractResponse.results.map((r) => ({
+            url: r.url || website,
+            rawContent: r.rawContent || "",
+            favicon: null,
+          })),
+        };
+      }
+    }
+
+    const cleaned = dropAnchorDupes(response);
+
+    // console.log("After dropAnchorDupes:", {
+    //   results_count: cleaned.results?.length ?? 0,
+    //   has_results: Boolean(cleaned.results?.length),
+    //   sample_results: cleaned.results?.slice(0, 3).map((r) => ({
+    //     url: r.url,
+    //     content_length: r.rawContent?.length ?? 0,
+    //     has_content: Boolean(r.rawContent?.trim()),
+    //   })),
+    // });
+
+    return cleaned;
+  } catch (error) {
+    console.error("Tavily crawl error:", error);
+    throw new Error(
+      `Failed to crawl website: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
+  }
 }
 
 export async function extractChurchEvaluation(website: string): Promise<ChurchEvaluationRaw> {
@@ -325,13 +415,16 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
   const pages = Array.isArray(crawl.results) ? crawl.results : [];
 
   if (!pages.length) {
-    throw new Error("Unable to gather website content for evaluation");
+    console.error("No pages found after crawl", { website, crawl });
+    throw new Error(
+      "Unable to gather website content for evaluation. The website may be blocking crawlers or may not have accessible content. Please try a different church website."
+    );
   }
 
   const contentBlocks = pages
     .map((page, index) => {
       const url = page.url ?? "Unknown URL";
-      const content = truncateContent(page.raw_content ?? "");
+      const content = truncateContent(page.rawContent ?? "");
       return `### Page ${index + 1}\nURL: ${url}\n--------------------\n${content}`;
     })
     .join("\n\n");
@@ -351,7 +444,6 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     model: MODEL,
     messages,
     response_format: { type: "json_schema", json_schema: RESPONSE_SCHEMA },
-    temperature: 0.1,
   });
 
   const message = response.choices?.[0]?.message?.content;

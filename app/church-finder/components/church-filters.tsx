@@ -3,7 +3,9 @@
 import { useCallback, useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -11,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import type { ChurchFilters } from "@/app/church-finder/api";
 
 type ViewMode = "list" | "map";
@@ -84,36 +87,46 @@ export function ChurchFiltersBar({
   );
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border bg-card/80 p-4 shadow-sm backdrop-blur">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Filter churches</h2>
-        <div className="inline-flex rounded-md border border-border p-1 text-sm">
-          <Button
-            type="button"
-            variant={viewMode === "list" ? "default" : "ghost"}
-            size="sm"
-            className="rounded-md"
-            onClick={() => onViewModeChange("list")}
-          >
-            List View
-          </Button>
-          <Button
-            type="button"
-            variant={viewMode === "map" ? "default" : "ghost"}
-            size="sm"
-            className="rounded-md"
-            onClick={() => onViewModeChange("map")}
-          >
-            Map View
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <Card className="sticky top-4">
+      <CardHeader>
+        <CardTitle>Filter churches</CardTitle>
+        <CardDescription>
+          Refine results by location and denominational distinctives
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* View Mode Toggle */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-muted-foreground">State</label>
+          <Label>View Mode</Label>
+          <div className="inline-flex w-full rounded-md border border-border p-1">
+            <Button
+              type="button"
+              variant={viewMode === "list" ? "default" : "ghost"}
+              size="sm"
+              className="flex-1 rounded-sm"
+              onClick={() => onViewModeChange("list")}
+            >
+              List View
+            </Button>
+            <Button
+              type="button"
+              variant={viewMode === "map" ? "default" : "ghost"}
+              size="sm"
+              className="flex-1 rounded-sm"
+              onClick={() => onViewModeChange("map")}
+            >
+              Map View
+            </Button>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* State Filter */}
+        <div className="space-y-2">
+          <Label htmlFor="state-filter">State</Label>
           <Select value={stateValue} onValueChange={handleStateChange}>
-            <SelectTrigger>
+            <SelectTrigger id="state-filter">
               <SelectValue placeholder="All states" />
             </SelectTrigger>
             <SelectContent>
@@ -126,15 +139,22 @@ export function ChurchFiltersBar({
           </Select>
         </div>
 
+        {/* City Filter */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-muted-foreground">City</label>
-          <Input value={cityValue} onChange={handleCityChange} placeholder="e.g., Houston" />
+          <Label htmlFor="city-filter">City</Label>
+          <Input
+            id="city-filter"
+            value={cityValue}
+            onChange={handleCityChange}
+            placeholder="e.g., Houston"
+          />
         </div>
 
+        {/* Denomination Filter */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-muted-foreground">Denomination</label>
+          <Label htmlFor="denomination-filter">Denomination</Label>
           <Select value={denominationValue} onValueChange={handleDenominationChange}>
-            <SelectTrigger>
+            <SelectTrigger id="denomination-filter">
               <SelectValue placeholder="All" />
             </SelectTrigger>
             <SelectContent>
@@ -147,11 +167,12 @@ export function ChurchFiltersBar({
           </Select>
         </div>
 
+        {/* Confessional Filter */}
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-muted-foreground">Confessional</label>
+          <Label htmlFor="confessional-filter">Confessional</Label>
           <Select value={confessionalValue} onValueChange={handleConfessionalChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="All" />
+            <SelectTrigger id="confessional-filter">
+              <SelectValue placeholder="All churches" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All churches</SelectItem>
@@ -160,13 +181,14 @@ export function ChurchFiltersBar({
             </SelectContent>
           </Select>
         </div>
-      </div>
 
-      <div className="flex items-center justify-end gap-3">
-        <Button type="button" variant="ghost" onClick={onReset}>
+        <Separator />
+
+        {/* Reset Button */}
+        <Button type="button" variant="outline" className="w-full" onClick={onReset}>
           Reset filters
         </Button>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

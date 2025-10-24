@@ -253,6 +253,30 @@ export async function POST(request: Request) {
     return NextResponse.json(mapChurchToDetail(detail));
   } catch (error) {
     console.error("Failed to evaluate church", error);
-    return NextResponse.json({ error: "Unable to evaluate church at this time" }, { status: 500 });
+    
+    const errorMessage = error instanceof Error ? error.message : "Unable to evaluate church at this time";
+    
+    // Provide more specific error messages
+    if (errorMessage.includes("Unable to gather website content")) {
+      return NextResponse.json(
+        { 
+          error: "Could not access the church website. The site may be blocking crawlers, offline, or require authentication. Please verify the URL and try again." 
+        },
+        { status: 422 }
+      );
+    }
+    
+    if (errorMessage.includes("TAVILY_API_KEY")) {
+      return NextResponse.json({ error: "Service configuration error" }, { status: 500 });
+    }
+    
+    if (errorMessage.includes("OPENAI_API_KEY")) {
+      return NextResponse.json({ error: "Service configuration error" }, { status: 500 });
+    }
+    
+    return NextResponse.json(
+      { error: errorMessage.length < 200 ? errorMessage : "Unable to evaluate church at this time" },
+      { status: 500 }
+    );
   }
 }
