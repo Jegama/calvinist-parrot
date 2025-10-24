@@ -71,23 +71,47 @@ export default function ChurchFinderPage() {
   };
 
   const handleFiltersChange = useCallback((next: ChurchFilters) => {
-    setFilters(next);
+    setFilters((prev) => {
+      // Only update if filters actually changed
+      if (
+        prev.page === next.page &&
+        prev.state === next.state &&
+        prev.city === next.city &&
+        prev.denomination === next.denomination &&
+        prev.confessional === next.confessional
+      ) {
+        return prev;
+      }
+      return next;
+    });
   }, []);
 
   const handleResetFilters = useCallback(() => {
-    setFilters({ ...DEFAULT_FILTERS });
+    setFilters((prev) => {
+      // Only reset if filters are not already at default
+      if (
+        prev.page === DEFAULT_FILTERS.page &&
+        prev.state === DEFAULT_FILTERS.state &&
+        prev.city === DEFAULT_FILTERS.city &&
+        prev.denomination === DEFAULT_FILTERS.denomination &&
+        prev.confessional === DEFAULT_FILTERS.confessional
+      ) {
+        return prev;
+      }
+      return { ...DEFAULT_FILTERS };
+    });
   }, []);
 
   const handlePageChange = useCallback((page: number) => {
     setFilters((prev) => ({ ...prev, page }));
   }, []);
 
-  const handleChurchCreated = (church: ChurchDetail) => {
+  const handleChurchCreated = useCallback((church: ChurchDetail) => {
     setFilters((prev) => ({ ...prev, page: 1 }));
     void queryClient.invalidateQueries(["churches"]);
     setSelectedChurch(church);
     setDetailOpen(true);
-  };
+  }, [queryClient]);
 
   const churches = churchQuery.data?.items ?? [];
   const total = churchQuery.data?.total ?? 0;

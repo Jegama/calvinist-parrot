@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,46 @@ export function ChurchFiltersBar({
   const stateOptions = useMemo(() => ["all", ...availableStates], [availableStates]);
   const denominationOptions = useMemo(() => ["all", ...denominations], [denominations]);
 
+  const stateValue = useMemo(() => filters.state ?? "all", [filters.state]);
+  const denominationValue = useMemo(() => filters.denomination ?? "all", [filters.denomination]);
+  const confessionalValue = useMemo(() => filters.confessional ?? "all", [filters.confessional]);
+  const cityValue = useMemo(() => filters.city ?? "", [filters.city]);
+
+  const handleStateChange = useCallback(
+    (value: string) => {
+      if (stateValue === value) return;
+      const newState = value === "all" ? null : value;
+      onFiltersChange({ ...filters, page: 1, state: newState });
+    },
+    [stateValue, filters, onFiltersChange]
+  );
+
+  const handleCityChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const newCity = event.target.value || null;
+      onFiltersChange({ ...filters, page: 1, city: newCity });
+    },
+    [filters, onFiltersChange]
+  );
+
+  const handleDenominationChange = useCallback(
+    (value: string) => {
+      if (denominationValue === value) return;
+      const newDenomination = value === "all" ? null : value;
+      onFiltersChange({ ...filters, page: 1, denomination: newDenomination });
+    },
+    [denominationValue, filters, onFiltersChange]
+  );
+
+  const handleConfessionalChange = useCallback(
+    (value: string) => {
+      if (confessionalValue === value) return;
+      const newConfessional = value === "all" ? null : (value as "true" | "false");
+      onFiltersChange({ ...filters, page: 1, confessional: newConfessional });
+    },
+    [confessionalValue, filters, onFiltersChange]
+  );
+
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-card/80 p-4 shadow-sm backdrop-blur">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -66,14 +106,7 @@ export function ChurchFiltersBar({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-2">
           <label className="block text-sm font-medium text-muted-foreground">State</label>
-          <Select
-            value={filters.state || "all"}
-            onValueChange={(value) => {
-              if ((filters.state || "all") === value) return;
-              const newState = value === "all" ? null : value;
-              onFiltersChange({ ...filters, page: 1, state: newState });
-            }}
-          >
+          <Select value={stateValue} onValueChange={handleStateChange}>
             <SelectTrigger>
               <SelectValue placeholder="All states" />
             </SelectTrigger>
@@ -89,26 +122,12 @@ export function ChurchFiltersBar({
 
         <div className="space-y-2">
           <label className="block text-sm font-medium text-muted-foreground">City</label>
-          <Input
-            value={filters.city ?? ""}
-            onChange={(event) => {
-              const newCity = event.target.value || null;
-              onFiltersChange({ ...filters, page: 1, city: newCity });
-            }}
-            placeholder="e.g., Houston"
-          />
+          <Input value={cityValue} onChange={handleCityChange} placeholder="e.g., Houston" />
         </div>
 
         <div className="space-y-2">
           <label className="block text-sm font-medium text-muted-foreground">Denomination</label>
-          <Select
-            value={filters.denomination || "all"}
-            onValueChange={(value) => {
-              if ((filters.denomination || "all") === value) return;
-              const newDenomination = value === "all" ? null : value;
-              onFiltersChange({ ...filters, page: 1, denomination: newDenomination });
-            }}
-          >
+          <Select value={denominationValue} onValueChange={handleDenominationChange}>
             <SelectTrigger>
               <SelectValue placeholder="All" />
             </SelectTrigger>
@@ -124,14 +143,7 @@ export function ChurchFiltersBar({
 
         <div className="space-y-2">
           <label className="block text-sm font-medium text-muted-foreground">Confessional</label>
-          <Select
-            value={filters.confessional || "all"}
-            onValueChange={(value) => {
-              if ((filters.confessional || "all") === value) return;
-              const newConfessional = value === "all" ? null : (value as "true" | "false");
-              onFiltersChange({ ...filters, page: 1, confessional: newConfessional });
-            }}
-          >
+          <Select value={confessionalValue} onValueChange={handleConfessionalChange}>
             <SelectTrigger>
               <SelectValue placeholder="All" />
             </SelectTrigger>
