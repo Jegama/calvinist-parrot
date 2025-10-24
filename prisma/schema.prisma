@@ -166,3 +166,91 @@ model parrotDevotionals {
   devotional_text     String
   createdAt   DateTime  @default(now())
 }
+
+// Church Finder models
+
+enum CoreDoctrineStatus {
+  TRUE
+  FALSE
+  UNKNOWN
+}
+
+enum ChurchEvaluationStatus {
+  PASS
+  CAUTION
+  RED_FLAG
+}
+
+model church {
+  id                    String   @id @default(cuid())
+  name                  String
+  website               String   @unique
+  phone                 String?
+  email                 String?
+  denominationLabel     String?
+  denominationConfidence Float?
+  denominationSignals   String[]
+  confessionAdopted     Boolean  @default(false)
+  confessionName        String?
+  confessionSourceUrl   String?
+  bestBeliefsUrl        String?
+  bestConfessionUrl     String?
+  bestAboutUrl          String?
+  bestLeadershipUrl     String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  addresses             churchAddress[]
+  serviceTimes          churchServiceTime[]
+  evaluations           churchEvaluation[]
+}
+
+model churchAddress {
+  id         String   @id @default(cuid())
+  churchId   String
+  church     church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  street1    String?
+  street2    String?
+  city       String?
+  state      String?
+  postCode   String?
+  latitude   Float?
+  longitude  Float?
+  sourceUrl  String?
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model churchServiceTime {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  label     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model churchEvaluation {
+  id                          String   @id @default(cuid())
+  churchId                    String
+  church                      church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  rawEvaluation               Json
+  badges                      String[]
+  secondary                   Json?
+  tertiary                    Json?
+  coreOnSiteCount             Int
+  coreTotalCount              Int
+  coverageRatio               Float
+  status                      ChurchEvaluationStatus
+  coreTrinity                 CoreDoctrineStatus
+  coreGospel                  CoreDoctrineStatus
+  coreJustificationByFaith    CoreDoctrineStatus
+  coreChristDeityHumanity     CoreDoctrineStatus
+  coreScriptureAuthority      CoreDoctrineStatus
+  coreIncarnationVirginBirth  CoreDoctrineStatus
+  coreAtonementNecessary      CoreDoctrineStatus
+  coreResurrectionOfJesus     CoreDoctrineStatus
+  coreReturnAndJudgment       CoreDoctrineStatus
+  coreCharacterOfGod          CoreDoctrineStatus
+  createdAt                   DateTime @default(now())
+}
