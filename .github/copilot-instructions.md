@@ -1,6 +1,6 @@
 # Calvinist Parrot – AI Agent Guide
 ## Overview & Entry Points
-- Next.js 15 App Router with TypeScript; route handlers under `app/api/**`, router pages/layouts under `app/**`.
+- Next.js 16 App Router with TypeScript and Turbopack; route handlers under `app/api/**`, router pages/layouts under `app/**`.
 - Global providers live in `components/providers/app-providers.tsx`, wrapping `AuthProvider`, `ReactQueryProvider`, and the theme provider for every page.
 - Auth flows lean on Appwrite via `hooks/use-auth.tsx`; anonymous continuity now comes from `hooks/use-user-identifier.ts`, consumed in `app/page.tsx` and `app/[chatId]/page.tsx`.
 - Prisma Postgres schema lives in `prisma/schema.prisma`; run `npx prisma migrate dev` after edits to keep migrations in sync.
