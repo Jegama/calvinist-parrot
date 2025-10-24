@@ -1,5 +1,5 @@
 import { tavily } from "@tavily/core";
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
 import type {
   ChurchEvaluationRaw,
@@ -10,7 +10,7 @@ import type {
 } from "@/types/church";
 
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 export const CORE_DOCTRINE_KEYS: CoreDoctrineKey[] = [
   "trinity",
@@ -25,13 +25,13 @@ export const CORE_DOCTRINE_KEYS: CoreDoctrineKey[] = [
   "character_of_god",
 ];
 
-const MODEL = "gpt-5-mini";
+const MODEL = "gemini-2.5-flash-lite-preview-09-2025";
 
 type TavilyCrawlResult = {
   base_url?: string;
   results?: Array<{
     url?: string;
-    rawContent?: string; // Tavily returns camelCase, not snake_case
+    rawContent?: string;
     favicon?: string | null;
   }>;
 };
@@ -71,166 +71,153 @@ const EXTRACTION_INSTRUCTIONS = `Extract doctrinal data and metadata about the c
 9. Return "null" for any missing string field and [] for missing arrays.
 10. Ensure the JSON strictly conforms to the schema.`;
 
+// Gemini schema - uses uppercase type names and similar OpenAPI 3.0 structure
 const RESPONSE_SCHEMA = {
-  name: "church_evaluation_schema",
-  schema: {
-    type: "object",
-    properties: {
-      church: {
-        type: "object",
-        properties: {
-          name: { type: ["string", "null"] },
-          website: { type: "string" },
-          addresses: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                street_1: { type: ["string", "null"] },
-                street_2: { type: ["string", "null"] },
-                city: { type: ["string", "null"] },
-                state: { type: ["string", "null"] },
-                post_code: { type: ["string", "null"] },
-                source_url: { type: ["string", "null"] },
-              },
-              required: ["street_1", "street_2", "city", "state", "post_code", "source_url"],
-              additionalProperties: false,
-            },
-          },
-          contacts: {
-            type: "object",
+  type: "OBJECT" as const,
+  properties: {
+    church: {
+      type: "OBJECT" as const,
+      properties: {
+        name: { type: "STRING" as const, nullable: true },
+        website: { type: "STRING" as const },
+        addresses: {
+          type: "ARRAY" as const,
+          items: {
+            type: "OBJECT" as const,
             properties: {
-              phone: { type: ["string", "null"] },
-              email: { type: ["string", "null"] },
+              street_1: { type: "STRING" as const, nullable: true },
+              street_2: { type: "STRING" as const, nullable: true },
+              city: { type: "STRING" as const, nullable: true },
+              state: { type: "STRING" as const, nullable: true },
+              post_code: { type: "STRING" as const, nullable: true },
+              source_url: { type: "STRING" as const, nullable: true },
             },
-            required: ["phone", "email"],
-            additionalProperties: false,
-          },
-          service_times: { type: "array", items: { type: "string" } },
-          best_pages_for: {
-            type: "object",
-            properties: {
-              beliefs: { type: ["string", "null"] },
-              confession: { type: ["string", "null"] },
-              about: { type: ["string", "null"] },
-              leadership: { type: ["string", "null"] },
-            },
-            required: ["beliefs", "confession", "about", "leadership"],
-            additionalProperties: false,
-          },
-          denomination: {
-            type: "object",
-            properties: {
-              label: { type: ["string", "null"] },
-              confidence: { type: "number" },
-              signals: { type: "array", items: { type: "string" } },
-            },
-            required: ["label", "confidence", "signals"],
-            additionalProperties: false,
-          },
-          confession: {
-            type: "object",
-            properties: {
-              adopted: { type: "boolean" },
-              name: { type: ["string", "null"] },
-              source_url: { type: ["string", "null"] },
-            },
-            required: ["adopted", "name", "source_url"],
-            additionalProperties: false,
-          },
-          core_doctrines: {
-            type: "object",
-            properties: CORE_DOCTRINE_KEYS.reduce<Record<string, unknown>>((acc, key) => {
-              acc[key] = { enum: ["true", "false", "unknown"] };
-              return acc;
-            }, {}),
-            required: CORE_DOCTRINE_KEYS,
-            additionalProperties: false,
-          },
-          secondary: {
-            type: "object",
-            properties: {
-              baptism: { type: ["string", "null"] },
-              governance: { type: ["string", "null"] },
-              lords_supper: { type: ["string", "null"] },
-              gifts: { type: ["string", "null"] },
-              women_in_church: { type: ["string", "null"] },
-              sanctification: { type: ["string", "null"] },
-              continuity: { type: ["string", "null"] },
-              security: { type: ["string", "null"] },
-              atonement_model: { type: ["string", "null"] },
-            },
-            required: [
-              "baptism",
-              "governance",
-              "lords_supper",
-              "gifts",
-              "women_in_church",
-              "sanctification",
-              "continuity",
-              "security",
-              "atonement_model",
-            ],
-            additionalProperties: false,
-          },
-          tertiary: {
-            type: "object",
-            properties: {
-              eschatology: { type: ["string", "null"] },
-              worship_style: { type: ["string", "null"] },
-              counseling: { type: ["string", "null"] },
-              creation: { type: ["string", "null"] },
-              christian_liberty: { type: ["string", "null"] },
-              discipline: { type: ["string", "null"] },
-              parachurch: { type: ["string", "null"] },
-            },
-            required: [
-              "eschatology",
-              "worship_style",
-              "counseling",
-              "creation",
-              "christian_liberty",
-              "discipline",
-              "parachurch",
-            ],
-            additionalProperties: false,
-          },
-          badges: { type: "array", items: { type: "string" } },
-          notes: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                label: { type: "string" },
-                text: { type: "string" },
-                source_url: { type: "string" },
-              },
-              required: ["label", "text", "source_url"],
-              additionalProperties: false,
-            },
+            required: ["street_1", "street_2", "city", "state", "post_code", "source_url"],
           },
         },
-        required: [
-          "name",
-          "website",
-          "addresses",
-          "contacts",
-          "service_times",
-          "best_pages_for",
-          "denomination",
-          "confession",
-          "core_doctrines",
-          "secondary",
-          "tertiary",
-          "badges",
-          "notes",
-        ],
-        additionalProperties: false,
+        contacts: {
+          type: "OBJECT" as const,
+          properties: {
+            phone: { type: "STRING" as const, nullable: true },
+            email: { type: "STRING" as const, nullable: true },
+          },
+          required: ["phone", "email"],
+        },
+        service_times: { type: "ARRAY" as const, items: { type: "STRING" as const } },
+        best_pages_for: {
+          type: "OBJECT" as const,
+          properties: {
+            beliefs: { type: "STRING" as const, nullable: true },
+            confession: { type: "STRING" as const, nullable: true },
+            about: { type: "STRING" as const, nullable: true },
+            leadership: { type: "STRING" as const, nullable: true },
+          },
+          required: ["beliefs", "confession", "about", "leadership"],
+        },
+        denomination: {
+          type: "OBJECT" as const,
+          properties: {
+            label: { type: "STRING" as const, nullable: true },
+            confidence: { type: "NUMBER" as const },
+            signals: { type: "ARRAY" as const, items: { type: "STRING" as const } },
+          },
+          required: ["label", "confidence", "signals"],
+        },
+        confession: {
+          type: "OBJECT" as const,
+          properties: {
+            adopted: { type: "BOOLEAN" as const },
+            name: { type: "STRING" as const, nullable: true },
+            source_url: { type: "STRING" as const, nullable: true },
+          },
+          required: ["adopted", "name", "source_url"],
+        },
+        core_doctrines: {
+          type: "OBJECT" as const,
+          properties: CORE_DOCTRINE_KEYS.reduce<Record<string, { type: "STRING"; enum: string[] }>>((acc, key) => {
+            acc[key] = { type: "STRING" as const, enum: ["true", "false", "unknown"] };
+            return acc;
+          }, {}),
+          required: CORE_DOCTRINE_KEYS,
+        },
+        secondary: {
+          type: "OBJECT" as const,
+          properties: {
+            baptism: { type: "STRING" as const, nullable: true },
+            governance: { type: "STRING" as const, nullable: true },
+            lords_supper: { type: "STRING" as const, nullable: true },
+            gifts: { type: "STRING" as const, nullable: true },
+            women_in_church: { type: "STRING" as const, nullable: true },
+            sanctification: { type: "STRING" as const, nullable: true },
+            continuity: { type: "STRING" as const, nullable: true },
+            security: { type: "STRING" as const, nullable: true },
+            atonement_model: { type: "STRING" as const, nullable: true },
+          },
+          required: [
+            "baptism",
+            "governance",
+            "lords_supper",
+            "gifts",
+            "women_in_church",
+            "sanctification",
+            "continuity",
+            "security",
+            "atonement_model",
+          ],
+        },
+        tertiary: {
+          type: "OBJECT" as const,
+          properties: {
+            eschatology: { type: "STRING" as const, nullable: true },
+            worship_style: { type: "STRING" as const, nullable: true },
+            counseling: { type: "STRING" as const, nullable: true },
+            creation: { type: "STRING" as const, nullable: true },
+            christian_liberty: { type: "STRING" as const, nullable: true },
+            discipline: { type: "STRING" as const, nullable: true },
+            parachurch: { type: "STRING" as const, nullable: true },
+          },
+          required: [
+            "eschatology",
+            "worship_style",
+            "counseling",
+            "creation",
+            "christian_liberty",
+            "discipline",
+            "parachurch",
+          ],
+        },
+        badges: { type: "ARRAY" as const, items: { type: "STRING" as const } },
+        notes: {
+          type: "ARRAY" as const,
+          items: {
+            type: "OBJECT" as const,
+            properties: {
+              label: { type: "STRING" as const },
+              text: { type: "STRING" as const },
+              source_url: { type: "STRING" as const },
+            },
+            required: ["label", "text", "source_url"],
+          },
+        },
       },
+      required: [
+        "name",
+        "website",
+        "addresses",
+        "contacts",
+        "service_times",
+        "best_pages_for",
+        "denomination",
+        "confession",
+        "core_doctrines",
+        "secondary",
+        "tertiary",
+        "badges",
+        "notes",
+      ],
     },
-    required: ["church"],
-    additionalProperties: false,
   },
+  required: ["church"],
 };
 
 function normalizeWhitespace(value: string | null | undefined): string {
@@ -321,7 +308,6 @@ export async function crawlChurchSite(website: string): Promise<TavilyCrawlResul
   }
 
   try {
-    // console.log("Starting Tavily crawl for:", website);
 
     const response = (await tavilyClient.crawl(website, {
       instructions:
@@ -332,29 +318,8 @@ export async function crawlChurchSite(website: string): Promise<TavilyCrawlResul
       format: "markdown",
     })) as TavilyCrawlResult;
 
-    // Debug: Log the raw response to see what we're actually getting
-    // console.log("Raw Tavily response (first result):", JSON.stringify(response.results?.[0], null, 2));
-
-    // console.log("Tavily crawl response:", {
-    //   base_url: response.base_url,
-    //   results_count: response.results?.length ?? 0,
-    //   has_results: Boolean(response.results?.length),
-    //   first_result_preview: response.results?.[0]
-    //     ? {
-    //       url: response.results[0].url,
-    //       content_length: response.results[0].rawContent?.length ?? 0,
-    //       has_content: Boolean(response.results[0].rawContent?.trim()),
-    //     }
-    //     : null,
-    //   sample_urls: response.results?.slice(0, 5).map((r) => ({
-    //     url: r.url,
-    //     content_length: r.rawContent?.length ?? 0,
-    //   })),
-    // });
-
     // If crawl returns empty results, try extract as fallback
     if (!response.results || response.results.length === 0) {
-      // console.log("Crawl returned no results, trying extract fallback...");
 
       type TavilyExtractResult = {
         results?: Array<{
@@ -367,11 +332,6 @@ export async function crawlChurchSite(website: string): Promise<TavilyCrawlResul
         extract_depth: "advanced",
         format: "markdown",
       })) as TavilyExtractResult;
-
-      // console.log("Extract response:", {
-      //   results_count: extractResponse.results?.length ?? 0,
-      //   has_results: Boolean(extractResponse.results?.length),
-      // });
 
       if (extractResponse.results && extractResponse.results.length > 0) {
         return {
@@ -387,16 +347,6 @@ export async function crawlChurchSite(website: string): Promise<TavilyCrawlResul
 
     const cleaned = dropAnchorDupes(response);
 
-    // console.log("After dropAnchorDupes:", {
-    //   results_count: cleaned.results?.length ?? 0,
-    //   has_results: Boolean(cleaned.results?.length),
-    //   sample_results: cleaned.results?.slice(0, 3).map((r) => ({
-    //     url: r.url,
-    //     content_length: r.rawContent?.length ?? 0,
-    //     has_content: Boolean(r.rawContent?.trim()),
-    //   })),
-    // });
-
     return cleaned;
   } catch (error) {
     console.error("Tavily crawl error:", error);
@@ -407,8 +357,8 @@ export async function crawlChurchSite(website: string): Promise<TavilyCrawlResul
 }
 
 export async function extractChurchEvaluation(website: string): Promise<ChurchEvaluationRaw> {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY is not configured");
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not configured");
   }
 
   const crawl = await crawlChurchSite(website);
@@ -429,29 +379,29 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     })
     .join("\n\n");
 
-  const messages = [
-    {
-      role: "system" as const,
-      content: `${DOCTRINAL_STATEMENT}\n\nYou are a research analyst helping Calvinist Parrot Ministries vet churches. Produce precise, source-grounded JSON according to the schema.`,
-    },
-    {
-      role: "user" as const,
-      content: `${EXTRACTION_INSTRUCTIONS}\n\n${contentBlocks}`,
-    },
-  ];
+  const systemPrompt = `${DOCTRINAL_STATEMENT}\n\nYou are a research analyst helping Calvinist Parrot Ministries vet churches. Produce precise, source-grounded JSON according to the schema.`;
+  const userPrompt = `${EXTRACTION_INSTRUCTIONS}\n\n${contentBlocks}`;
 
-  const response = await openai.chat.completions.create({
+  const response = await genai.models.generateContent({
     model: MODEL,
-    messages,
-    response_format: { type: "json_schema", json_schema: RESPONSE_SCHEMA },
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
+      },
+    ],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: RESPONSE_SCHEMA,
+    },
   });
 
-  const message = response.choices?.[0]?.message?.content;
-  if (!message) {
-    throw new Error("OpenAI returned an empty response");
+  const text = response.text;
+  if (!text) {
+    throw new Error("Gemini returned an empty response");
   }
 
-  return JSON.parse(message) as ChurchEvaluationRaw;
+  return JSON.parse(text) as ChurchEvaluationRaw;
 }
 
 export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
