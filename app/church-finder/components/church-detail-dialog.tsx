@@ -77,7 +77,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange }: ChurchDetailD
   // Find false doctrines
   const falseDoctrine = evaluation?.coreDoctrines
     ? (Object.entries(evaluation.coreDoctrines)
-        .filter(([_, value]) => value === "false")
+        .filter(([, value]) => value === "false")
         .map(([key]) => key as CoreDoctrineKey))
     : [];
 
@@ -135,7 +135,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange }: ChurchDetailD
                           <span className="font-medium">What we believe:</span>
                         </p>
                         <p className="italic text-red-700 dark:text-red-400">
-                          "{coreDoctrinesJson[key]}"
+                          &ldquo;{coreDoctrinesJson[key]}&rdquo;
                         </p>
                       </div>
                     </div>

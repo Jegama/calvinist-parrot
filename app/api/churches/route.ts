@@ -94,7 +94,7 @@ export async function POST(request: Request) {
   let payload: Record<string, unknown> = {};
   try {
     payload = (await request.json()) as Record<string, unknown>;
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
   let websiteUrl: string;
   try {
     websiteUrl = ensureUrl(websiteInput);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Invalid website URL" }, { status: 400 });
   }
 
