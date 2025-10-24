@@ -311,8 +311,8 @@ export function ChurchDetailDialog({ church, open, onOpenChange }: ChurchDetailD
                   <div className="space-y-2">
                     <h4 className="text-base font-semibold text-foreground">Notes & Sources</h4>
                     <ul className="space-y-2 text-sm">
-                      {evaluation.raw.church.notes.map((note) => (
-                        <li key={`${note.label}-${note.source_url}`} className="rounded-md border border-border bg-card/60 p-3">
+                      {evaluation.raw.church.notes.map((note, idx) => (
+                        <li key={`${note.label}-${note.source_url}-${idx}`} className="rounded-md border border-border bg-card/60 p-3">
                           <p className="font-medium text-foreground">{note.label}</p>
                           <p className="text-muted-foreground">{note.text}</p>
                           {note.source_url ? (

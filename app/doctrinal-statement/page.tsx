@@ -5,7 +5,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
 
-const doctrinalStatementContent = `# Doctrinal Statement
+export const doctrinalStatementContent = `# Doctrinal Statement
 
 Our theological foundation that guides all aspects of our ministry and partnerships.
 

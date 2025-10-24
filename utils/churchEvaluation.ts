@@ -9,6 +9,9 @@ import type {
   EvaluationStatus,
 } from "@/types/church";
 
+import { doctrinalStatementContent } from "@/app/doctrinal-statement/page";
+import { EXTRACTION_INSTRUCTIONS } from "@/lib/prompts";
+
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
@@ -35,41 +38,6 @@ type TavilyCrawlResult = {
     favicon?: string | null;
   }>;
 };
-
-const DOCTRINAL_STATEMENT = `# Calvinist Parrot Doctrinal Statement
-
-## Core Doctrines
-- The Trinity: We believe in one God, eternally existing in three persons—Father, Son, and Holy Spirit.
-- The Gospel: We proclaim that salvation is secured by Christ’s historical death, burial, and resurrection on the third day, demonstrating His victory over sin and death.
-- Justification by Faith: Individuals are justified solely by grace alone through faith alone in Christ alone, apart from works.
-- The Deity and Humanity of Christ: We affirm that Jesus Christ is truly God and truly man (Vera Deus, vera homo).
-- The Authority of Scripture: The Bible is the inspired, inerrant, and infallible Word of God, serving as the ultimate authority in all matters of faith and practice.
-- The Incarnation and Virgin Birth: We affirm that Jesus Christ took on human nature through miraculous conception by the Holy Spirit and was born of the Virgin Mary.
-- The Atonement (Christ's Saving Work): Christ's sacrificial death on the cross is necessary and sufficient to reconcile sinners to God.
-- The Resurrection: We affirm the bodily resurrection of Jesus Christ, confirming His divinity and victory over sin and death.
-- Christ's Return and Final Judgment: Jesus Christ will return personally and bodily to judge the living and the dead, culminating in the renewal of all things.
-- The Character of God: God is holy, supreme, sovereign, immutable, faithful, good, patient, gracious, merciful, loving, and just; His wrath against sin is real.
-
-## Secondary Doctrines
-- Baptism, Church Governance, The Lord's Supper, Spiritual Gifts, Role of Women in the Church, Sanctification, Continuity and Discontinuity, Security of Salvation, The Atonement (How it Works).
-
-## Tertiary Doctrines
-- Eschatology, Worship Style, Counseling Approaches, Creation, Christian Liberty, Church Discipline, Parachurch Organizations, Non-essential doctrines.
-
-In all doctrinal matters we uphold unity in essentials, liberty in non-essentials, and charity in all things.`;
-
-const EXTRACTION_INSTRUCTIONS = `Extract doctrinal data and metadata about the church according to the provided JSON schema. Follow these critical rules:
-
-1. Only rely on the supplied pages. Never fabricate facts.
-2. Prefer explicit affirmations ("we believe", "we affirm") for every doctrine. If a doctrine is not clearly affirmed or denied, mark it as "unknown".
-3. For the core doctrines, use the values "true", "false", or "unknown" only. If the church adopts one of the allowed historic confessions (Westminster, 1644 LBCF, 1689 LBCF, Belgic/Heidelberg/Dort, Helvetic, Scots, French, Irish Articles, Savoy, Consensus Tigurinus, Thirty-Nine Articles), set confession.adopted=true, include the confession name and source URL, and add the note "Essentials inferred from adopted confession (1689 LBCF); not listed individually on this page." (adjust the confession name appropriately).
-4. If confession.adopted=true, set all core doctrines to "true" unless the site explicitly denies a doctrine. Do not infer denials.
-5. Populate secondary and tertiary doctrine fields with concise phrases when explicitly stated. Otherwise use null.
-6. Include short (<=30 word) quotes as notes with their source URL when possible.
-7. Populate best_pages_for with the single best URL for each category.
-8. Set badges only from the allowed list.
-9. Return "null" for any missing string field and [] for missing arrays.
-10. Ensure the JSON strictly conforms to the schema.`;
 
 // Gemini schema - uses uppercase type names and similar OpenAPI 3.0 structure
 const RESPONSE_SCHEMA = {
@@ -379,7 +347,7 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     })
     .join("\n\n");
 
-  const systemPrompt = `${DOCTRINAL_STATEMENT}\n\nYou are a research analyst helping Calvinist Parrot Ministries vet churches. Produce precise, source-grounded JSON according to the schema.`;
+  const systemPrompt = `${doctrinalStatementContent}\n\nYou are a research analyst helping Calvinist Parrot Ministries vet churches. Produce precise, source-grounded JSON according to the schema.`;
   const userPrompt = `${EXTRACTION_INSTRUCTIONS}\n\n${contentBlocks}`;
 
   const response = await genai.models.generateContent({
