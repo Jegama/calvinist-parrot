@@ -1,0 +1,68 @@
+{
+  "Westminster Confession of Faith (1646/47)": {
+    "baptism": "infant (paedo)",
+    "governance": "presbyterian",
+    "lords_supper": "spiritual presence",
+    "gifts": "cessationist",
+    "women_in_church": "complementarian",
+    "sanctification": "positional & progressive",
+    "continuity": "covenant theology",
+    "security": "perseverance of the saints",
+    "atonement_model": "penal substitution"
+  },
+  "Second London Baptist Confession (1689)": {
+    "baptism": "believer's by immersion",
+    "governance": "elder-led congregational",
+    "lords_supper": "spiritual presence",
+    "gifts": "cessationist",
+    "women_in_church": "complementarian",
+    "sanctification": "positional & progressive",
+    "continuity": "covenant theology",
+    "security": "perseverance of the saints",
+    "atonement_model": "penal substitution"
+  },
+  "Belgic Confession (1561) + Heidelberg Catechism (1563) + Canons of Dort (1619)": {
+    "baptism": "infant (paedo)",
+    "governance": "presbyterian",
+    "lords_supper": "spiritual presence",
+    "gifts": "cessationist",
+    "women_in_church": "complementarian",
+    "sanctification": "positional & progressive",
+    "continuity": "covenant theology",
+    "security": "perseverance of the saints",
+    "atonement_model": "penal substitution"
+  },
+  "Second Helvetic Confession (1566)": {
+    "baptism": "infant (paedo)",
+    "governance": "presbyterian",
+    "lords_supper": "spiritual presence",
+    "gifts": "cessationist",
+    "women_in_church": "complementarian",
+    "sanctification": "positional & progressive",
+    "continuity": "covenant theology",
+    "security": "perseverance of the saints",
+    "atonement_model": "penal substitution"
+  },
+  "Irish Articles (1615)": {
+    "baptism": "infant (paedo)",
+    "governance": "episcopal",
+    "lords_supper": "spiritual presence",
+    "gifts": "cessationist",
+    "women_in_church": "complementarian",
+    "sanctification": "positional & progressive",
+    "continuity": "covenant theology",
+    "security": "perseverance of the saints",
+    "atonement_model": "penal substitution"
+  },
+  "Savoy Declaration (1658)": {
+    "baptism": "infant (paedo)",
+    "governance": "elder-led congregational",
+    "lords_supper": "spiritual presence",
+    "gifts": "cessationist",
+    "women_in_church": "complementarian",
+    "sanctification": "positional & progressive",
+    "continuity": "covenant theology",
+    "security": "perseverance of the saints",
+    "atonement_model": "penal substitution"
+  }
+}

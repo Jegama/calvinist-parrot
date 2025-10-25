@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { Spinner } from "@/components/ui/spinner"
 import type { ChurchDetail, ChurchSearchResult } from "@/types/church";
 import { createChurch, searchChurches } from "@/app/church-finder/api";
 
@@ -80,6 +81,33 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
       </CardHeader>
       <CardContent className="space-y-6">
         <section className="space-y-3">
+          <h3 className="text-lg font-semibold text-foreground">Evaluate a church by website</h3>
+          <div className="flex flex-col gap-3 md:flex-row">
+            <Input
+              value={website}
+              onChange={(event) => setWebsite(event.target.value)}
+              placeholder="https://examplechurch.org"
+              aria-label="Church website"
+            />
+            <Button
+              type="button"
+              onClick={() => createMutation.mutate(website)}
+              disabled={createMutation.status === "pending" || !website.trim()}
+              className="md:w-48"
+            >
+              {createMutation.status === "pending" ? <Spinner /> + " Evaluating…" : "Evaluate & add"}
+            </Button>
+          </div>
+          {creationError ? <p className="text-sm text-red-500">{creationError}</p> : null}
+          <p className="text-xs text-muted-foreground">
+            We will crawl the church website with Tavily, evaluate its doctrines with our LLM pipeline, and store the results in
+            the directory.
+          </p>
+        </section>
+
+        <Separator />
+
+        <section className="space-y-3">
           <h3 className="text-lg font-semibold text-foreground">Search by city</h3>
           <div className="grid gap-3 md:grid-cols-[2fr,1fr,auto]">
             <Input
@@ -95,7 +123,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
               aria-label="State name"
             />
             <Button type="button" onClick={() => searchMutation.mutate()} disabled={searchMutation.status === "pending"}>
-              {searchMutation.status === "pending" ? "Searching…" : "Search"}
+              {searchMutation.status === "pending" ? <Spinner /> + " Searching…" : "Search"}
             </Button>
           </div>
           {searchError ? <p className="text-sm text-red-500">{searchError}</p> : null}
@@ -137,7 +165,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
                           disabled={evaluatingId === result.id}
                           className="shrink-0"
                         >
-                          {evaluatingId === result.id ? "Evaluating…" : "Evaluate"}
+                          {evaluatingId === result.id ? <Spinner /> + " Evaluating…" : "Evaluate"}
                         </Button>
                       )}
                     </div>
@@ -150,30 +178,6 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
 
         <Separator />
 
-        <section className="space-y-3">
-          <h3 className="text-lg font-semibold text-foreground">Evaluate a church by website</h3>
-          <div className="flex flex-col gap-3 md:flex-row">
-            <Input
-              value={website}
-              onChange={(event) => setWebsite(event.target.value)}
-              placeholder="https://examplechurch.org"
-              aria-label="Church website"
-            />
-            <Button
-              type="button"
-              onClick={() => createMutation.mutate(website)}
-              disabled={createMutation.status === "pending" || !website.trim()}
-              className="md:w-48"
-            >
-              {createMutation.status === "pending" ? "Evaluating…" : "Evaluate & add"}
-            </Button>
-          </div>
-          {creationError ? <p className="text-sm text-red-500">{creationError}</p> : null}
-          <p className="text-xs text-muted-foreground">
-            We will crawl the church website with Tavily, evaluate its doctrines with our LLM pipeline, and store the results in
-            the directory.
-          </p>
-        </section>
       </CardContent>
     </Card>
   );

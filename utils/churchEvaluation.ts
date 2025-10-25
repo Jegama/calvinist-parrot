@@ -125,35 +125,7 @@ export async function crawlChurchSite(website: string): Promise<TavilyCrawlResul
       max_depth: 2,
       extract_depth: "advanced",
       allow_external: false,
-      format: "markdown",
     })) as TavilyCrawlResult;
-
-    // If crawl returns empty results, try extract as fallback
-    if (!response.results || response.results.length === 0) {
-
-      type TavilyExtractResult = {
-        results?: Array<{
-          url?: string;
-          rawContent?: string;
-        }>;
-      };
-
-      const extractResponse = (await tavilyClient.extract([website], {
-        extract_depth: "advanced",
-        format: "markdown",
-      })) as TavilyExtractResult;
-
-      if (extractResponse.results && extractResponse.results.length > 0) {
-        return {
-          base_url: website,
-          results: extractResponse.results.map((r) => ({
-            url: r.url || website,
-            rawContent: r.rawContent || "",
-            favicon: null,
-          })),
-        };
-      }
-    }
 
     const cleaned = dropAnchorDupes(response);
 
@@ -249,6 +221,7 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
 
   const trueCount = CORE_DOCTRINE_KEYS.filter((key) => normalizedCore[key] === "true").length;
   const falseCount = CORE_DOCTRINE_KEYS.filter((key) => normalizedCore[key] === "false").length;
+  const unknownCount = CORE_DOCTRINE_KEYS.filter((key) => normalizedCore[key] === "unknown").length;
   const coreTotal = CORE_DOCTRINE_KEYS.length;
   const coverageRatio = coreTotal === 0 ? 0 : trueCount / coreTotal;
 
@@ -260,7 +233,11 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
     badges.push("🚫 We Cannot Endorse");
   }
 
-  const hasRedFlagBadge = badges.some((badge) => badge === "🚫 We Cannot Endorse" || badge === "🏳️‍🌈 LGBTQ Affirming");
+  if (unknownCount === coreTotal && !badges.includes("❓ Unknown")) {
+    badges.push("❓ Unknown");
+  }
+
+  const hasRedFlagBadge = badges.some((badge) => badge === "🚫 We Cannot Endorse" || badge === "🏳️‍🌈 LGBTQ Affirming" || badge === "⚠️ Prosperity Gospel" || badge === "⚠️ Hyper-Charismatic" || badge === "⚠️ Seeker-Sensitive");
 
   let status: EvaluationStatus;
   if (hasRedFlagBadge || coverageRatio < 0.5 || falseCount > 0) {
