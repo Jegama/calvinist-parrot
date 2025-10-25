@@ -95,7 +95,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
               disabled={createMutation.status === "pending" || !website.trim()}
               className="md:w-48"
             >
-              {createMutation.status === "pending" ? <Spinner /> + " Evaluating…" : "Evaluate & add"}
+              {createMutation.status === "pending" ? <Spinner /> : "Evaluate & add"}
             </Button>
           </div>
           {creationError ? <p className="text-sm text-red-500">{creationError}</p> : null}
@@ -123,7 +123,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
               aria-label="State name"
             />
             <Button type="button" onClick={() => searchMutation.mutate()} disabled={searchMutation.status === "pending"}>
-              {searchMutation.status === "pending" ? <Spinner /> + " Searching…" : "Search"}
+              {searchMutation.status === "pending" ? <Spinner /> : "Search"}
             </Button>
           </div>
           {searchError ? <p className="text-sm text-red-500">{searchError}</p> : null}
@@ -165,7 +165,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
                           disabled={evaluatingId === result.id}
                           className="shrink-0"
                         >
-                          {evaluatingId === result.id ? <Spinner /> + " Evaluating…" : "Evaluate"}
+                          {evaluatingId === result.id ? <Spinner /> : "Evaluate"}
                         </Button>
                       )}
                     </div>

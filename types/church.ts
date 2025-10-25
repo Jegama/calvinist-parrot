@@ -14,6 +14,83 @@ export type CoreDoctrineStatusValue = "true" | "false" | "unknown";
 
 export type CoreDoctrineMap = Record<CoreDoctrineKey, CoreDoctrineStatusValue>;
 
+// ============================================================================
+// Parallel LLM Call Response Types
+// ============================================================================
+
+export interface BasicFieldsResponse {
+  name: string | null;
+  website: string;
+  addresses: Array<{
+    street_1: string | null;
+    street_2: string | null;
+    city: string | null;
+    state: string | null;
+    post_code: string | null;
+    source_url: string | null;
+  }>;
+  contacts: {
+    phone: string | null;
+    email: string | null;
+  };
+  service_times: string[];
+  best_pages_for: {
+    beliefs: string | null;
+    confession: string | null;
+    about: string | null;
+    leadership: string | null;
+  };
+}
+
+export interface CoreDoctrinesResponse {
+  core_doctrines: CoreDoctrineMap;
+  notes: ChurchNote[];
+}
+
+export interface SecondaryDoctrinesResponse {
+  secondary: {
+    baptism: string | null;
+    governance: string | null;
+    lords_supper: string | null;
+    gifts: string | null;
+    women_in_church: string | null;
+    sanctification: string | null;
+    continuity: string | null;
+    security: string | null;
+    atonement_model: string | null;
+  };
+  badges: string[];
+}
+
+export interface TertiaryDoctrinesResponse {
+  tertiary: {
+    eschatology: string | null;
+    worship_style: string | null;
+    counseling: string | null;
+    creation: string | null;
+    christian_liberty: string | null;
+    discipline: string | null;
+    parachurch: string | null;
+  };
+  badges: string[];
+}
+
+export interface DenominationConfessionResponse {
+  denomination: DenominationInfo;
+  confession: ConfessionInfo;
+  badges: string[];
+  notes: ChurchNote[];
+}
+
+export interface RedFlagsResponse {
+  badges: string[];
+  notes: ChurchNote[];
+}
+
+// ============================================================================
+// Existing Types
+// ============================================================================
+
 export interface ChurchAddress {
   id: string;
   street1: string | null;

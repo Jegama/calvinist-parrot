@@ -6,13 +6,35 @@ import type {
   CoreDoctrineMap,
   CoreDoctrineStatusValue,
   EvaluationStatus,
+  BasicFieldsResponse,
+  CoreDoctrinesResponse,
+  SecondaryDoctrinesResponse,
+  TertiaryDoctrinesResponse,
+  DenominationConfessionResponse,
+  RedFlagsResponse,
 } from "@/types/church";
 
 import {
   CORE_DOCTRINE_KEYS,
-  RESPONSE_SCHEMA,
+  BASIC_FIELDS_SCHEMA,
+  CORE_DOCTRINES_SCHEMA,
+  SECONDARY_DOCTRINES_SCHEMA,
+  TERTIARY_DOCTRINES_SCHEMA,
+  DENOMINATION_CONFESSION_SCHEMA,
+  RED_FLAGS_SCHEMA,
 } from "@/lib/schemas/church-finder";
-import { EXTRACTION_INSTRUCTIONS } from "@/lib/prompts/church-finder";
+import {
+  BASIC_FIELDS_PROMPT,
+  CORE_DOCTRINES_PROMPT,
+  SECONDARY_DOCTRINES_PROMPT,
+  TERTIARY_DOCTRINES_PROMPT,
+  DENOMINATION_CONFESSION_PROMPT,
+  RED_FLAGS_PROMPT,
+} from "@/lib/prompts/church-finder";
+import {
+  applyConfessionToCoreDoctrines,
+  applyConfessionToSecondary,
+} from "@/utils/confessionInference";
 
 import { doctrinalStatementContent } from "@/app/doctrinal-statement/page";
 
@@ -162,28 +184,186 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     .join("\n\n");
 
   const systemPrompt = `${doctrinalStatementContent}\n\nYou are a research analyst helping Calvinist Parrot Ministries vet churches. Produce precise, source-grounded JSON according to the schema.`;
-  const userPrompt = `${EXTRACTION_INSTRUCTIONS}\n\n${contentBlocks}`;
 
-  const response = await genai.models.generateContent({
+  // ============================================================================
+  // Phase 1: Make 5 parallel LLM calls
+  // ============================================================================
+  console.log("Starting parallel extraction calls...");
+  
+  const [
+    basicFields,
+    coreDoctrinesRaw,
+    secondaryRaw,
+    tertiaryRaw,
+    denomConfession,
+  ] = await Promise.all([
+    // Call 1: Basic Fields
+    genai.models.generateContent({
+      model: MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${systemPrompt}\n\n${BASIC_FIELDS_PROMPT}\n\n${contentBlocks}` }],
+        },
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: BASIC_FIELDS_SCHEMA,
+      },
+    }).then((res) => {
+      if (!res.text) throw new Error("Empty response from Call 1");
+      return JSON.parse(res.text) as BasicFieldsResponse;
+    }),
+
+    // Call 2: Core Doctrines
+    genai.models.generateContent({
+      model: MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${systemPrompt}\n\n${CORE_DOCTRINES_PROMPT}\n\n${contentBlocks}` }],
+        },
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: CORE_DOCTRINES_SCHEMA,
+      },
+    }).then((res) => {
+      if (!res.text) throw new Error("Empty response from Call 2");
+      return JSON.parse(res.text) as CoreDoctrinesResponse;
+    }),
+
+    // Call 3: Secondary Doctrines
+    genai.models.generateContent({
+      model: MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${systemPrompt}\n\n${SECONDARY_DOCTRINES_PROMPT}\n\n${contentBlocks}` }],
+        },
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: SECONDARY_DOCTRINES_SCHEMA,
+      },
+    }).then((res) => {
+      if (!res.text) throw new Error("Empty response from Call 3");
+      return JSON.parse(res.text) as SecondaryDoctrinesResponse;
+    }),
+
+    // Call 4: Tertiary Doctrines
+    genai.models.generateContent({
+      model: MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${systemPrompt}\n\n${TERTIARY_DOCTRINES_PROMPT}\n\n${contentBlocks}` }],
+        },
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: TERTIARY_DOCTRINES_SCHEMA,
+      },
+    }).then((res) => {
+      if (!res.text) throw new Error("Empty response from Call 4");
+      return JSON.parse(res.text) as TertiaryDoctrinesResponse;
+    }),
+
+    // Call 5: Denomination & Confession
+    genai.models.generateContent({
+      model: MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${systemPrompt}\n\n${DENOMINATION_CONFESSION_PROMPT}\n\n${contentBlocks}` }],
+        },
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: DENOMINATION_CONFESSION_SCHEMA,
+      },
+    }).then((res) => {
+      if (!res.text) throw new Error("Empty response from Call 5");
+      return JSON.parse(res.text) as DenominationConfessionResponse;
+    }),
+  ]);
+
+  console.log("Parallel calls completed. Applying confession inference...");
+
+  // ============================================================================
+  // Phase 2: Apply Confession Inference
+  // ============================================================================
+  const coreDoctrines = applyConfessionToCoreDoctrines(
+    coreDoctrinesRaw.core_doctrines,
+    denomConfession.confession.adopted
+  );
+
+  const secondary = applyConfessionToSecondary(
+    secondaryRaw.secondary,
+    denomConfession.confession.name,
+    denomConfession.confession.adopted
+  );
+
+  // ============================================================================
+  // Phase 3: Call 6 - Red Flags Analysis
+  // ============================================================================
+  console.log("Running red flags analysis...");
+  
+  const redFlags = await genai.models.generateContent({
     model: MODEL,
     contents: [
       {
         role: "user",
-        parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
+        parts: [{ text: `${systemPrompt}\n\n${RED_FLAGS_PROMPT}\n\n${contentBlocks}` }],
       },
     ],
     config: {
       responseMimeType: "application/json",
-      responseSchema: RESPONSE_SCHEMA,
+      responseSchema: RED_FLAGS_SCHEMA,
     },
+  }).then((res) => {
+    if (!res.text) throw new Error("Empty response from Call 6");
+    return JSON.parse(res.text) as RedFlagsResponse;
   });
 
-  const text = response.text;
-  if (!text) {
-    throw new Error("Gemini returned an empty response");
-  }
+  // ============================================================================
+  // Phase 4: Merge Results
+  // ============================================================================
+  console.log("Merging results...");
 
-  return JSON.parse(text) as ChurchEvaluationRaw;
+  const allBadges = [
+    ...secondaryRaw.badges,
+    ...tertiaryRaw.badges,
+    ...denomConfession.badges,
+    ...redFlags.badges,
+  ];
+
+  const allNotes = [
+    ...coreDoctrinesRaw.notes,
+    ...denomConfession.notes,
+    ...redFlags.notes,
+  ];
+
+  const evaluationRaw: ChurchEvaluationRaw = {
+    church: {
+      name: basicFields.name,
+      website: basicFields.website,
+      addresses: basicFields.addresses,
+      contacts: basicFields.contacts,
+      service_times: basicFields.service_times,
+      best_pages_for: basicFields.best_pages_for,
+      denomination: denomConfession.denomination,
+      confession: denomConfession.confession,
+      core_doctrines: coreDoctrines,
+      secondary,
+      tertiary: tertiaryRaw.tertiary,
+      badges: allBadges,
+      notes: allNotes,
+    },
+  };
+
+  console.log("Extraction complete.");
+  return evaluationRaw;
 }
 
 export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
@@ -196,6 +376,7 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   const core = raw.church.core_doctrines ?? ({} as CoreDoctrineMap);
   const confessionAdopted = Boolean(raw.church.confession?.adopted);
 
+  // Normalize core doctrines (already inferred in extractChurchEvaluation, but double-check)
   const normalizedCore: CoreDoctrineMap = CORE_DOCTRINE_KEYS.reduce((acc, key) => {
     const value = core[key];
     if (value === "true" || value === "false" || value === "unknown") {
@@ -206,38 +387,50 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
     return acc;
   }, {} as CoreDoctrineMap);
 
-  if (confessionAdopted) {
-    for (const key of CORE_DOCTRINE_KEYS) {
-      if (normalizedCore[key] === "unknown") {
-        normalizedCore[key] = "true";
-      }
-    }
-  }
+  // Get LLM-detected badges
+  const llmBadges = Array.isArray(raw.church.badges) ? [...new Set(raw.church.badges)] : [];
 
-  const badges = Array.isArray(raw.church.badges) ? [...new Set(raw.church.badges)] : [];
-  if (confessionAdopted && !badges.includes("✅ Confessional Seal")) {
-    badges.push("✅ Confessional Seal");
-  }
-
+  // Count core doctrine statuses
   const trueCount = CORE_DOCTRINE_KEYS.filter((key) => normalizedCore[key] === "true").length;
   const falseCount = CORE_DOCTRINE_KEYS.filter((key) => normalizedCore[key] === "false").length;
   const unknownCount = CORE_DOCTRINE_KEYS.filter((key) => normalizedCore[key] === "unknown").length;
   const coreTotal = CORE_DOCTRINE_KEYS.length;
   const coverageRatio = coreTotal === 0 ? 0 : trueCount / coreTotal;
 
-  if (!confessionAdopted && coverageRatio < 0.5 && !badges.includes("⚠️ Low Essentials Coverage")) {
-    badges.push("⚠️ Low Essentials Coverage");
+  // ============================================================================
+  // Compute badges (4 computed badges)
+  // ============================================================================
+  const computedBadges: string[] = [];
+
+  // 1. ✅ Confessional Seal
+  if (confessionAdopted) {
+    computedBadges.push("✅ Confessional Seal");
   }
 
-  if (falseCount > 0 && !badges.includes("🚫 We Cannot Endorse")) {
-    badges.push("🚫 We Cannot Endorse");
+  // 2. 🚫 We Cannot Endorse
+  if (falseCount > 0) {
+    computedBadges.push("🚫 We Cannot Endorse");
   }
 
-  if (unknownCount === coreTotal && !badges.includes("❓ Unknown")) {
-    badges.push("❓ Unknown");
+  // 3. ⚠️ Low Essentials Coverage
+  if (!confessionAdopted && coverageRatio < 0.5) {
+    computedBadges.push("⚠️ Low Essentials Coverage");
   }
 
-  const hasRedFlagBadge = badges.some((badge) => badge === "🚫 We Cannot Endorse" || badge === "🏳️‍🌈 LGBTQ Affirming" || badge === "⚠️ Prosperity Gospel" || badge === "⚠️ Hyper-Charismatic" || badge === "⚠️ Seeker-Sensitive");
+  // 4. ❓ Unknown
+  if (unknownCount > 0) {
+    computedBadges.push("❓ Unknown");
+  }
+
+  // Merge LLM-detected + computed badges
+  const allBadges = [...new Set([...llmBadges, ...computedBadges])];
+
+  // ============================================================================
+  // Determine evaluation status
+  // ============================================================================
+  const hasRedFlagBadge = allBadges.some((badge) =>
+    badge === "🚫 We Cannot Endorse" || badge === "🏳️‍🌈 LGBTQ Affirming"
+  );
 
   let status: EvaluationStatus;
   if (hasRedFlagBadge || coverageRatio < 0.5 || falseCount > 0) {
@@ -252,7 +445,7 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
 
   return {
     normalizedCore,
-    badges,
+    badges: allBadges,
     coverageRatio,
     coreOnSiteCount: trueCount,
     status,
