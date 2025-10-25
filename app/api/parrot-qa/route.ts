@@ -5,7 +5,8 @@ export const maxDuration = 60;
 import { NextRequest } from "next/server";
 import prisma from '@/lib/prisma'
 import OpenAI from 'openai'
-import * as prompts from '@/lib/prompts'
+import * as prompts from '@/lib/prompts/core'
+import * as qaPrompts from '@/lib/prompts/parrot-qa'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
   }
 
   const core_sys_prompt_with_denomination = prompts.CORE_SYS_PROMPT.replace('{denomination}', secondary_prompt_text);
-  const new_sys_prompt = prompts.BRIEF_RESPONSE_SYS_PROMPT.replace('{CORE}', core_sys_prompt_with_denomination);
+  const new_sys_prompt = qaPrompts.BRIEF_RESPONSE_SYS_PROMPT.replace('{CORE}', core_sys_prompt_with_denomination);
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -56,8 +57,8 @@ export async function POST(req: NextRequest) {
       controller.enqueue(encoder.encode(JSON.stringify({ type: 'progress', message: 'Understanding question...' }) + '\n'));
 
       const message_list: OpenAI.Chat.ChatCompletionMessageParam[] = [
-        { role: "system", content: prompts.CATEGORIZING_SYS_PROMPT },
-        ...prompts.n_shot_examples,
+        { role: "system", content: qaPrompts.CATEGORIZING_SYS_PROMPT },
+        ...qaPrompts.n_shot_examples,
         { role: "user", content: question }
       ]
 
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
         messages: message_list,
         response_format: {
           type: "json_schema",
-          json_schema: prompts.categorizationSchema,
+          json_schema: qaPrompts.categorizationSchema,
         },
       })
 
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
       );
 
       if (categorization.category === "Non-Biblical Questions") {
-        const refusingPrompt = prompts.refusing_prompt
+        const refusingPrompt = qaPrompts.refusing_prompt
           .replace('{user_question}', question)
           .replace('{category}', categorization.category)
           .replace('{subcategory}', categorization.subcategory)
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
       // Step 2: Reasoning (simulating three agents)
       controller.enqueue(encoder.encode(JSON.stringify({ type: 'progress', message: 'Asking the Counsel of Three...' }) + '\n'));
 
-      const reasoningPrompt = prompts.reasoning_prompt
+      const reasoningPrompt = qaPrompts.reasoning_prompt
         .replace('{user_question}', question)
         .replace('{reformatted_question}', categorization.reformatted_question)
         .replace('{category}', categorization.category)
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest) {
       // Step 3: Calvin Review
       controller.enqueue(encoder.encode(JSON.stringify({ type: 'progress', message: 'Calvin is reviewing the answers...' }) + '\n'));
 
-      const calvinReviewPrompt = prompts.calvin_review
+      const calvinReviewPrompt = qaPrompts.calvin_review
         .replace('{user_question}', question)
         .replace('{reformatted_question}', categorization.reformatted_question)
         .replace('{category}', categorization.category)
@@ -194,7 +195,7 @@ export async function POST(req: NextRequest) {
       // Step 4: Synthesize Final Answer
       controller.enqueue(encoder.encode(JSON.stringify({ type: 'progress', message: 'Synthesizing final answer...' }) + '\n'));
 
-      const reviewPrompt = prompts.answer_prompt
+      const reviewPrompt = qaPrompts.answer_prompt
         .replace('{user_question}', question)
         .replace('{reformatted_question}', categorization.reformatted_question)
         .replace('{category}', categorization.category)

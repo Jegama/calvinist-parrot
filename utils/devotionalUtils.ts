@@ -3,20 +3,20 @@
 import OpenAI from "openai";
 import { tavily } from "@tavily/core";
 import prisma from "@/lib/prisma";
-import * as prompts from "@/lib/prompts";
+import * as prompts from "@/lib/prompts/core";
 
 // Initialize clients
-export const openai = new OpenAI({
+const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
-export const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
+const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
 // Constants
-export const MAIN_MODEL = "gpt-5-mini";
+const MAIN_MODEL = "gpt-5-mini";
 
 // Schema definition
-export const devotionalSchema = {
+const devotionalSchema = {
     name: "devotional_schema",
     schema: {
         type: "object",
@@ -41,7 +41,7 @@ export function getDevotionalId(date: Date): string {
 }
 
 // Generate the prompt message for the OpenAI API
-export function generateMessage(
+function generateMessage(
         devotionalType: string,
         date: Date,
         latestNews: string | string[]

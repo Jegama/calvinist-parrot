@@ -9,7 +9,7 @@ import type {
   CoreDoctrineStatusValue,
   EvaluationStatus,
 } from "@/types/church";
-import { CORE_DOCTRINE_KEYS } from "@/utils/churchEvaluation";
+import { CORE_DOCTRINE_KEYS } from "@/lib/schemas/church-finder";
 
 type ChurchWithRelations = Prisma.churchGetPayload<{
   include: {

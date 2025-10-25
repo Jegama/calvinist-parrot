@@ -4,7 +4,8 @@ export const maxDuration = 60;
 
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
-import { CORE_SYS_PROMPT, secondary_reformed_baptist, follow_up_prompt } from "@/lib/prompts";
+import { CORE_SYS_PROMPT, secondary_reformed_baptist } from "@/lib/prompts/core";
+import { follow_up_prompt } from "@/lib/prompts/parrot-qa";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,

@@ -4,13 +4,13 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { mapChurchToDetail, mapChurchToListItem } from "@/lib/churchMapper";
 import {
-  CORE_DOCTRINE_KEYS,
   extractChurchEvaluation,
   geocodeAddress,
   postProcessEvaluation,
   toCoreDoctrineStatusEnum,
   toEvaluationStatusEnum,
 } from "@/utils/churchEvaluation";
+import { CORE_DOCTRINE_KEYS } from "@/lib/schemas/church-finder";
 import type { ChurchEvaluationRaw } from "@/types/church";
 
 const DEFAULT_PAGE_SIZE = 10;
