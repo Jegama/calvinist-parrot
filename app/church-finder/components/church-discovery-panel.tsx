@@ -169,6 +169,10 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
 
         <section className="space-y-3">
           <h3 className="text-lg font-semibold text-foreground">Search by city</h3>
+          <p className="text-xs text-muted-foreground">
+            Very basic search to find churches in a city. If you want to contribute with a better search system,
+            consider <a href="https://github.com/Jegama/calvinist-parrot" className="underline underline-offset-2 hover:no-underline">taking a look at our GitHub repo</a>.
+          </p>
           <div className="grid gap-3 md:grid-cols-[2fr,1fr,auto]">
             <Input
               value={city}

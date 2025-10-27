@@ -208,24 +208,24 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+      <DialogContent className="max-h-[90vh] max-w-[95vw] overflow-x-hidden overflow-y-auto rounded-lg p-4 sm:max-w-2xl sm:p-6 lg:max-w-4xl">
         {church ? (
-          <div className="space-y-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-6 overflow-x-hidden">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <DialogHeader className="flex-1">
-                <DialogTitle className="text-2xl font-semibold text-foreground">{church.name}</DialogTitle>
-                <DialogDescription>
+                <DialogTitle className="text-xl font-semibold text-foreground sm:text-2xl">{church.name}</DialogTitle>
+                <DialogDescription className="text-sm">
                   {church.city && church.state ? `${church.city}, ${church.state}` : church.city ?? church.state ?? "Location unknown"}
                 </DialogDescription>
               </DialogHeader>
               {church.confessionAdopted && (
-                <div className="flex justify-center md:justify-end">
+                <div className="flex justify-center lg:justify-end">
                   <Image
                     src="/confessional_seal.png"
                     alt="Confessional Church Seal"
-                    width={100}
-                    height={100}
-                    className="object-contain"
+                    width={80}
+                    height={80}
+                    className="object-contain sm:h-[100px] sm:w-[100px]"
                   />
                 </div>
               )}
@@ -320,30 +320,30 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
             <section className="space-y-4">
               <h3 className="text-lg font-semibold text-foreground">Church Information</h3>
 
-              <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4 md:grid-cols-2">
-                <div className="space-y-2 text-sm">
-                  <p>
+              <div className="grid gap-6 overflow-hidden rounded-lg border border-border bg-muted/30 p-4 lg:grid-cols-2">
+                <div className="min-w-0 space-y-3 text-sm">
+                  <p className="flex flex-col gap-1 sm:flex-row sm:gap-2">
                     <span className="font-medium text-muted-foreground">Website:</span>{" "}
                     <a
                       href={church.website}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-primary underline-offset-2 hover:underline"
+                      className="break-words text-primary underline-offset-2 hover:underline"
                     >
                       {church.website}
                     </a>
                   </p>
-                  <p>
+                  <p className="break-words">
                     <span className="font-medium text-muted-foreground">Email:</span>{" "}
-                    {church.email ?? "Unavailable"}
+                    <span>{church.email ?? "Unavailable"}</span>
                   </p>
                   <p>
                     <span className="font-medium text-muted-foreground">Phone:</span>{" "}
                     {church.phone ?? "Unavailable"}
                   </p>
                 </div>
-                <div className="space-y-2 text-sm">
-                  <p>
+                <div className="min-w-0 space-y-3 text-sm">
+                  <p className="break-words">
                     <span className="font-medium text-muted-foreground">Denomination:</span>{" "}
                     {church.denomination.label ?? "Unknown"}
                   </p>
@@ -599,8 +599,8 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                         This will re-run the evaluation pipeline for this church using the current website content.
                         The existing evaluation will be replaced.
                       </p>
-                      <div className="flex items-center gap-3">
-                        <code className="flex-1 rounded bg-muted px-2 py-1 text-xs text-foreground">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <code className="min-w-0 flex-1 overflow-x-auto rounded bg-muted px-2 py-1 text-xs text-foreground">
                           {church.website}
                         </code>
                         <Button
@@ -609,6 +609,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                           size="sm"
                           onClick={() => reEvaluateMutation.mutate()}
                           disabled={reEvaluateMutation.status === "pending"}
+                          className="shrink-0"
                         >
                           {reEvaluateMutation.status === "pending" ? <Spinner /> : "Re-evaluate"}
                         </Button>
@@ -650,9 +651,14 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
 function renderBestPage(label: string, url: string | null) {
   if (!url) return <p>{label}: <span className="text-muted-foreground">Not provided</span></p>;
   return (
-    <p>
+    <p className="flex flex-col gap-1 sm:flex-row sm:gap-2">
       <span className="font-medium text-foreground">{label}:</span>{" "}
-      <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary underline-offset-2 hover:underline">
+      <a 
+        href={url} 
+        target="_blank" 
+        rel="noopener noreferrer" 
+        className="break-words text-primary underline-offset-2 hover:underline"
+      >
         {url}
       </a>
     </p>
