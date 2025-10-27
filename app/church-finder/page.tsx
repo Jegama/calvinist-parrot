@@ -32,7 +32,7 @@ export default function ChurchFinderPage() {
   const [filters, setFilters] = useState<ChurchFilters>(DEFAULT_FILTERS);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [detailOpen, setDetailOpen] = useState(false);
-  const [selectedChurch, setSelectedChurch] = useState<ChurchDetail | null>(null);
+  const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -59,17 +59,18 @@ export default function ChurchFinderPage() {
     staleTime: 1000 * 60 * 10,
   });
 
-  const detailMutation = useMutation({
-    mutationFn: (id: string) => fetchChurchDetail(id),
-    onSuccess: (data) => {
-      setSelectedChurch(data);
-    },
+  // Phase 2: Use useQuery for church details with caching
+  const detailQuery = useQuery({
+    queryKey: ["church-detail", selectedChurchId],
+    queryFn: () => fetchChurchDetail(selectedChurchId!),
+    enabled: !!selectedChurchId && detailOpen,
+    staleTime: 1000 * 60 * 60, // 1 hour - evaluations don't change often
+    gcTime: 1000 * 60 * 60 * 24, // Keep in cache for 24 hours
   });
 
   const handleSelect = (church: ChurchListItem) => {
     setDetailOpen(true);
-    setSelectedChurch(null);
-    detailMutation.mutate(church.id);
+    setSelectedChurchId(church.id);
   };
 
   const handleFiltersChange = useCallback((next: ChurchFilters | ((prev: ChurchFilters) => ChurchFilters)) => {
@@ -113,7 +114,11 @@ export default function ChurchFinderPage() {
   const handleChurchCreated = useCallback((church: ChurchDetail) => {
     setFilters((prev) => ({ ...prev, page: 1 }));
     void queryClient.invalidateQueries({ queryKey: ["churches"] });
-    setSelectedChurch(church);
+    
+    // Cache the newly created church detail
+    queryClient.setQueryData(["church-detail", church.id], church);
+    
+    setSelectedChurchId(church.id);
     setDetailOpen(true);
   }, [queryClient]);
 
@@ -200,10 +205,10 @@ export default function ChurchFinderPage() {
         onOpenChange={(open) => {
           setDetailOpen(open);
           if (!open) {
-            setSelectedChurch(null);
+            setSelectedChurchId(null);
           }
         }}
-        church={selectedChurch}
+        church={detailQuery.data ?? null}
       />
     </div>
   );

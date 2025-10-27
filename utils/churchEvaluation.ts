@@ -41,7 +41,7 @@ import { doctrinalStatementContent } from "@/app/doctrinal-statement/page";
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-const MODEL = "gemini-2.5-flash-lite-preview-09-2025";
+const MODEL = "gemini-2.5-flash-preview-09-2025";
 
 type TavilyCrawlResult = {
   base_url?: string;
@@ -186,9 +186,11 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
   const systemPrompt = `${doctrinalStatementContent}\n\nYou are a research analyst helping Calvinist Parrot Ministries vet churches. Produce precise, source-grounded JSON according to the schema.`;
 
   // ============================================================================
-  // Phase 1: Make 5 parallel LLM calls
+  // Phase 1: Make 6 parallel LLM calls
   // ============================================================================
-  console.log("Starting parallel extraction calls...");
+  // Phase 1: Make 6 parallel LLM calls (ALL AT ONCE!)
+  // ============================================================================
+  console.log("Starting parallel extraction calls (all 6)...");
   
   const [
     basicFields,
@@ -196,6 +198,7 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     secondaryRaw,
     tertiaryRaw,
     denomConfession,
+    redFlags,
   ] = await Promise.all([
     // Call 1: Basic Fields
     genai.models.generateContent({
@@ -286,9 +289,27 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
       if (!res.text) throw new Error("Empty response from Call 5");
       return JSON.parse(res.text) as DenominationConfessionResponse;
     }),
+
+    // Call 6: Red Flags Analysis (NOW PARALLEL!)
+    genai.models.generateContent({
+      model: MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${systemPrompt}\n\n${RED_FLAGS_PROMPT}\n\n${contentBlocks}` }],
+        },
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: RED_FLAGS_SCHEMA,
+      },
+    }).then((res) => {
+      if (!res.text) throw new Error("Empty response from Call 6");
+      return JSON.parse(res.text) as RedFlagsResponse;
+    }),
   ]);
 
-  console.log("Parallel calls completed. Applying confession inference...");
+  console.log("All 6 parallel calls completed. Applying confession inference...");
 
   // ============================================================================
   // Phase 2: Apply Confession Inference
@@ -305,29 +326,7 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
   );
 
   // ============================================================================
-  // Phase 3: Call 6 - Red Flags Analysis
-  // ============================================================================
-  console.log("Running red flags analysis...");
-  
-  const redFlags = await genai.models.generateContent({
-    model: MODEL,
-    contents: [
-      {
-        role: "user",
-        parts: [{ text: `${systemPrompt}\n\n${RED_FLAGS_PROMPT}\n\n${contentBlocks}` }],
-      },
-    ],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: RED_FLAGS_SCHEMA,
-    },
-  }).then((res) => {
-    if (!res.text) throw new Error("Empty response from Call 6");
-    return JSON.parse(res.text) as RedFlagsResponse;
-  });
-
-  // ============================================================================
-  // Phase 4: Merge Results
+  // Phase 3: Merge Results
   // ============================================================================
   console.log("Merging results...");
 
@@ -393,33 +392,16 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   // Count core doctrine statuses
   const trueCount = CORE_DOCTRINE_KEYS.filter((key) => normalizedCore[key] === "true").length;
   const falseCount = CORE_DOCTRINE_KEYS.filter((key) => normalizedCore[key] === "false").length;
-  const unknownCount = CORE_DOCTRINE_KEYS.filter((key) => normalizedCore[key] === "unknown").length;
   const coreTotal = CORE_DOCTRINE_KEYS.length;
   const coverageRatio = coreTotal === 0 ? 0 : trueCount / coreTotal;
 
   // ============================================================================
-  // Compute badges (4 computed badges)
+  // Compute badges
   // ============================================================================
   const computedBadges: string[] = [];
 
-  // 1. ✅ Confessional Seal
-  if (confessionAdopted) {
-    computedBadges.push("✅ Confessional Seal");
-  }
-
-  // 2. 🚫 We Cannot Endorse
-  if (falseCount > 0) {
-    computedBadges.push("🚫 We Cannot Endorse");
-  }
-
-  // 3. ⚠️ Low Essentials Coverage
   if (!confessionAdopted && coverageRatio < 0.5) {
     computedBadges.push("⚠️ Low Essentials Coverage");
-  }
-
-  // 4. ❓ Unknown
-  if (unknownCount > 0) {
-    computedBadges.push("❓ Unknown");
   }
 
   // Merge LLM-detected + computed badges
@@ -429,7 +411,7 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   // Determine evaluation status
   // ============================================================================
   const hasRedFlagBadge = allBadges.some((badge) =>
-    badge === "🚫 We Cannot Endorse" || badge === "🏳️‍🌈 LGBTQ Affirming"
+    badge === "👩‍🏫 Ordained Women" || badge === "🏳️‍🌈 LGBTQ Affirming"
   );
 
   let status: EvaluationStatus;
@@ -468,41 +450,57 @@ export async function geocodeAddress(
     return { latitude: null, longitude: null };
   }
 
-  const url = new URL("https://nominatim.openstreetmap.org/search");
-  url.searchParams.set("format", "json");
+  if (!process.env.GEOAPIFY_API_KEY) {
+    console.warn("GEOAPIFY_API_KEY not configured, skipping geocoding");
+    return { latitude: null, longitude: null };
+  }
+
+  // Use Geoapify Geocoding API
+  const url = new URL("https://api.geoapify.com/v1/geocode/search");
+  url.searchParams.set("text", query);
+  url.searchParams.set("apiKey", process.env.GEOAPIFY_API_KEY);
   url.searchParams.set("limit", "1");
-  url.searchParams.set("q", `${query} church`);
+  url.searchParams.set("type", "amenity"); // Prioritize places of worship
 
   try {
-    const response = await fetch(url.toString(), {
-      headers: {
-        "User-Agent":
-          "CalvinistParrot/0.4.0 (contact@calvinistparrotministries.org)",
-      },
-      signal,
-    });
+    const response = await fetch(url.toString(), { signal });
 
     if (!response.ok) {
+      console.warn(`Geocode failed for "${query}": HTTP ${response.status}`);
       return { latitude: null, longitude: null };
     }
 
-    const payload = (await response.json()) as Array<{ lat?: string; lon?: string }>;
-    if (!Array.isArray(payload) || payload.length === 0) {
-      return { latitude: null, longitude: null };
-    }
-
-    const [result] = payload;
-    const latitude = result.lat ? Number.parseFloat(result.lat) : null;
-    const longitude = result.lon ? Number.parseFloat(result.lon) : null;
-
-    return {
-      latitude: Number.isFinite(latitude ?? NaN) ? latitude : null,
-      longitude: Number.isFinite(longitude ?? NaN) ? longitude : null,
+    const data = (await response.json()) as {
+      features?: Array<{
+        geometry?: {
+          coordinates?: [number, number]; // [lon, lat]
+        };
+      }>;
     };
+    
+    if (!data.features || data.features.length === 0) {
+      console.warn(`No geocode results found for: ${query}`);
+      return { latitude: null, longitude: null };
+    }
+
+    const coords = data.features[0]?.geometry?.coordinates;
+    if (!coords || coords.length !== 2) {
+      console.warn(`Invalid coordinates in geocode response for: ${query}`);
+      return { latitude: null, longitude: null };
+    }
+
+    const [lon, lat] = coords;
+    const latitude = Number.isFinite(lat) ? lat : null;
+    const longitude = Number.isFinite(lon) ? lon : null;
+
+    console.log(`Geocode result for "${query}": { lat: ${latitude}, lon: ${longitude} }`);
+
+    return { latitude, longitude };
   } catch (error) {
     if ((error as Error).name === "AbortError") {
       throw error;
     }
+    console.error(`Geocode error for "${query}":`, error);
     return { latitude: null, longitude: null };
   }
 }

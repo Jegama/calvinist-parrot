@@ -69,7 +69,7 @@ Evenings often fill with hospitality and church gatherings, so meeting in the mo
 
 We use the [Calvinist Parrot prayer tracker](/prayer-tracker) to steward intercession faithfully. The rotation keeps our requests from slipping through the cracks, and logging answers stirs our faith to keep approaching the throne of grace (Philippians 4:6-7; Hebrews 4:14-16). Whether you are new to family worship or simply looking for structure, we hope this tool helps your household persevere in prayer.
 
-Turn from self-reliance, trust Jesus Christ who died and rose for sinners, and join us in worshiping Him together at home. If you have any questions [please reach out](mailto:jesusmancilla@calvinistparrotministries.org)!
+Turn from self-reliance, trust Jesus Christ who died and rose for sinners, and join us in worshiping Him together at home. If you have any questions [please reach out](mailto:contact@calvinistparrotministries.org)!
 
 # Soli Deo Gloria
 

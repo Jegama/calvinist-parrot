@@ -250,16 +250,20 @@ Review all website content for the following red flag indicators. Add badges ONL
 - Heavy emphasis on production/performance over worship
 - "Seeker-driven" model where biblical content is minimized to attract crowds
 
+**👩‍🏫 Ordained Women**:
+- Women serving as **pastors**, **elders**, **bishops**, **priests**, or **reverends** (senior teaching/governing roles)
+- NOT for women serving as deacons, staff, ministry leaders, or teachers in non-governing roles
+- Look for titles like: "Pastor [Woman's name]", "Elder [Woman's name]", "Rev. [Woman's name]", "Bishop [Woman's name]", "Priestess", "Female clergy"
+- Also check leadership pages for women in elder/pastor positions
+
 **🏳️‍🌈 LGBTQ Affirming**: 
 Look for explicit affirmation in these contexts:
 - **Membership**: "We welcome LGBTQ individuals into full membership"
-- **Ordination**: LGBTQ individuals can serve as pastors/elders
+- **Ordination**: LGBTQ individuals can serve as pastors/elders/clergy
 - **Marriage**: Church performs/blesses same-sex marriages
 - **Denominational policy**: Affiliated with denomination that permits these (and church doesn't disclaim it)
 
 **Important**: Generic welcoming language like "all are welcome" is NOT sufficient. You need explicit inclusion in membership, leadership, or marriage contexts.
-
-**Also check for**: Women serving as "pastors" or "elders" (not just staff or deacons).
 
 ### Notes:
 For each red flag badge you add, create a note with:

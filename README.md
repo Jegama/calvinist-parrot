@@ -82,7 +82,7 @@ Huge thanks to [AO Lab](https://helloaolab.my.canva.site/) for providing the Bib
 If you want to learn the legal restrictions to sharing God's word, click [here](https://copy.church/initiatives/bibles/).
 
 ## Contact
-For questions or support, please [reach out](mailto:jesusmancilla@calvinistparrotministries.org).
+For questions or support, please [reach out](mailto:contact@calvinistparrotministries.org).
 
 # Soli Deo Gloria
 

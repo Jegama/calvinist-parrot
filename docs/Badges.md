@@ -13,6 +13,7 @@
 - ⚠️ **Prosperity Gospel** – Word of Faith, health/wealth theology
 - ⚠️ **Hyper-Charismatic** – Excessive focus on manifestations, "drunk in the Spirit," etc.
 - ⚠️ **Entertainment-Driven** – Diluted gospel
+- 👩‍🏫 **Ordained Women** – Women in pastor/elder/bishop/priest roles
 - 🏳️‍🌈 **LGBTQ Affirming**
 
 ### **Theological Distinctives** (Helpful for Reformed users)

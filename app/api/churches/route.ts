@@ -33,6 +33,52 @@ function ensureUrl(value: string): string {
   }
 }
 
+/**
+ * Build normalized evaluation data for database persistence
+ * This is extracted to avoid duplication between immediate response and background job
+ */
+function buildEvaluationData(
+  rawEvaluation: ChurchEvaluationRaw,
+  processed: ReturnType<typeof postProcessEvaluation>
+) {
+  const churchData = rawEvaluation.church;
+
+  return {
+    rawEvaluation: rawEvaluation as unknown as Prisma.JsonObject,
+    badges: processed.badges,
+    secondary: (churchData.secondary ?? null) as Prisma.InputJsonValue,
+    tertiary: (churchData.tertiary ?? null) as Prisma.InputJsonValue,
+    coreOnSiteCount: processed.coreOnSiteCount,
+    coreTotalCount: CORE_DOCTRINE_KEYS.length,
+    coverageRatio: processed.coverageRatio,
+    status: toEvaluationStatusEnum(processed.status),
+    coreTrinity: toCoreDoctrineStatusEnum(processed.normalizedCore.trinity),
+    coreGospel: toCoreDoctrineStatusEnum(processed.normalizedCore.gospel),
+    coreJustificationByFaith: toCoreDoctrineStatusEnum(
+      processed.normalizedCore.justification_by_faith
+    ),
+    coreChristDeityHumanity: toCoreDoctrineStatusEnum(
+      processed.normalizedCore.christ_deity_humanity
+    ),
+    coreScriptureAuthority: toCoreDoctrineStatusEnum(
+      processed.normalizedCore.scripture_authority
+    ),
+    coreIncarnationVirginBirth: toCoreDoctrineStatusEnum(
+      processed.normalizedCore.incarnation_virgin_birth
+    ),
+    coreAtonementNecessary: toCoreDoctrineStatusEnum(
+      processed.normalizedCore.atonement_necessary_sufficient
+    ),
+    coreResurrectionOfJesus: toCoreDoctrineStatusEnum(
+      processed.normalizedCore.resurrection_of_jesus
+    ),
+    coreReturnAndJudgment: toCoreDoctrineStatusEnum(
+      processed.normalizedCore.return_and_judgment
+    ),
+    coreCharacterOfGod: toCoreDoctrineStatusEnum(processed.normalizedCore.character_of_god),
+  };
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const pageParam = Number.parseInt(searchParams.get("page") ?? "1", 10);
@@ -124,156 +170,210 @@ export async function POST(request: Request) {
       ? churchData.denomination.signals
       : [];
 
-    const geocodedAddresses = await Promise.all(
-      addresses.map((address, index) =>
-        geocodeAddress({
-          street1: address.street_1,
-          city: address.city,
-          state: address.state,
-          postCode: address.post_code,
-        }).then((coords) => ({ index, coords }))
-      )
-    );
+    // ============================================================================
+    // Build ChurchDetail immediately (without geocoding)
+    // ============================================================================
 
-    const detail = await prisma.$transaction(async (tx) => {
-      const existing = await tx.church.findUnique({ where: { website: websiteUrl }, select: { id: true } });
+    // Build normalized evaluation data once (reused in background job)
+    const evaluationData = buildEvaluationData(rawEvaluation, processed);
 
-      const baseData = {
-        name: churchName,
-        website: websiteUrl,
-        phone: churchData.contacts?.phone ?? null,
-        email: churchData.contacts?.email ?? null,
-        denominationLabel: churchData.denomination?.label ?? null,
-        denominationConfidence: churchData.denomination?.confidence ?? null,
-        denominationSignals,
-        confessionAdopted: churchData.confession?.adopted ?? false,
-        confessionName: churchData.confession?.name ?? null,
-        confessionSourceUrl: churchData.confession?.source_url ?? null,
-        bestBeliefsUrl: churchData.best_pages_for?.beliefs ?? null,
-        bestConfessionUrl: churchData.best_pages_for?.confession ?? null,
-        bestAboutUrl: churchData.best_pages_for?.about ?? null,
-        bestLeadershipUrl: churchData.best_pages_for?.leadership ?? null,
-      };
-
-      const churchId = existing
-        ? existing.id
-        : (await tx.church.create({ data: baseData })).id;
-
-      if (existing) {
-        await tx.church.update({ where: { id: churchId }, data: baseData });
-      }
-
-      await tx.churchAddress.deleteMany({ where: { churchId } });
-      await tx.churchServiceTime.deleteMany({ where: { churchId } });
-
-      await Promise.all(
-        addresses.map((address, index) => {
-          const coords = geocodedAddresses.find((entry) => entry.index === index)?.coords ?? {
-            latitude: null,
-            longitude: null,
-          };
-          return tx.churchAddress.create({
-            data: {
-              churchId,
-              street1: address.street_1 ?? null,
-              street2: address.street_2 ?? null,
-              city: address.city ?? null,
-              state: address.state ?? null,
-              postCode: address.post_code ?? null,
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-              sourceUrl: address.source_url ?? null,
-              isPrimary: index === 0,
-            },
-          });
-        })
-      );
-
-      await Promise.all(
-        serviceTimes.map((label) =>
-          tx.churchServiceTime.create({
-            data: {
-              churchId,
-              label,
-            },
-          })
-        )
-      );
-
-      await tx.churchEvaluation.create({
-        data: {
-          churchId,
-          rawEvaluation: rawEvaluation as unknown as Prisma.JsonObject,
-          badges: processed.badges,
-          secondary: (churchData.secondary ?? null) as Prisma.InputJsonValue,
-          tertiary: (churchData.tertiary ?? null) as Prisma.InputJsonValue,
-          coreOnSiteCount: processed.coreOnSiteCount,
-          coreTotalCount: CORE_DOCTRINE_KEYS.length,
-          coverageRatio: processed.coverageRatio,
-          status: toEvaluationStatusEnum(processed.status),
-          coreTrinity: toCoreDoctrineStatusEnum(processed.normalizedCore.trinity),
-          coreGospel: toCoreDoctrineStatusEnum(processed.normalizedCore.gospel),
-          coreJustificationByFaith: toCoreDoctrineStatusEnum(
-            processed.normalizedCore.justification_by_faith
-          ),
-          coreChristDeityHumanity: toCoreDoctrineStatusEnum(
-            processed.normalizedCore.christ_deity_humanity
-          ),
-          coreScriptureAuthority: toCoreDoctrineStatusEnum(
-            processed.normalizedCore.scripture_authority
-          ),
-          coreIncarnationVirginBirth: toCoreDoctrineStatusEnum(
-            processed.normalizedCore.incarnation_virgin_birth
-          ),
-          coreAtonementNecessary: toCoreDoctrineStatusEnum(
-            processed.normalizedCore.atonement_necessary_sufficient
-          ),
-          coreResurrectionOfJesus: toCoreDoctrineStatusEnum(
-            processed.normalizedCore.resurrection_of_jesus
-          ),
-          coreReturnAndJudgment: toCoreDoctrineStatusEnum(
-            processed.normalizedCore.return_and_judgment
-          ),
-          coreCharacterOfGod: toCoreDoctrineStatusEnum(processed.normalizedCore.character_of_god),
+    const immediateDetail = mapChurchToDetail({
+      id: "temp-" + Date.now(), // Temporary ID until DB write
+      name: churchName,
+      website: websiteUrl,
+      phone: churchData.contacts?.phone ?? null,
+      email: churchData.contacts?.email ?? null,
+      denominationLabel: churchData.denomination?.label ?? null,
+      denominationConfidence: churchData.denomination?.confidence ?? null,
+      denominationSignals,
+      confessionAdopted: churchData.confession?.adopted ?? false,
+      confessionName: churchData.confession?.name ?? null,
+      confessionSourceUrl: churchData.confession?.source_url ?? null,
+      bestBeliefsUrl: churchData.best_pages_for?.beliefs ?? null,
+      bestConfessionUrl: churchData.best_pages_for?.confession ?? null,
+      bestAboutUrl: churchData.best_pages_for?.about ?? null,
+      bestLeadershipUrl: churchData.best_pages_for?.leadership ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      addresses: addresses.map((address, index) => ({
+        id: `temp-addr-${index}`,
+        churchId: "temp",
+        street1: address.street_1 ?? null,
+        street2: address.street_2 ?? null,
+        city: address.city ?? null,
+        state: address.state ?? null,
+        postCode: address.post_code ?? null,
+        latitude: null, // Will be geocoded in background
+        longitude: null,
+        sourceUrl: address.source_url ?? null,
+        isPrimary: index === 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })),
+      serviceTimes: serviceTimes.map((label, index) => ({
+        id: `temp-service-${index}`,
+        churchId: "temp",
+        label,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })),
+      evaluations: [
+        {
+          id: `temp-eval-${Date.now()}`,
+          churchId: "temp",
+          rawEvaluation: evaluationData.rawEvaluation,
+          badges: evaluationData.badges,
+          secondary: evaluationData.secondary as Prisma.JsonValue,
+          tertiary: evaluationData.tertiary as Prisma.JsonValue,
+          coreOnSiteCount: evaluationData.coreOnSiteCount,
+          coreTotalCount: evaluationData.coreTotalCount,
+          coverageRatio: evaluationData.coverageRatio,
+          status: evaluationData.status,
+          coreTrinity: evaluationData.coreTrinity,
+          coreGospel: evaluationData.coreGospel,
+          coreJustificationByFaith: evaluationData.coreJustificationByFaith,
+          coreChristDeityHumanity: evaluationData.coreChristDeityHumanity,
+          coreScriptureAuthority: evaluationData.coreScriptureAuthority,
+          coreIncarnationVirginBirth: evaluationData.coreIncarnationVirginBirth,
+          coreAtonementNecessary: evaluationData.coreAtonementNecessary,
+          coreResurrectionOfJesus: evaluationData.coreResurrectionOfJesus,
+          coreReturnAndJudgment: evaluationData.coreReturnAndJudgment,
+          coreCharacterOfGod: evaluationData.coreCharacterOfGod,
+          createdAt: new Date(),
         },
-      });
-
-      const church = await tx.church.findUniqueOrThrow({
-        where: { id: churchId },
-        include: {
-          addresses: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
-          serviceTimes: { orderBy: { createdAt: "asc" } },
-          evaluations: { orderBy: { createdAt: "desc" }, take: 1 },
-        },
-      });
-
-      return church;
+      ],
     });
 
-    return NextResponse.json(mapChurchToDetail(detail));
+    // Return immediately to user (geocoding happens in background)
+    const response = NextResponse.json(immediateDetail);
+
+    // ============================================================================
+    // Background Job: Geocode + Persist to Database (Fire-and-Forget)
+    // ============================================================================
+    void (async () => {
+      try {
+        console.log(`[Background] Starting geocoding for ${websiteUrl}`);
+
+        // Geocode all addresses in parallel
+        const geocodedAddresses = await Promise.all(
+          addresses.map((address, index) =>
+            geocodeAddress({
+              street1: address.street_1,
+              city: address.city,
+              state: address.state,
+              postCode: address.post_code,
+            }).then((coords) => ({ index, coords }))
+          )
+        );
+
+        console.log(`[Background] Geocoding complete, saving to database...`);
+
+        await prisma.$transaction(async (tx) => {
+          const existing = await tx.church.findUnique({ where: { website: websiteUrl }, select: { id: true } });
+
+          const baseData = {
+            name: churchName,
+            website: websiteUrl,
+            phone: churchData.contacts?.phone ?? null,
+            email: churchData.contacts?.email ?? null,
+            denominationLabel: churchData.denomination?.label ?? null,
+            denominationConfidence: churchData.denomination?.confidence ?? null,
+            denominationSignals,
+            confessionAdopted: churchData.confession?.adopted ?? false,
+            confessionName: churchData.confession?.name ?? null,
+            confessionSourceUrl: churchData.confession?.source_url ?? null,
+            bestBeliefsUrl: churchData.best_pages_for?.beliefs ?? null,
+            bestConfessionUrl: churchData.best_pages_for?.confession ?? null,
+            bestAboutUrl: churchData.best_pages_for?.about ?? null,
+            bestLeadershipUrl: churchData.best_pages_for?.leadership ?? null,
+          };
+
+          const churchId = existing
+            ? existing.id
+            : (await tx.church.create({ data: baseData })).id;
+
+          if (existing) {
+            await tx.church.update({ where: { id: churchId }, data: baseData });
+          }
+
+          await tx.churchAddress.deleteMany({ where: { churchId } });
+          await tx.churchServiceTime.deleteMany({ where: { churchId } });
+
+          await Promise.all(
+            addresses.map((address, index) => {
+              const coords = geocodedAddresses.find((entry) => entry.index === index)?.coords ?? {
+                latitude: null,
+                longitude: null,
+              };
+              return tx.churchAddress.create({
+                data: {
+                  churchId,
+                  street1: address.street_1 ?? null,
+                  street2: address.street_2 ?? null,
+                  city: address.city ?? null,
+                  state: address.state ?? null,
+                  postCode: address.post_code ?? null,
+                  latitude: coords.latitude,
+                  longitude: coords.longitude,
+                  sourceUrl: address.source_url ?? null,
+                  isPrimary: index === 0,
+                },
+              });
+            })
+          );
+
+          await Promise.all(
+            serviceTimes.map((label) =>
+              tx.churchServiceTime.create({
+                data: {
+                  churchId,
+                  label,
+                },
+              })
+            )
+          );
+
+          await tx.churchEvaluation.create({
+            data: {
+              churchId,
+              ...evaluationData,
+            },
+          });
+
+        });
+
+        console.log(`[Background] Database write complete for ${websiteUrl}`);
+      } catch (error) {
+        console.error(`[Background] Failed to persist church ${websiteUrl}:`, error);
+        // Background job failure doesn't affect user experience
+        // Could implement retry logic or logging service here
+      }
+    })();
+
+    return response;
   } catch (error) {
     console.error("Failed to evaluate church", error);
-    
+
     const errorMessage = error instanceof Error ? error.message : "Unable to evaluate church at this time";
-    
+
     // Provide more specific error messages
     if (errorMessage.includes("Unable to gather website content")) {
       return NextResponse.json(
-        { 
-          error: "Could not access the church website. The site may be blocking crawlers, offline, or require authentication. Please verify the URL and try again." 
+        {
+          error: "Could not access the church website. The site may be blocking crawlers, offline, or require authentication. Please verify the URL and try again."
         },
         { status: 422 }
       );
     }
-    
+
     if (errorMessage.includes("TAVILY_API_KEY")) {
       return NextResponse.json({ error: "Service configuration error" }, { status: 500 });
     }
-    
+
     if (errorMessage.includes("OPENAI_API_KEY")) {
       return NextResponse.json({ error: "Service configuration error" }, { status: 500 });
     }
-    
+
     return NextResponse.json(
       { error: errorMessage.length < 200 ? errorMessage : "Unable to evaluate church at this time" },
       { status: 500 }
