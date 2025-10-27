@@ -2,7 +2,6 @@ import confessionsMap from "@/lib/confessions_map.json";
 import type {
   CoreDoctrineMap,
   SecondaryDoctrinesResponse,
-  TertiaryDoctrinesResponse,
 } from "@/types/church";
 import { CORE_DOCTRINE_KEYS } from "@/lib/schemas/church-finder";
 
@@ -22,7 +21,7 @@ export function applyConfessionToCoreDoctrines(
   }
 
   const updated = { ...coreDoctrines };
-  
+
   for (const key of CORE_DOCTRINE_KEYS) {
     if (updated[key] === "unknown") {
       updated[key] = "true";
@@ -51,29 +50,29 @@ export function applyConfessionToSecondary(
     return secondary;
   }
 
-  return {
-    baptism: secondary.baptism || confessionData.baptism,
-    governance: secondary.governance || confessionData.governance,
-    lords_supper: secondary.lords_supper || confessionData.lords_supper,
-    gifts: secondary.gifts || confessionData.gifts,
-    women_in_church: secondary.women_in_church || confessionData.women_in_church,
-    sanctification: secondary.sanctification || confessionData.sanctification,
-    continuity: secondary.continuity || confessionData.continuity,
-    security: secondary.security || confessionData.security,
-    atonement_model: secondary.atonement_model || confessionData.atonement_model,
+  // Helper to check if a value should be replaced
+  const shouldReplace = (value: string | null): boolean => {
+    if (!value) return true;
+    const normalized = value.toLowerCase().trim();
+    return normalized === "ambiguous/not stated" ||
+      normalized === "mixed/unclear" ||
+      normalized === "not stated" ||
+      normalized === "ambiguous" ||
+      normalized === "unknown" ||
+      normalized === "unclear" ||
+      normalized === "mixed" ||
+      normalized === "null";
   };
-}
 
-/**
- * Tertiary doctrines are typically not defined in historic confessions,
- * so we don't infer them. This function is a no-op for now but included
- * for consistency.
- */
-export function applyConfessionToTertiary(
-  tertiary: TertiaryDoctrinesResponse["tertiary"],
-  _confessionName: string | null,
-  _confessionAdopted: boolean
-): TertiaryDoctrinesResponse["tertiary"] {
-  // No inference for tertiary doctrines from confessions
-  return tertiary;
+  return {
+    baptism: shouldReplace(secondary.baptism) ? confessionData.baptism : secondary.baptism,
+    governance: shouldReplace(secondary.governance) ? confessionData.governance : secondary.governance,
+    lords_supper: shouldReplace(secondary.lords_supper) ? confessionData.lords_supper : secondary.lords_supper,
+    gifts: shouldReplace(secondary.gifts) ? confessionData.gifts : secondary.gifts,
+    women_in_church: shouldReplace(secondary.women_in_church) ? confessionData.women_in_church : secondary.women_in_church,
+    sanctification: shouldReplace(secondary.sanctification) ? confessionData.sanctification : secondary.sanctification,
+    continuity: shouldReplace(secondary.continuity) ? confessionData.continuity : secondary.continuity,
+    security: shouldReplace(secondary.security) ? confessionData.security : secondary.security,
+    atonement_model: shouldReplace(secondary.atonement_model) ? confessionData.atonement_model : secondary.atonement_model,
+  };
 }

@@ -1,3 +1,7 @@
+import { CORE_DOCTRINES_DEFINITIONS } from "./core-doctrines-definitions";
+import { SECONDARY_DOCTRINES_DEFINITIONS } from "./secondary-doctrines-definitions";
+import { TERTIARY_DOCTRINES_DEFINITIONS } from "./tertiary-doctrines-definitions";
+
 // ============================================================================
 // Common extraction rules for all calls
 // ============================================================================
@@ -49,29 +53,35 @@ export const CORE_DOCTRINES_PROMPT = `${COMMON_RULES}
 
 ### Task: Extract Core Doctrines
 
-For each of the 10 core doctrines below, determine if the church **explicitly affirms**, **denies**, or if it's **unknown** based on the website content.
+${CORE_DOCTRINES_DEFINITIONS}
+
+---
+
+**Your Task:**
+
+For each of the 10 core doctrines, determine if the church **explicitly affirms**, **denies**, or if it's **unknown** based on the website content.
 
 Set each to \`"true"\`, \`"false"\`, or \`"unknown"\`:
 
-1. **trinity**: God exists as three persons (Father, Son, Holy Spirit) in one essence
-2. **gospel**: Salvation by grace through faith in Jesus Christ alone
-3. **justification_by_faith**: Declared righteous by faith, not works
-4. **christ_deity_humanity**: Jesus is fully God and fully man
-5. **scripture_authority**: The Bible is the inspired, inerrant Word of God
-6. **incarnation_virgin_birth**: Jesus was born of the virgin Mary
-7. **atonement_necessary_sufficient**: Christ's death is necessary and sufficient for salvation
-8. **resurrection_of_jesus**: Jesus physically rose from the dead
-9. **return_and_judgment**: Jesus will return to judge the living and the dead
-10. **character_of_god**: God is holy, just, loving, merciful, sovereign
+1. **trinity**
+2. **gospel**
+3. **justification_by_faith**
+4. **christ_deity_humanity**
+5. **scripture_authority**
+6. **incarnation_virgin_birth**
+7. **atonement_necessary_sufficient**
+8. **resurrection_of_jesus**
+9. **return_and_judgment**
+10. **character_of_god**
 
 **Marking Guidelines:**
-- \`"true"\`: Church explicitly affirms this doctrine (look for "we believe", "we affirm", "we teach")
-- \`"false"\`: Church explicitly denies or contradicts this doctrine (look for "we do not believe", "we reject")
+- \`"true"\`: Church explicitly affirms this doctrine (see definitions above for what counts as affirmation)
+- \`"false"\`: Church explicitly denies or contradicts this doctrine
 - \`"unknown"\`: Not clearly stated or ambiguous
 
 **Notes Array:**
 For each doctrine you mark as \`"true"\` or \`"false"\`, capture a note with:
-- \`label\`: Name of the doctrine (e.g., "Trinity", "Gospel")
+- \`label\`: Name of the doctrine (e.g., "trinity", "scripture_authority", "resurrection_of_jesus")
 - \`text\`: Short quote (≤30 words) from the website showing the belief
 - \`source_url\`: URL where you found this statement
 
@@ -84,36 +94,27 @@ export const SECONDARY_DOCTRINES_PROMPT = `${COMMON_RULES}
 
 ### Task: Extract Secondary Doctrines & Detect Theological Badges
 
+${SECONDARY_DOCTRINES_DEFINITIONS}
+
+---
+
+**Your Task:**
+
 Extract the church's positions on these secondary doctrines. Provide **neutral** short phrases based only on what you see on the website:
 
-**baptism**: 
-  - Examples: "infant (paedo)", "believer's by immersion", "both infant & believer's", etc.
+1. **baptism**
+2. **governance**
+3. **lords_supper**
+4. **gifts**
+5. **women_in_church**
+6. **sanctification**
+7. **continuity**
+8. **security**
+9. **atonement_model**
 
-**governance**: 
-  - Examples: "elder-led congregational", "presbyterian", "episcopal", "ambiguous"
+Use the neutral phrases suggested in the definitions above (e.g., "Believer's baptism by immersion", "Elder-led congregational", etc.).
 
-**lords_supper**: 
-  - Examples: "memorial", "spiritual presence", "real presence / sacramental union"
-
-**gifts**: 
-  - Examples: "cessationist", "cautious continuationist", "charismatic"
-
-**women_in_church**: 
-  - Examples: "complementarian", "egalitarian", "varies/unclear"
-
-**sanctification**: 
-  - Examples: "progressive", "entire sanctification", "positional & progressive"
-
-**continuity**: 
-  - Examples: "covenant theology", "dispensationalism", "mixed/unclear"
-
-**security**: 
-  - Examples: "perseverance of the saints", "conditional security", "mixed/unclear"
-
-**atonement_model**: 
-  - Examples: "penal substitution", "Christus Victor", "moral influence", etc.
-
-### Badges to Detect (add to badges array if applicable):
+### Badges to Detect (add to badges array if applicable including the emoji including the emoji):
 
 - **🕊️ Cautious Continuationist**: If gifts are stated as continued but with restraint/caution (not normative for all)
 - **🔥 Charismatic**: If tongues/prophecy/healing are normative and emphasized
@@ -129,30 +130,26 @@ export const TERTIARY_DOCTRINES_PROMPT = `${COMMON_RULES}
 
 ### Task: Extract Tertiary Doctrines & Detect Worship/Practice Badges
 
+${TERTIARY_DOCTRINES_DEFINITIONS}
+
+---
+
+**Your Task:**
+
 Extract the church's positions on these tertiary doctrines. Provide **neutral** short phrases based only on what you see:
 
-**eschatology**: 
-  - Examples: "amillennial", "premillennial", "postmillennial", "mixed/unclear"
+1. **eschatology**
+2. **worship_style**
+3. **counseling**
+4. **creation**
+5. **christian_liberty**
+6. **discipline**
+7. **parachurch**
+8. **non_essential** (optional catch-all field)
 
-**worship_style**: 
-  - Examples: "traditional", "contemporary", "blended/mixed", "liturgical"
+Use the neutral phrases suggested in the definitions above (e.g., "Amillennial", "Contemporary", "Not stated", etc.).
 
-**counseling**: 
-  - Examples: "nouthetic (biblical)", "integrationist", "professional referral"
-
-**creation**: 
-  - Examples: "young-earth", "old-earth", "theistic evolution", "not stated"
-
-**christian_liberty**: 
-  - Examples: "dietary freedom emphasized", "special days observed", "liberty in non-essentials"
-
-**discipline**: 
-  - Examples: "formal church discipline", "informal restoration", "Matthew 18 process"
-
-**parachurch**: 
-  - Examples: "supports parachurch ministries", "church-only focus", "selective partnership"
-
-### Badges to Detect (add to badges array if applicable):
+### Badges to Detect (add to badges array if applicable including the emoji):
 
 - **📖 Expository Preaching**: If the church emphasizes verse-by-verse preaching through books of the Bible
 - **🎵 Regulative Principle of Worship**: If they explicitly follow only elements prescribed in Scripture for worship
@@ -175,19 +172,39 @@ export const DENOMINATION_CONFESSION_PROMPT = `${COMMON_RULES}
 **Confession:**
 Determine if the church **adopts** a historic confession as their doctrinal standard.
 
-- \`adopted\`: \`true\` if they say things like:
-  - "Our confession of faith is..."
-  - "We adopt the [confession name]"
-  - "For a fuller summation of our doctrinal basis, see/read/refer to the [confession name]"
-  - "We hold to the [confession name] as our doctrinal standard"
-  - "We subscribe to the [confession name]"
-  - "[Confession] contains an excellent expression of our faith"
-  - "To understand our beliefs more deeply, see the [confession name]"
-  - "We encourage you to read the [confession name]" (when paired with "doctrinal basis")
-  
-**KEY INDICATOR**: If the confession is presented as the **fuller/complete statement** of their beliefs (not just a helpful resource), mark \`adopted = true\`.
-  
-- \`adopted\`: \`false\` if they only **casually reference** or say "generally in agreement with" but don't present it as their doctrinal standard
+**Mark \`adopted = true\` if you find ANY of these indicators:**
+
+1. **Direct adoption language:**
+   - "Our confession of faith is..."
+   - "We adopt/subscribe to the [confession name]"
+   - "We hold to the [confession name] as our doctrinal standard"
+   - "[Confession name] is our confession"
+
+2. **Fuller/complete statement language:**
+   - "For a fuller summation of our doctrinal basis, see/read/refer to the [confession name]"
+   - "[Confession] contains an excellent expression of our faith/the Christian faith/the faith/biblical Christianity"
+   - "To understand our beliefs more deeply/fully, see the [confession name]"
+   - "For a comprehensive statement, read the [confession name]"
+   - "Our fuller doctrinal statement is found in the [confession name]"
+   - "For a fuller statement/summation of what we believe, see [confession name]"
+
+3. **Encouragement tied to doctrinal basis:**
+   - "We encourage you to read the [confession name]" (when paired with phrases like "doctrinal basis", "what we believe", "our faith", "fuller summation", "fuller statement")
+   - "We commend the [confession name] as expressing our beliefs/the Christian faith"
+   - "We direct you to the [confession name] for our full statement"
+   - "[Confession] contains an excellent/accurate expression/summary of our beliefs/the Christian faith/biblical Christianity"
+
+4. **Confession listed in official documents:**
+   - Confession mentioned in bylaws, constitution, or articles of faith as their standard
+   - Leadership must affirm/sign the confession
+
+**CRITICAL**: The key is whether the confession is presented as **their authoritative doctrinal statement** (even if they have a summary first). If they point to it as the full/complete expression of their beliefs, mark \`adopted = true\`.
+
+**Mark \`adopted = false\` ONLY if:**
+- Casual reference like "generally in agreement with" without making it their standard
+- Historical reference without claiming it as their current confession
+- Listed as a helpful resource alongside many other resources
+- Only mentioned in passing without endorsement
 
 - \`name\`: Name of the confession (e.g., "Westminster Confession of Faith (1646/47)", "Second London Baptist Confession (1689)")
 - \`source_url\`: URL where confession is mentioned
@@ -207,7 +224,7 @@ If \`adopted = true\`, add a note:
 - \`text\`: "Church adopts [confession name] as their doctrinal standard"
 - \`source_url\`: URL where you found this
 
-### Badges to Detect (add to badges array if applicable):
+### Badges to Detect (add to badges array if applicable including the emoji):
 
 - **🤝 Denomination-Affiliated**: If clearly tied to a denomination (PCA, SBC, LCMS, Acts 29, Fellowship of Reformed Evangelicals, etc.)
 - **🆓 Independent**: If explicitly independent / non-denominational with no denominational oversight
@@ -225,7 +242,7 @@ export const RED_FLAGS_PROMPT = `${COMMON_RULES}
 
 ### Task: Detect Red Flags & Concerning Theological Indicators
 
-Review all website content for the following red flag indicators. Add badges ONLY if you have clear evidence:
+Review all website content for the following red flag indicators. Add badges ONLY if you have clear evidence, including the emoji:
 
 ### Red Flag Badges:
 

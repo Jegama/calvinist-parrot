@@ -13,6 +13,7 @@ import type {
   DenominationConfessionResponse,
   RedFlagsResponse,
 } from "@/types/church";
+import knownConfessionalChurches from "@/lib/known_confessional_churches.json";
 
 import {
   CORE_DOCTRINE_KEYS,
@@ -61,6 +62,40 @@ function truncateContent(content: string, maxLength = 4000): string {
   return `${content.slice(0, maxLength)}…`;
 }
 
+/**
+ * Check if a church is in the known confessional churches list
+ * Returns the confession details if found, null otherwise
+ */
+function checkKnownConfessionalChurch(website: string): {
+  confession: string;
+  adopted: boolean;
+  source_url: string;
+  denomination?: string;
+} | null {
+  try {
+    // Extract domain from URL
+    const url = new URL(website.startsWith('http') ? website : `https://${website}`);
+    const domain = url.hostname.replace(/^www\./, '');
+
+    const church = knownConfessionalChurches.churches.find(
+      (c) => c.domain.toLowerCase() === domain.toLowerCase()
+    );
+
+    if (church) {
+      return {
+        confession: church.confession,
+        adopted: church.adopted,
+        source_url: church.source_url,
+        denomination: church.denomination,
+      };
+    }
+  } catch (error) {
+    console.warn("Failed to check known confessional churches:", error);
+  }
+
+  return null;
+}
+
 export function dropAnchorDupes(data: TavilyCrawlResult): TavilyCrawlResult {
   const results = Array.isArray(data.results) ? data.results : [];
   if (!results.length) return { base_url: data.base_url, results: [] };
@@ -71,15 +106,15 @@ export function dropAnchorDupes(data: TavilyCrawlResult): TavilyCrawlResult {
   for (const item of results) {
     const url = item.url?.trim();
     if (!url) continue;
-    
+
     const raw = normalizeWhitespace(item.rawContent ?? "");
-    
+
     if (url.includes("#")) {
       fragments.push({ url, rawContent: raw, favicon: item.favicon });
     } else {
       clean.push({ url, rawContent: raw, favicon: item.favicon });
     }
-  }  const cleanHashes = new Set<string>();
+  } const cleanHashes = new Set<string>();
   const cleanUrls = new Set<string>();
   const normalizedResults: typeof results = [];
 
@@ -139,6 +174,8 @@ export async function crawlChurchSite(website: string): Promise<TavilyCrawlResul
     throw new Error("TAVILY_API_KEY is not configured");
   }
 
+  console.log(`Starting Tavily crawl for website: ${website}`);
+
   try {
 
     const response = (await tavilyClient.crawl(website, {
@@ -150,6 +187,8 @@ export async function crawlChurchSite(website: string): Promise<TavilyCrawlResul
     })) as TavilyCrawlResult;
 
     const cleaned = dropAnchorDupes(response);
+
+    // console.log(`Cleaned data: ${JSON.stringify(cleaned, null, 2)}`);
 
     return cleaned;
   } catch (error) {
@@ -188,10 +227,8 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
   // ============================================================================
   // Phase 1: Make 6 parallel LLM calls
   // ============================================================================
-  // Phase 1: Make 6 parallel LLM calls (ALL AT ONCE!)
-  // ============================================================================
   console.log("Starting parallel extraction calls (all 6)...");
-  
+
   const [
     basicFields,
     coreDoctrinesRaw,
@@ -212,6 +249,7 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
       config: {
         responseMimeType: "application/json",
         responseSchema: BASIC_FIELDS_SCHEMA,
+        seed: 1689,
       },
     }).then((res) => {
       if (!res.text) throw new Error("Empty response from Call 1");
@@ -230,6 +268,10 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
       config: {
         responseMimeType: "application/json",
         responseSchema: CORE_DOCTRINES_SCHEMA,
+        seed: 1689,
+        thinkingConfig: {
+          thinkingBudget: -1, // Dynamic thinking budget
+        },
       },
     }).then((res) => {
       if (!res.text) throw new Error("Empty response from Call 2");
@@ -248,6 +290,10 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
       config: {
         responseMimeType: "application/json",
         responseSchema: SECONDARY_DOCTRINES_SCHEMA,
+        seed: 1689,
+        thinkingConfig: {
+          thinkingBudget: -1, // Dynamic thinking budget
+        },
       },
     }).then((res) => {
       if (!res.text) throw new Error("Empty response from Call 3");
@@ -266,6 +312,7 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
       config: {
         responseMimeType: "application/json",
         responseSchema: TERTIARY_DOCTRINES_SCHEMA,
+        seed: 1689,
       },
     }).then((res) => {
       if (!res.text) throw new Error("Empty response from Call 4");
@@ -284,6 +331,10 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
       config: {
         responseMimeType: "application/json",
         responseSchema: DENOMINATION_CONFESSION_SCHEMA,
+        seed: 1689,
+        thinkingConfig: {
+          thinkingBudget: -1, // Dynamic thinking budget
+        },
       },
     }).then((res) => {
       if (!res.text) throw new Error("Empty response from Call 5");
@@ -302,6 +353,10 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
       config: {
         responseMimeType: "application/json",
         responseSchema: RED_FLAGS_SCHEMA,
+        seed: 1689,
+        thinkingConfig: {
+          thinkingBudget: -1, // Dynamic thinking budget
+        },
       },
     }).then((res) => {
       if (!res.text) throw new Error("Empty response from Call 6");
@@ -309,7 +364,47 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     }),
   ]);
 
-  console.log("All 6 parallel calls completed. Applying confession inference...");
+  console.log("All 6 parallel calls completed. Checking known confessional churches...");
+
+  // ============================================================================
+  // Phase 1.5: Override with Known Confessional Churches
+  // ============================================================================
+  const knownConfession = checkKnownConfessionalChurch(website);
+  if (knownConfession) {
+    console.log(`Found known confessional church: ${knownConfession.confession}`);
+    denomConfession.confession = {
+      name: knownConfession.confession,
+      adopted: knownConfession.adopted,
+      source_url: knownConfession.source_url,
+    };
+
+    // Override denomination if provided
+    if (knownConfession.denomination) {
+      denomConfession.denomination = {
+        label: knownConfession.denomination,
+        confidence: 1.0,
+        signals: ["Verified confessional church"],
+      };
+    }
+
+    // Add/update the "Adopted Confession" note
+    const confessionNoteIndex = denomConfession.notes.findIndex(
+      (note) => note.label === "Adopted Confession"
+    );
+    const confessionNote = {
+      label: "Adopted Confession" as const,
+      text: `Church adopts ${knownConfession.confession} as their doctrinal standard (verified)`,
+      source_url: knownConfession.source_url,
+    };
+
+    if (confessionNoteIndex >= 0) {
+      denomConfession.notes[confessionNoteIndex] = confessionNote;
+    } else {
+      denomConfession.notes.push(confessionNote);
+    }
+  }
+
+  console.log("Applying confession inference...");
 
   // ============================================================================
   // Phase 2: Apply Confession Inference
@@ -400,12 +495,16 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   // ============================================================================
   const computedBadges: string[] = [];
 
+  if (confessionAdopted && !llmBadges.includes("📜 Reformed")) {
+    computedBadges.push("📜 Reformed");
+  }
+
   if (!confessionAdopted && coverageRatio < 0.5) {
     computedBadges.push("⚠️ Low Essentials Coverage");
   }
 
   // Merge LLM-detected + computed badges
-  const allBadges = [...new Set([...llmBadges, ...computedBadges])];
+  const allBadges = [...new Set([...computedBadges, ...llmBadges])];
 
   // ============================================================================
   // Determine evaluation status
@@ -477,7 +576,7 @@ export async function geocodeAddress(
         };
       }>;
     };
-    
+
     if (!data.features || data.features.length === 0) {
       console.warn(`No geocode results found for: ${query}`);
       return { latitude: null, longitude: null };
