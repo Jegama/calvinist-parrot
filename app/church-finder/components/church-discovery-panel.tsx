@@ -132,7 +132,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
   };
 
   return (
-    <Card className="border border-border bg-card/80 shadow-sm">
+    <Card className="border border-border bg-card shadow-sm">
       <CardHeader>
         <CardTitle className="text-xl font-semibold text-foreground">Discover and add churches</CardTitle>
         <CardDescription>
@@ -192,13 +192,13 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
           </div>
           {searchError ? <p className="text-sm text-red-500">{searchError}</p> : null}
           {searchResults.length > 0 ? (
-            <div className="rounded-md border border-border bg-muted/20 p-3 text-sm">
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-sm shadow-sm">
               <p className="mb-3 font-semibold text-foreground">
                 Found {searchResults.length} {searchResults.length === 1 ? "result" : "results"}
               </p>
               <ul className="space-y-3">
                 {searchResults.map((result) => (
-                  <li key={result.id} className="rounded-md border border-border bg-card p-3 space-y-2">
+                  <li key={result.id} className="rounded-md border border-border bg-card shadow-sm p-3 space-y-2">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-foreground">{result.name}</p>

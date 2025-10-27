@@ -87,7 +87,7 @@ export function ChurchFiltersBar({
   );
 
   return (
-    <Card className="sticky top-4">
+    <Card className="sticky top-4 bg-card shadow-sm border-border">
       <CardHeader>
         <CardTitle>Filter churches</CardTitle>
         <CardDescription>
@@ -98,7 +98,7 @@ export function ChurchFiltersBar({
         {/* View Mode Toggle */}
         <div className="space-y-2">
           <Label>View Mode</Label>
-          <div className="inline-flex w-full rounded-md border border-border p-1">
+          <div className="inline-flex w-full rounded-md border border-border bg-muted/30 p-1">
             <Button
               type="button"
               variant={viewMode === "list" ? "default" : "ghost"}

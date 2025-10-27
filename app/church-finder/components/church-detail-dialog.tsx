@@ -99,39 +99,39 @@ const CORE_LABELS: Record<CoreDoctrineKey, string> = {
 const STATUS_CONFIG = {
   confessional: {
     icon: CheckCircle2,
-    bgColor: "bg-primary/10",
-    borderColor: "border-primary/20",
+    bgColor: "bg-primary/15 dark:bg-primary/10",
+    borderColor: "border-primary/30 dark:border-primary/20",
     textColor: "text-primary",
     iconColor: "text-primary",
-    title: "Historic Reformed (Confessional - Encouraged)",
+    title: "Historic Reformed (Confessional)",
     description:
       "This church publicly subscribes to a historic Reformed confession (e.g., Westminster Standards, 1689 London Baptist, Three Forms of Unity).",
   },
   pass: {
     icon: CheckCircle2,
-    bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
-    borderColor: "border-emerald-200 dark:border-emerald-800",
+    bgColor: "bg-emerald-100 dark:bg-emerald-950/30",
+    borderColor: "border-emerald-300 dark:border-emerald-800",
     textColor: "text-emerald-800 dark:text-emerald-300",
-    iconColor: "text-emerald-600 dark:text-emerald-400",
+    iconColor: "text-emerald-700 dark:text-emerald-400",
     title: "Recommended",
     description: "We can commend this church based on the essentials affirmed on its site.",
   },
   caution: {
     icon: AlertTriangle,
-    bgColor: "bg-amber-50 dark:bg-amber-950/30",
-    borderColor: "border-amber-200 dark:border-amber-800",
+    bgColor: "bg-amber-100 dark:bg-amber-950/30",
+    borderColor: "border-amber-300 dark:border-amber-800",
     textColor: "text-amber-800 dark:text-amber-300",
-    iconColor: "text-amber-600 dark:text-amber-400",
+    iconColor: "text-amber-700 dark:text-amber-400",
     title: "Limited Information",
     description:
       "The website does not clearly state several essentials. Please reach out to the church for clarification before deciding.",
   },
   red_flag: {
     icon: AlertCircle,
-    bgColor: "bg-red-50 dark:bg-red-950/30",
-    borderColor: "border-red-200 dark:border-red-800",
+    bgColor: "bg-red-100 dark:bg-red-950/30",
+    borderColor: "border-red-300 dark:border-red-800",
     textColor: "text-red-800 dark:text-red-300",
-    iconColor: "text-red-600 dark:text-red-400",
+    iconColor: "text-red-700 dark:text-red-400",
     title: "Not Endorsed",
     description:
       "Based on what is published, this church denies an essential doctrine or holds positions we cannot endorse.",
@@ -249,24 +249,24 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
 
             {/* False Doctrines Warning */}
             {falseDoctrine.length > 0 && (
-              <div className="space-y-4 rounded-lg border-2 border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30">
-                <h3 className="text-lg font-semibold text-red-800 dark:text-red-300">
+              <div className="space-y-4 rounded-lg border-2 border-red-300 bg-red-100 p-4 dark:border-red-800 dark:bg-red-950/30">
+                <h3 className="text-lg font-semibold text-red-900 dark:text-red-300">
                   ⚠️ Doctrinal Concerns
                 </h3>
-                <p className="text-sm text-red-700 dark:text-red-400">
+                <p className="text-sm text-red-800 dark:text-red-400">
                   This church explicitly denies the following essential Christian doctrine(s):
                 </p>
                 <div className="space-y-4">
                   {falseDoctrine.map((key) => (
-                    <div key={key} className="rounded-md border border-red-300 bg-white/50 p-3 dark:border-red-700 dark:bg-black/20">
+                    <div key={key} className="rounded-md border border-red-400 bg-white/70 p-3 dark:border-red-700 dark:bg-black/20">
                       <p className="mb-2 font-semibold text-red-900 dark:text-red-200">
                         ❌ {CORE_LABELS[key]}
                       </p>
                       <div className="space-y-2 text-sm">
-                        <p className="text-red-800 dark:text-red-300">
+                        <p className="text-red-900 dark:text-red-300">
                           <span className="font-medium">What we believe:</span>
                         </p>
-                        <p className="italic text-red-700 dark:text-red-400">
+                        <p className="italic text-red-800 dark:text-red-400">
                           &ldquo;{coreDoctrinesJson[key]}&rdquo;
                         </p>
                       </div>
@@ -278,12 +278,12 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
 
             {/* Denomination-Specific Note */}
             {denominationNote && (
-              <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
-                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                <AlertTitle className="text-amber-800 dark:text-amber-300">
+              <Alert className="bg-amber-100 border-amber-300 dark:bg-amber-950/30 dark:border-amber-800">
+                <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+                <AlertTitle className="text-amber-900 dark:text-amber-300">
                   About {denominationLabel}
                 </AlertTitle>
-                <AlertDescription className="text-amber-700 dark:text-amber-400">
+                <AlertDescription className="text-amber-800 dark:text-amber-400">
                   <p className="mb-2">{denominationNote.note}</p>
                   {denominationNote.denies && denominationNote.denies.length > 0 && (
                     <div className="mt-3 space-y-1">
@@ -307,7 +307,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                   {evaluation.badges.map((badge) => (
                     <span
                       key={badge}
-                      className="rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
+                      className="rounded-full bg-primary/20 border border-primary/40 px-3 py-1.5 text-sm font-medium text-primary dark:bg-primary/10 dark:border-primary/20"
                     >
                       {badge}
                     </span>
@@ -320,7 +320,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
             <section className="space-y-4">
               <h3 className="text-lg font-semibold text-foreground">Church Information</h3>
 
-              <div className="grid gap-6 overflow-hidden rounded-lg border border-border bg-muted/30 p-4 lg:grid-cols-2">
+              <div className="grid gap-6 overflow-hidden rounded-lg border border-border bg-card shadow-sm p-4 lg:grid-cols-2">
                 <div className="min-w-0 space-y-3 text-sm">
                   <p className="flex flex-col gap-1 sm:flex-row sm:gap-2">
                     <span className="font-medium text-muted-foreground">Website:</span>{" "}
@@ -364,7 +364,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                   <h4 className="text-base font-semibold text-foreground">Addresses</h4>
                   <div className="grid gap-3 md:grid-cols-2">
                     {church.addresses.map((address) => (
-                      <div key={address.id} className="rounded-md border border-border bg-card/60 p-3 text-sm">
+                      <div key={address.id} className="rounded-md border border-border bg-card shadow-sm p-3 text-sm">
                         <p className="font-medium text-foreground">
                           {address.street1}
                           {address.street2 ? `, ${address.street2}` : ""}
@@ -372,21 +372,23 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                         <p className="text-muted-foreground">
                           {[address.city, address.state, address.postCode].filter(Boolean).join(", ") || "Unknown"}
                         </p>
-                        {address.sourceUrl && (
-                          <a
-                            href={address.sourceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-primary underline-offset-2 hover:underline"
-                          >
-                            Source
-                          </a>
-                        )}
-                        {address.isPrimary && (
-                          <span className="mt-2 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-                            Primary
-                          </span>
-                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          {address.sourceUrl && (
+                            <a
+                              href={address.sourceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary underline-offset-2 hover:underline"
+                            >
+                              Source
+                            </a>
+                          )}
+                          {address.isPrimary && (
+                            <span className="inline-block rounded-full bg-primary/20 border border-primary/40 px-2 py-0.5 text-xs text-primary dark:bg-primary/10 dark:border-primary/20">
+                              Primary
+                            </span>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -399,7 +401,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                   <h4 className="text-base font-semibold text-foreground">Service Times</h4>
                   <div className="flex flex-wrap gap-2 text-sm">
                     {church.serviceTimes.map((service) => (
-                      <span key={service.id} className="rounded-md bg-muted px-3 py-1.5 text-muted-foreground">
+                      <span key={service.id} className="rounded-md bg-muted/70 border border-border px-3 py-1.5 text-foreground/80">
                         {service.label}
                       </span>
                     ))}
@@ -412,7 +414,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
               <section className="space-y-4">
                 {/* Core Doctrines - Collapsible */}
                 <Collapsible open={coreDoctrinesOpen} onOpenChange={setCoreDoctrinesOpen}>
-                  <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/30 p-4 hover:bg-muted/50">
+                  <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-card p-4 hover:bg-muted/20 shadow-sm">
                     <div className="text-left">
                       <h3 className="text-lg font-semibold text-foreground">Core Doctrines</h3>
                       <p className="text-sm text-muted-foreground">
@@ -435,10 +437,10 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                           className={cn(
                             "rounded-md border p-4",
                             value === "true"
-                              ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
+                              ? "border-emerald-300 bg-emerald-100/70 dark:border-emerald-800 dark:bg-emerald-950/20"
                               : value === "false"
-                                ? "border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20"
-                                : "border-border bg-card/60"
+                                ? "border-red-300 bg-red-100/70 dark:border-red-800 dark:bg-red-950/20"
+                                : "border-border bg-card shadow-sm"
                           )}
                         >
                           <div className="mb-2 flex items-start justify-between">
@@ -489,7 +491,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                 {(Object.keys(evaluation.secondary ?? {}).length > 0 ||
                   Object.keys(evaluation.tertiary ?? {}).length > 0) && (
                     <Collapsible open={otherDoctrinesOpen} onOpenChange={setOtherDoctrinesOpen}>
-                      <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/30 p-4 hover:bg-muted/50">
+                      <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-card p-4 hover:bg-muted/20 shadow-sm">
                         <div className="text-left">
                           <h3 className="text-lg font-semibold text-foreground">Other Doctrines</h3>
                           <p className="text-sm text-muted-foreground">
@@ -506,8 +508,8 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                       <CollapsibleContent className="mt-4">
                         <div className="grid gap-4 md:grid-cols-2">
                           {Object.keys(evaluation.secondary ?? {}).length > 0 && (
-                            <div className="space-y-2 rounded-md border border-border bg-card/60 p-4">
-                              <h4 className="text-base font-semibold text-foreground">Important Doctrines</h4>
+                            <div className="space-y-2 rounded-md border border-border bg-card shadow-sm p-4">
+                              <h4 className="text-base font-semibold text-foreground">Doctrines</h4>
                               <ul className="space-y-2 text-sm">
                                 {Object.entries(evaluation.secondary ?? {}).map(([key, value]) => (
                                   <li key={key} className="flex flex-col">
@@ -519,7 +521,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                             </div>
                           )}
                           {Object.keys(evaluation.tertiary ?? {}).length > 0 && (
-                            <div className="space-y-2 rounded-md border border-border bg-card/60 p-4">
+                            <div className="space-y-2 rounded-md border border-border bg-card shadow-sm p-4">
                               <h4 className="text-base font-semibold text-foreground">Additional Positions</h4>
                               <ul className="space-y-2 text-sm">
                                 {Object.entries(evaluation.tertiary ?? {}).map(([key, value]) => (
@@ -542,7 +544,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                     <h4 className="text-base font-semibold text-foreground">Additional Notes & Sources</h4>
                     <ul className="space-y-2 text-sm">
                       {remainingNotes.map((note, idx) => (
-                        <li key={`${note.label}-${note.source_url}-${idx}`} className="rounded-md border border-border bg-card/60 p-3">
+                        <li key={`${note.label}-${note.source_url}-${idx}`} className="rounded-md border border-border bg-card shadow-sm p-3">
                           <p className="font-medium text-foreground">{note.label}</p>
                           <p className="text-muted-foreground">{note.text}</p>
                           {note.source_url && (
@@ -576,12 +578,12 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
             </section>
 
             {/* Evaluation Notice */}
-            <Alert className="bg-muted/30 border-border">
-              <Info className="h-4 w-4 text-muted-foreground" />
-              <AlertTitle className="text-foreground">About these evaluations</AlertTitle>
-              <AlertDescription>
+            <Alert className="bg-card border-border shadow-sm">
+              <Info className="h-4 w-4 text-primary" />
+              <AlertTitle className="text-foreground font-semibold">About these evaluations</AlertTitle>
+              <AlertDescription className="text-foreground/80">
                 Our summaries rely on what a church publishes on its website. If something is not explicitly stated online,
-                we cannot infer their position. If you spot an error, please <a href="mailto:contact@calvinistparrotministries.org" className="underline underline-offset-2 hover:no-underline">email us</a> with the page link and what needs correction.
+                we cannot infer their position. If you spot an error, please <a href="mailto:contact@calvinistparrotministries.org" className="text-primary underline underline-offset-2 hover:no-underline">email us</a> with the page link and what needs correction.
               </AlertDescription>
             </Alert>
 
@@ -591,11 +593,11 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                 <Separator />
                 <section className="space-y-3">
                   <h3 className="text-base font-semibold text-foreground">Admin Actions</h3>
-                  <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
-                    <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                    <AlertTitle className="text-amber-800 dark:text-amber-300">Re-evaluate Church</AlertTitle>
+                  <Alert className="bg-amber-100 border-amber-300 dark:bg-amber-950/30 dark:border-amber-800">
+                    <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+                    <AlertTitle className="text-amber-900 dark:text-amber-300">Re-evaluate Church</AlertTitle>
                     <AlertDescription className="space-y-3">
-                      <p className="text-amber-700 dark:text-amber-400">
+                      <p className="text-amber-800 dark:text-amber-400">
                         This will re-run the evaluation pipeline for this church using the current website content.
                         The existing evaluation will be replaced.
                       </p>

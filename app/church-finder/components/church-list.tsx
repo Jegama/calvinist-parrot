@@ -7,12 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import type { ChurchListItem, EvaluationStatus } from "@/types/church";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
 
 const STATUS_STYLES: Record<EvaluationStatus | "confessional", string> = {
-  pass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  caution: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  red_flag: "bg-red-500/10 text-red-600 dark:text-red-400",
-  confessional: "bg-primary/10 text-primary",
+  pass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20",
+  caution: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20",
+  red_flag: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400 border border-red-200 dark:border-red-500/20",
+  confessional: "bg-primary/15 text-primary border border-primary/30 dark:bg-primary/10 dark:border-primary/20",
 };
 
 type ChurchListProps = {
@@ -43,31 +44,53 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
   return (
     <TooltipProvider delayDuration={0}>
     <div className="space-y-4">
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
-          Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total} churches
+          {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
         </span>
-        <div className="inline-flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <Button
             type="button"
             size="sm"
-            variant="ghost"
+            variant="outline"
+            disabled={page <= 1 || loading}
+            onClick={() => onPageChange(1)}
+            aria-label="Go to first page"
+          >
+            <ChevronFirst className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
             disabled={page <= 1 || loading}
             onClick={() => onPageChange(page - 1)}
+            aria-label="Go to previous page"
           >
-            Previous
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <span>
-            Page {page} of {totalPages}
+          <span className="px-1">
+            Page {page} / {totalPages}
           </span>
           <Button
             type="button"
             size="sm"
-            variant="ghost"
+            variant="outline"
             disabled={page >= totalPages || loading}
             onClick={() => onPageChange(page + 1)}
+            aria-label="Go to next page"
           >
-            Next
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={page >= totalPages || loading}
+            onClick={() => onPageChange(totalPages)}
+            aria-label="Go to last page"
+          >
+            <ChevronLast className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
       </div>
@@ -96,7 +119,7 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
             return (
               <Card
                 key={church.id}
-                className="cursor-pointer transition hover:border-primary hover:shadow-md"
+                className="cursor-pointer transition bg-card shadow-sm hover:border-primary hover:shadow-md"
                 onClick={() => onSelect(church)}
               >
                 <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
@@ -150,7 +173,7 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">At a Glance</p>
                     <div className="flex flex-wrap gap-1">
                       {(church.badges ?? []).slice(0, 3).map((badge) => (
-                        <span key={badge} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        <span key={badge} className="rounded-full bg-muted/70 border border-border px-2 py-0.5 text-xs text-foreground/80">
                           {badge}
                         </span>
                       ))}
@@ -166,7 +189,7 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                     <CardContent className="flex flex-wrap items-center gap-3 pt-4 text-sm text-muted-foreground">
                       <span className="font-medium text-foreground">Services:</span>
                       {church.serviceTimes.slice(0, 3).map((service) => (
-                        <span key={service.id} className="rounded-md bg-muted px-3 py-1.5">
+                        <span key={service.id} className="rounded-md bg-muted/70 border border-border px-3 py-1.5 text-foreground/80">
                           {service.label}
                         </span>
                       ))}

@@ -155,7 +155,7 @@ export function Header() {
             // If logged in, show the user's name linking to profile
             <Link href="/profile" prefetch={false}>
               <Button 
-                variant="outline" 
+                variant="secondary" 
                 className="hover:bg-muted/50"
                 size={isScrolled ? "sm" : "default"}
               >
@@ -167,7 +167,7 @@ export function Header() {
               {/* If not logged in, show Login and Register */}
               <Link href="/login" prefetch={false}>
                 <Button 
-                  variant="outline" 
+                  variant="secondary" 
                   className="hover:bg-muted/50"
                   size={isScrolled ? "sm" : "default"}
                 >

@@ -156,19 +156,19 @@ export default function ChurchFinderPage() {
           We’re building a community-maintained directory to help believers find churches anchored in the Gospel and the essentials of the faith. Filter by location and denominational distinctives, and contribute by adding churches so others can benefit.
         </p>
         <div className="flex items-center gap-3 mb-4">
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="secondary" size="sm" asChild>
             <Link href="/doctrinal-statement">View Our Doctrinal Statement</Link>
           </Button>
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="secondary" size="sm" asChild>
             <Link href="/church-finder/guide">How evaluations work</Link>
           </Button>
         </div>
-        <Alert className="bg-muted/30 border-border">
-          <Info className="h-4 w-4 text-muted-foreground" />
-          <AlertTitle className="text-foreground">How these evaluations work</AlertTitle>
-          <AlertDescription>
-            We summarize what a church states on its website—nothing more. If something isn’t clearly written online, we can’t
-            infer their position. If you see an error, <a href="mailto:contact@calvinistparrotministries.org" className="underline underline-offset-2 hover:no-underline">email us</a> with the page link and what needs correction.
+        <Alert className="bg-card border-border shadow-sm">
+          <Info className="h-4 w-4 text-primary" />
+          <AlertTitle className="text-foreground font-semibold">How these evaluations work</AlertTitle>
+          <AlertDescription className="text-foreground/80">
+            We summarize what a church states on its website—nothing more. If something isn't clearly written online, we can't
+            infer their position. If you see an error, <a href="mailto:contact@calvinistparrotministries.org" className="text-primary underline underline-offset-2 hover:no-underline">email us</a> with the page link and what needs correction.
           </AlertDescription>
         </Alert>
       </header>
@@ -191,7 +191,7 @@ export default function ChurchFinderPage() {
 
           {viewMode === "list" ? (
             churchQuery.isPending ? (
-              <div className="rounded-lg border border-border bg-card/80 p-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-lg border border-border bg-card shadow-sm p-6 text-center text-sm text-muted-foreground">
                 Loading churches…
               </div>
             ) : (
@@ -206,7 +206,7 @@ export default function ChurchFinderPage() {
               />
             )
           ) : churchQuery.isPending ? (
-            <div className="rounded-lg border border-border bg-card/80 p-6 text-center text-sm text-muted-foreground">
+            <div className="rounded-lg border border-border bg-card shadow-sm p-6 text-center text-sm text-muted-foreground">
               Loading map data…
             </div>
           ) : (
