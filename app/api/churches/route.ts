@@ -149,11 +149,43 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "website is required" }, { status: 400 });
   }
 
+  const forceReEvaluate = payload.forceReEvaluate === true;
+  const userId = typeof payload.userId === "string" ? payload.userId : "";
+
   let websiteUrl: string;
   try {
     websiteUrl = ensureUrl(websiteInput);
   } catch {
     return NextResponse.json({ error: "Invalid website URL" }, { status: 400 });
+  }
+
+  // Check if church already exists
+  const existing = await prisma.church.findUnique({
+    where: { website: websiteUrl },
+    select: { id: true },
+  });
+
+  // If church exists and not forcing re-evaluation, return error
+  if (existing && !forceReEvaluate) {
+    return NextResponse.json(
+      {
+        error: "Church already exists",
+        churchId: existing.id,
+        exists: true,
+      },
+      { status: 409 }
+    );
+  }
+
+  // If forcing re-evaluation, validate admin permission
+  if (forceReEvaluate) {
+    const adminId = process.env.ADMIN_ID;
+    if (!adminId || !userId || userId !== adminId) {
+      return NextResponse.json(
+        { error: "Unauthorized: Only admins can re-evaluate churches" },
+        { status: 403 }
+      );
+    }
   }
 
   try {

@@ -71,7 +71,26 @@ export async function searchChurches(params: {
   return (await response.json()) as ChurchSearchResult[];
 }
 
-export async function createChurch(payload: { website: string }): Promise<ChurchDetail> {
+export async function checkChurchExists(website: string): Promise<{ exists: boolean; churchId?: string }> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("website", website);
+
+  const response = await fetch(`/api/churches/check?${searchParams.toString()}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to check church existence");
+  }
+
+  return (await response.json()) as { exists: boolean; churchId?: string };
+}
+
+export async function createChurch(payload: {
+  website: string;
+  forceReEvaluate?: boolean;
+  userId?: string;
+}): Promise<ChurchDetail> {
   const response = await fetch(`/api/churches`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
