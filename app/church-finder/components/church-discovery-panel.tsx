@@ -10,20 +10,22 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner"
 import type { ChurchDetail, ChurchSearchResult } from "@/types/church";
-import { createChurch, searchChurches } from "@/app/church-finder/api";
+import { checkChurchExists, createChurch, fetchChurchDetail, searchChurches } from "@/app/church-finder/api";
 
 type ChurchDiscoveryPanelProps = {
   onChurchCreated: (church: ChurchDetail) => void;
+  onChurchView: (church: ChurchDetail) => void;
 };
 
-export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelProps) {
+export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDiscoveryPanelProps) {
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [searchResults, setSearchResults] = useState<ChurchSearchResult[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [website, setWebsite] = useState("");
   const [creationError, setCreationError] = useState<string | null>(null);
-  const [evaluatingId, setEvaluatingId] = useState<string | null>(null);
+  const [evaluatingIds, setEvaluatingIds] = useState<Set<string>>(new Set());
+  const [existingChurchIds, setExistingChurchIds] = useState<Map<string, string>>(new Map());
 
   const searchMutation = useMutation({
     mutationFn: async () => {
@@ -34,9 +36,33 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
       const results = await searchChurches({ city: trimmedCity, state: state.trim() || undefined });
       return results;
     },
-    onSuccess: (results) => {
+    onSuccess: async (results) => {
       setSearchError(null);
-      setSearchResults(results);
+      // Only show churches with websites since we can't evaluate those without
+      const churchesWithWebsites = results.filter((church) => church.website);
+      setSearchResults(churchesWithWebsites);
+
+      // Check which churches already exist in our database
+      const existenceChecks = await Promise.all(
+        churchesWithWebsites.map(async (church) => {
+          if (!church.website) return { osmId: church.id, exists: false };
+          try {
+            const check = await checkChurchExists(church.website);
+            return { osmId: church.id, exists: check.exists, churchId: check.churchId };
+          } catch {
+            return { osmId: church.id, exists: false };
+          }
+        })
+      );
+
+      // Build map of OSM ID -> our church ID
+      const existingMap = new Map<string, string>();
+      existenceChecks.forEach((check) => {
+        if (check.exists && check.churchId) {
+          existingMap.set(check.osmId, check.churchId);
+        }
+      });
+      setExistingChurchIds(existingMap);
     },
     onError: (error: Error) => {
       setSearchError(error.message || "Unable to search right now");
@@ -49,34 +75,68 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
       if (!websiteUrl.trim()) {
         throw new Error("Website is required");
       }
+      
+      // Check if church already exists
+      const check = await checkChurchExists(websiteUrl.trim());
+      if (check.exists && check.churchId) {
+        // Fetch and return existing church
+        const existingChurch = await fetchChurchDetail(check.churchId);
+        return { church: existingChurch, wasExisting: true };
+      }
+      
+      // Create new evaluation
       const church = await createChurch({ website: websiteUrl.trim() });
-      return church;
+      return { church, wasExisting: false };
     },
-    onSuccess: (church) => {
+    onSuccess: ({ church, wasExisting }) => {
       setCreationError(null);
       setWebsite("");
-      setEvaluatingId(null);
-      onChurchCreated(church);
+      if (wasExisting) {
+        onChurchView(church);
+      } else {
+        onChurchCreated(church);
+      }
     },
     onError: (error: Error) => {
       setCreationError(error.message || "Unable to add church right now");
-      setEvaluatingId(null);
     },
   });
 
-  const handleEvaluateFromSearch = (result: ChurchSearchResult) => {
+  const handleEvaluateFromSearch = async (result: ChurchSearchResult) => {
     if (!result.website) return;
-    setEvaluatingId(result.id);
+    
+    setEvaluatingIds((prev) => new Set(prev).add(result.id));
     setCreationError(null);
-    createMutation.mutate(result.website);
+    
+    try {
+      // Check if church already exists
+      const existingChurchId = existingChurchIds.get(result.id);
+      if (existingChurchId) {
+        // Fetch and show existing church
+        const existingChurch = await fetchChurchDetail(existingChurchId);
+        onChurchView(existingChurch);
+      } else {
+        // Create new evaluation
+        const church = await createChurch({ website: result.website });
+        onChurchCreated(church);
+      }
+    } catch (error) {
+      setCreationError(error instanceof Error ? error.message : "Unable to add church right now");
+    } finally {
+      setEvaluatingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(result.id);
+        return next;
+      });
+    }
   };
 
   return (
     <Card className="border border-border bg-card/80 shadow-sm">
       <CardHeader>
-        <CardTitle className="text-xl font-semibold text-foreground">Discover & add churches</CardTitle>
+        <CardTitle className="text-xl font-semibold text-foreground">Discover and add churches</CardTitle>
         <CardDescription>
-          Search for churches by city using OpenStreetMap data, then evaluate and add a church by entering its website.
+          Help grow the directory. Search by city, then evaluate a church by entering its website so others can benefit.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -100,8 +160,8 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
           </div>
           {creationError ? <p className="text-sm text-red-500">{creationError}</p> : null}
           <p className="text-xs text-muted-foreground">
-            We will crawl the church website with Tavily, evaluate its doctrines with our LLM pipeline, and store the results in
-            the directory.
+            We read what the church publishes on its website and summarize it with our evaluation pipeline. If a belief is not
+            stated online, we cannot infer it.
           </p>
         </section>
 
@@ -162,10 +222,16 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
                           type="button"
                           size="sm"
                           onClick={() => handleEvaluateFromSearch(result)}
-                          disabled={evaluatingId === result.id}
+                          disabled={evaluatingIds.has(result.id)}
                           className="shrink-0"
                         >
-                          {evaluatingId === result.id ? <Spinner /> : "Evaluate"}
+                          {evaluatingIds.has(result.id) ? (
+                            <Spinner />
+                          ) : existingChurchIds.has(result.id) ? (
+                            "View"
+                          ) : (
+                            "Evaluate"
+                          )}
                         </Button>
                       )}
                     </div>
@@ -177,7 +243,9 @@ export function ChurchDiscoveryPanel({ onChurchCreated }: ChurchDiscoveryPanelPr
         </section>
 
         <Separator />
-
+        <p className="text-xs text-muted-foreground">
+          Notice an error? <a href="mailto:contact@calvinistparrotministries.org" className="underline underline-offset-2 hover:no-underline">Email us</a> with the page link and what needs correction.
+        </p>
       </CardContent>
     </Card>
   );

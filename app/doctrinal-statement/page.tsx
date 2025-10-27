@@ -61,7 +61,7 @@ In all doctrinal matters, Calvinist Parrot Ministries commits to uphold doctrina
 
 export default function DoctrinalStatementPage() {
   return (
-    <Card className="max-w-3xl mx-auto mt-8 mb-8">
+    <Card className="max-w-4xl mx-auto mt-8 mb-8">
       <CardContent>
         <MarkdownWithBibleVerses content={doctrinalStatementContent} />
       </CardContent>

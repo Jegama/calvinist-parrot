@@ -214,6 +214,43 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     );
   }
 
+  // Check if the single page is a blocked/error page
+  if (pages.length === 1) {
+    const blockedKeywords = [
+      "you have been blocked",
+      "access denied",
+      "please enable cookies",
+      "cloudflare ray id",
+      "security solution",
+      "403 forbidden",
+      "401 unauthorized",
+    ];
+
+    const content = (pages[0].rawContent ?? "").toLowerCase();
+    const contentLength = content.length;
+    const matchedKeywords = blockedKeywords.filter((keyword) => content.includes(keyword));
+    
+    // console.log("Blocked page check:", {
+    //   contentLength,
+    //   matchedKeywords,
+    //   isShortContent: contentLength < 1000,
+    //   hasBlockedKeywords: matchedKeywords.length > 0,
+    // });
+
+    // If we have multiple blocking keywords, it's almost certainly a block page
+    // OR if content is short AND has blocking keywords
+    const isBlocked = 
+      matchedKeywords.length >= 2 || // Multiple blocking keywords = definite block
+      (contentLength < 1000 && matchedKeywords.length > 0); // Short + any keyword
+
+    if (isBlocked) {
+      console.error("Single crawled page appears to be blocked", { website, page: pages[0] });
+      throw new Error(
+        "Unable to access website content - the site is blocking automated access. This website uses security measures (like Cloudflare) that prevent evaluation. Please try contacting the church directly or checking if they have their doctrinal statement on another platform."
+      );
+    }
+  }
+
   const contentBlocks = pages
     .map((page, index) => {
       const url = page.url ?? "Unknown URL";

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import Image from "next/image";
 import {
   Dialog,
   DialogContent,
@@ -9,11 +11,77 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { AlertCircle, CheckCircle2, AlertTriangle, ChevronDown, Info } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
 import type { ChurchDetail, CoreDoctrineKey } from "@/types/church";
 import coreDoctrinesJson from "@/lib/core_doctrines.json";
 import canNotEndorseJson from "@/lib/can_not_endorse_churches.json";
 import { cn } from "@/lib/utils";
+import { createChurch } from "@/app/church-finder/api";
+
+// Normalize denomination variations to canonical names in can_not_endorse_churches.json
+const DENOMINATION_ALIASES: Record<string, string> = {
+  "Catholic": "Roman Catholic",
+  "Roman Catholic": "Roman Catholic",
+  "Roman Catholic Church": "Roman Catholic",
+  "RCC": "Roman Catholic",
+  "Eastern Orthodox": "Eastern Orthodox",
+  "Orthodox": "Eastern Orthodox",
+  "Greek Orthodox": "Eastern Orthodox",
+  "Russian Orthodox": "Eastern Orthodox",
+  "LDS": "Mormon (Church of Jesus Christ of Latter-day Saints)",
+  "Mormon": "Mormon (Church of Jesus Christ of Latter-day Saints)",
+  "Latter-day Saints": "Mormon (Church of Jesus Christ of Latter-day Saints)",
+  "The Church of Jesus Christ of Latter-day Saints": "Mormon (Church of Jesus Christ of Latter-day Saints)",
+  "Church of Jesus Christ of Latter-day Saints": "Mormon (Church of Jesus Christ of Latter-day Saints)",
+  "Jehovah's Witnesses": "Jehovah's Witnesses",
+  "Jehovah's Witness": "Jehovah's Witnesses",
+  "JW": "Jehovah's Witnesses",
+  "Christian Science": "Christian Science",
+  "Oneness Pentecostal": "Oneness Pentecostalism (e.g., UPCI)",
+  "UPCI": "Oneness Pentecostalism (e.g., UPCI)",
+  "United Pentecostal Church": "Oneness Pentecostalism (e.g., UPCI)",
+  "Christadelphian": "Christadelphians",
+  "Christadelphians": "Christadelphians",
+  "Unitarian": "Unitarian Universalism / Unitarian churches",
+  "Unitarian Universalism": "Unitarian Universalism / Unitarian churches",
+  "Unitarian Universalist": "Unitarian Universalism / Unitarian churches",
+  "UU": "Unitarian Universalism / Unitarian churches",
+  "Swedenborgian": "Swedenborgian / New Church",
+  "New Church": "Swedenborgian / New Church",
+  "The Way International": "The Way International",
+  "Unification Church": "Unification Church (Family Federation)",
+  "Family Federation": "Unification Church (Family Federation)",
+  "Moonies": "Unification Church (Family Federation)",
+  "Biblical Unitarian": "Biblical Unitarians / Church of God General Conference",
+  "Church of God General Conference": "Biblical Unitarians / Church of God General Conference",
+  "Unity Church": "Unity (Unity Church, New Thought)",
+  "Unity": "Unity (Unity Church, New Thought)",
+  "Progressive Christian": "Progressive Christianity (movement—varies by congregation)",
+  "Progressive Christianity": "Progressive Christianity (movement—varies by congregation)",
+  "PCUSA": "Presbyterian Church (USA) / PCUSA",
+  "Presbyterian Church (USA)": "Presbyterian Church (USA) / PCUSA",
+  "Presbyterian (PCUSA)": "Presbyterian Church (USA) / PCUSA",
+  "PC(USA)": "Presbyterian Church (USA) / PCUSA",
+  "ECO": "Evangelical Covenant Order of Evangelical Presbyterians / ECO",
+  "Evangelical Covenant Order": "Evangelical Covenant Order of Evangelical Presbyterians / ECO",
+  "ECO Presbyterian": "Evangelical Covenant Order of Evangelical Presbyterians / ECO",
+  "Presbyterian (ECO)": "Evangelical Covenant Order of Evangelical Presbyterians / ECO",
+  "Covenant Order of Evangelical Presbyterians": "Evangelical Covenant Order of Evangelical Presbyterians / ECO",
+};
+
+function normalizeDenomination(label: string): string {
+  const trimmed = label.trim();
+  return DENOMINATION_ALIASES[trimmed] || trimmed;
+}
 
 const CORE_LABELS: Record<CoreDoctrineKey, string> = {
   trinity: "Trinity",
@@ -28,21 +96,25 @@ const CORE_LABELS: Record<CoreDoctrineKey, string> = {
   character_of_god: "Character of God",
 };
 
-const DOCTRINE_STYLE: Record<string, string> = {
-  true: "text-emerald-600 dark:text-emerald-400",
-  false: "text-red-600 dark:text-red-400",
-  unknown: "text-muted-foreground",
-};
-
 const STATUS_CONFIG = {
+  confessional: {
+    icon: CheckCircle2,
+    bgColor: "bg-primary/10",
+    borderColor: "border-primary/20",
+    textColor: "text-primary",
+    iconColor: "text-primary",
+    title: "Historic Reformed (Confessional - Encouraged)",
+    description:
+      "This church publicly subscribes to a historic Reformed confession (e.g., Westminster Standards, 1689 London Baptist, Three Forms of Unity).",
+  },
   pass: {
     icon: CheckCircle2,
     bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
     borderColor: "border-emerald-200 dark:border-emerald-800",
     textColor: "text-emerald-800 dark:text-emerald-300",
     iconColor: "text-emerald-600 dark:text-emerald-400",
-    title: "✅ We Can Endorse This Church",
-    description: "This church affirms all essential doctrines or has adopted a historic Reformed confession.",
+    title: "Recommended",
+    description: "We can commend this church based on the essentials affirmed on its site.",
   },
   caution: {
     icon: AlertTriangle,
@@ -50,8 +122,9 @@ const STATUS_CONFIG = {
     borderColor: "border-amber-200 dark:border-amber-800",
     textColor: "text-amber-800 dark:text-amber-300",
     iconColor: "text-amber-600 dark:text-amber-400",
-    title: "⚠️ Exercise Caution",
-    description: "This church has limited doctrinal information available. We recommend further investigation before joining.",
+    title: "Limited Information",
+    description:
+      "The website does not clearly state several essentials. Please reach out to the church for clarification before deciding.",
   },
   red_flag: {
     icon: AlertCircle,
@@ -59,8 +132,9 @@ const STATUS_CONFIG = {
     borderColor: "border-red-200 dark:border-red-800",
     textColor: "text-red-800 dark:text-red-300",
     iconColor: "text-red-600 dark:text-red-400",
-    title: "🚫 We Cannot Endorse This Church",
-    description: "This church denies one or more essential Christian doctrines.",
+    title: "Not Endorsed",
+    description:
+      "Based on what is published, this church denies an essential doctrine or holds positions we cannot endorse.",
   },
 } as const;
 
@@ -68,49 +142,107 @@ type ChurchDetailDialogProps = {
   church: ChurchDetail | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onChurchUpdated?: (church: ChurchDetail) => void;
 };
 
-export function ChurchDetailDialog({ church, open, onOpenChange }: ChurchDetailDialogProps) {
+export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated }: ChurchDetailDialogProps) {
+  const { user } = useAuth();
   const evaluation = church?.evaluation;
   const status = evaluation?.status ?? null;
-  
+  const displayStatus: keyof typeof STATUS_CONFIG | null = church?.confessionAdopted
+    ? "confessional"
+    : (status as keyof typeof STATUS_CONFIG | null);
+  const [coreDoctrinesOpen, setCoreDoctrinesOpen] = useState(false);
+  const [otherDoctrinesOpen, setOtherDoctrinesOpen] = useState(false);
+
+  const isAdmin = user?.$id === process.env.NEXT_PUBLIC_ADMIN_ID;
+
+  const reEvaluateMutation = useMutation({
+    mutationFn: async () => {
+      if (!church?.website) throw new Error("No website available");
+      const updatedChurch = await createChurch({
+        website: church.website,
+        forceReEvaluate: true,
+        userId: user?.$id,
+      });
+      return updatedChurch;
+    },
+    onSuccess: (updatedChurch) => {
+      if (onChurchUpdated) {
+        onChurchUpdated(updatedChurch);
+      }
+    },
+  });
+
   // Find false doctrines
   const falseDoctrine = evaluation?.coreDoctrines
     ? (Object.entries(evaluation.coreDoctrines)
-        .filter(([, value]) => value === "false")
-        .map(([key]) => key as CoreDoctrineKey))
+      .filter(([, value]) => value === "false")
+      .map(([key]) => key as CoreDoctrineKey))
     : [];
 
   // Check if denomination is in the non-endorsement list
   const denominationLabel = church?.denomination?.label?.trim();
-  const denominationNote = denominationLabel && denominationLabel in canNotEndorseJson
-    ? canNotEndorseJson[denominationLabel as keyof typeof canNotEndorseJson]
+  const canonicalName = denominationLabel ? normalizeDenomination(denominationLabel) : null;
+  const denominationNote = canonicalName && canonicalName in canNotEndorseJson
+    ? canNotEndorseJson[canonicalName as keyof typeof canNotEndorseJson]
     : null;
+
+  // Create a map of core doctrine keys to their notes
+  const coreDoctrineNotes = new Map<string, { text: string; sourceUrl: string | null }>();
+  if (evaluation?.raw?.church?.notes) {
+    evaluation.raw.church.notes.forEach((note) => {
+      const normalizedLabel = note.label.toLowerCase().replace(/\s+/g, "_");
+      coreDoctrineNotes.set(normalizedLabel, {
+        text: note.text,
+        sourceUrl: note.source_url,
+      });
+    });
+  }
+
+  // Filter notes to exclude those already shown in core doctrines
+  const remainingNotes = evaluation?.raw?.church?.notes?.filter((note) => {
+    const normalizedLabel = note.label.toLowerCase().replace(/\s+/g, "_");
+    return !Object.keys(evaluation.coreDoctrines).includes(normalizedLabel);
+  }) ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         {church ? (
           <div className="space-y-6">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-semibold text-foreground">{church.name}</DialogTitle>
-              <DialogDescription>
-                {church.city && church.state ? `${church.city}, ${church.state}` : church.city ?? church.state ?? "Location unknown"}
-              </DialogDescription>
-            </DialogHeader>
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <DialogHeader className="flex-1">
+                <DialogTitle className="text-2xl font-semibold text-foreground">{church.name}</DialogTitle>
+                <DialogDescription>
+                  {church.city && church.state ? `${church.city}, ${church.state}` : church.city ?? church.state ?? "Location unknown"}
+                </DialogDescription>
+              </DialogHeader>
+              {church.confessionAdopted && (
+                <div className="flex justify-center md:justify-end">
+                  <Image
+                    src="/confessional_seal.png"
+                    alt="Confessional Church Seal"
+                    width={100}
+                    height={100}
+                    className="object-contain"
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Endorsement Status Alert */}
-            {status && STATUS_CONFIG[status] && (
-              <Alert className={cn(STATUS_CONFIG[status].bgColor, STATUS_CONFIG[status].borderColor)}>
+            {displayStatus && STATUS_CONFIG[displayStatus] && (
+              <Alert className={cn(STATUS_CONFIG[displayStatus].bgColor, STATUS_CONFIG[displayStatus].borderColor)}>
                 {(() => {
-                  const Icon = STATUS_CONFIG[status].icon;
-                  return <Icon className={cn("h-4 w-4", STATUS_CONFIG[status].iconColor)} />;
+                  const Icon = STATUS_CONFIG[displayStatus].icon;
+                  return <Icon className={cn("h-4 w-4", STATUS_CONFIG[displayStatus].iconColor)} />;
                 })()}
-                <AlertTitle className={STATUS_CONFIG[status].textColor}>
-                  {STATUS_CONFIG[status].title}
+                <AlertTitle className={STATUS_CONFIG[displayStatus].textColor}>
+                  {STATUS_CONFIG[displayStatus].title}
                 </AlertTitle>
-                <AlertDescription className={STATUS_CONFIG[status].textColor}>
-                  {STATUS_CONFIG[status].description}
+                <AlertDescription className={STATUS_CONFIG[displayStatus].textColor}>
+                  {STATUS_CONFIG[displayStatus].description}
                 </AlertDescription>
               </Alert>
             )}
@@ -167,172 +299,270 @@ export function ChurchDetailDialog({ church, open, onOpenChange }: ChurchDetailD
               </Alert>
             )}
 
-            <section className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4 md:grid-cols-2">
-              <div className="space-y-2 text-sm">
-                <p>
-                  <span className="font-medium text-muted-foreground">Website:</span>{" "}
-                  <a
-                    href={church.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline-offset-2 hover:underline"
-                  >
-                    {church.website}
-                  </a>
-                </p>
-                <p>
-                  <span className="font-medium text-muted-foreground">Email:</span>{" "}
-                  {church.email ?? "Unavailable"}
-                </p>
-                <p>
-                  <span className="font-medium text-muted-foreground">Phone:</span>{" "}
-                  {church.phone ?? "Unavailable"}
-                </p>
-              </div>
-              <div className="space-y-2 text-sm">
-                <p>
-                  <span className="font-medium text-muted-foreground">Denomination:</span>{" "}
-                  {church.denomination.label ?? "Unknown"}
-                </p>
-                <p>
-                  <span className="font-medium text-muted-foreground">Confessional:</span>{" "}
-                  {church.confessionAdopted ? "Yes" : "No"}
-                </p>
-                <p>
-                  <span className="font-medium text-muted-foreground">Core coverage:</span>{" "}
-                  {evaluation ? `${Math.round(evaluation.coverageRatio * 100)}%` : "Unknown"}
-                </p>
-              </div>
-            </section>
-
-            {church.addresses.length > 0 ? (
+            {/* At a Glance - Badges */}
+            {evaluation && evaluation.badges.length > 0 && (
               <section className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">Addresses</h3>
-                <div className="grid gap-3 md:grid-cols-2">
-                  {church.addresses.map((address) => (
-                    <div key={address.id} className="rounded-md border border-border bg-card/60 p-3 text-sm">
-                      <p className="font-medium text-foreground">
-                        {address.street1}
-                        {address.street2 ? `, ${address.street2}` : ""}
-                      </p>
-                      <p className="text-muted-foreground">
-                        {[address.city, address.state, address.postCode].filter(Boolean).join(", ") || "Unknown"}
-                      </p>
-                      {address.sourceUrl ? (
-                        <a
-                          href={address.sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary underline-offset-2 hover:underline"
-                        >
-                          Source
-                        </a>
-                      ) : null}
-                      {address.isPrimary ? (
-                        <span className="mt-2 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-                          Primary
-                        </span>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            {church.serviceTimes.length > 0 ? (
-              <section className="space-y-3">
-                <h3 className="text-lg font-semibold text-foreground">Service times</h3>
-                <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                  {church.serviceTimes.map((service) => (
-                    <span key={service.id} className="rounded-md bg-muted px-3 py-1.5">
-                      {service.label}
+                <h3 className="text-lg font-semibold text-foreground">At a Glance</h3>
+                <div className="flex flex-wrap gap-2">
+                  {evaluation.badges.map((badge) => (
+                    <span
+                      key={badge}
+                      className="rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary"
+                    >
+                      {badge}
                     </span>
                   ))}
                 </div>
               </section>
-            ) : null}
+            )}
+
+            {/* Church Information - Contact, Addresses, Service Times */}
+            <section className="space-y-4">
+              <h3 className="text-lg font-semibold text-foreground">Church Information</h3>
+
+              <div className="grid gap-4 rounded-lg border border-border bg-muted/30 p-4 md:grid-cols-2">
+                <div className="space-y-2 text-sm">
+                  <p>
+                    <span className="font-medium text-muted-foreground">Website:</span>{" "}
+                    <a
+                      href={church.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline-offset-2 hover:underline"
+                    >
+                      {church.website}
+                    </a>
+                  </p>
+                  <p>
+                    <span className="font-medium text-muted-foreground">Email:</span>{" "}
+                    {church.email ?? "Unavailable"}
+                  </p>
+                  <p>
+                    <span className="font-medium text-muted-foreground">Phone:</span>{" "}
+                    {church.phone ?? "Unavailable"}
+                  </p>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <p>
+                    <span className="font-medium text-muted-foreground">Denomination:</span>{" "}
+                    {church.denomination.label ?? "Unknown"}
+                  </p>
+                  <p>
+                    <span className="font-medium text-muted-foreground">Historic Reformed (Confessional):</span>{" "}
+                    {church.confessionAdopted ? "Yes" : "No"}
+                  </p>
+                  <p>
+                    <span className="font-medium text-muted-foreground">Essentials on website:</span>{" "}
+                    {evaluation ? `${Math.round(evaluation.coverageRatio * 100)}%` : "Unknown"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Addresses */}
+              {church.addresses.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-base font-semibold text-foreground">Addresses</h4>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {church.addresses.map((address) => (
+                      <div key={address.id} className="rounded-md border border-border bg-card/60 p-3 text-sm">
+                        <p className="font-medium text-foreground">
+                          {address.street1}
+                          {address.street2 ? `, ${address.street2}` : ""}
+                        </p>
+                        <p className="text-muted-foreground">
+                          {[address.city, address.state, address.postCode].filter(Boolean).join(", ") || "Unknown"}
+                        </p>
+                        {address.sourceUrl && (
+                          <a
+                            href={address.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary underline-offset-2 hover:underline"
+                          >
+                            Source
+                          </a>
+                        )}
+                        {address.isPrimary && (
+                          <span className="mt-2 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                            Primary
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Service Times */}
+              {church.serviceTimes.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-base font-semibold text-foreground">Service Times</h4>
+                  <div className="flex flex-wrap gap-2 text-sm">
+                    {church.serviceTimes.map((service) => (
+                      <span key={service.id} className="rounded-md bg-muted px-3 py-1.5 text-muted-foreground">
+                        {service.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
 
             {evaluation ? (
               <section className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">Core doctrines</h3>
-                  <p className="text-sm text-muted-foreground">
-                    True doctrines appear in green, explicit denials in red, and unknown positions in muted text.
-                  </p>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  {Object.entries(evaluation.coreDoctrines).map(([key, value]) => (
-                    <div key={key} className="rounded-md border border-border bg-card/60 p-3">
-                      <p className="text-sm font-semibold text-foreground">{CORE_LABELS[key as CoreDoctrineKey]}</p>
-                      <p className={`text-sm ${DOCTRINE_STYLE[value]}`}>{value.toUpperCase()}</p>
+                {/* Core Doctrines - Collapsible */}
+                <Collapsible open={coreDoctrinesOpen} onOpenChange={setCoreDoctrinesOpen}>
+                  <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/30 p-4 hover:bg-muted/50">
+                    <div className="text-left">
+                      <h3 className="text-lg font-semibold text-foreground">Core Doctrines</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Essential Christian beliefs from church statements
+                      </p>
                     </div>
-                  ))}
-                </div>
+                    <ChevronDown
+                      className={cn(
+                        "h-5 w-5 text-muted-foreground transition-transform",
+                        coreDoctrinesOpen && "rotate-180"
+                      )}
+                    />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-4 space-y-3">
+                    {Object.entries(evaluation.coreDoctrines).map(([key, value]) => {
+                      const doctrineNote = coreDoctrineNotes.get(key);
+                      return (
+                        <div
+                          key={key}
+                          className={cn(
+                            "rounded-md border p-4",
+                            value === "true"
+                              ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20"
+                              : value === "false"
+                                ? "border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20"
+                                : "border-border bg-card/60"
+                          )}
+                        >
+                          <div className="mb-2 flex items-start justify-between">
+                            <p className="font-semibold text-foreground">{CORE_LABELS[key as CoreDoctrineKey]}</p>
+                            <span
+                              className={cn(
+                                "rounded-full px-2.5 py-0.5 text-xs font-medium",
+                                value === "true"
+                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+                                  : value === "false"
+                                    ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                                    : "bg-muted text-muted-foreground"
+                              )}
+                            >
+                              {value === "true" ? "✓ Affirmed" : value === "false" ? "✗ Denied" : "Unknown"}
+                            </span>
+                          </div>
+                          {doctrineNote ? (
+                            <div className="mt-2 space-y-1 text-sm">
+                              <p className="text-foreground">{doctrineNote.text}</p>
+                              {doctrineNote.sourceUrl && (
+                                <a
+                                  href={doctrineNote.sourceUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center text-xs text-primary underline-offset-2 hover:underline"
+                                >
+                                  View source →
+                                </a>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-sm text-muted-foreground italic">
+                              {value === "true"
+                                ? "Affirmed through church's adopted confession or denomination."
+                                : value === "false"
+                                  ? "This church explicitly denies this essential Christian doctrine."
+                                  : "Position unclear from available church statements."}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </CollapsibleContent>
+                </Collapsible>
 
-                <Separator />
+                {/* Other Doctrines - Collapsible */}
+                {(Object.keys(evaluation.secondary ?? {}).length > 0 ||
+                  Object.keys(evaluation.tertiary ?? {}).length > 0) && (
+                    <Collapsible open={otherDoctrinesOpen} onOpenChange={setOtherDoctrinesOpen}>
+                      <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-muted/30 p-4 hover:bg-muted/50">
+                        <div className="text-left">
+                          <h3 className="text-lg font-semibold text-foreground">Other Doctrines</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Additional theological positions and practices
+                          </p>
+                        </div>
+                        <ChevronDown
+                          className={cn(
+                            "h-5 w-5 text-muted-foreground transition-transform",
+                            otherDoctrinesOpen && "rotate-180"
+                          )}
+                        />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {Object.keys(evaluation.secondary ?? {}).length > 0 && (
+                            <div className="space-y-2 rounded-md border border-border bg-card/60 p-4">
+                              <h4 className="text-base font-semibold text-foreground">Important Doctrines</h4>
+                              <ul className="space-y-2 text-sm">
+                                {Object.entries(evaluation.secondary ?? {}).map(([key, value]) => (
+                                  <li key={key} className="flex flex-col">
+                                    <span className="font-medium text-foreground">{formatDoctrineKey(key)}</span>
+                                    <span className="text-muted-foreground">{value ?? "Not specified"}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {Object.keys(evaluation.tertiary ?? {}).length > 0 && (
+                            <div className="space-y-2 rounded-md border border-border bg-card/60 p-4">
+                              <h4 className="text-base font-semibold text-foreground">Additional Positions</h4>
+                              <ul className="space-y-2 text-sm">
+                                {Object.entries(evaluation.tertiary ?? {}).map(([key, value]) => (
+                                  <li key={key} className="flex flex-col">
+                                    <span className="font-medium text-foreground">{formatDoctrineKey(key)}</span>
+                                    <span className="text-muted-foreground">{value ?? "Not specified"}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
 
-                <div className="grid gap-4 md:grid-cols-2">
+                {/* Remaining Notes - Only show notes not already in core doctrines */}
+                {remainingNotes.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="text-base font-semibold text-foreground">Secondary doctrines</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      {Object.entries(evaluation.secondary ?? {}).map(([key, value]) => (
-                        <li key={key}>
-                          <span className="font-medium text-foreground">{formatDoctrineKey(key)}:</span> {value ?? "Not specified"}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="text-base font-semibold text-foreground">Tertiary doctrines</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      {Object.entries(evaluation.tertiary ?? {}).map(([key, value]) => (
-                        <li key={key}>
-                          <span className="font-medium text-foreground">{formatDoctrineKey(key)}:</span> {value ?? "Not specified"}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                {evaluation.badges.length > 0 ? (
-                  <div className="space-y-2">
-                    <h4 className="text-base font-semibold text-foreground">Badges</h4>
-                    <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                      {evaluation.badges.map((badge) => (
-                        <span key={badge} className="rounded-full bg-muted px-3 py-1">
-                          {badge}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {evaluation.raw.church.notes.length > 0 ? (
-                  <div className="space-y-2">
-                    <h4 className="text-base font-semibold text-foreground">Notes & Sources</h4>
+                    <h4 className="text-base font-semibold text-foreground">Additional Notes & Sources</h4>
                     <ul className="space-y-2 text-sm">
-                      {evaluation.raw.church.notes.map((note, idx) => (
+                      {remainingNotes.map((note, idx) => (
                         <li key={`${note.label}-${note.source_url}-${idx}`} className="rounded-md border border-border bg-card/60 p-3">
                           <p className="font-medium text-foreground">{note.label}</p>
                           <p className="text-muted-foreground">{note.text}</p>
-                          {note.source_url ? (
+                          {note.source_url && (
                             <a
                               href={note.source_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs text-primary underline-offset-2 hover:underline"
+                              className="mt-1 inline-flex items-center text-xs text-primary underline-offset-2 hover:underline"
                             >
-                              Source
+                              View source →
                             </a>
-                          ) : null}
+                          )}
                         </li>
                       ))}
                     </ul>
                   </div>
-                ) : null}
+                )}
               </section>
             ) : (
-              <p className="text-sm text-muted-foreground">No evaluation available for this church yet.</p>
+              <p className="text-sm text-muted-foreground">We have not evaluated this church yet.</p>
             )}
 
             <Separator />
@@ -344,6 +574,62 @@ export function ChurchDetailDialog({ church, open, onOpenChange }: ChurchDetailD
               {renderBestPage("About", church.bestPages.about)}
               {renderBestPage("Leadership", church.bestPages.leadership)}
             </section>
+
+            {/* Evaluation Notice */}
+            <Alert className="bg-muted/30 border-border">
+              <Info className="h-4 w-4 text-muted-foreground" />
+              <AlertTitle className="text-foreground">About these evaluations</AlertTitle>
+              <AlertDescription>
+                Our summaries rely on what a church publishes on its website. If something is not explicitly stated online,
+                we cannot infer their position. If you spot an error, please <a href="mailto:contact@calvinistparrotministries.org" className="underline underline-offset-2 hover:no-underline">email us</a> with the page link and what needs correction.
+              </AlertDescription>
+            </Alert>
+
+            {/* Admin Re-evaluation Section */}
+            {isAdmin && church.website && (
+              <>
+                <Separator />
+                <section className="space-y-3">
+                  <h3 className="text-base font-semibold text-foreground">Admin Actions</h3>
+                  <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <AlertTitle className="text-amber-800 dark:text-amber-300">Re-evaluate Church</AlertTitle>
+                    <AlertDescription className="space-y-3">
+                      <p className="text-amber-700 dark:text-amber-400">
+                        This will re-run the evaluation pipeline for this church using the current website content.
+                        The existing evaluation will be replaced.
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <code className="flex-1 rounded bg-muted px-2 py-1 text-xs text-foreground">
+                          {church.website}
+                        </code>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => reEvaluateMutation.mutate()}
+                          disabled={reEvaluateMutation.status === "pending"}
+                        >
+                          {reEvaluateMutation.status === "pending" ? <Spinner /> : "Re-evaluate"}
+                        </Button>
+                      </div>
+                      {reEvaluateMutation.isError && (
+                        <p className="text-sm text-red-600 dark:text-red-400">
+                          {reEvaluateMutation.error instanceof Error
+                            ? reEvaluateMutation.error.message
+                            : "Re-evaluation failed"}
+                        </p>
+                      )}
+                      {reEvaluateMutation.isSuccess && (
+                        <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                          ✓ Re-evaluation complete! The page will refresh with updated data.
+                        </p>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                </section>
+              </>
+            )}
           </div>
         ) : (
           <div>

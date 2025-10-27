@@ -205,5 +205,13 @@
       }
     ],
     "note": "Broad movement; many adherents/communities openly reject historic doctrines as non-essential."
+  },
+  "Presbyterian Church (USA) / PCUSA": {
+    "denies": [],
+    "note": "Mainline denomination that officially permits women's ordination as pastors and elders (since 1956) and ordination of practicing LGBTQ individuals (since 2011). Also permits same-sex marriage. While individual congregations vary, denominational policy contradicts biblical teaching on gender roles and sexuality. Some PCUSA churches hold to orthodox theology despite denominational drift."
+  },
+  "Evangelical Covenant Order of Evangelical Presbyterians / ECO": {
+    "denies": [],
+    "note": "2012 split from PCUSA attempting to be more conservative, but officially permits women's ordination as teaching elders/pastors (allowed but not required). Uses 'ECO Essential Tenets' and Book of Confessions instead of historic Reformed confessions alone. Mixed on biblical sexuality - while officially traditional, member churches vary widely. Individual churches should be evaluated carefully."
   }
 }

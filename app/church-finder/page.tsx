@@ -7,6 +7,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { ChurchDetail, ChurchListItem } from "@/types/church";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Info } from "lucide-react";
 
 import {
   ChurchDetailDialog,
@@ -113,13 +115,32 @@ export default function ChurchFinderPage() {
 
   const handleChurchCreated = useCallback((church: ChurchDetail) => {
     setFilters((prev) => ({ ...prev, page: 1 }));
-    void queryClient.invalidateQueries({ queryKey: ["churches"] });
+    
+    // Invalidate and refetch both church list and metadata
+    void queryClient.invalidateQueries({ queryKey: ["churches"], refetchType: "active" });
+    void queryClient.invalidateQueries({ queryKey: ["churches", "meta"], refetchType: "active" });
     
     // Cache the newly created church detail
     queryClient.setQueryData(["church-detail", church.id], church);
     
     setSelectedChurchId(church.id);
     setDetailOpen(true);
+  }, [queryClient]);
+
+  const handleChurchView = useCallback((church: ChurchDetail) => {
+    // Cache the church detail
+    queryClient.setQueryData(["church-detail", church.id], church);
+    
+    setSelectedChurchId(church.id);
+    setDetailOpen(true);
+  }, [queryClient]);
+
+  const handleChurchUpdated = useCallback((church: ChurchDetail) => {
+    // Update the cache with the re-evaluated church
+    queryClient.setQueryData(["church-detail", church.id], church);
+    
+    // Invalidate list queries to show updated data
+    void queryClient.invalidateQueries({ queryKey: ["churches"], refetchType: "active" });
   }, [queryClient]);
 
   const churches = churchQuery.data?.items ?? [];
@@ -131,13 +152,25 @@ export default function ChurchFinderPage() {
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Church Finder</h1>
-        <p className="text-muted-foreground max-w-3xl mb-4">
-          A crowd-sourced directory of churches evaluated through the Calvinist Parrot doctrinal framework. 
-          Browse churches filtered by region and denominational distinctives, or contribute by adding new churches to help others find sound biblical teaching.
+        <p className="text-muted-foreground mb-4">
+          We’re building a community-maintained directory to help believers find churches anchored in the Gospel and the essentials of the faith. Filter by location and denominational distinctives, and contribute by adding churches so others can benefit.
         </p>
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/doctrinal-statement">View Our Doctrinal Statement</Link>
-        </Button>
+        <div className="flex items-center gap-3 mb-4">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/doctrinal-statement">View Our Doctrinal Statement</Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/church-finder/guide">How evaluations work</Link>
+          </Button>
+        </div>
+        <Alert className="bg-muted/30 border-border">
+          <Info className="h-4 w-4 text-muted-foreground" />
+          <AlertTitle className="text-foreground">How these evaluations work</AlertTitle>
+          <AlertDescription>
+            We summarize what a church states on its website—nothing more. If something isn’t clearly written online, we can’t
+            infer their position. If you see an error, <a href="mailto:contact@calvinistparrotministries.org" className="underline underline-offset-2 hover:no-underline">email us</a> with the page link and what needs correction.
+          </AlertDescription>
+        </Alert>
       </header>
 
       {/* Main content grid: List on left, Filters on right (desktop) */}
@@ -197,7 +230,7 @@ export default function ChurchFinderPage() {
 
       {/* Discovery Panel - moved to bottom for crowd-sourced contribution */}
       <div className="mt-8">
-        <ChurchDiscoveryPanel onChurchCreated={handleChurchCreated} />
+        <ChurchDiscoveryPanel onChurchCreated={handleChurchCreated} onChurchView={handleChurchView} />
       </div>
 
       <ChurchDetailDialog
@@ -209,6 +242,7 @@ export default function ChurchFinderPage() {
           }
         }}
         church={detailQuery.data ?? null}
+        onChurchUpdated={handleChurchUpdated}
       />
     </div>
   );

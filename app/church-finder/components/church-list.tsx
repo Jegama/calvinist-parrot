@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { ChurchListItem, EvaluationStatus } from "@/types/church";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-const STATUS_STYLES: Record<EvaluationStatus, string> = {
+const STATUS_STYLES: Record<EvaluationStatus | "confessional", string> = {
   pass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   caution: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   red_flag: "bg-red-500/10 text-red-600 dark:text-red-400",
+  confessional: "bg-primary/10 text-primary",
 };
 
 type ChurchListProps = {
@@ -39,6 +41,7 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
+    <TooltipProvider delayDuration={0}>
     <div className="space-y-4">
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
@@ -80,6 +83,16 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
         ) : (
           items.map((church) => {
             const status = church.status ?? "caution";
+            const displayKey: keyof typeof STATUS_STYLES = church.confessionAdopted
+              ? "confessional"
+              : status;
+            const displayLabel = church.confessionAdopted
+              ? "Historic Reformed (Confessional)"
+              : status === "red_flag"
+                ? "Not Endorsed"
+                : status === "caution"
+                  ? "Limited Info"
+                  : "Recommended";
             return (
               <Card
                 key={church.id}
@@ -91,18 +104,40 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                     <CardTitle className="text-xl font-semibold text-foreground">{church.name}</CardTitle>
                     <CardDescription>{formatLocation(church)}</CardDescription>
                   </div>
-                  {church.status ? (
-                    <span className={`rounded-full px-3 py-1 text-sm font-medium ${STATUS_STYLES[status]}`}>
-                      {church.status === "red_flag"
-                        ? "Red flag"
-                        : church.status === "caution"
-                        ? "Caution"
-                        : "Pass"}
-                    </span>
+                  {(church.status || church.confessionAdopted) ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          className={`rounded-full px-3 py-1 text-sm font-medium ${STATUS_STYLES[displayKey]}`}
+                          aria-label={`${displayLabel} status`}
+                        >
+                          {displayLabel}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p className="max-w-xs text-sm">
+                          {church.confessionAdopted
+                            ? "Publicly subscribes to a historic Reformed confession."
+                            : status === "red_flag"
+                              ? "We cannot endorse this church based on what is published."
+                              : status === "caution"
+                                ? "Website does not clearly state several essentials."
+                                : "We can commend this church based on essentials affirmed on its site."}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
                   ) : null}
                 </CardHeader>
                 <CardContent className="grid gap-4 lg:grid-cols-4">
-                  <div className="space-y-1">
+                  <div className="space-y-1 order-1">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Historic Reformed (Confessional)</p>
+                    <p className="text-sm text-foreground">{church.confessionAdopted ? "Yes" : "No"}</p>
+                  </div>
+                  <div className="space-y-1 order-2">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Essentials on website</p>
+                    <p className="text-sm text-foreground">{formatCoverage(church.coverageRatio)}</p>
+                  </div>
+                  <div className="space-y-1 order-4 lg:order-3">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">Denomination</p>
                     <p className="text-sm text-foreground">
                       {church.denomination.label ?? "Unknown"}
@@ -111,16 +146,8 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                         : ""}
                     </p>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Confessional</p>
-                    <p className="text-sm text-foreground">{church.confessionAdopted ? "Yes" : "No"}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Core coverage</p>
-                    <p className="text-sm text-foreground">{formatCoverage(church.coverageRatio)}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Badges</p>
+                  <div className="space-y-1 order-3 lg:order-4">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">At a Glance</p>
                     <div className="flex flex-wrap gap-1">
                       {(church.badges ?? []).slice(0, 3).map((badge) => (
                         <span key={badge} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
@@ -152,5 +179,6 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 }

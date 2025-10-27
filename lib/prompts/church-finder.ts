@@ -209,7 +209,7 @@ Determine if the church **adopts** a historic confession as their doctrinal stan
 - \`name\`: Name of the confession (e.g., "Westminster Confession of Faith (1646/47)", "Second London Baptist Confession (1689)")
 - \`source_url\`: URL where confession is mentioned
 
-**Valid Historic Confessions:**
+**ONLY These Historic Confessions Are Valid:**
 - Westminster Confession of Faith (1646/47)
 - Second London Baptist Confession (1689)
 - First London Baptist Confession (1644)
@@ -218,11 +218,12 @@ Determine if the church **adopts** a historic confession as their doctrinal stan
 - Irish Articles (1615)
 - Savoy Declaration (1658)
 
-**Notes:**
-If \`adopted = true\`, add a note:
-- \`label\`: "Adopted Confession"
-- \`text\`: "Church adopts [confession name] as their doctrinal standard"
-- \`source_url\`: URL where you found this
+**CRITICAL REJECTIONS - Mark \`adopted = false\` for these:**
+- ECO Essential Tenets (2012) - Modern progressive confession, NOT historic Reformed
+- Book of Confessions (PCUSA/ECO collection) - Contains problematic modern confessions (Confession of 1967, Belhar)
+- Any confession not explicitly listed above
+- Any modern (post-1700) confessions or statements
+- Denominational statements that are not historic Reformed confessions
 
 ### Badges to Detect (add to badges array if applicable including the emoji):
 
@@ -232,6 +233,21 @@ If \`adopted = true\`, add a note:
 - **🏢 Multi-Site**: If one church with multiple campuses/locations
 - **👥 Small Church**: If stated membership is under 100
 - **🏟️ Megachurch**: If stated membership/attendance is over 2000
+
+**IMPORTANT**: 🤝 Denomination-Affiliated and 🆓 Independent are **mutually exclusive**. Add only ONE of these badges:
+- If the church has denominational oversight/affiliation → use 🤝 Denomination-Affiliated
+- If the church is explicitly independent with no denomination → use 🆓 Independent
+- If unclear → omit both
+
+**Notes:**
+If \`adopted = true\`, add a note:
+- \`label\`: "Adopted Confession"
+- \`text\`: "Church adopts [confession name] as their doctrinal standard"
+- \`source_url\`: URL where you found this
+If "🤝 Denomination-Affiliated" badge is present, add a note:
+- \`label\`: "Denomination Affiliation"
+- \`text\`: "Church is affiliated with [denomination name]"
+- \`source_url\`: URL where you found this
 
 Only add badges you have clear evidence for. Return empty array if none apply.`;
 
@@ -272,6 +288,12 @@ Review all website content for the following red flag indicators. Add badges ONL
 - NOT for women serving as deacons, staff, ministry leaders, or teachers in non-governing roles
 - Look for titles like: "Pastor [Woman's name]", "Elder [Woman's name]", "Rev. [Woman's name]", "Bishop [Woman's name]", "Priestess", "Female clergy"
 - Also check leadership pages for women in elder/pastor positions
+- **IMPORTANT**: If you see "[Woman's Name] - Pastor of [any ministry area]" under "Pastoral Staff" → ADD THIS BADGE
+- Examples that MUST trigger this badge:
+  - "Courtney McLaughlin - Pastor of Missions"
+  - "Sarah Johnson - Pastor of Children's Ministry"  
+  - "Jane Doe - Teaching Pastor"
+  - Any woman with "Pastor", "Elder", "Reverend", or "Bishop" in their official title
 
 **🏳️‍🌈 LGBTQ Affirming**: 
 Look for explicit affirmation in these contexts:
