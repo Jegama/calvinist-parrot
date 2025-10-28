@@ -1,0 +1,63 @@
+.mapShell {
+  position: relative;
+  z-index: 0;
+}
+
+.mapShell :global(.leaflet-container) {
+  background: transparent;
+  font-family: inherit;
+}
+
+.mapShell :global(.leaflet-popup-content-wrapper) {
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 24px 48px -28px rgba(15, 23, 42, 0.5);
+}
+
+.mapShell :global(.leaflet-popup-content) {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+}
+
+.mapShell :global(.leaflet-popup-tip) {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+}
+
+.mapShell :global(.leaflet-popup-close-button) {
+  color: hsl(var(--card-foreground));
+  font-size: 0.95rem;
+  margin: 0.2rem 0.3rem;
+}
+
+.mapShell :global(.leaflet-control-zoom) {
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 20px 35px -25px rgba(15, 23, 42, 0.55);
+}
+
+.mapShell :global(.leaflet-control-zoom a) {
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+}
+
+.mapShell :global(.leaflet-control-zoom a:hover) {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+:global(.leaflet-pane) {
+  z-index: 10 !important;
+}
+
+.mapShell :global(.leaflet-control-container) {
+  z-index: 5;
+}
+
+.mapShell :global(.leaflet-bottom),
+.mapShell :global(.leaflet-top) {
+  z-index: 5;
+}

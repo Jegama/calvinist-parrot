@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -46,6 +46,51 @@ export default function ChurchFinderPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
+  const filtersContainerRef = useRef<HTMLDivElement | null>(null);
+  const [mapHeight, setMapHeight] = useState<number | null>(null);
+
+  const updateMapHeight = useCallback((next: number) => {
+    if (!Number.isFinite(next) || next <= 0) {
+      return;
+    }
+    setMapHeight((prev) => {
+      if (prev === null) {
+        return next;
+      }
+      if (Math.abs(prev - next) < 1) {
+        return prev;
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const element = filtersContainerRef.current;
+    if (!element) {
+      return;
+    }
+
+    const target = (element.firstElementChild ?? element) as HTMLElement;
+
+    const measure = () => {
+      updateMapHeight(target.getBoundingClientRect().height);
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      updateMapHeight(entry.contentRect.height);
+    });
+
+    observer.observe(target);
+
+    return () => observer.disconnect();
+  }, [updateMapHeight]);
 
   const queryClient = useQueryClient();
 
@@ -167,7 +212,7 @@ export default function ChurchFinderPage() {
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Church Finder</h1>
         <p className="text-muted-foreground mb-4">
-          We're building a community-maintained directory to help believers find churches anchored in the Gospel and the essentials of the faith. Filter by location and denominational distinctives, and contribute by adding churches so others can benefit.
+          We&apos;re building a community-maintained directory to help believers find churches anchored in the Gospel and the essentials of the faith. Filter by location and denominational distinctives, and contribute by adding churches so others can benefit.
         </p>
         <div className="flex items-center gap-3 mb-4">
           <Button variant="outline" size="sm" asChild>
@@ -181,14 +226,14 @@ export default function ChurchFinderPage() {
           <Info className="h-4 w-4 text-primary" />
           <AlertTitle className="text-foreground font-semibold">How these evaluations work</AlertTitle>
           <AlertDescription className="text-foreground/80">
-            We summarize what a church states on its website—nothing more. If something isn't clearly written online, we can't
+            We summarize what a church states on its website—nothing more. If something isn&apos;t clearly written online, we can&apos;t
             infer their position. If you see an error, <a href="mailto:contact@calvinistparrotministries.org" className="text-primary underline underline-offset-2 hover:no-underline">email us</a> with the page link and what needs correction.
           </AlertDescription>
         </Alert>
       </header>
 
       {/* Main content grid: List on left, Filters on right (desktop) */}
-      <div className="grid gap-6 lg:grid-cols-[1fr,400px]">
+      <div className="grid gap-6 lg:grid-cols-[1fr,400px] lg:items-start">
         <div className="space-y-4">
           {/* Filters shown between discovery and list on mobile */}
           <div className="lg:hidden">
@@ -224,12 +269,12 @@ export default function ChurchFinderPage() {
               Loading map data…
             </div>
           ) : (
-            <ChurchMap churches={churches} onSelect={handleSelect} />
+            <ChurchMap churches={churches} onSelect={handleSelect} height={mapHeight} />
           )}
         </div>
 
         {/* Filters sidebar - Desktop only */}
-        <div className="hidden lg:block">
+        <div className="hidden lg:block lg:self-start" ref={filtersContainerRef}>
           <ChurchFiltersBar
             availableStates={metaQuery.data?.states ?? []}
             denominations={metaQuery.data?.denominations ?? []}

@@ -75,17 +75,6 @@ export function ChurchFiltersBar({
     [onFiltersChange]
   );
 
-  const handleConfessionalChange = useCallback(
-    (value: string) => {
-      onFiltersChange((prev) => {
-        if ((prev.confessional ?? "all") === value) return prev;
-        const newConfessional = value === "all" ? null : (value as "true" | "false");
-        return { ...prev, page: 1, confessional: newConfessional };
-      });
-    },
-    [onFiltersChange]
-  );
-
   const handleStatusChange = useCallback(
     (value: string) => {
       onFiltersChange((prev) => {

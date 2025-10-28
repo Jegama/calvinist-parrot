@@ -37,10 +37,6 @@ function sortChurchesByPriority<T extends {
   evaluations: Array<{ status: "PASS" | "CAUTION" | "RED_FLAG" }>;
 }>(churches: T[]): T[] {
   return churches.sort((a, b) => {
-    // Get latest evaluation status
-    const aStatus = a.evaluations[0]?.status;
-    const bStatus = b.evaluations[0]?.status;
-
     // Assign priority values
     const getPriority = (church: T): number => {
       if (church.confessionAdopted) return 1; // Historic Reformed

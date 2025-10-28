@@ -16,6 +16,7 @@ const MapComponent = dynamic(() => import("./church-map-inner").then((mod) => mo
 type ChurchMapProps = {
   churches: ChurchListItem[];
   onSelect: (church: ChurchListItem) => void;
+  height?: number | null;
 };
 
 export function ChurchMap(props: ChurchMapProps) {
