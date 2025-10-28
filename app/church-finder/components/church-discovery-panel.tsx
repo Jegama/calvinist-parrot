@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { useMutation } from "@tanstack/react-query";
 
@@ -11,6 +11,8 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner"
 import type { ChurchDetail, ChurchSearchResult } from "@/types/church";
 import { checkChurchExists, createChurch, fetchChurchDetail, searchChurches } from "@/app/church-finder/api";
+
+type EvaluationStatus = "idle" | "fetching" | "analyzing" | "complete";
 
 type ChurchDiscoveryPanelProps = {
   onChurchCreated: (church: ChurchDetail) => void;
@@ -26,6 +28,40 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
   const [creationError, setCreationError] = useState<string | null>(null);
   const [evaluatingIds, setEvaluatingIds] = useState<Set<string>>(new Set());
   const [existingChurchIds, setExistingChurchIds] = useState<Map<string, string>>(new Map());
+  const [evaluationStatus, setEvaluationStatus] = useState<EvaluationStatus>("idle");
+  const [searchEvaluationStatuses, setSearchEvaluationStatuses] = useState<Map<string, EvaluationStatus>>(new Map());
+
+  // Simulate progress through evaluation stages
+  useEffect(() => {
+    if (evaluationStatus === "idle") return;
+
+    const timers: NodeJS.Timeout[] = [];
+
+    if (evaluationStatus === "fetching") {
+      // Move to analyzing after 12 seconds (realistic crawl time)
+      const timer = setTimeout(() => {
+        setEvaluationStatus((prev) => prev === "fetching" ? "analyzing" : prev);
+      }, 12000);
+      timers.push(timer);
+    }
+
+    return () => {
+      timers.forEach(clearTimeout);
+    };
+  }, [evaluationStatus]);
+
+  const getStatusMessage = (status: EvaluationStatus): string => {
+    switch (status) {
+      case "fetching":
+        return "Fetching info...";
+      case "analyzing":
+        return "Analyzing...";
+      case "complete":
+      case "idle":
+      default:
+        return "";
+    }
+  };
 
   const searchMutation = useMutation({
     mutationFn: async () => {
@@ -75,7 +111,9 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
       if (!websiteUrl.trim()) {
         throw new Error("Website is required");
       }
-      
+
+      setEvaluationStatus("fetching");
+
       // Check if church already exists
       const check = await checkChurchExists(websiteUrl.trim());
       if (check.exists && check.churchId) {
@@ -83,12 +121,13 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
         const existingChurch = await fetchChurchDetail(check.churchId);
         return { church: existingChurch, wasExisting: true };
       }
-      
+
       // Create new evaluation
       const church = await createChurch({ website: websiteUrl.trim() });
       return { church, wasExisting: false };
     },
     onSuccess: ({ church, wasExisting }) => {
+      setEvaluationStatus("complete");
       setCreationError(null);
       setWebsite("");
       if (wasExisting) {
@@ -96,18 +135,27 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
       } else {
         onChurchCreated(church);
       }
+      // Reset status after a short delay
+      setTimeout(() => setEvaluationStatus("idle"), 500);
     },
     onError: (error: Error) => {
+      setEvaluationStatus("idle");
       setCreationError(error.message || "Unable to add church right now");
     },
   });
 
   const handleEvaluateFromSearch = async (result: ChurchSearchResult) => {
     if (!result.website) return;
-    
+
     setEvaluatingIds((prev) => new Set(prev).add(result.id));
+    setSearchEvaluationStatuses((prev) => new Map(prev).set(result.id, "fetching"));
     setCreationError(null);
-    
+
+    // Set up progress simulation for this specific church
+    const fetchingTimer = setTimeout(() => {
+      setSearchEvaluationStatuses((prev) => new Map(prev).set(result.id, "analyzing"));
+    }, 15000);
+
     try {
       // Check if church already exists
       const existingChurchId = existingChurchIds.get(result.id);
@@ -120,9 +168,24 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
         const church = await createChurch({ website: result.website });
         onChurchCreated(church);
       }
+      setSearchEvaluationStatuses((prev) => new Map(prev).set(result.id, "complete"));
+      // Reset status after a short delay
+      setTimeout(() => {
+        setSearchEvaluationStatuses((prev) => {
+          const next = new Map(prev);
+          next.delete(result.id);
+          return next;
+        });
+      }, 500);
     } catch (error) {
       setCreationError(error instanceof Error ? error.message : "Unable to add church right now");
+      setSearchEvaluationStatuses((prev) => {
+        const next = new Map(prev);
+        next.delete(result.id);
+        return next;
+      });
     } finally {
+      clearTimeout(fetchingTimer);
       setEvaluatingIds((prev) => {
         const next = new Set(prev);
         next.delete(result.id);
@@ -153,9 +216,16 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
               type="button"
               onClick={() => createMutation.mutate(website)}
               disabled={createMutation.status === "pending" || !website.trim()}
-              className="md:w-48"
+              className="md:w-48 min-w-[160px]"
             >
-              {createMutation.status === "pending" ? <Spinner /> : "Evaluate & add"}
+              {createMutation.status === "pending" ? (
+                <span className="flex items-center gap-2 whitespace-nowrap">
+                  <Spinner />
+                  <span className="text-xs">{getStatusMessage(evaluationStatus)}</span>
+                </span>
+              ) : (
+                "Evaluate & add"
+              )}
             </Button>
           </div>
           {creationError ? <p className="text-sm text-red-500">{creationError}</p> : null}
@@ -227,10 +297,13 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
                           size="sm"
                           onClick={() => handleEvaluateFromSearch(result)}
                           disabled={evaluatingIds.has(result.id)}
-                          className="shrink-0"
+                          className="shrink-0 min-w-[120px]"
                         >
                           {evaluatingIds.has(result.id) ? (
-                            <Spinner />
+                            <span className="flex items-center gap-2 whitespace-nowrap">
+                              <Spinner />
+                              <span className="text-xs">{getStatusMessage(searchEvaluationStatuses.get(result.id) ?? "idle")}</span>
+                            </span>
                           ) : existingChurchIds.has(result.id) ? (
                             "View"
                           ) : (

@@ -42,7 +42,7 @@ import { doctrinalStatementContent } from "@/app/doctrinal-statement/page";
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-const MODEL = "gemini-2.5-flash-lite-preview-09-2025";
+const MODEL = "gemini-2.5-flash-preview-09-2025";
 
 type TavilyCrawlResult = {
   base_url?: string;
@@ -224,7 +224,7 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     const content = (pages[0].rawContent ?? "").toLowerCase();
     const contentLength = content.length;
     const matchedKeywords = blockedKeywords.filter((keyword) => content.includes(keyword));
-    
+
     // console.log("Blocked page check:", {
     //   contentLength,
     //   matchedKeywords,
@@ -234,7 +234,7 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
 
     // If we have multiple blocking keywords, it's almost certainly a block page
     // OR if content is short AND has blocking keywords
-    const isBlocked = 
+    const isBlocked =
       matchedKeywords.length >= 2 || // Multiple blocking keywords = definite block
       (contentLength < 1000 && matchedKeywords.length > 0); // Short + any keyword
 

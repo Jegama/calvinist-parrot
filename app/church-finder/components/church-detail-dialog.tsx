@@ -276,6 +276,36 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                 </div>
               )}
 
+              {/* Low Essentials Coverage Warning */}
+              {evaluation && evaluation.coverageRatio < 0.5 && falseDoctrine.length === 0 && (
+                <div className="space-y-4 rounded-lg border-2 border-destructive/40 bg-destructive/10 p-4 shadow-md">
+                  <h3 className="text-lg font-semibold text-destructive flex items-center gap-2">
+                    ⚠️ Insufficient Doctrinal Information
+                  </h3>
+                  <p className="text-sm font-medium text-destructive">
+                    This church's website does not clearly affirm enough essential Christian doctrines for us to recommend it.
+                  </p>
+                  <div className="rounded-md border border-destructive/30 bg-background p-4 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="font-semibold text-foreground">
+                        Essentials clearly stated on website:
+                      </p>
+                      <p className="text-2xl font-bold text-destructive">
+                        {Math.round(evaluation.coverageRatio * 100)}%
+                      </p>
+                    </div>
+                    <p className="text-sm text-foreground/80 mb-3">
+                      Only {evaluation.coreOnSiteCount} out of {evaluation.coreTotalCount} essential doctrines are clearly affirmed on their website.
+                    </p>
+                    <div className="rounded bg-muted/50 p-3">
+                      <p className="text-sm text-foreground/90">
+                        <span className="font-medium">Why this matters:</span> We need a church to publicly affirm at least 50% of essential Christian doctrines to recommend it with confidence. This church may hold sound doctrine that simply isn't published online. We encourage you to contact them directly to inquire about their beliefs.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Denomination-Specific Note */}
               {denominationNote && (
                 <Alert className="bg-amber-100 border-amber-300 dark:bg-amber-950/30 dark:border-amber-800">
