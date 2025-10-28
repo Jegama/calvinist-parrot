@@ -42,7 +42,7 @@ import { doctrinalStatementContent } from "@/app/doctrinal-statement/page";
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-const MODEL = "gemini-2.5-flash-preview-09-2025";
+const MODEL = "gemini-2.5-flash-lite-preview-09-2025";
 
 type TavilyCrawlResult = {
   base_url?: string;
@@ -55,11 +55,6 @@ type TavilyCrawlResult = {
 
 function normalizeWhitespace(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
-}
-
-function truncateContent(content: string, maxLength = 4000): string {
-  if (content.length <= maxLength) return content;
-  return `${content.slice(0, maxLength)}…`;
 }
 
 /**
@@ -188,7 +183,7 @@ export async function crawlChurchSite(website: string): Promise<TavilyCrawlResul
 
     const cleaned = dropAnchorDupes(response);
 
-    console.log(`Cleaned data: ${JSON.stringify(cleaned, null, 2)}`);
+    // console.log(`Cleaned data: ${JSON.stringify(cleaned, null, 2)}`);
 
     return cleaned;
   } catch (error) {
@@ -254,8 +249,7 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
   const contentBlocks = pages
     .map((page, index) => {
       const url = page.url ?? "Unknown URL";
-      const content = truncateContent(page.rawContent ?? "");
-      return `### Page ${index + 1}\nURL: ${url}\n--------------------\n${content}`;
+      return `### Page ${index + 1}\nURL: ${url}\n--------------------\n${page.rawContent}`;
     })
     .join("\n\n");
 
@@ -547,7 +541,8 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   // Determine evaluation status
   // ============================================================================
   const hasRedFlagBadge = allBadges.some((badge) =>
-    badge === "👩‍🏫 Ordained Women" || badge === "🏳️‍🌈 LGBTQ Affirming"
+    badge === "👩‍🏫 Ordained Women" || badge === "🏳️‍🌈 LGBTQ Affirming" || badge === "⚠️ Low Essentials Coverage" ||
+    badge === "⚠️ Prosperity Gospel" || badge === "⚠️ Hyper-Charismatic" || badge === "⚠️ Entertainment-Driven"
   );
 
   let status: EvaluationStatus;

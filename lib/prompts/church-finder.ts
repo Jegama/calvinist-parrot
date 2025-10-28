@@ -24,13 +24,19 @@ Extract the following fields from the website content:
 
 **website**: Use the \`base_url\` provided.
 
-**addresses**: Extract all postal addresses you find:
+**addresses**: Extract all **unique** postal addresses you find:
   - \`street_1\`: Street address (e.g., "1303 Sherwood Forest St")
   - \`street_2\`: Optional suite/building/unit
   - \`city\`: City name
   - \`state\`: State/province (use 2-letter code if US)
   - \`post_code\`: ZIP or postal code
   - \`source_url\`: The URL where you found this address
+  
+**CRITICAL - Avoid Duplicate Addresses:**
+- If you find the same physical address with minor formatting variations (e.g., "St" vs "Street", "TX" vs "Texas"), include it ONLY ONCE
+- Use the most complete/formal version (prefer "Street" over "St", full state name over abbreviation)
+- Different campus locations of a multi-site church ARE unique addresses and should all be included
+- Only include addresses that are clearly different physical locations
 
 **contacts**: 
   - \`phone\`: Phone number (prefer explicit contact info)
@@ -227,17 +233,30 @@ Determine if the church **adopts** a historic confession as their doctrinal stan
 
 ### Badges to Detect (add to badges array if applicable including the emoji):
 
-- **🤝 Denomination-Affiliated**: If clearly tied to a denomination (PCA, SBC, LCMS, Acts 29, Fellowship of Reformed Evangelicals, etc.)
-- **🆓 Independent**: If explicitly independent / non-denominational with no denominational oversight
+- **🤝 Denomination-Affiliated**: If the church is a member of, affiliated with, or part of ANY formal denominational body, network, fellowship, or association. This includes:
+  - Traditional denominations: PCA, OPC, SBC, LCMS, CREC, RPCNA, ARP, etc.
+  - Reformed networks/fellowships: ARBCA (Association of Reformed Baptist Churches of America), FIRE (Fellowship of Independent Reformed Evangelicals), Acts 29, Sovereign Grace Churches, etc.
+  - Any organization that provides: formal membership, mutual accountability, cooperative missions, credentialing, or structured fellowship
+  - **CRITICAL**: Even if the network uses "independent" in its name (e.g., FIRE = Fellowship of **Independent** Reformed Evangelicals), it still counts as denominational affiliation because the church is part of a formal network with membership requirements and mutual support structures
+
+- **🆓 Independent**: If the church is **truly autonomous** with NO formal denominational ties, networks, fellowships, or associations. The church must:
+  - Have no formal membership in any denomination, network, or fellowship
+  - Operate with complete autonomy (no external accountability structure)
+  - Not participate in cooperative denominational missions or credentialing
+  - Be explicitly described as "independent" or "non-denominational" WITHOUT belonging to any named network
+  - **CRITICAL**: If the church mentions being part of ANY network, fellowship, association, or cooperative body → DO NOT use this badge, use 🤝 Denomination-Affiliated instead
+
 - **🏠 House Church**: If church meets in homes (no dedicated building)
 - **🏢 Multi-Site**: If one church with multiple campuses/locations
 - **👥 Small Church**: If stated membership is under 100
 - **🏟️ Megachurch**: If stated membership/attendance is over 2000
 
 **IMPORTANT**: 🤝 Denomination-Affiliated and 🆓 Independent are **mutually exclusive**. Add only ONE of these badges:
-- If the church has denominational oversight/affiliation → use 🤝 Denomination-Affiliated
-- If the church is explicitly independent with no denomination → use 🆓 Independent
+- If the church has ANY denominational oversight/affiliation/network/fellowship membership → use 🤝 Denomination-Affiliated
+- If the church is explicitly autonomous with NO formal ties to ANY network/denomination → use 🆓 Independent  
 - If unclear → omit both
+
+**COMMON CONFUSION**: Churches may describe themselves as "independent" while also being part of a network/fellowship. In these cases, ALWAYS prioritize the network affiliation over the self-description. A church that is "independent Baptist but part of ARBCA" should get 🤝 Denomination-Affiliated, NOT 🆓 Independent.
 
 **Notes:**
 If \`adopted = true\`, add a note:
@@ -245,8 +264,8 @@ If \`adopted = true\`, add a note:
 - \`text\`: "Church adopts [confession name] as their doctrinal standard"
 - \`source_url\`: URL where you found this
 If "🤝 Denomination-Affiliated" badge is present, add a note:
-- \`label\`: "Denomination Affiliation"
-- \`text\`: "Church is affiliated with [denomination name]"
+- \`label\`: "Denomination Affiliation" OR "Network Affiliation" (use "Network Affiliation" for fellowships/networks like FIRE, Acts 29, ARBCA; use "Denomination Affiliation" for traditional denominations like PCA, SBC)
+- \`text\`: "Church is affiliated with [denomination/network name]" (include a brief description if provided, e.g., "Church is a member of FIRE (Fellowship of Independent Reformed Evangelicals), a network for independent Reformed baptistic churches")
 - \`source_url\`: URL where you found this
 
 Only add badges you have clear evidence for. Return empty array if none apply.`;

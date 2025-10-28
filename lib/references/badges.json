@@ -28,11 +28,11 @@
     "category": "practice"
   },
   "🤝 Denomination-Affiliated": {
-    "description": "This church is part of a denomination or network that provides oversight, accountability, and fellowship with like-minded congregations.",
+    "description": "This church is a member of a denomination, network, fellowship, or association (e.g., PCA, SBC, ARBCA, FIRE, Acts 29) that provides formal membership, oversight, accountability, cooperative missions, or structured fellowship with like-minded congregations.",
     "category": "structure"
   },
   "🆓 Independent": {
-    "description": "This church operates independently without denominational oversight, maintaining autonomy in governance and doctrine.",
+    "description": "This church operates with complete autonomy, having no formal ties to any denomination, network, fellowship, or association. The church maintains full independence in governance and doctrine without external accountability structures.",
     "category": "structure"
   },
   "🏠 House Church": {
