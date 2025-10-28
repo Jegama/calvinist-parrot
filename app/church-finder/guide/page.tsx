@@ -16,7 +16,7 @@ We aim to serve believers with clarity and charity. Our summaries rely on what c
 
 ## What We Consider “Essentials”
 
-Essentials include core Christian doctrines such as the Trinity, the authority of Scripture, the deity and humanity of Christ, the incarnation and virgin birth, Christ’s atoning work, the Gospel (death, burial, and bodily resurrection of Jesus), justification by faith, Christ’s return and final judgment, and the character of God. Read our full statement on the [Doctrinal Statement](/doctrinal-statement) page.
+Essentials include core Christian doctrines such as the Trinity, the authority of Scripture, the deity and humanity of Christ, the incarnation and virgin birth, Christ's atoning work, the Gospel (death, burial, and bodily resurrection of Jesus), justification by faith, Christ's return and final judgment, and the character of God. Read our full statement on the [Doctrinal Statement](/doctrinal-statement) page.
 
 ## How Evaluations Are Produced
 

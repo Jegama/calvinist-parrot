@@ -12,7 +12,7 @@ This work is part of the [Calvinist Parrot Ministries](https://www.calvinistparr
 
 ## Overview
 
-Calvinist Parrot delivers Biblical insights and deep theological responses by combining multiple AI agents and a built-in review process modeled after Reformed theology. Whether you’re exploring doctrine, engaging in a dynamic chat, or seeking daily devotionals, the Parrot is here to guide you.
+Calvinist Parrot delivers Biblical insights and deep theological responses by combining multiple AI agents and a built-in review process modeled after Reformed theology. Whether you're exploring doctrine, engaging in a dynamic chat, or seeking daily devotionals, the Parrot is here to guide you.
 
 ## What the Parrot Can Do
 

@@ -1,6 +1,6 @@
 ## Secondary Doctrines by Confession
 
-Below, for each secondary doctrine, I list where each confession explicitly (or in a few cases, by necessary implication) teaches that position. When multiple documents form one standard (e.g. Belgic + Heidelberg + Dort), I’ll reference whichever component is clearest.
+Below, for each secondary doctrine, I list where each confession explicitly (or in a few cases, by necessary implication) teaches that position. When multiple documents form one standard (e.g. Belgic + Heidelberg + Dort), I'll reference whichever component is clearest.
 
 ### 1. **Baptism**
 * **Westminster Confession of Faith (1646/47)**:
@@ -8,7 +8,7 @@ Below, for each secondary doctrine, I list where each confession explicitly (or 
 * **Second London Baptist Confession (1689)**:
   2LBCF 29.2 restricts baptism to “those who do actually profess repentance toward God, and faith in our Lord Jesus Christ,” and 29.4 defines baptism as immersion (“dipping of the person in water”).
 * **Belgic / Heidelberg / Dort**:
-  Belgic Confession Art. 34 teaches that children of believers “ought to be baptized and sealed with the sign of the covenant.” Heidelberg Catechism Q.74: infants, as well as adults, belong to God’s covenant and therefore must be baptized.
+  Belgic Confession Art. 34 teaches that children of believers “ought to be baptized and sealed with the sign of the covenant.” Heidelberg Catechism Q.74: infants, as well as adults, belong to God's covenant and therefore must be baptized.
 * **Second Helvetic Confession (1566)**:
   Second Helvetic ch. 20 (“Of Holy Baptism”) affirms baptism of infants of the faithful as proper and rebukes Anabaptist rejection of infant baptism.
 * **Irish Articles (1615)**:
@@ -29,11 +29,11 @@ Below, for each secondary doctrine, I list where each confession explicitly (or 
 * **Irish Articles (1615)**:
   The Irish Articles were framed for the Church of Ireland, which retained bishops. They speak of bishops, pastors, and ministers as distinct offices in a continuing episcopal structure. (Articles ~70–71 in common numbering.)
 * **Savoy Declaration (1658)**:
-  Savoy ch. 26 (“Of the Church”) explicitly modifies Westminster to assert the autonomy of each gathered congregation under its own elders, while allowing synods for counsel but not jurisdiction. That’s classic Congregationalism → elder-led congregational.
+  Savoy ch. 26 (“Of the Church”) explicitly modifies Westminster to assert the autonomy of each gathered congregation under its own elders, while allowing synods for counsel but not jurisdiction. That's classic Congregationalism → elder-led congregational.
 
-### 3. **Lord’s Supper**
+### 3. **Lord's Supper**
 
-All six teach what’s usually called **Reformed “spiritual presence”**:
+All six teach what's usually called **Reformed “spiritual presence”**:
 Christ is not physically/corporeally present in/under/with the elements, but believers truly feed on Christ by faith through the Holy Spirit.
 
 * **Westminster Confession of Faith**:
@@ -47,16 +47,16 @@ Christ is not physically/corporeally present in/under/with the elements, but bel
 * **Irish Articles (1615)**:
   Irish Articles §§100ff reject transubstantiation and teach that the faithful spiritually receive Christ in the Supper.
 * **Savoy Declaration (1658)**:
-  Savoy ch. 30 follows Westminster’s articulation of spiritual feeding on Christ by faith, not carnal/physical manducation.
+  Savoy ch. 30 follows Westminster's articulation of spiritual feeding on Christ by faith, not carnal/physical manducation.
 
 ### 4. **Gifts (extraordinary / revelatory gifts)**
 
-All six land in what we’re calling **“cessationist”**: public revelation is closed, and the “extraordinary” offices/gifts that delivered new revelation are no longer ongoing.
+All six land in what we're calling **“cessationist”**: public revelation is closed, and the “extraordinary” offices/gifts that delivered new revelation are no longer ongoing.
 
 * **Westminster Confession of Faith**:
-  WCF 1.1 says God “at sundry times and in divers manners… revealed himself… unto the Church; and afterwards… committed [it] wholly unto writing… those former ways of God’s revealing his will unto his people being now ceased.”
+  WCF 1.1 says God “at sundry times and in divers manners… revealed himself… unto the Church; and afterwards… committed [it] wholly unto writing… those former ways of God's revealing his will unto his people being now ceased.”
 * **Second London Baptist Confession (1689)** / **Savoy Declaration (1658)**:
-  2LBCF 1.1 and Savoy 1.1 reproduce Westminster 1.1 almost verbatim (sometimes with minor wording changes), including that “former ways of God’s revealing his will… are now ceased.”
+  2LBCF 1.1 and Savoy 1.1 reproduce Westminster 1.1 almost verbatim (sometimes with minor wording changes), including that “former ways of God's revealing his will… are now ceased.”
 * **Belgic / Heidelberg / Dort**:
   Belgic Confession Art. 7: Scripture is sufficient, so “it is unlawful for anyone… to teach otherwise than we are now taught in the Holy Scriptures”; divine revelation is complete. Canons of Dort I & V assume the sufficiency and finality of Scripture, not ongoing apostles/prophets.
 * **Second Helvetic Confession**:
@@ -86,7 +86,7 @@ All six define ordained church offices (pastor/minister/bishop/elder) in explici
 All six teach both (a) definitive union with Christ and (b) ongoing mortification of sin and growth in holiness. That maps best to **“positional & progressive.”**
 
 * **Westminster Confession of Faith**:
-  WCF 13 (“Of Sanctification”): those effectually called “are further sanctified… through the virtue of Christ’s death and resurrection… the dominion of the whole body of sin is destroyed… and they more and more quickened and strengthened.”
+  WCF 13 (“Of Sanctification”): those effectually called “are further sanctified… through the virtue of Christ's death and resurrection… the dominion of the whole body of sin is destroyed… and they more and more quickened and strengthened.”
 * **Second London Baptist Confession (1689)**:
   2LBCF 13 reproduces Westminster 13 with Baptist wording.
 * **Belgic / Heidelberg / Dort**:
@@ -107,13 +107,13 @@ All six teach a single, unfolding plan of redemption administered through covena
 * **Second London Baptist Confession (1689)**:
   2LBCF 7 affirms one Covenant of Grace in Christ, though Baptists describe its administration with more “new covenant” specificity than Westminster. Still covenantal, not dispensational.
 * **Belgic / Heidelberg / Dort**:
-  Belgic Confession Art. 34 treats baptism as the covenant sign replacing circumcision, showing continuity of God’s covenant people and promises. Canons of Dort I & II assume one eternal decree of election and one people redeemed in Christ.
+  Belgic Confession Art. 34 treats baptism as the covenant sign replacing circumcision, showing continuity of God's covenant people and promises. Canons of Dort I & II assume one eternal decree of election and one people redeemed in Christ.
 * **Second Helvetic Confession**:
-  Second Helvetic ch. 12 (“Of the Law of God”) and ch. 20 (“Of Holy Baptism”) see the church as the continuation of God’s covenant people, with sacraments as covenant signs.
+  Second Helvetic ch. 12 (“Of the Law of God”) and ch. 20 (“Of Holy Baptism”) see the church as the continuation of God's covenant people, with sacraments as covenant signs.
 * **Irish Articles (1615)**:
-  Irish Articles §§33–37 unfold redemption in terms of God’s eternal decree and covenant mercy through Christ across the testaments; they are widely recognized as a forerunner to Westminster’s covenant theology.
+  Irish Articles §§33–37 unfold redemption in terms of God's eternal decree and covenant mercy through Christ across the testaments; they are widely recognized as a forerunner to Westminster's covenant theology.
 * **Savoy Declaration (1658)**:
-  Savoy ch. 7 keeps Westminster’s covenant theology within Congregational polity.
+  Savoy ch. 7 keeps Westminster's covenant theology within Congregational polity.
 
 ### 8. **Security**
 
@@ -130,7 +130,7 @@ All six confess **perseverance of the saints**: those truly regenerated/elect wi
 * **Irish Articles (1615)**:
   Irish Articles (often Art. 94 or nearby in numbered editions) explicitly teach election and the final perseverance of the elect, anticipating Dort/Westminster on this point.
 * **Savoy Declaration (1658)**:
-  Savoy ch. 17 keeps Westminster’s doctrine of perseverance intact.
+  Savoy ch. 17 keeps Westminster's doctrine of perseverance intact.
 
 ### 9. **Atonement Model**
 
@@ -139,12 +139,12 @@ All six teach that Christ, as substitute for His people, satisfied divine justic
 * **Westminster Confession of Faith**:
   WCF 8.5 calls Christ the “surety” who “fully satisfied the justice of his Father,” and WCF 11.3 says His obedience and satisfaction are imputed to believers.
 * **Second London Baptist Confession (1689)**:
-  2LBCF 8.4–5, 11.1–3 repeats Westminster’s structure: Christ, as Mediator and surety, by His obedience and death “discharged our debt.”
+  2LBCF 8.4–5, 11.1–3 repeats Westminster's structure: Christ, as Mediator and surety, by His obedience and death “discharged our debt.”
 * **Belgic / Heidelberg / Dort**:
-  Belgic Confession Arts. 20–21: God made Christ “to bear the punishment of sin by his most bitter passion and death,” satisfying God’s justice. Heidelberg Catechism Q.12–18 teaches we owe satisfaction to God’s justice, which only Christ, our Mediator, can pay. Canons of Dort II.1–2: Christ’s death was a satisfaction of divine justice for the elect.
+  Belgic Confession Arts. 20–21: God made Christ “to bear the punishment of sin by his most bitter passion and death,” satisfying God's justice. Heidelberg Catechism Q.12–18 teaches we owe satisfaction to God's justice, which only Christ, our Mediator, can pay. Canons of Dort II.1–2: Christ's death was a satisfaction of divine justice for the elect.
 * **Second Helvetic Confession**:
   Second Helvetic ch. 11 teaches Christ offered Himself as the only sacrifice for sin, reconciling us to the Father by His death.
 * **Irish Articles (1615)**:
   Irish Articles ~31 teach that Christ, by His obedience and sacrifice, made “a full, perfect, and sufficient satisfaction for all the sins of the elect,” overtly substitutionary/penal language.
 * **Savoy Declaration (1658)**:
-  Savoy ch. 8 and ch. 11 keep Westminster’s language: Christ, as Mediator, satisfies divine justice on behalf of the elect, whose guilt and punishment He bears.
+  Savoy ch. 8 and ch. 11 keep Westminster's language: Christ, as Mediator, satisfies divine justice on behalf of the elect, whose guilt and punishment He bears.

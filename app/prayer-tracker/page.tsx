@@ -704,7 +704,7 @@ export default function PrayerTrackerPage() {
 					<p className="text-sm text-muted-foreground">Prayer partners: {memberNames}</p>
 				</div>
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-					<Button asChild variant="secondary">
+					<Button asChild variant="outline">
 						<Link href="/family-worship">Why Family Worship?</Link>
 					</Button>
 					<Button onClick={computeRotation} disabled={isComputing}>

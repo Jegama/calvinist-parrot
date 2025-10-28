@@ -24,7 +24,7 @@ Remove near-duplicate pages that differ only by URL anchors (i.e., `#section`) w
 Behavior:
 1. Split results into **clean** (no `#`) vs **fragmented** (has `#`).
 2. Keep all **clean**.
-3. For each **fragmented** item, **drop** it if its normalized text is contained in **any** clean page’s text; **keep** it otherwise.
+3. For each **fragmented** item, **drop** it if its normalized text is contained in **any** clean page's text; **keep** it otherwise.
 4. Also de-dupe by **URL (after stripping whitespace)** and **content hash** to remove exact repeats.
 
 ```python
@@ -181,7 +181,7 @@ def drop_anchor_dupes(tavily_json: Dict[str, Any]) -> Dict[str, Any]:
 
 **Basic fields**
 
-* `name`: Church’s official name (from any page header/footer).
+* `name`: Church's official name (from any page header/footer).
 * `website`: Use the `base_url`.
 * `addresses`: Extract postal addresses from pages; split into `street_1` (e.g., "1303 Sherwood Forest St"), optional `street_2` (suite/building), `city`, `state`, `post_code`. Include the page URL in `source_url`.
 * `contacts`: Prefer explicit phone/email text.
@@ -230,7 +230,7 @@ For each key below, set `"true"`, `"false"`, or `"unknown"`:
 **Secondary & Tertiary**
 
 * Provide **neutral** short phrases only from text you saw. Examples:
-  * `baptism`: "infant (paedo)", "believer’s by immersion", "both infant & believer’s", etc.
+  * `baptism`: "infant (paedo)", "believer's by immersion", "both infant & believer's", etc.
   * `governance`: "elder-led congregational", "presbyterian", "episcopal", "ambiguous".
   * `lords_supper`: "memorial", "spiritual presence", "real presence / sacramental union".
   * `gifts`: "cessationist", "cautious continuationist", "charismatic".
@@ -276,5 +276,5 @@ For each key below, set `"true"`, `"false"`, or `"unknown"`:
   * `pass` if `confession.adopted=true` **or** `coverage_ratio ≥ 0.7`.
   * `caution` if `0.5 ≤ coverage_ratio < 0.7` **and** no core doctrine is `false`.
   * `red_flag` if `coverage_ratio < 0.5` **or** any core doctrine is `false` **or** if `🏳️‍🌈 LGBTQ Affirming` badge is present **or** `🚫 We Cannot Endorse` badge is present.
-* Edge case: If the beliefs page **only** declares 1689 (or another historic confession) and doesn’t list essentials:
+* Edge case: If the beliefs page **only** declares 1689 (or another historic confession) and doesn't list essentials:
   * Set all essentials `true` **by inference** (do not count them toward `core_on_site_count`), keep `status=pass`, add the `inferred_from_confession` note.

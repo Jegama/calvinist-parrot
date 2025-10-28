@@ -44,7 +44,7 @@ Whether married or single, the aim is the same: let the Word of Christ dwell ric
 
 #### How It Has Steadied Our Home
 
-For our family, this rhythm has been a lifeline. As a newly married couple and the arrival of our first child, we’ve faced job loss, medical stresses, and a pile of unexpected bills. In a season where it would be easy to retreat into ourselves, family worship has been essential for protecting our union. It forces us to stop, open the Word, and pray *for* and *with* each other. Sharing our fears and burdens in prayer has been one of the most powerful means of grace God has used to knit our hearts together. We can testify that establishing this one habit has been the best thing we have done for our marriage.
+For our family, this rhythm has been a lifeline. As a newly married couple and the arrival of our first child, we've faced job loss, medical stresses, and a pile of unexpected bills. In a season where it would be easy to retreat into ourselves, family worship has been essential for protecting our union. It forces us to stop, open the Word, and pray *for* and *with* each other. Sharing our fears and burdens in prayer has been one of the most powerful means of grace God has used to knit our hearts together. We can testify that establishing this one habit has been the best thing we have done for our marriage.
 
 ### A Glimpse into Our Family's Rhythm
 

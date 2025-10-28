@@ -153,13 +153,13 @@ export default function ChurchFinderPage() {
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Church Finder</h1>
         <p className="text-muted-foreground mb-4">
-          We’re building a community-maintained directory to help believers find churches anchored in the Gospel and the essentials of the faith. Filter by location and denominational distinctives, and contribute by adding churches so others can benefit.
+          We&aposre building a community-maintained directory to help believers find churches anchored in the Gospel and the essentials of the faith. Filter by location and denominational distinctives, and contribute by adding churches so others can benefit.
         </p>
         <div className="flex items-center gap-3 mb-4">
-          <Button variant="secondary" size="sm" asChild>
+          <Button variant="outline" size="sm" asChild>
             <Link href="/doctrinal-statement">View Our Doctrinal Statement</Link>
           </Button>
-          <Button variant="secondary" size="sm" asChild>
+          <Button variant="outline" size="sm" asChild>
             <Link href="/church-finder/guide">How evaluations work</Link>
           </Button>
         </div>
@@ -167,7 +167,7 @@ export default function ChurchFinderPage() {
           <Info className="h-4 w-4 text-primary" />
           <AlertTitle className="text-foreground font-semibold">How these evaluations work</AlertTitle>
           <AlertDescription className="text-foreground/80">
-            We summarize what a church states on its website—nothing more. If something isn't clearly written online, we can't
+            We summarize what a church states on its website—nothing more. If something isn&apost clearly written online, we can&apost
             infer their position. If you see an error, <a href="mailto:contact@calvinistparrotministries.org" className="text-primary underline underline-offset-2 hover:no-underline">email us</a> with the page link and what needs correction.
           </AlertDescription>
         </Alert>

@@ -53,7 +53,7 @@ export function Header() {
       <div 
         className="container mx-auto flex items-center transition-all duration-700 ease-in-out"
         style={{
-          height: isScrolled ? "3rem" : "3.5rem",
+          height: isScrolled ? "1.7rem" : "3.5rem",
         }}
       >
         {/* Left side: Logo and Navigation */}
@@ -64,8 +64,8 @@ export function Header() {
               alt="Calvinist Parrot"
               className="transition-all duration-700 ease-in-out"
               style={{
-                width: isScrolled ? "2rem" : "3rem",
-                height: isScrolled ? "2rem" : "3rem",
+                width: isScrolled ? "1.5rem" : "3rem",
+                height: isScrolled ? "1.5rem" : "3rem",
               }}
               width={50}
               height={50}
@@ -118,7 +118,7 @@ export function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="hover:bg-muted/50">More</Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[8rem]">
+              <DropdownMenuContent align="end" className="bg-card border-border shadow-lg min-w-[8rem]">
                 <DropdownMenuItem asChild>
                   <Link href="/devotional" prefetch={false} className="w-full">
                     Devotional
@@ -155,9 +155,9 @@ export function Header() {
             // If logged in, show the user's name linking to profile
             <Link href="/profile" prefetch={false}>
               <Button 
-                variant="secondary" 
+                variant="outline" 
                 className="hover:bg-muted/50"
-                size={isScrolled ? "sm" : "default"}
+                size={isScrolled ? "xsm" : "default"}
               >
                 {user.name}
               </Button>
@@ -167,7 +167,7 @@ export function Header() {
               {/* If not logged in, show Login and Register */}
               <Link href="/login" prefetch={false}>
                 <Button 
-                  variant="secondary" 
+                  variant="outline" 
                   className="hover:bg-muted/50"
                   size={isScrolled ? "sm" : "default"}
                 >

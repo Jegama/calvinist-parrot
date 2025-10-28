@@ -7,7 +7,7 @@ Our theological foundation that guides all aspects of our ministry and partnersh
 These core doctrines represent the foundational truths upon which Calvinist Parrot Ministries stands. We will not compromise on these essential beliefs:
 
 - The Trinity: We believe in one God, eternally existing in three persons—Father, Son, and Holy Spirit.
-- The Gospel: We proclaim that salvation is secured by Christ’s historical death, burial, and resurrection on the third day, demonstrating His victory over sin and death.
+- The Gospel: We proclaim that salvation is secured by Christ's historical death, burial, and resurrection on the third day, demonstrating His victory over sin and death.
 - Justification by Faith: Individuals are justified solely by grace alone through faith alone in Christ alone, apart from works.
 - The Deity and Humanity of Christ: We affirm that Jesus Christ is truly God and truly man (Vera Deus, vera homo).
 - The Authority of Scripture: The Bible is the inspired, inerrant, and infallible Word of God, serving as the ultimate authority in all matters of faith and practice.
