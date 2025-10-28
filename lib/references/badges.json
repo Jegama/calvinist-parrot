@@ -1,0 +1,74 @@
+{
+  "🕊️ Cautious Continuationist": {
+    "description": "This church holds that certain spiritual gifts (prophecy, tongues, healing) may continue today but exercises caution and does not see them as normative for all believers.",
+    "category": "theological"
+  },
+  "🔥 Charismatic": {
+    "description": "This church emphasizes the ongoing work of the Holy Spirit through tongues, prophecy, and healing as normative expressions of the Christian life.",
+    "category": "theological"
+  },
+  "📜 Reformed": {
+    "description": "This church identifies with Reformed theology, emphasizing God's sovereignty in salvation (often called the Doctrines of Grace or TULIP).",
+    "category": "theological"
+  },
+  "🍷 Paedocommunion": {
+    "description": "This church allows baptized children (including infants) to partake in the Lord's Supper, a practice held by some Presbyterian and Reformed congregations.",
+    "category": "theological"
+  },
+  "📖 Expository Preaching": {
+    "description": "This church emphasizes verse-by-verse teaching through books of the Bible, seeking to explain and apply Scripture in its context.",
+    "category": "practice"
+  },
+  "🎵 Regulative Principle of Worship": {
+    "description": "This church follows the Regulative Principle, worshiping according to elements explicitly prescribed in Scripture (e.g., prayer, preaching, singing psalms and hymns, sacraments).",
+    "category": "practice"
+  },
+  "📿 High Church/Liturgical": {
+    "description": "This church follows a formal liturgy (such as the Book of Common Prayer or Lutheran Service Book), with structured prayers, creeds, and readings.",
+    "category": "practice"
+  },
+  "🤝 Denomination-Affiliated": {
+    "description": "This church is part of a denomination or network that provides oversight, accountability, and fellowship with like-minded congregations.",
+    "category": "structure"
+  },
+  "🆓 Independent": {
+    "description": "This church operates independently without denominational oversight, maintaining autonomy in governance and doctrine.",
+    "category": "structure"
+  },
+  "🏠 House Church": {
+    "description": "This church meets in homes rather than a dedicated building, often emphasizing intimate fellowship and simple worship.",
+    "category": "structure"
+  },
+  "🏢 Multi-Site": {
+    "description": "This church operates multiple campuses or locations under one leadership structure.",
+    "category": "structure"
+  },
+  "👥 Small Church": {
+    "description": "This church has a stated membership or attendance under 100, often providing close-knit fellowship and personal care.",
+    "category": "structure"
+  },
+  "🏟️ Megachurch": {
+    "description": "This church has a stated membership or attendance over 2,000, typically offering diverse ministries and programs.",
+    "category": "structure"
+  },
+  "⚠️ Prosperity Gospel": {
+    "description": "This church teaches Word of Faith theology or emphasizes guaranteed health and wealth through faith or giving, which departs from biblical teaching on suffering and God's purposes (Romans 8:28-29; 2 Corinthians 12:7-10).",
+    "category": "red_flag"
+  },
+  "⚠️ Hyper-Charismatic": {
+    "description": "This church emphasizes excessive manifestations (such as 'drunk in the Spirit' or 'grave soaking') or elevates prophecy and experience above Scripture, which conflicts with biblical order (1 Corinthians 14:40; 2 Timothy 3:16-17).",
+    "category": "red_flag"
+  },
+  "⚠️ Entertainment-Driven": {
+    "description": "This church is marketed primarily as entertainment, with diluted biblical content or a seeker-driven model that minimizes the gospel to attract crowds.",
+    "category": "red_flag"
+  },
+  "👩‍🏫 Ordained Women": {
+    "description": "This church ordains women as pastors, elders, or teaching authorities, a practice we cannot endorse based on Scripture's teaching on church leadership (1 Timothy 2:12-14; 1 Timothy 3:1-7; Titus 1:5-9).",
+    "category": "red_flag"
+  },
+  "🏳️‍🌈 LGBTQ Affirming": {
+    "description": "This church affirms same-sex relationships or gender identity ideology in membership, leadership, or marriage, which departs from Scripture's design for human sexuality and marriage (Genesis 1:27; Genesis 2:24; Romans 1:26-27; 1 Corinthians 6:9-11).",
+    "category": "red_flag"
+  }
+}

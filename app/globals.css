@@ -38,8 +38,8 @@ body {
     /* Brand: Deep Teal #004D4D - Accent/links/headers TEXT */
     --accent: 180 100% 15%;
     --accent-foreground: 0 0% 100%;
-    /* Destructive/errors - warm red */
-    --destructive: 0 65% 45%;
+    /* Destructive/errors - warm red with better contrast */
+    --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
     /* Brand: Light Gray #E5E5E5 - Borders */
     --border: 0 0% 90%;
@@ -101,8 +101,8 @@ body {
     /* Brand: Deep Teal - Lighter for dark mode */
     --accent: 180 100% 30%;
     --accent-foreground: 0 0% 98%;
-    /* Destructive/errors - lighter for dark mode */
-    --destructive: 0 65% 50%;
+    /* Destructive/errors - brighter for dark mode visibility */
+    --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 98%;
     /* Dark borders */
     --border: 0 0% 25%;

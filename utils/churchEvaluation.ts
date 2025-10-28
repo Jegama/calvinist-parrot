@@ -13,7 +13,7 @@ import type {
   DenominationConfessionResponse,
   RedFlagsResponse,
 } from "@/types/church";
-import knownConfessionalChurches from "@/lib/known_confessional_churches.json";
+import knownConfessionalChurches from "@/lib/references/known_confessional_churches.json";
 
 import {
   CORE_DOCTRINE_KEYS,
@@ -188,7 +188,7 @@ export async function crawlChurchSite(website: string): Promise<TavilyCrawlResul
 
     const cleaned = dropAnchorDupes(response);
 
-    // console.log(`Cleaned data: ${JSON.stringify(cleaned, null, 2)}`);
+    console.log(`Cleaned data: ${JSON.stringify(cleaned, null, 2)}`);
 
     return cleaned;
   } catch (error) {

@@ -8,11 +8,12 @@ import { Separator } from "@/components/ui/separator";
 import type { ChurchListItem, EvaluationStatus } from "@/types/church";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
+import badgesJson from "@/lib/references/badges.json";
 
 const STATUS_STYLES: Record<EvaluationStatus | "confessional", string> = {
   pass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20",
   caution: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20",
-  red_flag: "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400 border border-red-200 dark:border-red-500/20",
+  red_flag: "bg-destructive/10 text-destructive border border-destructive/40",
   confessional: "bg-primary/15 text-primary border border-primary/30 dark:bg-primary/10 dark:border-primary/20",
 };
 
@@ -172,11 +173,26 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                   <div className="space-y-1 order-3 lg:order-4">
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">At a Glance</p>
                     <div className="flex flex-wrap gap-1">
-                      {(church.badges ?? []).slice(0, 3).map((badge) => (
-                        <span key={badge} className="rounded-full bg-muted/70 border border-border px-2 py-0.5 text-xs text-foreground/80">
-                          {badge}
-                        </span>
-                      ))}
+                      {(church.badges ?? []).slice(0, 3).map((badge) => {
+                        const badgeInfo = badgesJson[badge as keyof typeof badgesJson];
+                        const isRedFlag = badgeInfo?.category === "red_flag";
+                        const badgeClasses = isRedFlag
+                          ? "rounded-full bg-destructive/10 border border-destructive/40 px-2 py-0.5 text-xs text-destructive"
+                          : "rounded-full bg-muted/70 border border-border px-2 py-0.5 text-xs text-foreground/80";
+                        
+                        return (
+                          <Tooltip key={badge}>
+                            <TooltipTrigger asChild>
+                              <span className={badgeClasses}>
+                                {badge}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-sm">
+                              <p>{badgeInfo?.description ?? "No description available"}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
                       {(church.badges ?? []).length === 0 ? (
                         <span className="text-sm text-muted-foreground">None listed</span>
                       ) : null}

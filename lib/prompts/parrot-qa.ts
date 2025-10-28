@@ -1,4 +1,4 @@
-import categories from '../categories.json';
+import categories from '../references/categories.json';
 import OpenAI from 'openai'
 
 export const CATEGORIZING_SYS_PROMPT = `You are here to start the chain of thought. You are going to get the response from the user and you must categorize the question. The categories to use are:

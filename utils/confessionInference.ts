@@ -1,4 +1,4 @@
-import confessionsMap from "@/lib/confessions_map.json";
+import confessionsMap from "@/lib/references/confessions_map.json";
 import type {
   CoreDoctrineMap,
   SecondaryDoctrinesResponse,
