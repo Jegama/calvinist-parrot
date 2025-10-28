@@ -685,7 +685,7 @@ export default function PrayerTrackerPage() {
 						<CardTitle>Prayer Tracker</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-2">
-						<p>You don&apos;t have a shared family space yet.</p>
+						<p>You don't have a shared family space yet.</p>
 						<p>Create one from your profile page to begin tracking prayers together.</p>
 					</CardContent>
 				</Card>

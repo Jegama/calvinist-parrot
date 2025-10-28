@@ -22,6 +22,54 @@ function parseBooleanParam(value: string | null): boolean | null {
   return null;
 }
 
+/**
+ * Sort churches by status priority:
+ * 1. Historic Reformed (confessionAdopted = true)
+ * 2. Recommended (latest eval status = PASS)
+ * 3. Caution (latest eval status = CAUTION)
+ * 4. Not Endorsed (latest eval status = RED_FLAG)
+ * 5. No evaluation (null status)
+ * Then alphabetically by name within each group
+ */
+function sortChurchesByPriority<T extends {
+  name: string;
+  confessionAdopted: boolean;
+  evaluations: Array<{ status: "PASS" | "CAUTION" | "RED_FLAG" }>;
+}>(churches: T[]): T[] {
+  return churches.sort((a, b) => {
+    // Get latest evaluation status
+    const aStatus = a.evaluations[0]?.status;
+    const bStatus = b.evaluations[0]?.status;
+
+    // Assign priority values
+    const getPriority = (church: T): number => {
+      if (church.confessionAdopted) return 1; // Historic Reformed
+      if (!church.evaluations[0]) return 5; // No evaluation
+      switch (church.evaluations[0].status) {
+        case "PASS":
+          return 2; // Recommended
+        case "CAUTION":
+          return 3; // Caution
+        case "RED_FLAG":
+          return 4; // Not Endorsed
+        default:
+          return 5;
+      }
+    };
+
+    const aPriority = getPriority(a);
+    const bPriority = getPriority(b);
+
+    // Sort by priority first
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
+
+    // Then alphabetically by name
+    return a.name.localeCompare(b.name);
+  });
+}
+
 function ensureUrl(value: string): string {
   try {
     const url = new URL(value);
@@ -89,6 +137,7 @@ export async function GET(request: Request) {
   const city = searchParams.get("city");
   const denomination = searchParams.get("denomination");
   const confessional = parseBooleanParam(searchParams.get("confessional"));
+  const status = searchParams.get("status"); // "historic_reformed" | "recommended" | "caution" | "red_flag" | "exclude_red_flag"
 
   const addressFilter: Prisma.churchAddressWhereInput = {};
   if (state) {
@@ -112,11 +161,65 @@ export async function GET(request: Request) {
     where.denominationLabel = { equals: denomination, mode: "insensitive" };
   }
 
+  // For status filtering, we need to fetch all churches first and filter by latest evaluation
+  // since Prisma can't easily filter by "the latest related record"
+  const shouldFilterByLatestEval = status && status !== "historic_reformed";
+  
+  // Handle historic_reformed filter at query level (it's based on church field, not evaluation)
+  if (status === "historic_reformed") {
+    where.confessionAdopted = true;
+  }
+
+  // If we need to filter by evaluation status, we need to fetch more data and filter in-memory
+  if (shouldFilterByLatestEval) {
+    // First, get all matching churches with their latest evaluation
+    const allChurches = await prisma.church.findMany({
+      where,
+      include: {
+        addresses: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
+        serviceTimes: { orderBy: { createdAt: "asc" } },
+        evaluations: { orderBy: { createdAt: "desc" }, take: 1 },
+      },
+    });
+
+    // Filter by latest evaluation status
+    const filteredChurches = allChurches.filter((church) => {
+      const latestEval = church.evaluations[0];
+      
+      if (status === "exclude_red_flag") {
+        // Exclude if latest eval is RED_FLAG
+        return !latestEval || latestEval.status !== "RED_FLAG";
+      } else if (status === "recommended") {
+        return latestEval?.status === "PASS";
+      } else if (status === "caution") {
+        return latestEval?.status === "CAUTION";
+      } else if (status === "red_flag") {
+        return latestEval?.status === "RED_FLAG";
+      }
+      return true;
+    });
+
+    // Sort by priority, then alphabetically
+    const sortedChurches = sortChurchesByPriority(filteredChurches);
+
+    // Apply pagination to filtered and sorted results
+    const total = sortedChurches.length;
+    const paginatedChurches = sortedChurches.slice((page - 1) * pageSize, page * pageSize);
+    const items = paginatedChurches.map((church) => mapChurchToListItem(church));
+
+    return NextResponse.json({
+      page,
+      pageSize,
+      total,
+      items,
+    });
+  }
+
+  // No status filtering (or only historic_reformed), use normal query
   const total = await prisma.church.count({ where });
 
   const churches = await prisma.church.findMany({
     where,
-    orderBy: { name: "asc" },
     skip: (page - 1) * pageSize,
     take: pageSize,
     include: {
@@ -126,7 +229,9 @@ export async function GET(request: Request) {
     },
   });
 
-  const items = churches.map((church) => mapChurchToListItem(church));
+  // Sort by priority, then alphabetically
+  const sortedChurches = sortChurchesByPriority(churches);
+  const items = sortedChurches.map((church) => mapChurchToListItem(church));
 
   return NextResponse.json({
     page,

@@ -42,7 +42,7 @@ export function ChurchFiltersBar({
 
   const stateValue = useMemo(() => filters.state ?? "all", [filters.state]);
   const denominationValue = useMemo(() => filters.denomination ?? "all", [filters.denomination]);
-  const confessionalValue = useMemo(() => filters.confessional ?? "all", [filters.confessional]);
+  const statusValue = useMemo(() => filters.status ?? "exclude_red_flag", [filters.status]);
   const cityValue = useMemo(() => filters.city ?? "", [filters.city]);
 
   const handleStateChange = useCallback(
@@ -81,6 +81,17 @@ export function ChurchFiltersBar({
         if ((prev.confessional ?? "all") === value) return prev;
         const newConfessional = value === "all" ? null : (value as "true" | "false");
         return { ...prev, page: 1, confessional: newConfessional };
+      });
+    },
+    [onFiltersChange]
+  );
+
+  const handleStatusChange = useCallback(
+    (value: string) => {
+      onFiltersChange((prev) => {
+        if ((prev.status ?? "exclude_red_flag") === value) return prev;
+        const newStatus = value === "all" ? "exclude_red_flag" : (value as ChurchFilters["status"]);
+        return { ...prev, page: 1, status: newStatus };
       });
     },
     [onFiltersChange]
@@ -167,17 +178,19 @@ export function ChurchFiltersBar({
           </Select>
         </div>
 
-        {/* Confessional Filter */}
+        {/* Status Filter - replaces Confessional */}
         <div className="space-y-2">
-          <Label htmlFor="confessional-filter">Confessional</Label>
-          <Select value={confessionalValue} onValueChange={handleConfessionalChange}>
-            <SelectTrigger id="confessional-filter">
-              <SelectValue placeholder="All churches" />
+          <Label htmlFor="status-filter">Church Status</Label>
+          <Select value={statusValue} onValueChange={handleStatusChange}>
+            <SelectTrigger id="status-filter">
+              <SelectValue placeholder="All churches (excluding Not Endorsed)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All churches</SelectItem>
-              <SelectItem value="true">Confessional</SelectItem>
-              <SelectItem value="false">Non-confessional</SelectItem>
+              <SelectItem value="exclude_red_flag">All churches (excluding Not Endorsed)</SelectItem>
+              <SelectItem value="historic_reformed">Historic Reformed (Confessional)</SelectItem>
+              <SelectItem value="recommended">Recommended</SelectItem>
+              <SelectItem value="caution">Proceed with Caution</SelectItem>
+              <SelectItem value="red_flag">Not Endorsed</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -28,6 +28,17 @@ const DEFAULT_FILTERS: ChurchFilters = {
   city: null,
   denomination: null,
   confessional: null,
+  status: "exclude_red_flag", // Exclude non-endorsed churches by default
+};
+
+// Reset filters maintains the default exclusion of red_flag churches
+const RESET_FILTERS: ChurchFilters = {
+  page: 1,
+  state: null,
+  city: null,
+  denomination: null,
+  confessional: null,
+  status: "exclude_red_flag",
 };
 
 export default function ChurchFinderPage() {
@@ -46,6 +57,7 @@ export default function ChurchFinderPage() {
       filters.city ?? "",
       filters.denomination ?? "",
       filters.confessional ?? "all",
+      filters.status ?? "exclude_red_flag",
     ],
     [filters]
   );
@@ -85,7 +97,8 @@ export default function ChurchFinderPage() {
         prev.state === nextFilters.state &&
         prev.city === nextFilters.city &&
         prev.denomination === nextFilters.denomination &&
-        prev.confessional === nextFilters.confessional
+        prev.confessional === nextFilters.confessional &&
+        prev.status === nextFilters.status
       ) {
         return prev;
       }
@@ -95,17 +108,18 @@ export default function ChurchFinderPage() {
 
   const handleResetFilters = useCallback(() => {
     setFilters((prev) => {
-      // Only reset if filters are not already at default
+      // Only reset if filters are not already at reset state
       if (
-        prev.page === DEFAULT_FILTERS.page &&
-        prev.state === DEFAULT_FILTERS.state &&
-        prev.city === DEFAULT_FILTERS.city &&
-        prev.denomination === DEFAULT_FILTERS.denomination &&
-        prev.confessional === DEFAULT_FILTERS.confessional
+        prev.page === RESET_FILTERS.page &&
+        prev.state === RESET_FILTERS.state &&
+        prev.city === RESET_FILTERS.city &&
+        prev.denomination === RESET_FILTERS.denomination &&
+        prev.confessional === RESET_FILTERS.confessional &&
+        prev.status === RESET_FILTERS.status
       ) {
         return prev;
       }
-      return { ...DEFAULT_FILTERS };
+      return { ...RESET_FILTERS };
     });
   }, []);
 
@@ -153,7 +167,7 @@ export default function ChurchFinderPage() {
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Church Finder</h1>
         <p className="text-muted-foreground mb-4">
-          We&aposre building a community-maintained directory to help believers find churches anchored in the Gospel and the essentials of the faith. Filter by location and denominational distinctives, and contribute by adding churches so others can benefit.
+          We're building a community-maintained directory to help believers find churches anchored in the Gospel and the essentials of the faith. Filter by location and denominational distinctives, and contribute by adding churches so others can benefit.
         </p>
         <div className="flex items-center gap-3 mb-4">
           <Button variant="outline" size="sm" asChild>
@@ -167,7 +181,7 @@ export default function ChurchFinderPage() {
           <Info className="h-4 w-4 text-primary" />
           <AlertTitle className="text-foreground font-semibold">How these evaluations work</AlertTitle>
           <AlertDescription className="text-foreground/80">
-            We summarize what a church states on its website—nothing more. If something isn&apost clearly written online, we can&apost
+            We summarize what a church states on its website—nothing more. If something isn't clearly written online, we can't
             infer their position. If you see an error, <a href="mailto:contact@calvinistparrotministries.org" className="text-primary underline underline-offset-2 hover:no-underline">email us</a> with the page link and what needs correction.
           </AlertDescription>
         </Alert>

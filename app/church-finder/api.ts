@@ -11,6 +11,7 @@ export type ChurchFilters = {
   city?: string | null;
   denomination?: string | null;
   confessional?: "true" | "false" | null;
+  status?: "historic_reformed" | "recommended" | "caution" | "red_flag" | "exclude_red_flag" | null;
 };
 
 function buildQuery(params: ChurchFilters): string {
@@ -20,6 +21,7 @@ function buildQuery(params: ChurchFilters): string {
   if (params.city) searchParams.set("city", params.city);
   if (params.denomination) searchParams.set("denomination", params.denomination);
   if (params.confessional) searchParams.set("confessional", params.confessional);
+  if (params.status) searchParams.set("status", params.status);
   const query = searchParams.toString();
   return query ? `?${query}` : "";
 }
