@@ -1,10 +1,7 @@
 "use client";
 
-import { Fragment } from "react";
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import type { ChurchListItem, EvaluationStatus } from "@/types/church";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
@@ -118,7 +115,28 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                       ? "Biblically Sound"
                       : "Recommended";
               const badges = church.badges ?? [];
-              const maxBadges = 4;
+              // Prioritize badges by category and cap the number shown
+              const CATEGORY_PRIORITY: Record<string, number> = {
+                red_flag: 0,
+                theological: 1,
+                practice: 2,
+                structure: 3,
+                info: 4,
+              };
+              const getPriority = (badge: string) => {
+                const category = (badgesJson as Record<string, { category?: string }>)[badge]?.category;
+                if (category && CATEGORY_PRIORITY[category] !== undefined) return CATEGORY_PRIORITY[category];
+                return 999; // unknown badge keys go last
+              };
+              const sortedBadges = [...badges].sort((a, b) => {
+                const pa = getPriority(a);
+                const pb = getPriority(b);
+                if (pa !== pb) return pa - pb;
+                return a.localeCompare(b);
+              });
+              // Default cap to 3; allow more if there are many services to better balance columns
+              const servicesCount = church.serviceTimes.length;
+              const maxBadges = servicesCount > 2 ? 5 : 3;
               return (
                 <Card
                   key={church.id}
@@ -155,20 +173,40 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                     ) : null}
                   </CardHeader>
                   <CardContent className="grid gap-4 lg:grid-cols-2">
-                    <div className="space-y-1 order-2 lg:order-1">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Denomination</p>
-                      <p className="text-sm text-foreground">
-                        {church.denomination.label ?? "Unknown"}
-                        {typeof church.denomination.confidence === "number"
-                          ? ` (${Math.round(church.denomination.confidence * 100)}% confidence)`
-                          : ""}
-                      </p>
+                    {/* Left column: Denomination + Services */}
+                    <div className="order-2 lg:order-1 space-y-4">
+                      <div className="space-y-1">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Denomination</p>
+                        <p className="text-sm text-foreground">
+                          {church.denomination.label ?? "Unknown"}
+                          {typeof church.denomination.confidence === "number"
+                            ? ` (${Math.round(church.denomination.confidence * 100)}% confidence)`
+                            : ""}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Services</p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {church.serviceTimes.length > 0 ? (
+                            church.serviceTimes.slice(0, 3).map((service) => (
+                              <span key={service.id} className="badge--neutral px-2 py-0.5 text-xs">
+                                {service.label}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="badge--neutral px-2 py-0.5 text-xs">Not listed</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-1 order-1 lg:order-2">
+
+                    {/* Right column: At a Glance badges */}
+                    <div className="order-1 lg:order-2 space-y-1">
                       <p className="text-xs uppercase tracking-wide text-muted-foreground">At a Glance</p>
                       <div className="flex flex-wrap gap-1">
-                        {badges.slice(0, maxBadges).map((badge) => {
-                          const badgeInfo = badgesJson[badge as keyof typeof badgesJson];
+                        {sortedBadges.slice(0, maxBadges).map((badge) => {
+                          const badgeInfo = (badgesJson as Record<string, { description?: string; category?: string }>)[badge];
                           const isRedFlag = badgeInfo?.category === "red_flag";
                           const badgeClasses = isRedFlag
                             ? "badge--red-flag px-2 py-0.5 text-xs"
@@ -187,16 +225,16 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                             </Tooltip>
                           );
                         })}
-                        {badges.length > maxBadges ? (
+                        {sortedBadges.length > maxBadges ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
                                 type="button"
                                 className="badge--neutral px-2 py-0.5 text-xs"
                                 onClick={(e) => { e.stopPropagation(); onSelect(church); }}
-                                aria-label={`View ${badges.length - maxBadges} more badges`}
+                                aria-label={`View ${sortedBadges.length - maxBadges} more badges`}
                               >
-                                +{badges.length - maxBadges} more
+                                +{sortedBadges.length - maxBadges} more
                               </button>
                             </TooltipTrigger>
                             <TooltipContent side="bottom">
@@ -210,23 +248,6 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                       </div>
                     </div>
                   </CardContent>
-                  <Fragment>
-                    <Separator />
-                    <CardContent className="pt-4">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Services</p>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {church.serviceTimes.length > 0 ? (
-                          church.serviceTimes.slice(0, 3).map((service) => (
-                            <span key={service.id} className="badge--neutral px-2 py-0.5 text-xs">
-                              {service.label}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="badge--neutral px-2 py-0.5 text-xs">Not listed</span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Fragment>
                 </Card>
               );
             })

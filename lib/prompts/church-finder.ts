@@ -231,6 +231,9 @@ Determine if the church **adopts** a historic confession as their doctrinal stan
    - "We adopt/subscribe to the [confession name]"
    - "We hold to the [confession name] as our doctrinal standard"
    - "[Confession name] is our confession"
+  - "We would affirm as sound teaching the articles of the [confession name]"
+  - "to which we would subscribe for guidance" (or similar qualified subscription language)
+  - Any phrasing that clearly expresses the church "subscribes", "affirms", "holds to", or "uses" the confession as their doctrinal guide (accept minor variations in wording)
 
 2. **Fuller/complete statement language:**
    - "For a fuller summation of our doctrinal basis, see/read/refer to the [confession name]"
@@ -261,7 +264,7 @@ Determine if the church **adopts** a historic confession as their doctrinal stan
 - \`name\`: Name of the confession (e.g., "Westminster Confession of Faith (1646/47)", "Second London Baptist Confession (1689)")
 - \`source_url\`: URL where confession is mentioned
 
-**ONLY These Historic Confessions Are Valid:**
+**ONLY These Historic Confessions Are Valid (Variation of the name are acceptable too):**
 - Westminster Confession of Faith (1646/47)
 - Second London Baptist Confession (1689)
 - First London Baptist Confession (1644/46)
@@ -269,6 +272,13 @@ Determine if the church **adopts** a historic confession as their doctrinal stan
 - Second Helvetic Confession (1566)
 - Irish Articles (1615)
 - Savoy Declaration (1658)
+
+**ACCEPTABLE VARIATIONS / MATCHING GUIDANCE:**
+- Accept small variations in the confession name and date formatting (e.g., "First London Baptist Confession of Faith (2nd Ed. 1646)", "First London Confession (1644-1646)", "First London Baptist Confession (1644/46)").
+- Accept common short forms such as "First London Baptist Confession", "First London Confession", or inclusion of edition notes like "2nd Ed. 1646".
+
+**DEALING WITH QUALIFIED SUBSCRIPTIONS:**
+- If the site uses qualifying language (e.g., "subscribe for guidance but not absolute adherence", "subscribe for guidance", "affirm as sound teaching"), still mark \`adopted = true\` because the confession is being presented as the church's doctrinal guide. In this case, add a clarifying note that preserves the nuance (see Notes below).
 
 **CRITICAL REJECTIONS - Mark \`adopted = false\` for these:**
 - ECO Essential Tenets (2012) - Modern progressive confession, NOT historic Reformed
@@ -315,6 +325,7 @@ If \`adopted = true\`, add a note:
 - \`label\`: "Adopted Confession"
 - \`text\`: "Church adopts [confession name] as their doctrinal standard"
 - \`source_url\`: URL where you found this
+ - If the church qualifies the adoption (e.g., "subscribe for guidance but not absolute adherence"), include that nuance in the note text (short summary ≤30 words) in addition to the adoption label, e.g. "Church subscribes to [confession name] for guidance (not absolute adherence)".
 If "🤝 Denomination/Network Affiliated" badge is present, add a note:
 - \`label\`: "Denomination Affiliation" OR "Network Affiliation" (use "Network Affiliation" for fellowships/networks like FIRE, Acts 29, ARBCA; use "Denomination Affiliation" for traditional denominations like PCA, SBC)
 - \`text\`: "Church is affiliated with [denomination/network name]" (include a brief description if provided, e.g., "Church is a member of FIRE (Fellowship of Independent Reformed Evangelicals), a network for independent Reformed baptistic churches")
