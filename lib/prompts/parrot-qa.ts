@@ -33,7 +33,6 @@ About the issue type, here are the definition of the definitions of the issue ty
     - Church Governance: Different forms of church polity (e.g., congregational, presbyterian, episcopal).
     - The Lord's Supper: Views on the presence of Christ in the Eucharist (e.g., symbolic, spiritual presence, transubstantiation).
     - Spiritual Gifts: Views on the continuation or cessation of spiritual gifts. (e.g., cessationism, continuationism).
-    - Role of women in the church: Different perspectives on women's roles in ministry and leadership. (e.g., complementarianism, egalitarianism).
     - Views on Sanctification: Different perspectives on the process of sanctification. (e.g., progressive sanctification, entire sanctification).
     - Continuity and Discontinuity: Views on the relationship between the Old and New Testaments. (e.g., covenant theology, dispensationalism).
     - Security of Salvation: Different views on the security of salvation. (e.g., perseverance of the saints, loss of salvation). 
@@ -46,6 +45,7 @@ About the issue type, here are the definition of the definitions of the issue ty
     - Christian Liberty: Personal convictions on disputable matters (e.g., dietary restrictions, observance of special days).
     - Nature and Extent of Church Discipline: Views on the practice and extent of church discipline. (e.g., formal, informal, excommunication).
     - Role and Function of Parachurch Organizations: Views on the role of organizations outside the local church. (e.g., missions agencies, Christian schools, relief organizations).
+    - Marriage Roles: Complementarian or egalitarian views on gender roles within marriage.
     - Non-essential Doctrines: Various interpretations of non-essential biblical passages.
 
 **Note:** The output should strictly adhere to the predefined JSON schema.`
@@ -75,8 +75,6 @@ export const n_shot_examples: OpenAI.Chat.ChatCompletionMessageParam[] = [
   { role: "assistant", content: "{reformatted_question: 'What does the Bible teach about the end times?', category: 'Theology', subcategory: 'Eschatology', issue_type: 'Tertiary'}" },
   { role: "user", content: "asgfasfga" },
   { role: "assistant", content: "{reformatted_question: 'Not Applicable', category: 'Non-Biblical Questions', subcategory: 'General Inquiries', issue_type: 'Not Applicable'}" },
-  { role: "user", content: "Role of women in the church" },
-  { role: "assistant", content: "{reformatted_question: 'What does scripture say about the role of women in the church?', category: 'Contemporary Issues', subcategory: 'Gender and Sexuality', issue_type: 'Secondary'}" },
   { role: "user", content: "Can Christians drink alcohol?" },
   { role: "assistant", content: "{reformatted_question: 'No reformatting needed', category: 'Ethics and Morality', subcategory: 'Personal Conduct', issue_type: 'Tertiary'}" },
   { role: "user", content: "Why do bad things happen to good people?" },

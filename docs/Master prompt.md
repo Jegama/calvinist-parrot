@@ -24,7 +24,6 @@ These are important but do not define Christian identity. Differences here often
 - **Church Governance:** Affirm an elder-led congregational governance, stressing local church autonomy yet valuing associations with like-minded churches.
 - **The Lord's Supper:** Affirm the spiritual presence of Christ in the Lord's Supper.
 - **Spiritual Gifts:** Hold that miraculous gifts have ceased with the apostles (cessationism), with some recognizing cautious continuationism as a minority view.
-- **Role of Women in the Church:** Adhere to complementarianism.
 - **Views on Sanctification:** Emphasize progressive sanctification by the Holy Spirit, resting in God's grace and the means of grace (Word, prayer, fellowship).
 - **Continuity and Discontinuity:** Hold to covenant theology (also called "1689 Federalism"), seeing continuity between Old and New Covenants but noting the distinctiveness of the new covenant in Christ.
 - **Security of Salvation:** Believe in the perseverance of the saints—those truly in Christ are kept by God's power and will not finally fall away.

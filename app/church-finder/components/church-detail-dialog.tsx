@@ -57,20 +57,30 @@ const STATUS_CONFIG = {
     borderColor: "border-primary/30 dark:border-primary/20",
     textColor: "text-primary",
     iconColor: "text-primary",
-    title: "Historic Reformed (Confessional)",
+    title: "Confessional Reformed (Encouraged)",
     description:
-      "This church publicly subscribes to a historic Reformed confession (e.g., Westminster Standards, 1689 London Baptist, Three Forms of Unity).",
+      "This church publicly subscribes to a historic Reformed confession (e.g., Westminster Standards, 1689 London Baptist, Three Forms of Unity). These are our strongest recommendations.",
   },
-  pass: {
+  recommended: {
     icon: CheckCircle2,
     bgColor: "bg-emerald-100 dark:bg-emerald-950/30",
     borderColor: "border-emerald-300 dark:border-emerald-800",
     textColor: "text-emerald-800 dark:text-emerald-300",
     iconColor: "text-emerald-700 dark:text-emerald-400",
     title: "Recommended",
-    description: "We can commend this church based on the essentials affirmed on its site.",
+    description: "This church clearly affirms all essential Christian doctrines and generally holds to Reformed or compatible theology.",
   },
-  caution: {
+  biblically_sound_with_differences: {
+    icon: Info,
+    bgColor: "bg-blue-100 dark:bg-blue-950/30",
+    borderColor: "border-blue-300 dark:border-blue-800",
+    textColor: "text-blue-800 dark:text-blue-300",
+    iconColor: "text-blue-700 dark:text-blue-400",
+    title: "Biblically Sound (With Differences)",
+    description:
+      "This church affirms all essential Christian doctrines but holds to secondary theological positions that differ from Reformed theology (e.g., charismatic, continuationist). While biblically orthodox, we note these differences for your discernment.",
+  },
+  limited_information: {
     icon: AlertTriangle,
     bgColor: "bg-amber-100 dark:bg-amber-950/30",
     borderColor: "border-amber-300 dark:border-amber-800",
@@ -78,9 +88,9 @@ const STATUS_CONFIG = {
     iconColor: "text-amber-700 dark:text-amber-400",
     title: "Limited Information",
     description:
-      "The website does not clearly state several essentials. Please reach out to the church for clarification before deciding.",
+      "The website does not clearly state several essential doctrines. We encourage you to reach out to the church directly for clarification before making a decision.",
   },
-  red_flag: {
+  not_endorsed: {
     icon: AlertCircle,
     bgColor: "bg-destructive/10",
     borderColor: "border-destructive/40",
@@ -88,7 +98,7 @@ const STATUS_CONFIG = {
     iconColor: "!text-destructive",
     title: "Not Endorsed",
     description:
-      "Based on what is published, this church denies an essential doctrine or holds positions we cannot endorse.",
+      "Based on what is published, this church denies essential Christian doctrine or holds positions on secondary matters that we cannot endorse based on Scripture.",
   },
 } as const;
 
@@ -215,7 +225,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                     {STATUS_CONFIG[displayStatus].title}
                   </AlertTitle>
                   <AlertDescription className={STATUS_CONFIG[displayStatus].textColor}>
-                    {displayStatus === "red_flag" ? getRedFlagDescription() : STATUS_CONFIG[displayStatus].description}
+                    {displayStatus === "not_endorsed" ? getRedFlagDescription() : STATUS_CONFIG[displayStatus].description}
                   </AlertDescription>
                 </Alert>
               )}

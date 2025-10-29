@@ -32,7 +32,6 @@ Secondary doctrines are important but do not define Christian identity. Differen
 * Church Governance: Forms of church polity (congregational, presbyterian, episcopal).
 * The Lord's Supper: Perspectives on Christ's presence in communion (symbolic, spiritual, real presence).
 * Spiritual Gifts: Continuation or cessation of spiritual gifts.
-* Role of Women in the Church: Complementarian or egalitarian views on women in leadership and ministry.
 * Sanctification: Perspectives on the process and extent of sanctification.
 * Continuity and Discontinuity: Relationship between Old and New Testaments (covenant theology, dispensationalism).
 * Security of Salvation: Views on perseverance of the saints or loss of salvation.
@@ -49,6 +48,7 @@ Tertiary doctrines are less central and do not significantly impact unity or fel
 * Christian Liberty: Personal convictions on disputable matters (diet, special days).
 * Church Discipline: Approaches to practice and extent (formal, informal, excommunication).
 * Parachurch Organizations: Role and function of external Christian ministries.
+* Marriage Roles: Complementarian or egalitarian views on gender roles within marriage.
 * Non-essential Doctrines: Varied interpretations of non-essential biblical passages.
 
 ## Commitment to Unity and Grace

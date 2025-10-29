@@ -64,24 +64,7 @@ All six land in what we're calling **“cessationist”**: public revelation is 
 * **Irish Articles (1615)**:
   Irish Articles §§1–5 assert Scripture alone as the final, sufficient rule of faith and life, displacing any supposed continuing revelations.
 
-### 5. **Women in Church**
-
-All six define ordained church offices (pastor/minister/bishop/elder) in explicitly male terms and tie qualifications to 1 Timothy 3 / Titus 1 (“husband of one wife”), which implies what we now call **complementarian** (no female ministers/elders).
-
-* **Westminster Confession of Faith**:
-  WCF 30–31 discusses “church censures” exercised by church officers and cites 1 Tim. 3 / Titus 1 for qualifications, which are male-coded (“husband of one wife”).
-* **Second London Baptist Confession (1689)**:
-  2LBCF 26.8–10 describes “bishops or elders” and “deacons,” again referencing 1 Tim. 3 for qualifications; historically understood as male elders.
-* **Belgic / Heidelberg / Dort**:
-  Belgic Confession Arts. 30–31: Christ appoints “ministers or pastors,” “elders,” and “deacons,” with qualifications drawn from the pastoral epistles, which they interpret male.
-* **Second Helvetic Confession**:
-  Second Helvetic ch. 18 describes ministers of the Word as those rightly called to preach and administer sacraments, drawing on passages historically applied to qualified men.
-* **Irish Articles (1615)**:
-  Articles ~70–71 refer to bishops, pastors, and ministers, all in male terms.
-* **Savoy Declaration (1658)**:
-  Savoy ch. 26 mirrors Westminster but within Congregational polity, again grounding elder qualifications in 1 Tim. 3 / Titus 1.
-
-### 6. **Sanctification**
+### 5. **Sanctification**
 
 All six teach both (a) definitive union with Christ and (b) ongoing mortification of sin and growth in holiness. That maps best to **“positional & progressive.”**
 
@@ -98,7 +81,7 @@ All six teach both (a) definitive union with Christ and (b) ongoing mortificatio
 * **Savoy Declaration (1658)**:
   Savoy ch. 13 (“Of Sanctification”) is again the Westminster doctrine.
 
-### 7. **Continuity (Covenant Theology vs Dispensationalism)**
+### 6. **Continuity (Covenant Theology vs Dispensationalism)**
 
 All six teach a single, unfolding plan of redemption administered through covenants. None teach classic modern dispensationalism. So: **“covenant theology.”**
 
@@ -115,7 +98,7 @@ All six teach a single, unfolding plan of redemption administered through covena
 * **Savoy Declaration (1658)**:
   Savoy ch. 7 keeps Westminster's covenant theology within Congregational polity.
 
-### 8. **Security**
+### 7. **Security**
 
 All six confess **perseverance of the saints**: those truly regenerated/elect will finally persevere.
 
@@ -132,7 +115,7 @@ All six confess **perseverance of the saints**: those truly regenerated/elect wi
 * **Savoy Declaration (1658)**:
   Savoy ch. 17 keeps Westminster's doctrine of perseverance intact.
 
-### 9. **Atonement Model**
+### 8. **Atonement Model**
 
 All six teach that Christ, as substitute for His people, satisfied divine justice by bearing their guilt and punishment. This is classic **penal substitution** (while not denying other aspects like victory over death/Satan).
 

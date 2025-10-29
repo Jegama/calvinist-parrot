@@ -119,34 +119,7 @@ These doctrines are important but do not define Christian identity. Differences 
 
 ---
 
-### 5. **Role of Women in the Church** (\`women_in_church\`)
-
-**Definition**: Whether women can serve in teaching and governing roles (pastor/elder).
-
-**Common positions:**
-- **Complementarian**: Men and women have equal value but distinct roles; women should not serve as pastors/elders but may serve in other ministries (teaching women/children, deaconesses, etc.)
-- **Egalitarian**: Men and women can serve in all roles, including pastor/elder, without restriction
-
-**What to look for:**
-- Check for: "Complementarian", "egalitarian", "male leadership", "women pastors", "women elders"
-- Look at leadership page: Are there women serving as pastors/elders? (If yes = likely egalitarian)
-- "Biblical manhood and womanhood" usually = complementarian
-
-**Neutral phrases to use:**
-- "Complementarian"
-- "Egalitarian"
-- "Male eldership"
-- "Women in pastoral leadership"
-- "Varies/unclear"
-
-**Edge cases:**
-- Women serving as deacons does NOT = egalitarian (complementarians often affirm female deacons)
-- Women teaching women/children does NOT = egalitarian
-- Only mark egalitarian if women serve as pastors/elders or church explicitly affirms it
-
----
-
-### 6. **Sanctification** (\`sanctification\`)
+### 5. **Sanctification** (\`sanctification\`)
 
 **Definition**: The process and extent of spiritual growth and holiness in the Christian life.
 
@@ -171,7 +144,7 @@ These doctrines are important but do not define Christian identity. Differences 
 
 ---
 
-### 7. **Continuity and Discontinuity** (\`continuity\`)
+### 6. **Continuity and Discontinuity** (\`continuity\`)
 
 **Definition**: The relationship between Old and New Testaments, particularly regarding the covenants and Israel/Church.
 
@@ -198,7 +171,7 @@ These doctrines are important but do not define Christian identity. Differences 
 
 ---
 
-### 8. **Security of Salvation** (\`security\`)
+### 7. **Security of Salvation** (\`security\`)
 
 **Definition**: Whether believers can lose their salvation or are eternally secure in Christ.
 
@@ -225,7 +198,7 @@ These doctrines are important but do not define Christian identity. Differences 
 
 ---
 
-### 9. **The Atonement (How it Works)** (\`atonement_model\`)
+### 8. **The Atonement (How it Works)** (\`atonement_model\`)
 
 **Definition**: Theories explaining how Christ's death accomplishes salvation.
 

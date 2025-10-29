@@ -37,8 +37,6 @@ import {
   applyConfessionToSecondary,
 } from "@/utils/confessionInference";
 
-import { doctrinalStatementContent } from "@/app/doctrinal-statement/page";
-
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
@@ -55,40 +53,6 @@ type TavilyCrawlResult = {
 
 function normalizeWhitespace(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
-}
-
-/**
- * Check if a church is in the known confessional churches list
- * Returns the confession details if found, null otherwise
- */
-function checkKnownConfessionalChurch(website: string): {
-  confession: string;
-  adopted: boolean;
-  source_url: string;
-  denomination?: string;
-} | null {
-  try {
-    // Extract domain from URL
-    const url = new URL(website.startsWith('http') ? website : `https://${website}`);
-    const domain = url.hostname.replace(/^www\./, '');
-
-    const church = knownConfessionalChurches.churches.find(
-      (c) => c.domain.toLowerCase() === domain.toLowerCase()
-    );
-
-    if (church) {
-      return {
-        confession: church.confession,
-        adopted: church.adopted,
-        source_url: church.source_url,
-        denomination: church.denomination,
-      };
-    }
-  } catch (error) {
-    console.warn("Failed to check known confessional churches:", error);
-  }
-
-  return null;
 }
 
 export function dropAnchorDupes(data: TavilyCrawlResult): TavilyCrawlResult {
@@ -253,7 +217,7 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     })
     .join("\n\n");
 
-  const systemPrompt = `${doctrinalStatementContent}\n\nYou are a research analyst helping Calvinist Parrot Ministries vet churches. Produce precise, source-grounded JSON according to the schema.`;
+  const systemPrompt = `You are a research analyst helping Calvinist Parrot Ministries vet churches. Produce precise, source-grounded JSON according to the schema.`;
 
   // ============================================================================
   // Phase 1: Make 6 parallel LLM calls
@@ -398,46 +362,6 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
   console.log("All 6 parallel calls completed. Checking known confessional churches...");
 
   // ============================================================================
-  // Phase 1.5: Override with Known Confessional Churches
-  // ============================================================================
-  const knownConfession = checkKnownConfessionalChurch(website);
-  if (knownConfession) {
-    console.log(`Found known confessional church: ${knownConfession.confession}`);
-    denomConfession.confession = {
-      name: knownConfession.confession,
-      adopted: knownConfession.adopted,
-      source_url: knownConfession.source_url,
-    };
-
-    // Override denomination if provided
-    if (knownConfession.denomination) {
-      denomConfession.denomination = {
-        label: knownConfession.denomination,
-        confidence: 1.0,
-        signals: ["Verified confessional church"],
-      };
-    }
-
-    // Add/update the "Adopted Confession" note
-    const confessionNoteIndex = denomConfession.notes.findIndex(
-      (note) => note.label === "Adopted Confession"
-    );
-    const confessionNote = {
-      label: "Adopted Confession" as const,
-      text: `Church adopts ${knownConfession.confession} as their doctrinal standard (verified)`,
-      source_url: knownConfession.source_url,
-    };
-
-    if (confessionNoteIndex >= 0) {
-      denomConfession.notes[confessionNoteIndex] = confessionNote;
-    } else {
-      denomConfession.notes.push(confessionNote);
-    }
-  }
-
-  console.log("Applying confession inference...");
-
-  // ============================================================================
   // Phase 2: Apply Confession Inference
   // ============================================================================
   const coreDoctrines = applyConfessionToCoreDoctrines(
@@ -540,20 +464,46 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   // ============================================================================
   // Determine evaluation status
   // ============================================================================
-  const hasRedFlagBadge = allBadges.some((badge) =>
-    badge === "👩‍🏫 Ordained Women" || badge === "🏳️‍🌈 LGBTQ Affirming" || badge === "⚠️ Low Essentials Coverage" ||
-    badge === "⚠️ Prosperity Gospel" || badge === "⚠️ Hyper-Charismatic" || badge === "⚠️ Entertainment-Driven"
-  );
+  
+  // Define critical red flags that immediately make status NOT_ENDORSED
+  const criticalRedFlagBadges = [
+    "⚠️ Prosperity Gospel",
+    "⚠️ Hyper-Charismatic",
+    "⚠️ Entertainment-Driven",
+    "🏳️‍🌈 LGBTQ Affirming",
+    "👩‍🏫 Ordained Women",
+  ];
+
+  // Define badges indicating significant secondary differences from Reformed theology
+  const secondaryDifferenceBadges = [
+    "🔥 Charismatic",
+    "🕊️ Cautious Continuationist",
+  ];
+
+  const hasCriticalRedFlag = allBadges.some((badge) => criticalRedFlagBadges.includes(badge));
+  const hasSecondaryDifferences = allBadges.some((badge) => secondaryDifferenceBadges.includes(badge));
 
   let status: EvaluationStatus;
-  if (hasRedFlagBadge || coverageRatio < 0.5 || falseCount > 0) {
-    status = "red_flag";
-  } else if (confessionAdopted || coverageRatio >= 0.7) {
-    status = "pass";
-  } else if (coverageRatio >= 0.5) {
-    status = "caution";
-  } else {
-    status = "red_flag";
+  
+  // Priority 1: False doctrines OR critical red flags OR low coverage → NOT_ENDORSED
+  if (falseCount > 0 || hasCriticalRedFlag || coverageRatio < 0.5) {
+    status = "not_endorsed";
+  }
+  // Priority 2: Significant secondary differences → BIBLICALLY_SOUND_WITH_DIFFERENCES
+  else if (hasSecondaryDifferences) {
+    status = "biblically_sound_with_differences";
+  }
+  // Priority 3: Good coverage (>=70%) but not confessional → RECOMMENDED
+  else if (coverageRatio >= 0.7) {
+    status = "recommended";
+  }
+  // Priority 4: Moderate coverage (50-70%) → LIMITED_INFORMATION
+  else if (coverageRatio >= 0.5) {
+    status = "limited_information";
+  }
+  // Fallback: Should not reach here, but default to LIMITED_INFORMATION
+  else {
+    status = "limited_information";
   }
 
   return {
@@ -642,8 +592,9 @@ export function toCoreDoctrineStatusEnum(value: CoreDoctrineStatusValue): "TRUE"
   return "UNKNOWN";
 }
 
-export function toEvaluationStatusEnum(value: EvaluationStatus): "PASS" | "CAUTION" | "RED_FLAG" {
-  if (value === "pass") return "PASS";
-  if (value === "caution") return "CAUTION";
-  return "RED_FLAG";
+export function toEvaluationStatusEnum(value: EvaluationStatus): "RECOMMENDED" | "BIBLICALLY_SOUND_WITH_DIFFERENCES" | "LIMITED_INFORMATION" | "NOT_ENDORSED" {
+  if (value === "recommended") return "RECOMMENDED";
+  if (value === "biblically_sound_with_differences") return "BIBLICALLY_SOUND_WITH_DIFFERENCES";
+  if (value === "limited_information") return "LIMITED_INFORMATION";
+  return "NOT_ENDORSED";
 }

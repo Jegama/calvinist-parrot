@@ -112,11 +112,10 @@ Extract the church's positions on these secondary doctrines. Provide **neutral**
 2. **governance**
 3. **lords_supper**
 4. **gifts**
-5. **women_in_church**
-6. **sanctification**
-7. **continuity**
-8. **security**
-9. **atonement_model**
+5. **sanctification**
+6. **continuity**
+7. **security**
+8. **atonement_model**
 
 Use the neutral phrases suggested in the definitions above (e.g., "Believer's baptism by immersion", "Elder-led congregational", etc.).
 

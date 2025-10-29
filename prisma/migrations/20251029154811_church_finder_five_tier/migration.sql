@@ -2,7 +2,7 @@
 CREATE TYPE "CoreDoctrineStatus" AS ENUM ('TRUE', 'FALSE', 'UNKNOWN');
 
 -- CreateEnum
-CREATE TYPE "ChurchEvaluationStatus" AS ENUM ('PASS', 'CAUTION', 'RED_FLAG');
+CREATE TYPE "ChurchEvaluationStatus" AS ENUM ('RECOMMENDED', 'BIBLICALLY_SOUND_WITH_DIFFERENCES', 'LIMITED_INFORMATION', 'NOT_ENDORSED');
 
 -- CreateTable
 CREATE TABLE "church" (

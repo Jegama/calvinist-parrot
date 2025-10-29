@@ -69,7 +69,6 @@ export function applyConfessionToSecondary(
     governance: shouldReplace(secondary.governance) ? confessionData.governance : secondary.governance,
     lords_supper: shouldReplace(secondary.lords_supper) ? confessionData.lords_supper : secondary.lords_supper,
     gifts: shouldReplace(secondary.gifts) ? confessionData.gifts : secondary.gifts,
-    women_in_church: shouldReplace(secondary.women_in_church) ? confessionData.women_in_church : secondary.women_in_church,
     sanctification: shouldReplace(secondary.sanctification) ? confessionData.sanctification : secondary.sanctification,
     continuity: shouldReplace(secondary.continuity) ? confessionData.continuity : secondary.continuity,
     security: shouldReplace(secondary.security) ? confessionData.security : secondary.security,

@@ -53,7 +53,6 @@ export interface SecondaryDoctrinesResponse {
     governance: string | null;
     lords_supper: string | null;
     gifts: string | null;
-    women_in_church: string | null;
     sanctification: string | null;
     continuity: string | null;
     security: string | null;
@@ -155,7 +154,6 @@ export interface ChurchEvaluationRaw {
       governance: string | null;
       lords_supper: string | null;
       gifts: string | null;
-      women_in_church: string | null;
       sanctification: string | null;
       continuity: string | null;
       security: string | null;
@@ -175,7 +173,7 @@ export interface ChurchEvaluationRaw {
   };
 }
 
-export type EvaluationStatus = "pass" | "caution" | "red_flag";
+export type EvaluationStatus = "recommended" | "biblically_sound_with_differences" | "limited_information" | "not_endorsed";
 
 export interface ChurchEvaluationRecord {
   id: string;

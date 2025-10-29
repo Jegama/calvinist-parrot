@@ -176,9 +176,10 @@ enum CoreDoctrineStatus {
 }
 
 enum ChurchEvaluationStatus {
-  PASS
-  CAUTION
-  RED_FLAG
+  RECOMMENDED
+  BIBLICALLY_SOUND_WITH_DIFFERENCES
+  LIMITED_INFORMATION
+  NOT_ENDORSED
 }
 
 model church {

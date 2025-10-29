@@ -11,9 +11,10 @@ import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-rea
 import badgesJson from "@/lib/references/badges.json";
 
 const STATUS_STYLES: Record<EvaluationStatus | "confessional", string> = {
-  pass: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20",
-  caution: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20",
-  red_flag: "bg-destructive/10 text-destructive border border-destructive/40",
+  recommended: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20",
+  biblically_sound_with_differences: "bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20",
+  limited_information: "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20",
+  not_endorsed: "bg-destructive/10 text-destructive border border-destructive/40",
   confessional: "bg-primary/15 text-primary border border-primary/30 dark:bg-primary/10 dark:border-primary/20",
 };
 
@@ -106,17 +107,19 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
           </Card>
         ) : (
           items.map((church) => {
-            const status = church.status ?? "caution";
+            const status = church.status ?? "limited_information";
             const displayKey: keyof typeof STATUS_STYLES = church.confessionAdopted
               ? "confessional"
               : status;
             const displayLabel = church.confessionAdopted
-              ? "Historic Reformed (Confessional)"
-              : status === "red_flag"
+              ? "Confessional Reformed"
+              : status === "not_endorsed"
                 ? "Not Endorsed"
-                : status === "caution"
+                : status === "limited_information"
                   ? "Limited Info"
-                  : "Recommended";
+                  : status === "biblically_sound_with_differences"
+                    ? "Biblically Sound"
+                    : "Recommended";
             return (
               <Card
                 key={church.id}
@@ -142,11 +145,13 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                         <p className="max-w-xs text-sm">
                           {church.confessionAdopted
                             ? "Publicly subscribes to a historic Reformed confession."
-                            : status === "red_flag"
+                            : status === "not_endorsed"
                               ? "We cannot endorse this church based on what is published."
-                              : status === "caution"
+                              : status === "limited_information"
                                 ? "Website does not clearly state several essentials."
-                                : "We can commend this church based on essentials affirmed on its site."}
+                                : status === "biblically_sound_with_differences"
+                                  ? "Affirms essentials but holds to non-Reformed secondary positions."
+                                  : "We can commend this church based on essentials affirmed on its site."}
                         </p>
                       </TooltipContent>
                     </Tooltip>
