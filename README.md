@@ -17,9 +17,11 @@ Calvinist Parrot delivers Biblical insights and deep theological responses by co
 ## What the Parrot Can Do
 
 - **Real-Time Chat:** Engage in interactive sessions with streamed responses.
-- **Theological Q&A:** Answers complex theological questions with layered reasoning.
+<!-- - **Theological Q&A:** Answers complex theological questions with layered reasoning. -->
 - **Multi-Perspective Insights:** Choose from Reformed Baptist, Presbyterian, Wesleyan, Lutheran, Anglican, Pentecostal/Charismatic, or Non-Denominational Evangelical modes.
 - **Daily Devotionals:** Get devotionals generated from current news and Scripture.
+- **Prayer Tracker:** Organize your prayer life with rotating prayer assignments, personal and family prayer requests, and prayer journals—designed to help you pray consistently for your household and broader faith community.
+- **Church Finder:** Discover biblically sound churches with AI-powered doctrinal evaluations. Each church is analyzed for adherence to essential Christian doctrines, historic Reformed confessions, and theological soundness to help you find a faithful congregation.
 
 ## Getting Started
 
@@ -61,6 +63,8 @@ npm run dev
 
 ## API Endpoints
 
+### Core Features
+
 - **/api/parrot-qa**  
   Processes user questions through categorization, multiple agent responses, and synthesizes a final answer.
 
@@ -72,6 +76,20 @@ npm run dev
 
 - **/api/devotional-generation**  
   Generates daily devotionals by combining news snippets with Scripture in a structured JSON format. -->
+
+### Church Finder
+
+- **/api/churches**  
+  List and create churches with AI-powered doctrinal evaluation (GET/POST).
+
+- **/api/churches/[id]**  
+  Retrieve detailed church information including evaluation history.
+
+- **/api/churches/check**  
+  Verify if a church already exists in the database by website URL.
+
+- **/api/churches/meta**  
+  Get filter metadata (states, denominations, totals) for church discovery.
 
 ## Contributing
 We welcome contributions! Please see our Contributing Guide for details.

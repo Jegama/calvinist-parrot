@@ -26,11 +26,33 @@
 - `app/prayer-tracker/page.tsx` keeps rotation state client-side with unified request management; components include `RequestSheet` (formerly `PersonalSheet`), `RequestsSection` (formerly `PersonalRequestsSection`), and new `FamilyDetailDialog` for viewing family info and their specific requests.
 - Follow the existing `fetch` patterns in `app/prayer-tracker/api.ts` for optimistic updates, error messaging via `handleApiError`, and category normalization helpers; API module exports typed `Result<T, E>` for consistent error handling.
 
+## Church Finder Module
+- Feature lives in `app/church-finder/**` with interactive map, filtering, discovery panel, and detail dialogs split across `components/`.
+- API routes under `app/api/churches/**`: root GET/POST for list/create, `[id]` for details, `search` for OpenStreetMap queries, `check` for existence validation, `meta` for filter dropdowns.
+- **AI-Powered Evaluation System**: Church creation (`POST /api/churches`) triggers an automated multi-stage LLM evaluation workflow via `utils/churchEvaluation.ts`:
+  - **Tavily Crawl**: Website content extraction using `tavily.crawl()` with duplicate anchor removal (`dropAnchorDupes`).
+  - **Parallel LLM Calls**: Six concurrent Gemini 2.5 Flash calls for basic fields, core doctrines, secondary/tertiary doctrines, denomination/confession, and red flags using schemas from `lib/schemas/church-finder.ts` and prompts from `lib/prompts/church-finder.ts`.
+  - **Post-Processing**: Status classification (Historic Reformed, Recommended, Biblically Sound with Differences, Limited Information, Not Endorsed) based on core doctrine coverage, confession adoption, and red flags via `postProcessEvaluation`.
+  - **Confession Inference**: Auto-populates missing doctrine data when historic confessions detected using `utils/confessionInference.ts`.
+  - **Badge System**: Allowlisted badges filtered through `utils/badges.ts`; only approved badges persist to prevent LLM hallucination.
+- **Core Doctrines**: Ten essential beliefs (trinity, gospel, justification by faith, Christ's deity/humanity, scripture authority, incarnation/virgin birth, atonement, resurrection, return/judgment, character of God) evaluated as `true/false/unknown` and stored in normalized Prisma columns.
+- **Secondary/Tertiary Doctrines**: JSON storage for non-essential beliefs (baptism, governance, eschatology, worship style, etc.) with structured extraction.
+- **Church Sorting**: Priority-based ordering in list view (Historic Reformed → Recommended → Biblically Sound → Limited Info → Not Endorsed) using `sortChurchesByPriority` helper in `app/api/churches/route.ts`.
+- **Discovery Workflow**: `ChurchDiscoveryPanel` component searches OpenStreetMap via Nominatim API, checks existence with `/api/churches/check`, creates new churches with loading states (Fetching → Analyzing → Complete), and manages optimistic updates.
+- **Filtering**: Status-based filtering (`exclude_red_flag` default), state/city dropdowns populated from `/api/churches/meta`, denomination and confessional toggles, pagination with 10 items per page.
+- **Map Integration**: Leaflet map in `ChurchMap` component with marker clustering, popups, and height syncing via `ResizeObserver`; lazy-loaded through `SafeMapContainer` to avoid SSR issues.
+- **Data Mappers**: `lib/churchMapper.ts` transforms Prisma relations to API types (`ChurchListItem`, `ChurchDetail`, `ChurchEvaluationRecord`) with doctrine value normalization.
+- **Geocoding**: Google Maps API integration in `utils/churchEvaluation.ts` for address → lat/lng conversion; handles multiple addresses per church with primary flag.
+- **Types**: Comprehensive TypeScript definitions in `types/church.ts` for evaluation workflow, API responses, and doctrine maps.
+- Prisma tables: `church`, `churchAddress`, `churchServiceTime`, `churchEvaluation`; evaluations are immutable records (re-evaluation creates new rows).
+- Follow existing patterns in `app/church-finder/api.ts` for `fetch` calls, query key structure (`["churches", page, state, city, ...]`), and TanStack Query cache updates.
+
 ## Data & Integrations
-- Chat history tables: `prisma/chatHistory`, `prisma/chatMessage`; QA uses `questionHistory`; devotionals persist in `parrotDevotionals`; prayer tracker tables defined in latest migrations (`20250103*`, `20251011*`).
+- Chat history tables: `prisma/chatHistory`, `prisma/chatMessage`; QA uses `questionHistory`; devotionals persist in `parrotDevotionals`; prayer tracker tables defined in latest migrations (`20250103*`, `20251011*`); church finder tables: `church`, `churchAddress`, `churchServiceTime`, `churchEvaluation`.
 - Profile pages hydrate from `app/api/profile/overview/route.ts`, which batches Prisma reads for `questionHistory`, `userProfile`, and the `prayerMember` + `space` graph—keep related fields in that handler so cached queries stay coherent.
 - Bible references use AO Lab endpoints through `utils/bibleUtils.ts` and mapping helpers in `utils/bookMappings.ts`.
 - Daily devotionals rely on Tavily plus OpenAI JSON schema (`utils/devotionalUtils.ts`); guard execution when `TAVILY_API_KEY` is missing and require `Authorization: Bearer ${CRON_SECRET}` for cron routes.
+- Church evaluations use Tavily crawl + Gemini 2.5 Flash parallel extraction (`utils/churchEvaluation.ts`); require `TAVILY_API_KEY` and `GEMINI_API_KEY` environment variables.
 
 ## Frontend Patterns
 - Treat pages with hooks/effects as client components (`"use client"`); keep server components free of browser-only APIs.
