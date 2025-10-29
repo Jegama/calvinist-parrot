@@ -1,0 +1,162 @@
+{
+  "🕊️ Cautious Continuationist": {
+    "description": "This church holds that certain spiritual gifts (prophecy, tongues, healing) may continue today but exercises caution and does not see them as normative for all believers.",
+    "category": "theological"
+  },
+  "🔥 Charismatic": {
+    "description": "This church emphasizes the ongoing work of the Holy Spirit through tongues, prophecy, and healing as normative expressions of the Christian life.",
+    "category": "theological"
+  },
+  "📜 Reformed": {
+    "description": "This church identifies with Reformed theology, emphasizing God's sovereignty in salvation (often called the Doctrines of Grace or TULIP).",
+    "category": "theological"
+  },
+  "🍷 Paedocommunion": {
+    "description": "This church allows baptized children (including infants) to partake in the Lord's Supper, a practice held by some Presbyterian and Reformed congregations.",
+    "category": "theological"
+  },
+  "🧭 Arminian": {
+    "description": "This church identifies with Arminian soteriology (e.g., conditional election, prevenient grace, resistible grace, and often conditional security).",
+    "category": "theological"
+  },
+  "📖 Expository Preaching": {
+    "description": "This church emphasizes verse-by-verse teaching through books of the Bible, seeking to explain and apply Scripture in its context.",
+    "category": "practice"
+  },
+  "🎵 Regulative Principle of Worship": {
+    "description": "This church follows the Regulative Principle, worshiping according to elements explicitly prescribed in Scripture (e.g., prayer, preaching, singing psalms and hymns, sacraments).",
+    "category": "practice"
+  },
+  "🕯️ High Church/Liturgical": {
+    "description": "This church follows a formal liturgy (such as the Book of Common Prayer or Lutheran Service Book), with structured prayers, creeds, and readings.",
+    "category": "practice"
+  },
+  "🤝 Denomination/Network Affiliated": {
+    "description": "This church is a member of a denomination, network, fellowship, or association (e.g., PCA, SBC, ARBCA, FIRE, Acts 29) that provides formal membership, oversight, accountability, cooperative missions, or structured fellowship with like-minded congregations.",
+    "category": "structure"
+  },
+  "🆓 Independent": {
+    "description": "This church operates with complete autonomy, having no formal ties to any denomination, network, fellowship, or association. The church maintains full independence in governance and doctrine without external accountability structures.",
+    "category": "structure"
+  },
+  "🏠 House Church": {
+    "description": "This church meets in homes rather than a dedicated building, often emphasizing intimate fellowship and simple worship.",
+    "category": "structure"
+  },
+  "🏢 Multi-Site": {
+    "description": "This church operates multiple campuses or locations under one leadership structure.",
+    "category": "structure"
+  },
+  "👥 Small Church": {
+    "description": "This church has a stated membership or attendance under 100, often providing close-knit fellowship and personal care.",
+    "category": "structure"
+  },
+  "🏟️ Megachurch": {
+    "description": "This church has a stated membership or attendance over 2,000, typically offering diverse ministries and programs.",
+    "category": "structure"
+  },
+  "⚠️ Prosperity Gospel": {
+    "description": "This church teaches Word of Faith theology or emphasizes guaranteed health and wealth through faith or giving, which departs from biblical teaching on suffering and God's purposes (Romans 8:28-29; 2 Corinthians 12:7-10).",
+    "category": "red_flag"
+  },
+  "⚠️ Hyper-Charismatic": {
+    "description": "This church emphasizes excessive manifestations (such as 'drunk in the Spirit' or 'grave soaking') or elevates prophecy and experience above Scripture, which conflicts with biblical order (1 Corinthians 14:40; 2 Timothy 3:16-17).",
+    "category": "red_flag"
+  },
+  "⚠️ Entertainment-Driven": {
+    "description": "This church is marketed primarily as entertainment, with diluted biblical content or a seeker-driven model that minimizes the gospel to attract crowds.",
+    "category": "red_flag"
+  },
+  "👩‍🏫 Ordained Women": {
+    "description": "This church ordains women as pastors, elders, or teaching authorities over men, a practice we cannot endorse based on Scripture's teaching on church leadership (1 Timothy 2:12-14; 1 Timothy 3:1-7; Titus 1:5-9). This refers specifically to ordained church offices, not women's roles in marriage or other ministry contexts.",
+    "category": "red_flag"
+  },
+  "🏳️‍🌈 LGBTQ Affirming": {
+    "description": "This church affirms same-sex relationships or gender identity ideology in membership, leadership, or marriage, which departs from Scripture's design for human sexuality and marriage (Genesis 1:27; Genesis 2:24; Romans 1:26-27; 1 Corinthians 6:9-11).",
+    "category": "red_flag"
+  },
+  "⚠️ Denies Inerrancy of Scripture": {
+    "description": "This church denies biblical inerrancy or treats Scripture as errant, conflicting with Scripture's authority and sufficiency (2 Timothy 3:16; John 10:35).",
+    "category": "red_flag"
+  },
+  "⚠️ Non-Trinitarian": {
+    "description": "This church denies the Trinity (e.g., oneness/modalism or unitarian beliefs), departing from historic Christian orthodoxy.",
+    "category": "red_flag"
+  },
+  "⚠️ Works-Based Justification": {
+    "description": "This church teaches or implies justification by works or merit rather than by grace alone through faith alone in Christ alone (Romans 3:28; Galatians 2:16).",
+    "category": "red_flag"
+  },
+  "⚠️ Universalism": {
+    "description": "This church teaches or implies universal salvation and/or denies final judgment, contradicting Scripture's teaching on judgment and hell (Hebrews 9:27; Matthew 25:46).",
+    "category": "red_flag"
+  },
+  "⚠️ Open Theism": {
+    "description": "This church denies God's exhaustive foreknowledge, asserting that God does not know the future free decisions of creatures.",
+    "category": "red_flag"
+  },
+  "⚠️ New Apostolic Reformation (NAR)": {
+    "description": "This church embraces modern apostles/prophets with governing authority and ongoing extra-biblical revelation characteristic of NAR.",
+    "category": "red_flag"
+  },
+  "⚠️ Progressive Christianity": {
+    "description": "This church explicitly aligns with Progressive Christianity or reinterprets core doctrines according to modern ideological frameworks.",
+    "category": "red_flag"
+  },
+  "⚠️ Religious Pluralism": {
+    "description": "This church affirms multiple valid paths to God or interfaith equivalence, denying the exclusivity of Christ (John 14:6; Acts 4:12).",
+    "category": "red_flag"
+  },
+  "🔄 Dispensational": {
+    "description": "This church holds a dispensational framework with a distinction between Israel and the Church and often a rapture timeline emphasis.",
+    "category": "theological"
+  },
+  "🧑‍🎓 Wesleyan-Holiness": {
+    "description": "This church teaches entire sanctification/sinless perfection (Holiness/Wesleyan tradition).",
+    "category": "theological"
+  },
+  "🧱 KJV-Only": {
+    "description": "This church treats the King James Version as the only valid English Bible translation for doctrine and practice.",
+    "category": "theological"
+  },
+  "🥖 Real Presence (Lutheran)": {
+    "description": "This church explicitly affirms Lutheran real presence/sacramental union in the Lord's Supper.",
+    "category": "theological"
+  },
+  "🎯 Seeker-Sensitive": {
+    "description": "This church prioritizes an explicit seeker model for weekend services (programmatic, attractional), distinct from entertainment-driven excess.",
+    "category": "practice"
+  },
+  "👥 Plurality of Elders": {
+    "description": "This church explicitly practices a plurality of elders in governance.",
+    "category": "structure"
+  },
+  "📘 Membership & Discipline": {
+    "description": "This church maintains formal membership and publishes a church discipline process.",
+    "category": "structure"
+  },
+  "📚 Catechism Use": {
+    "description": "This church actively teaches and uses recognized catechisms for discipleship.",
+    "category": "practice"
+  },
+  "🎶 Exclusive Psalmody": {
+    "description": "This church practices exclusive psalm singing in corporate worship.",
+    "category": "practice"
+  },
+  "🎼 Instrument-Free Worship": {
+    "description": "This church practices a cappella (instrument-free) corporate worship.",
+    "category": "practice"
+  },
+  "🍼 Family-Integrated": {
+    "description": "This church follows a family-integrated model that keeps families together in worship and emphasizes family discipleship.",
+    "category": "practice"
+  },
+  "ℹ️ Minimal Doctrinal Detail": {
+    "description": "Crawl-accessible pages lacked substantive doctrinal detail; site may impede crawling or does not present a published doctrinal statement online.",
+    "category": "info"
+  },
+  "ℹ️ No Statement of Faith": {
+    "description": "No statement of faith or doctrinal statement was found during crawl (no beliefs/statement-of-faith/confession pages detected).",
+    "category": "info"
+  }
+}

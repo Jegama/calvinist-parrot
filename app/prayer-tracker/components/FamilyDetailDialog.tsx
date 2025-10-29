@@ -31,7 +31,7 @@ export function FamilyDetailDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto bg-card">
         <DialogHeader>
           <DialogTitle className="text-xl">{family.familyName}</DialogTitle>
         </DialogHeader>
@@ -42,7 +42,7 @@ export function FamilyDetailDialog({
             {family.categoryTag && (
               <div>
                 <span className="text-sm text-muted-foreground">Category: </span>
-                <span className="inline-block rounded-full bg-secondary px-2 py-1 text-xs font-medium">
+                <span className="inline-block rounded-full bg-secondary/80 border border-border px-2 py-1 text-xs font-medium">
                   {family.categoryTag}
                 </span>
               </div>
@@ -85,7 +85,7 @@ export function FamilyDetailDialog({
                   const isAnswered = request.status === "ANSWERED";
 
                   return (
-                    <div key={request.id} className="rounded-lg border bg-card p-4 shadow-sm">
+                    <div key={request.id} className="rounded-lg border border-border bg-card p-4 shadow-sm">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 space-y-1">
                           <p className="text-sm font-semibold">{request.requestText}</p>
@@ -97,7 +97,7 @@ export function FamilyDetailDialog({
                             {formatRelative(request.dateAdded)}
                           </p>
                           {isAnswered && request.answeredAt && (
-                            <p className="text-xs font-medium text-green-600 dark:text-green-400">
+                            <p className="text-xs font-medium text-green-700 dark:text-green-400">
                               ✓ Answered {formatRelative(request.answeredAt)}
                             </p>
                           )}

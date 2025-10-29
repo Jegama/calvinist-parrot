@@ -1,0 +1,217 @@
+{
+  "Roman Catholic": {
+    "denies": [
+      {
+        "key": "scripture_authority",
+        "doctrine": "Authority of Scripture as the *ultimate* authority (sola Scriptura)"
+      },
+      {
+        "key": "justification_by_faith",
+        "doctrine": "Justification by faith *alone* (sola fide)"
+      }
+    ],
+    "note": "Affirms inspiration/inerrancy and all classical Christological doctrines, but holds Scripture and Sacred Tradition together under the Magisterium and rejects sola fide."
+  },
+  "Eastern Orthodox": {
+    "denies": [
+      {
+        "key": "scripture_authority",
+        "doctrine": "Authority of Scripture as the *ultimate* authority (sola Scriptura)"
+      },
+      {
+        "key": "justification_by_faith",
+        "doctrine": "Justification by faith *alone* (monergistic, forensic sense)"
+      }
+    ],
+    "note": "Affirms inspiration, Trinity, virgin birth, bodily resurrection, return; emphasizes Holy Tradition and a synergistic/theotic view of salvation rather than Protestant sola fide."
+  },
+  "Mormon (Church of Jesus Christ of Latter-day Saints)": {
+    "denies": [
+      {
+        "key": "trinity",
+        "doctrine": "Nicene doctrine of the Trinity (one God in three co-equal, co-eternal persons)"
+      },
+      {
+        "key": "scripture_authority",
+        "doctrine": "Scripture as sole/ultimate authority (adds other scriptures; Bible ‘as far as correctly translated’)"
+      }
+    ],
+    "note": "Teaches a non-Nicene Godhead and qualifies biblical authority; also adds new canonical books."
+  },
+  "Jehovah's Witnesses": {
+    "denies": [
+      {
+        "key": "trinity",
+        "doctrine": "Trinity"
+      },
+      {
+        "key": "christ_deity_humanity",
+        "doctrine": "Full deity of Christ (teach Jesus is a created being/Michael)"
+      },
+      {
+        "key": "resurrection_of_jesus",
+        "doctrine": "Bodily resurrection of Jesus (teach a spiritual resurrection)"
+      }
+    ],
+    "note": "Affirm Jesus’ resurrection in a spiritual (not bodily) sense and reject Nicene trinitarianism."
+  },
+  "Christian Science": {
+    "denies": [
+      {
+        "key": "atonement_necessary_sufficient",
+        "doctrine": "Atonement as a once-for-all, substitutionary, objective work necessary/sufficient for reconciliation"
+      },
+      {
+        "key": "resurrection_of_jesus",
+        "doctrine": "Bodily (material) categories in resurrection (interprets resurrection/atonement metaphysically)"
+      }
+    ],
+    "note": "Reinterprets sin, atonement, and resurrection in metaphysical terms; downplays/denies materiality."
+  },
+  "Oneness Pentecostalism (e.g., UPCI)": {
+    "denies": [
+      {
+        "key": "trinity",
+        "doctrine": "Trinity (holds ‘Oneness’/modalism—one divine Person who manifests as Father/Son/Spirit)"
+      }
+    ],
+    "note": "Affirms Jesus’ deity and resurrection but rejects three co-eternal Persons."
+  },
+  "Christadelphians": {
+    "denies": [
+      {
+        "key": "trinity",
+        "doctrine": "Trinity"
+      },
+      {
+        "key": "christ_deity_humanity",
+        "doctrine": "Pre-existence and full deity of Christ"
+      }
+    ],
+    "note": "Non-trinitarian; teach Jesus is the Son of God but not co-eternal/consusbstantial with the Father."
+  },
+  "Iglesia ni Cristo": {
+    "denies": [
+      {
+        "key": "trinity",
+        "doctrine": "Trinity"
+      },
+      {
+        "key": "christ_deity_humanity",
+        "doctrine": "Full deity of Christ"
+      }
+    ],
+    "note": "Strict monotheism identifying only the Father as true God; Jesus is a man exalted by God."
+  },
+  "Unitarian Universalism / Unitarian churches": {
+    "denies": [
+      {
+        "key": "trinity",
+        "doctrine": "Trinity (unitarian theism or non-theistic pluralism)"
+      },
+      {
+        "key": "scripture_authority",
+        "doctrine": "Inerrancy/ultimate authority of Scripture (non-creedal; Scripture not normative)"
+      },
+      {
+        "key": "christ_deity_humanity",
+        "doctrine": "Full deity of Christ (varies; generally not required/affirmed)"
+      }
+    ],
+    "note": "Non-creedal movement; does not require affirmation of classical Christian dogmas."
+  },
+  "Swedenborgian / New Church": {
+    "denies": [
+      {
+        "key": "trinity",
+        "doctrine": "Trinity of three Persons (teaches a ‘trinity’ as aspects within one Person, Jesus)"
+      },
+      {
+        "key": "justification_by_faith",
+        "doctrine": "Forensic justification by faith alone (distinct soteriology)"
+      }
+    ],
+    "note": "Affirms one God in the person of the Lord Jesus Christ; rejects tri-personal distinctions."
+  },
+  "The Way International": {
+    "denies": [
+      {
+        "key": "trinity",
+        "doctrine": "Trinity"
+      },
+      {
+        "key": "christ_deity_humanity",
+        "doctrine": "Full deity of Christ"
+      }
+    ],
+    "note": "Explicitly rejects Nicene trinitarianism and the deity of Jesus."
+  },
+  "Unification Church (Family Federation)": {
+    "denies": [
+      {
+        "key": "atonement_necessary_sufficient",
+        "doctrine": "Atonement as sufficient/completed by the cross alone"
+      },
+      {
+        "key": "trinity",
+        "doctrine": "Nicene Trinity (non-orthodox view of God/Jesus)"
+      }
+    ],
+    "note": "Teaches Jesus’ mission/atonement were incomplete and reframes salvation around family ‘restoration’."
+  },
+  "Biblical Unitarians / Church of God General Conference": {
+    "denies": [
+      {
+        "key": "trinity",
+        "doctrine": "Trinity"
+      },
+      {
+        "key": "christ_deity_humanity",
+        "doctrine": "Full deity and pre-existence of Christ"
+      }
+    ],
+    "note": "Affirm biblical authority but reject trinitarianism and Christ’s co-eternity."
+  },
+  "Unity (Unity Church, New Thought)": {
+    "denies": [
+      {
+        "key": "trinity",
+        "doctrine": "Trinity as three co-equal Persons (reinterprets as ‘Mind-Idea-Expression’)"
+      },
+      {
+        "key": "christ_deity_humanity",
+        "doctrine": "Unique deity of Christ (teaches ‘Christ’ as a divine potential in all)"
+      }
+    ],
+    "note": "Metaphysical reinterpretation of Christian terms; not Nicene trinitarian or Chalcedonian."
+  },
+  "Progressive Christianity (movement—varies by congregation)": {
+    "denies": [
+      {
+        "key": "scripture_authority",
+        "doctrine": "Inerrancy and ultimate authority of Scripture (often rejected)"
+      },
+      {
+        "key": "scripture_authority",
+        "doctrine": "Virgin birth (commonly treated as non-essential or symbolic)"
+      },
+      {
+        "key": "resurrection_of_jesus",
+        "doctrine": "Bodily resurrection (sometimes reinterpreted as non-bodily)"
+      },
+      {
+        "key": "justification_by_faith",
+        "doctrine": "Justification by faith alone (often rejected)"
+      }
+    ],
+    "note": "Broad movement; many adherents/communities openly reject historic doctrines as non-essential."
+  },
+  "Presbyterian Church (USA) / PCUSA": {
+    "denies": [],
+    "note": "Mainline denomination that officially permits women's ordination as pastors and elders (since 1956) and ordination of practicing LGBTQ individuals (since 2011). Also permits same-sex marriage. While individual congregations vary, denominational policy contradicts biblical teaching on gender roles and sexuality. Some PCUSA churches hold to orthodox theology despite denominational drift."
+  },
+  "Evangelical Covenant Order of Evangelical Presbyterians / ECO": {
+    "denies": [],
+    "note": "2012 split from PCUSA attempting to be more conservative, but officially permits women's ordination as teaching elders/pastors (allowed but not required). Uses 'ECO Essential Tenets' and Book of Confessions instead of historic Reformed confessions alone. Mixed on biblical sexuality - while officially traditional, member churches vary widely. Individual churches should be evaluated carefully."
+  }
+}

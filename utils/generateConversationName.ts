@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 import {
     CATEGORIZING_SYS_PROMPT,
     n_shot_examples,
-  } from '@/lib/prompts';
+  } from '@/lib/prompts/parrot-qa';
 
 // Helper: generate conversation name
 export async function generateConversationName(currentConversation: string): Promise<string> {

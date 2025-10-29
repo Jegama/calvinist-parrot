@@ -125,7 +125,7 @@ git merge upstream/master
 git push origin master
 ```
 
-**Note:** It’s important to regularly sync your fork, especially before starting a new change.
+**Note:** It's important to regularly sync your fork, especially before starting a new change.
 
 ### Code Style Guidelines
 

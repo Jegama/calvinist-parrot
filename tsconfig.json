@@ -14,7 +14,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -24,11 +24,7 @@
     "paths": {
       "@/*": [
         "./*"
-      ],
-      "@tanstack/react-query": ["./lib/vendor/tanstack-react-query"],
-      "@tanstack/react-query/*": ["./lib/vendor/tanstack-react-query"],
-      "zustand": ["./lib/vendor/zustand"],
-      "zustand/*": ["./lib/vendor/zustand"]
+      ]
     },
     "target": "ES2017"
   },
@@ -36,7 +32,10 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    ".next\\dev/types/**/*.ts",
+    ".next\\dev/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

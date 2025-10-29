@@ -66,7 +66,7 @@ export function FamilySheet({
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg">
+      <SheetContent className="sm:max-w-lg bg-card">
         <SheetHeader>
           <SheetTitle>Edit family</SheetTitle>
           <SheetDescription>

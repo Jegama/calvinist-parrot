@@ -44,7 +44,7 @@ Whether married or single, the aim is the same: let the Word of Christ dwell ric
 
 #### How It Has Steadied Our Home
 
-For our family, this rhythm has been a lifeline. As a newly married couple and the arrival of our first child, we’ve faced job loss, medical stresses, and a pile of unexpected bills. In a season where it would be easy to retreat into ourselves, family worship has been essential for protecting our union. It forces us to stop, open the Word, and pray *for* and *with* each other. Sharing our fears and burdens in prayer has been one of the most powerful means of grace God has used to knit our hearts together. We can testify that establishing this one habit has been the best thing we have done for our marriage.
+For our family, this rhythm has been a lifeline. As a newly married couple and the arrival of our first child, we've faced job loss, medical stresses, and a pile of unexpected bills. In a season where it would be easy to retreat into ourselves, family worship has been essential for protecting our union. It forces us to stop, open the Word, and pray *for* and *with* each other. Sharing our fears and burdens in prayer has been one of the most powerful means of grace God has used to knit our hearts together. We can testify that establishing this one habit has been the best thing we have done for our marriage.
 
 ### A Glimpse into Our Family's Rhythm
 
@@ -69,7 +69,7 @@ Evenings often fill with hospitality and church gatherings, so meeting in the mo
 
 We use the [Calvinist Parrot prayer tracker](/prayer-tracker) to steward intercession faithfully. The rotation keeps our requests from slipping through the cracks, and logging answers stirs our faith to keep approaching the throne of grace (Philippians 4:6-7; Hebrews 4:14-16). Whether you are new to family worship or simply looking for structure, we hope this tool helps your household persevere in prayer.
 
-Turn from self-reliance, trust Jesus Christ who died and rose for sinners, and join us in worshiping Him together at home. If you have any questions [please reach out](mailto:jesusmancilla@calvinistparrotministries.org)!
+Turn from self-reliance, trust Jesus Christ who died and rose for sinners, and join us in worshiping Him together at home. If you have any questions [please reach out](mailto:contact@calvinistparrotministries.org)!
 
 # Soli Deo Gloria
 

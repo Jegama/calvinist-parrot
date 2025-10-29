@@ -1,0 +1,72 @@
+{
+  "Westminster Confession of Faith (1646/47)": {
+    "baptism": "Infant (paedo)",
+    "governance": "Presbyterian",
+    "lords_supper": "Spiritual presence",
+    "gifts": "Cessationist",
+    "sanctification": "Positional & Progressive",
+    "continuity": "Covenant theology",
+    "security": "Perseverance of the saints",
+    "atonement_model": "Penal substitution"
+  },
+  "First London Baptist Confession (1644/46)": {
+    "baptism": "Believer's by immersion",
+    "governance": "Elder-led congregational",
+    "lords_supper": "Spiritual presence",
+    "gifts": "Cessationist",
+    "sanctification": "Positional & Progressive",
+    "continuity": "Covenant theology",
+    "security": "Perseverance of the saints",
+    "atonement_model": "Penal substitution"
+  },
+  "Second London Baptist Confession (1689)": {
+    "baptism": "Believer's by immersion",
+    "governance": "Elder-led congregational",
+    "lords_supper": "Spiritual presence",
+    "gifts": "Cessationist",
+    "sanctification": "Positional & Progressive",
+    "continuity": "Covenant theology",
+    "security": "Perseverance of the saints",
+    "atonement_model": "Penal substitution"
+  },
+  "Belgic Confession (1561) + Heidelberg Catechism (1563) + Canons of Dort (1619)": {
+    "baptism": "Infant (paedo)",
+    "governance": "Presbyterian",
+    "lords_supper": "Spiritual presence",
+    "gifts": "Cessationist",
+    "sanctification": "Positional & Progressive",
+    "continuity": "Covenant theology",
+    "security": "Perseverance of the saints",
+    "atonement_model": "Penal substitution"
+  },
+  "Second Helvetic Confession (1566)": {
+    "baptism": "Infant (paedo)",
+    "governance": "Presbyterian",
+    "lords_supper": "Spiritual presence",
+    "gifts": "Cessationist",
+    "sanctification": "Positional & Progressive",
+    "continuity": "Covenant theology",
+    "security": "Perseverance of the saints",
+    "atonement_model": "Penal substitution"
+  },
+  "Irish Articles (1615)": {
+    "baptism": "Infant (paedo)",
+    "governance": "Episcopal",
+    "lords_supper": "Spiritual presence",
+    "gifts": "Cessationist",
+    "sanctification": "Positional & Progressive",
+    "continuity": "Covenant theology",
+    "security": "Perseverance of the saints",
+    "atonement_model": "Penal substitution"
+  },
+  "Savoy Declaration (1658)": {
+    "baptism": "Infant (paedo)",
+    "governance": "Elder-led congregational",
+    "lords_supper": "Spiritual presence",
+    "gifts": "Cessationist",
+    "sanctification": "Positional & Progressive",
+    "continuity": "Covenant theology",
+    "security": "Perseverance of the saints",
+    "atonement_model": "Penal substitution"
+  }
+}

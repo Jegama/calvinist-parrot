@@ -3,7 +3,7 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import OpenAI from "openai";
-import { CALVIN_SYS_PROMPT_REVIEWER } from "@/lib/prompts";
+import { CALVIN_SYS_PROMPT_REVIEWER } from "@/lib/prompts/core";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,

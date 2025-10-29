@@ -33,7 +33,7 @@ This work is part of the [Calvinist Parrot Ministries](https://www.calvinistparr
 
 const md_footer = `## Let's Connect
 
-I'm still learning, so if you have any feedback [please let me know](mailto:jesusmancilla@calvinistparrotministries.org)!
+I'm still learning, so if you have any feedback [please let me know](mailto:contact@calvinistparrotministries.org)!
 
 This is open source, so if you're interested in helping me development this, check out the [GitHub repo](https://github.com/Jegama/calvinist-parrot).
 

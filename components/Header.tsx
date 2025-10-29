@@ -53,7 +53,7 @@ export function Header() {
       <div 
         className="container mx-auto flex items-center transition-all duration-700 ease-in-out"
         style={{
-          height: isScrolled ? "3rem" : "3.5rem",
+          height: isScrolled ? "1.7rem" : "3.5rem",
         }}
       >
         {/* Left side: Logo and Navigation */}
@@ -64,8 +64,8 @@ export function Header() {
               alt="Calvinist Parrot"
               className="transition-all duration-700 ease-in-out"
               style={{
-                width: isScrolled ? "2rem" : "3rem",
-                height: isScrolled ? "2rem" : "3rem",
+                width: isScrolled ? "1.5rem" : "3rem",
+                height: isScrolled ? "1.5rem" : "3rem",
               }}
               width={50}
               height={50}
@@ -102,8 +102,8 @@ export function Header() {
           >
             <nav className="flex items-center space-x-6 text-sm font-medium">
               <Link href="/devotional" prefetch={false} className="hover:opacity-70 transition-opacity">Devotional</Link>
-              <Link href="/parrot-qa" prefetch={false} className="hover:opacity-70 transition-opacity">Parrot QA</Link>
               <Link href="/prayer-tracker" prefetch={false} className="hover:opacity-70 transition-opacity">Prayer Tracker</Link>
+              <Link href="/church-finder" prefetch={false} className="hover:opacity-70 transition-opacity">Church Finder</Link>
               <Link href="/about" prefetch={false} className="hover:opacity-70 transition-opacity">About</Link>
             </nav>
           </div>
@@ -118,20 +118,20 @@ export function Header() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="hover:bg-muted/50">More</Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-[8rem]">
+              <DropdownMenuContent align="end" className="bg-card border-border shadow-lg min-w-[8rem]">
                 <DropdownMenuItem asChild>
                   <Link href="/devotional" prefetch={false} className="w-full">
                     Devotional
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/parrot-qa" prefetch={false} className="w-full">
-                    Parrot QA
+                  <Link href="/prayer-tracker" prefetch={false} className="w-full">
+                    Prayer Tracker
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/prayer-tracker" prefetch={false} className="w-full">
-                    Prayer Tracker
+                  <Link href="/church-finder" prefetch={false} className="w-full">
+                    Church Finder
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
@@ -157,7 +157,7 @@ export function Header() {
               <Button 
                 variant="outline" 
                 className="hover:bg-muted/50"
-                size={isScrolled ? "sm" : "default"}
+                size={isScrolled ? "xsm" : "default"}
               >
                 {user.name}
               </Button>
