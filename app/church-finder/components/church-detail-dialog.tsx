@@ -53,49 +53,49 @@ const CORE_LABELS: Record<CoreDoctrineKey, string> = {
 const STATUS_CONFIG = {
   confessional: {
     icon: CheckCircle2,
-    bgColor: "bg-primary/15 dark:bg-primary/10",
-    borderColor: "border-primary/30 dark:border-primary/20",
-    textColor: "text-primary",
-    iconColor: "text-primary",
+    bgColor: "status--confessional",
+    borderColor: "",
+    textColor: "status-text--confessional",
+    iconColor: "status-text--confessional",
     title: "Confessional Reformed (Encouraged)",
     description:
-      "This church publicly subscribes to a historic Reformed confession (e.g., Westminster Standards, 1689 London Baptist, Three Forms of Unity). These are our strongest recommendations.",
+      "This church publicly subscribes to a historic Reformed confession (e.g., Westminster Standards, 1689 London Baptist, Three Forms of Unity).",
   },
   recommended: {
     icon: CheckCircle2,
-    bgColor: "bg-emerald-100 dark:bg-emerald-950/30",
-    borderColor: "border-emerald-300 dark:border-emerald-800",
-    textColor: "text-emerald-800 dark:text-emerald-300",
-    iconColor: "text-emerald-700 dark:text-emerald-400",
+    bgColor: "status--recommended",
+    borderColor: "",
+    textColor: "status-text--recommended",
+    iconColor: "status-text--recommended",
     title: "Recommended",
     description: "This church clearly affirms all essential Christian doctrines and generally holds to Reformed or compatible theology.",
   },
   biblically_sound_with_differences: {
     icon: Info,
-    bgColor: "bg-blue-100 dark:bg-blue-950/30",
-    borderColor: "border-blue-300 dark:border-blue-800",
-    textColor: "text-blue-800 dark:text-blue-300",
-    iconColor: "text-blue-700 dark:text-blue-400",
-    title: "Biblically Sound (With Differences)",
+    bgColor: "status--info",
+    borderColor: "",
+    textColor: "status-text--info",
+    iconColor: "status-text--info",
+    title: "Biblically Sound",
     description:
       "This church affirms all essential Christian doctrines but holds to secondary theological positions that differ from Reformed theology (e.g., charismatic, continuationist). While biblically orthodox, we note these differences for your discernment.",
   },
   limited_information: {
     icon: AlertTriangle,
-    bgColor: "bg-amber-100 dark:bg-amber-950/30",
-    borderColor: "border-amber-300 dark:border-amber-800",
-    textColor: "text-amber-800 dark:text-amber-300",
-    iconColor: "text-amber-700 dark:text-amber-400",
+    bgColor: "status--warning",
+    borderColor: "",
+    textColor: "status-text--warning",
+    iconColor: "status-text--warning",
     title: "Limited Information",
     description:
       "The website does not clearly state several essential doctrines. We encourage you to reach out to the church directly for clarification before making a decision.",
   },
   not_endorsed: {
     icon: AlertCircle,
-    bgColor: "bg-destructive/10",
-    borderColor: "border-destructive/40",
-    textColor: "text-destructive",
-    iconColor: "!text-destructive",
+    bgColor: "status--danger",
+    borderColor: "",
+    textColor: "status-text--danger",
+    iconColor: "status-text--danger",
     title: "Not Endorsed",
     description:
       "Based on what is published, this church denies essential Christian doctrine or holds positions on secondary matters that we cannot endorse based on Scripture.",
@@ -151,16 +151,39 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
     return badgeInfo?.category === "red_flag";
   }) ?? [];
 
-  // Generate dynamic red_flag description
-  const getRedFlagDescription = () => {
-    if (falseDoctrine.length > 0 && redFlagBadges.length > 0) {
-      return "This church denies essential Christian doctrine and holds positions we cannot endorse.";
-    } else if (falseDoctrine.length > 0) {
-      return "This church denies one or more essential Christian doctrines.";
-    } else if (redFlagBadges.length > 0) {
-      return "This church holds positions on secondary matters that we cannot endorse based on Scripture.";
+  // Generate dynamic Not Endorsed description based on evaluation reasons
+  const getNotEndorsedDescription = () => {
+    if (!evaluation) return STATUS_CONFIG.not_endorsed.description;
+
+    // Match server-side evaluation logic for "critical red flags"
+    const CRITICAL_RED_FLAGS = new Set([
+      "⚠️ Prosperity Gospel",
+      "⚠️ Hyper-Charismatic",
+      "⚠️ Entertainment-Driven",
+      "🏳️‍🌈 LGBTQ Affirming",
+      "👩‍🏫 Ordained Women",
+    ]);
+
+    const presentCritical = (evaluation.badges || []).filter((b) => CRITICAL_RED_FLAGS.has(b));
+    const lowCoverage = evaluation.coverageRatio < 0.5;
+
+    if (falseDoctrine.length > 0 && presentCritical.length > 0) {
+      const sample = presentCritical.slice(0, 2).join(", ");
+      return `We cannot endorse this church because it denies essential Christian doctrine and also displays serious concerns (e.g., ${sample}). See details below.`;
     }
-    return "Based on what is published, this church denies an essential doctrine or holds positions we cannot endorse.";
+    if (falseDoctrine.length > 0) {
+      return "We cannot endorse this church because it denies one or more essential Christian doctrines. See details below.";
+    }
+    if (presentCritical.length > 0) {
+      const sample = presentCritical.slice(0, 2).join(", ");
+      return `We cannot endorse this church due to serious concerns (e.g., ${sample}). See the positions below.`;
+    }
+    if (lowCoverage) {
+      const pct = Math.round(evaluation.coverageRatio * 100);
+      return `We cannot endorse this church at this time due to insufficient published doctrinal clarity (${pct}% of essentials affirmed online). We encourage you to contact the church for clarification.`;
+    }
+
+    return STATUS_CONFIG.not_endorsed.description;
   };
 
   // Check if denomination is in the non-endorsement list
@@ -225,18 +248,18 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                     {STATUS_CONFIG[displayStatus].title}
                   </AlertTitle>
                   <AlertDescription className={STATUS_CONFIG[displayStatus].textColor}>
-                    {displayStatus === "not_endorsed" ? getRedFlagDescription() : STATUS_CONFIG[displayStatus].description}
+                    {displayStatus === "not_endorsed" ? getNotEndorsedDescription() : STATUS_CONFIG[displayStatus].description}
                   </AlertDescription>
                 </Alert>
               )}
 
               {/* False Doctrines Warning */}
               {falseDoctrine.length > 0 && (
-                <div className="space-y-4 rounded-lg border-2 border-destructive/40 bg-destructive/10 p-4 shadow-md">
-                  <h3 className="text-lg font-semibold text-destructive flex items-center gap-2">
+                <div className="space-y-4 rounded-lg p-4 shadow-md status--danger">
+                  <h3 className="text-lg font-semibold status-text--danger flex items-center gap-2">
                     ⚠️ Doctrinal Concerns
                   </h3>
-                  <p className="text-sm font-medium text-destructive">
+                  <p className="text-sm font-medium status-text--danger">
                     This church explicitly denies the following essential Christian doctrine(s):
                   </p>
                   <div className="space-y-4">
@@ -261,12 +284,12 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
 
               {/* Red Flag Badges Warning - Positions We Can't Endorse */}
               {redFlagBadges.length > 0 && (
-                <div className="space-y-4 rounded-lg border-2 border-destructive/40 bg-destructive/10 p-4 shadow-md">
-                  <h3 className="text-lg font-semibold text-destructive flex items-center gap-2">
-                    ⚠️ Positions We Cannot Endorse
+                <div className="space-y-4 rounded-lg p-4 shadow-md status--danger">
+                  <h3 className="text-lg font-semibold status-text--danger flex items-center gap-2">
+                    ⚠️ Serious Concerns (Positions We Cannot Endorse)
                   </h3>
-                  <p className="text-sm font-medium text-destructive">
-                    This church holds the following position(s) that depart from biblical teaching:
+                  <p className="text-sm font-medium status-text--danger">
+                    Based on the church’s published statements, we identified the following position(s) we cannot endorse:
                   </p>
                   <div className="space-y-3">
                     {redFlagBadges.map((badge) => {
@@ -288,19 +311,19 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
 
               {/* Low Essentials Coverage Warning */}
               {evaluation && evaluation.coverageRatio < 0.5 && falseDoctrine.length === 0 && (
-                <div className="space-y-4 rounded-lg border-2 border-destructive/40 bg-destructive/10 p-4 shadow-md">
-                  <h3 className="text-lg font-semibold text-destructive flex items-center gap-2">
+                <div className="space-y-4 rounded-lg p-4 shadow-md status--warning">
+                  <h3 className="text-lg font-semibold status-text--warning flex items-center gap-2">
                     ⚠️ Insufficient Doctrinal Information
                   </h3>
-                  <p className="text-sm font-medium text-destructive">
-                    This church&apos;s website does not clearly affirm enough essential Christian doctrines for us to recommend it.
+                  <p className="text-sm font-medium status-text--warning">
+                    We cannot endorse at this time because the church’s website does not clearly affirm enough essential Christian doctrines.
                   </p>
                   <div className="rounded-md border border-destructive/30 bg-background p-4 shadow-sm">
                     <div className="flex items-center justify-between mb-3">
                       <p className="font-semibold text-foreground">
                         Essentials clearly stated on website:
                       </p>
-                      <p className="text-2xl font-bold text-destructive">
+                      <p className="text-2xl font-bold status-text--warning">
                         {Math.round(evaluation.coverageRatio * 100)}%
                       </p>
                     </div>
@@ -309,7 +332,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                     </p>
                     <div className="rounded bg-muted/50 p-3">
                       <p className="text-sm text-foreground/90">
-                        <span className="font-medium">Why this matters:</span> We need a church to publicly affirm at least 50% of essential Christian doctrines to recommend it with confidence. This church may hold sound doctrine that simply isn&apos;t published online. We encourage you to contact them directly to inquire about their beliefs.
+                        <span className="font-medium">Why this matters:</span> We look for a church to publicly affirm at least 50% of essential Christian doctrines to recommend it with confidence. This does not necessarily mean the church denies these doctrines—it may simply not be stated online. We encourage you to contact them directly to inquire about their beliefs.
                       </p>
                     </div>
                   </div>
@@ -318,12 +341,12 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
 
               {/* Denomination-Specific Note */}
               {denominationNote && (
-                <Alert className="bg-amber-100 border-amber-300 dark:bg-amber-950/30 dark:border-amber-800">
-                  <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                  <AlertTitle className="text-amber-900 dark:text-amber-300">
+                <Alert className="status--warning">
+                  <AlertTriangle className="h-4 w-4 status-text--warning" />
+                  <AlertTitle className="status-text--warning">
                     About {denominationLabel}
                   </AlertTitle>
-                  <AlertDescription className="text-amber-800 dark:text-amber-400">
+                  <AlertDescription className="status-text--warning">
                     <p className="mb-2">{denominationNote.note}</p>
                     {denominationNote.denies && denominationNote.denies.length > 0 && (
                       <div className="mt-3 space-y-1">
@@ -348,8 +371,8 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                       const badgeInfo = badgesJson[badge as keyof typeof badgesJson];
                       const isRedFlag = badgeInfo?.category === "red_flag";
                       const badgeClasses = isRedFlag
-                        ? "rounded-full bg-destructive/10 border border-destructive/40 px-3 py-1.5 text-sm font-medium text-destructive"
-                        : "rounded-full bg-primary/20 border border-primary/40 px-3 py-1.5 text-sm font-medium text-primary dark:bg-primary/10 dark:border-primary/20";
+                        ? "badge--red-flag px-3 py-1.5 text-sm font-medium"
+                        : "badge--neutral px-3 py-1.5 text-sm font-medium";
 
                       return (
                         <Tooltip key={badge}>

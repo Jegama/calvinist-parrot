@@ -130,7 +130,7 @@ export default function ChurchFinderPage() {
   const handleFiltersChange = useCallback((next: ChurchFilters | ((prev: ChurchFilters) => ChurchFilters)) => {
     setFilters((prev) => {
       const nextFilters = typeof next === "function" ? next(prev) : next;
-      
+
       // Only update if filters actually changed
       if (
         prev.page === nextFilters.page &&
@@ -169,14 +169,14 @@ export default function ChurchFinderPage() {
 
   const handleChurchCreated = useCallback((church: ChurchDetail) => {
     setFilters((prev) => ({ ...prev, page: 1 }));
-    
+
     // Invalidate and refetch both church list and metadata
     void queryClient.invalidateQueries({ queryKey: ["churches"], refetchType: "active" });
     void queryClient.invalidateQueries({ queryKey: ["churches", "meta"], refetchType: "active" });
-    
+
     // Cache the newly created church detail
     queryClient.setQueryData(["church-detail", church.id], church);
-    
+
     setSelectedChurchId(church.id);
     setDetailOpen(true);
   }, [queryClient]);
@@ -184,7 +184,7 @@ export default function ChurchFinderPage() {
   const handleChurchView = useCallback((church: ChurchDetail) => {
     // Cache the church detail
     queryClient.setQueryData(["church-detail", church.id], church);
-    
+
     setSelectedChurchId(church.id);
     setDetailOpen(true);
   }, [queryClient]);
@@ -192,7 +192,7 @@ export default function ChurchFinderPage() {
   const handleChurchUpdated = useCallback((church: ChurchDetail) => {
     // Update the cache with the re-evaluated church
     queryClient.setQueryData(["church-detail", church.id], church);
-    
+
     // Invalidate list queries to show updated data
     void queryClient.invalidateQueries({ queryKey: ["churches"], refetchType: "active" });
   }, [queryClient]);
@@ -228,7 +228,7 @@ export default function ChurchFinderPage() {
       </header>
 
       {/* Main content grid: List on left, Filters on right (desktop) */}
-      <div className="grid gap-6 lg:grid-cols-[1fr,400px] lg:items-start">
+      <div className="grid gap-6 lg:grid-cols-[1fr,320px] lg:items-start">
         <div className="space-y-4">
           {/* Filters shown between discovery and list on mobile */}
           <div className="lg:hidden">

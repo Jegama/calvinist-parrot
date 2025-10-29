@@ -46,6 +46,11 @@ body {
     --input: 0 0% 96%;
     /* Brand: Deep Blue - Focus rings */
     --ring: 199 100% 22%;
+    /* Semantic roles (centralize status colors) */
+    --info: 180 100% 15%;
+    /* Deep Teal (accent) as informational tone */
+    --warning: 42 100% 70%;
+    /* Warm Gold for warnings/limited info */
     /* Brand: Warm Gold #FFD166 */
     --chart-1: 42 100% 70%;
     /* Brand: Deep Teal #004D4D */
@@ -109,6 +114,9 @@ body {
     --input: 0 0% 25%;
     /* Light ring for dark mode */
     --ring: 0 0% 98%;
+    /* Semantic roles (dark mode adjustments) */
+    --info: 180 100% 30%;
+    --warning: 42 100% 70%;
     /* Brand colors - adjusted for dark mode */
     --chart-1: 42 100% 70%;
     --chart-2: 180 100% 30%;
@@ -306,5 +314,106 @@ body {
       inset 0px -7px 0px -6px rgba(255, 255, 255, 0.12);
     opacity: 0.2;
     filter: blur(1px) brightness(105%);
+  }
+
+  /*
+   * Status utilities
+   * Centralized, brand-aligned color treatments for status chips and alerts
+   */
+  .status--confessional {
+    background-color: hsl(var(--primary) / 0.15) !important;
+    border: 1px solid hsl(var(--primary) / 0.30) !important;
+    color: hsl(var(--primary)) !important;
+  }
+
+  .dark .status--confessional {
+    background-color: hsl(var(--primary) / 0.10) !important;
+    border: 1px solid hsl(var(--primary) / 0.20) !important;
+    color: hsl(var(--primary)) !important;
+  }
+
+  .status--recommended {
+    background-color: hsl(var(--success) / 0.15) !important;
+    border: 1px solid hsl(var(--success) / 0.30) !important;
+    color: hsl(var(--success)) !important;
+  }
+
+  .dark .status--recommended {
+    background-color: hsl(var(--success) / 0.12) !important;
+    border: 1px solid hsl(var(--success) / 0.25) !important;
+    color: hsl(var(--success)) !important;
+  }
+
+  .status--info {
+    background-color: hsl(var(--info) / 0.15) !important;
+    border: 1px solid hsl(var(--info) / 0.30) !important;
+    color: hsl(var(--info)) !important;
+  }
+
+  .dark .status--info {
+    background-color: hsl(var(--info) / 0.12) !important;
+    border: 1px solid hsl(var(--info) / 0.25) !important;
+    color: hsl(var(--info)) !important;
+  }
+
+  .status--warning {
+    background-color: hsl(var(--warning) / 0.30) !important;
+    border: 1px solid hsl(var(--warning) / 0.45) !important;
+    color: hsl(32 90% 30%) !important;
+    /* readable warm gold text */
+  }
+
+  .dark .status--warning {
+    background-color: hsl(var(--warning) / 0.18) !important;
+    border: 1px solid hsl(var(--warning) / 0.35) !important;
+    color: hsl(var(--warning)) !important;
+  }
+
+  .status--danger {
+    background-color: hsl(var(--destructive) / 0.12) !important;
+    border: 1px solid hsl(var(--destructive) / 0.40) !important;
+    color: hsl(var(--destructive)) !important;
+  }
+
+  .dark .status--danger {
+    background-color: hsl(var(--destructive) / 0.15) !important;
+    border: 1px solid hsl(var(--destructive) / 0.45) !important;
+    color: hsl(var(--destructive)) !important;
+  }
+
+  /* Optional text-only helpers (for icons/titles in alerts) */
+  .status-text--confessional {
+    color: hsl(var(--primary)) !important;
+  }
+
+  .status-text--recommended {
+    color: hsl(var(--success)) !important;
+  }
+
+  .status-text--info {
+    color: hsl(var(--info)) !important;
+  }
+
+  .status-text--warning {
+    color: hsl(32 90% 30%) !important;
+  }
+
+  .status-text--danger {
+    color: hsl(var(--destructive)) !important;
+  }
+
+  /* Badge utilities (shared across list and detail) */
+  .badge--neutral {
+    background-color: hsl(var(--muted) / 0.7) !important;
+    border: 1px solid hsl(var(--border)) !important;
+    color: hsl(var(--foreground) / 0.8) !important;
+    border-radius: 9999px !important;
+  }
+
+  .badge--red-flag {
+    background-color: hsl(var(--destructive) / 0.1) !important;
+    border: 1px solid hsl(var(--destructive) / 0.4) !important;
+    color: hsl(var(--destructive)) !important;
+    border-radius: 9999px !important;
   }
 }
