@@ -2,17 +2,12 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-
 import type { ChurchDetail, ChurchListItem } from "@/types/church";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info } from "lucide-react";
-
-import {
-  ChurchDetailDialog,
-} from "./components/church-detail-dialog";
+import { ChurchDetailDialog } from "./components/church-detail-dialog";
 import { ChurchDiscoveryPanel } from "./components/church-discovery-panel";
 import { ChurchFiltersBar } from "./components/church-filters";
 import { ChurchList } from "./components/church-list";

@@ -25,31 +25,40 @@ function parseBooleanParam(value: string | null): boolean | null {
 /**
  * Sort churches by status priority:
  * 1. Historic Reformed (confessionAdopted = true)
- * 2. Recommended (latest eval status = PASS)
- * 3. Caution (latest eval status = CAUTION)
- * 4. Not Endorsed (latest eval status = RED_FLAG)
- * 5. No evaluation (null status)
+ * 2. Recommended (latest eval status = RECOMMENDED)
+ * 3. Biblically Sound w/ Differences (latest eval status = BIBLICALLY_SOUND_WITH_DIFFERENCES)
+ * 4. Limited Information (latest eval status = LIMITED_INFORMATION)
+ * 5. Not Endorsed (latest eval status = NOT_ENDORSED)
+ * 6. No evaluation (null status)
  * Then alphabetically by name within each group
  */
+type EvaluationStatusDb =
+  | "RECOMMENDED"
+  | "BIBLICALLY_SOUND_WITH_DIFFERENCES"
+  | "LIMITED_INFORMATION"
+  | "NOT_ENDORSED";
+
 function sortChurchesByPriority<T extends {
   name: string;
   confessionAdopted: boolean;
-  evaluations: Array<{ status: "PASS" | "CAUTION" | "RED_FLAG" }>;
+  evaluations: Array<{ status: EvaluationStatusDb }>;
 }>(churches: T[]): T[] {
   return churches.sort((a, b) => {
     // Assign priority values
     const getPriority = (church: T): number => {
       if (church.confessionAdopted) return 1; // Historic Reformed
-      if (!church.evaluations[0]) return 5; // No evaluation
+      if (!church.evaluations[0]) return 6; // No evaluation
       switch (church.evaluations[0].status) {
-        case "PASS":
+        case "RECOMMENDED":
           return 2; // Recommended
-        case "CAUTION":
-          return 3; // Caution
-        case "RED_FLAG":
-          return 4; // Not Endorsed
+        case "BIBLICALLY_SOUND_WITH_DIFFERENCES":
+          return 3; // Not classic Reformed but affirms essentials
+        case "LIMITED_INFORMATION":
+          return 4; // Limited Information
+        case "NOT_ENDORSED":
+          return 5; // Not Endorsed
         default:
-          return 5;
+          return 6;
       }
     };
 
@@ -160,7 +169,7 @@ export async function GET(request: Request) {
   // For status filtering, we need to fetch all churches first and filter by latest evaluation
   // since Prisma can't easily filter by "the latest related record"
   const shouldFilterByLatestEval = status && status !== "historic_reformed";
-  
+
   // Handle historic_reformed filter at query level (it's based on church field, not evaluation)
   if (status === "historic_reformed") {
     where.confessionAdopted = true;
@@ -181,16 +190,19 @@ export async function GET(request: Request) {
     // Filter by latest evaluation status
     const filteredChurches = allChurches.filter((church) => {
       const latestEval = church.evaluations[0];
-      
+
       if (status === "exclude_red_flag") {
-        // Exclude if latest eval is RED_FLAG
-        return !latestEval || latestEval.status !== "RED_FLAG";
+        // Exclude if latest eval is NOT_ENDORSED
+        return !latestEval || latestEval.status !== "NOT_ENDORSED";
       } else if (status === "recommended") {
-        return latestEval?.status === "PASS";
+        return latestEval?.status === "RECOMMENDED";
       } else if (status === "caution") {
-        return latestEval?.status === "CAUTION";
+        return (
+          latestEval?.status === "BIBLICALLY_SOUND_WITH_DIFFERENCES" ||
+          latestEval?.status === "LIMITED_INFORMATION"
+        );
       } else if (status === "red_flag") {
-        return latestEval?.status === "RED_FLAG";
+        return latestEval?.status === "NOT_ENDORSED";
       }
       return true;
     });
@@ -303,15 +315,10 @@ export async function POST(request: Request) {
       ? churchData.denomination.signals
       : [];
 
-    // ============================================================================
-    // Build ChurchDetail immediately (without geocoding)
-    // ============================================================================
-
-    // Build normalized evaluation data once (reused in background job)
+    // Build normalized evaluation data once (shared by persistence + response)
     const evaluationData = buildEvaluationData(rawEvaluation, processed);
 
-    const immediateDetail = mapChurchToDetail({
-      id: "temp-" + Date.now(), // Temporary ID until DB write
+    const baseData = {
       name: churchName,
       website: websiteUrl,
       phone: churchData.contacts?.phone ?? null,
@@ -326,68 +333,86 @@ export async function POST(request: Request) {
       bestConfessionUrl: churchData.best_pages_for?.confession ?? null,
       bestAboutUrl: churchData.best_pages_for?.about ?? null,
       bestLeadershipUrl: churchData.best_pages_for?.leadership ?? null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      addresses: addresses.map((address, index) => ({
-        id: `temp-addr-${index}`,
-        churchId: "temp",
-        street1: address.street_1 ?? null,
-        street2: address.street_2 ?? null,
-        city: address.city ?? null,
-        state: address.state ?? null,
-        postCode: address.post_code ?? null,
-        latitude: null, // Will be geocoded in background
-        longitude: null,
-        sourceUrl: address.source_url ?? null,
-        isPrimary: index === 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })),
-      serviceTimes: serviceTimes.map((label, index) => ({
-        id: `temp-service-${index}`,
-        churchId: "temp",
-        label,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })),
-      evaluations: [
-        {
-          id: `temp-eval-${Date.now()}`,
-          churchId: "temp",
-          rawEvaluation: evaluationData.rawEvaluation,
-          badges: evaluationData.badges,
-          secondary: evaluationData.secondary as Prisma.JsonValue,
-          tertiary: evaluationData.tertiary as Prisma.JsonValue,
-          coreOnSiteCount: evaluationData.coreOnSiteCount,
-          coreTotalCount: evaluationData.coreTotalCount,
-          coverageRatio: evaluationData.coverageRatio,
-          status: evaluationData.status,
-          coreTrinity: evaluationData.coreTrinity,
-          coreGospel: evaluationData.coreGospel,
-          coreJustificationByFaith: evaluationData.coreJustificationByFaith,
-          coreChristDeityHumanity: evaluationData.coreChristDeityHumanity,
-          coreScriptureAuthority: evaluationData.coreScriptureAuthority,
-          coreIncarnationVirginBirth: evaluationData.coreIncarnationVirginBirth,
-          coreAtonementNecessary: evaluationData.coreAtonementNecessary,
-          coreResurrectionOfJesus: evaluationData.coreResurrectionOfJesus,
-          coreReturnAndJudgment: evaluationData.coreReturnAndJudgment,
-          coreCharacterOfGod: evaluationData.coreCharacterOfGod,
-          createdAt: new Date(),
+    };
+
+    const { churchId } = await prisma.$transaction(async (tx) => {
+      const existingChurch = await tx.church.findUnique({
+        where: { website: websiteUrl },
+        select: { id: true },
+      });
+
+      let persistedChurchId: string;
+
+      if (existingChurch) {
+        persistedChurchId = existingChurch.id;
+        await tx.church.update({ where: { id: persistedChurchId }, data: baseData });
+        await tx.churchAddress.deleteMany({ where: { churchId: persistedChurchId } });
+        await tx.churchServiceTime.deleteMany({ where: { churchId: persistedChurchId } });
+      } else {
+        const createdChurch = await tx.church.create({ data: baseData });
+        persistedChurchId = createdChurch.id;
+      }
+
+      for (const [index, address] of addresses.entries()) {
+        await tx.churchAddress.create({
+          data: {
+            churchId: persistedChurchId,
+            street1: address.street_1 ?? null,
+            street2: address.street_2 ?? null,
+            city: address.city ?? null,
+            state: address.state ?? null,
+            postCode: address.post_code ?? null,
+            latitude: null,
+            longitude: null,
+            sourceUrl: address.source_url ?? null,
+            isPrimary: index === 0,
+          },
+        });
+      }
+
+      for (const label of serviceTimes) {
+        await tx.churchServiceTime.create({
+          data: {
+            churchId: persistedChurchId,
+            label,
+          },
+        });
+      }
+
+      await tx.churchEvaluation.create({
+        data: {
+          churchId: persistedChurchId,
+          ...evaluationData,
         },
-      ],
+      });
+
+      return { churchId: persistedChurchId };
     });
 
-    // Return immediately to user (geocoding happens in background)
-    const response = NextResponse.json(immediateDetail);
+    const persisted = await prisma.church.findUnique({
+      where: { id: churchId },
+      include: {
+        addresses: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
+        serviceTimes: { orderBy: { createdAt: "asc" } },
+        evaluations: { orderBy: { createdAt: "desc" }, take: 1 },
+      },
+    });
+
+    if (!persisted) {
+      return NextResponse.json({ error: "Unable to persist church" }, { status: 500 });
+    }
+
+    const response = NextResponse.json(mapChurchToDetail(persisted));
 
     // ============================================================================
-    // Background Job: Geocode + Persist to Database (Fire-and-Forget)
+    // Background Job: Geocode + Update Coordinates (Fire-and-Forget)
     // ============================================================================
+    const persistedAddresses = persisted.addresses;
+
     void (async () => {
       try {
         console.log(`[Background] Starting geocoding for ${websiteUrl}`);
 
-        // Geocode all addresses in parallel
         const geocodedAddresses = await Promise.all(
           addresses.map((address, index) =>
             geocodeAddress({
@@ -399,85 +424,28 @@ export async function POST(request: Request) {
           )
         );
 
-        console.log(`[Background] Geocoding complete, saving to database...`);
+        console.log(`[Background] Geocoding complete, updating coordinates...`);
 
         await prisma.$transaction(async (tx) => {
-          const existing = await tx.church.findUnique({ where: { website: websiteUrl }, select: { id: true } });
+          for (const entry of geocodedAddresses) {
+            const targetAddress = persistedAddresses[entry.index];
+            if (!targetAddress) {
+              continue;
+            }
 
-          const baseData = {
-            name: churchName,
-            website: websiteUrl,
-            phone: churchData.contacts?.phone ?? null,
-            email: churchData.contacts?.email ?? null,
-            denominationLabel: churchData.denomination?.label ?? null,
-            denominationConfidence: churchData.denomination?.confidence ?? null,
-            denominationSignals,
-            confessionAdopted: churchData.confession?.adopted ?? false,
-            confessionName: churchData.confession?.name ?? null,
-            confessionSourceUrl: churchData.confession?.source_url ?? null,
-            bestBeliefsUrl: churchData.best_pages_for?.beliefs ?? null,
-            bestConfessionUrl: churchData.best_pages_for?.confession ?? null,
-            bestAboutUrl: churchData.best_pages_for?.about ?? null,
-            bestLeadershipUrl: churchData.best_pages_for?.leadership ?? null,
-          };
-
-          const churchId = existing
-            ? existing.id
-            : (await tx.church.create({ data: baseData })).id;
-
-          if (existing) {
-            await tx.church.update({ where: { id: churchId }, data: baseData });
+            await tx.churchAddress.update({
+              where: { id: targetAddress.id },
+              data: {
+                latitude: entry.coords.latitude,
+                longitude: entry.coords.longitude,
+              },
+            });
           }
-
-          await tx.churchAddress.deleteMany({ where: { churchId } });
-          await tx.churchServiceTime.deleteMany({ where: { churchId } });
-
-          await Promise.all(
-            addresses.map((address, index) => {
-              const coords = geocodedAddresses.find((entry) => entry.index === index)?.coords ?? {
-                latitude: null,
-                longitude: null,
-              };
-              return tx.churchAddress.create({
-                data: {
-                  churchId,
-                  street1: address.street_1 ?? null,
-                  street2: address.street_2 ?? null,
-                  city: address.city ?? null,
-                  state: address.state ?? null,
-                  postCode: address.post_code ?? null,
-                  latitude: coords.latitude,
-                  longitude: coords.longitude,
-                  sourceUrl: address.source_url ?? null,
-                  isPrimary: index === 0,
-                },
-              });
-            })
-          );
-
-          await Promise.all(
-            serviceTimes.map((label) =>
-              tx.churchServiceTime.create({
-                data: {
-                  churchId,
-                  label,
-                },
-              })
-            )
-          );
-
-          await tx.churchEvaluation.create({
-            data: {
-              churchId,
-              ...evaluationData,
-            },
-          });
-
         });
 
-        console.log(`[Background] Database write complete for ${websiteUrl}`);
+        console.log(`[Background] Coordinate update complete for ${websiteUrl}`);
       } catch (error) {
-        console.error(`[Background] Failed to persist church ${websiteUrl}:`, error);
+        console.error(`[Background] Failed to update coordinates for ${websiteUrl}:`, error);
         // Background job failure doesn't affect user experience
         // Could implement retry logic or logging service here
       }

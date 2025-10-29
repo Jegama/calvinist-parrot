@@ -217,7 +217,7 @@ Determine if the church **adopts** a historic confession as their doctrinal stan
 **ONLY These Historic Confessions Are Valid:**
 - Westminster Confession of Faith (1646/47)
 - Second London Baptist Confession (1689)
-- First London Baptist Confession (1644)
+- First London Baptist Confession (1644/46)
 - Belgic Confession (1561) + Heidelberg Catechism (1563) + Canons of Dort (1619)
 - Second Helvetic Confession (1566)
 - Irish Articles (1615)
@@ -321,6 +321,22 @@ Look for explicit affirmation in these contexts:
 - **Denominational policy**: Affiliated with denomination that permits these (and church doesn't disclaim it)
 
 **Important**: Generic welcoming language like "all are welcome" is NOT sufficient. You need explicit inclusion in membership, leadership, or marriage contexts.
+
+**CRITICAL false-positive guards for this badge:**
+- If the site states or implies non-affirmation (e.g., "we will not affirm sin," "homosexuality/transgenderism is sin," "marriage is one man and one woman," "we do not perform same-sex marriages"), DO NOT add this badge.
+- Mentions of "homosexuality" or "transgenderism" only in sin lists or in prohibitive contexts count as NON-affirming.
+- If the only evidence is a general welcome (e.g., "everyone is welcome"), omit the badge.
+- If denominational affiliation is affirming but the church explicitly rejects those policies, the church-level explicit rejection takes precedence → omit the badge.
+
+Examples that DO count (add the badge):
+- "We are an open and affirming church" (or equivalent "open & affirming," "affirming church").
+- "We perform same-sex marriages" / "We bless same-sex unions."
+- "LGBTQ+ persons are eligible for membership and leadership, including pastors/elders."
+
+Examples that DO NOT count (omit the badge):
+- "Marriage is between one man and one woman" (with or without proof texts).
+- "We will not affirm sins including homosexuality and transgenderism."
+- "We love all people" / "All are welcome" without membership/leadership/marriage specifics.
 
 ### Notes:
 For each red flag badge you add, create a note with:

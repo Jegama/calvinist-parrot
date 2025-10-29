@@ -26,9 +26,17 @@ function mapDoctrineValue(value: string): CoreDoctrineStatusValue {
 }
 
 function mapEvaluationStatus(value: string): EvaluationStatus {
-  if (value === "PASS") return "pass";
-  if (value === "CAUTION") return "caution";
-  return "red_flag";
+  switch (value) {
+    case "RECOMMENDED":
+      return "recommended";
+    case "BIBLICALLY_SOUND_WITH_DIFFERENCES":
+      return "biblically_sound_with_differences";
+    case "LIMITED_INFORMATION":
+      return "limited_information";
+    case "NOT_ENDORSED":
+    default:
+      return "not_endorsed";
+  }
 }
 
 function parseRawEvaluation(raw: Prisma.JsonValue): ChurchEvaluationRaw | null {

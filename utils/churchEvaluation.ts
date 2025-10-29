@@ -13,7 +13,6 @@ import type {
   DenominationConfessionResponse,
   RedFlagsResponse,
 } from "@/types/church";
-import knownConfessionalChurches from "@/lib/references/known_confessional_churches.json";
 
 import {
   CORE_DOCTRINE_KEYS,
@@ -264,9 +263,6 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
         responseMimeType: "application/json",
         responseSchema: CORE_DOCTRINES_SCHEMA,
         seed: 1689,
-        thinkingConfig: {
-          thinkingBudget: -1, // Dynamic thinking budget
-        },
       },
     }).then((res) => {
       if (!res.text) throw new Error("Empty response from Call 2");
@@ -286,9 +282,6 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
         responseMimeType: "application/json",
         responseSchema: SECONDARY_DOCTRINES_SCHEMA,
         seed: 1689,
-        thinkingConfig: {
-          thinkingBudget: -1, // Dynamic thinking budget
-        },
       },
     }).then((res) => {
       if (!res.text) throw new Error("Empty response from Call 3");
@@ -327,9 +320,6 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
         responseMimeType: "application/json",
         responseSchema: DENOMINATION_CONFESSION_SCHEMA,
         seed: 1689,
-        thinkingConfig: {
-          thinkingBudget: -1, // Dynamic thinking budget
-        },
       },
     }).then((res) => {
       if (!res.text) throw new Error("Empty response from Call 5");
@@ -349,9 +339,6 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
         responseMimeType: "application/json",
         responseSchema: RED_FLAGS_SCHEMA,
         seed: 1689,
-        thinkingConfig: {
-          thinkingBudget: -1, // Dynamic thinking budget
-        },
       },
     }).then((res) => {
       if (!res.text) throw new Error("Empty response from Call 6");
@@ -477,7 +464,6 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   // Define badges indicating significant secondary differences from Reformed theology
   const secondaryDifferenceBadges = [
     "🔥 Charismatic",
-    "🕊️ Cautious Continuationist",
   ];
 
   const hasCriticalRedFlag = allBadges.some((badge) => criticalRedFlagBadges.includes(badge));
