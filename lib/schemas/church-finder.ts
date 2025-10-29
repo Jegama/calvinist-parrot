@@ -141,6 +141,7 @@ export const TERTIARY_DOCTRINES_SCHEMA = {
         christian_liberty: { type: "STRING" as const, nullable: true },
         discipline: { type: "STRING" as const, nullable: true },
         parachurch: { type: "STRING" as const, nullable: true },
+        marriage_roles: { type: "STRING" as const, nullable: true },
       },
       required: [
         "eschatology",
@@ -150,6 +151,7 @@ export const TERTIARY_DOCTRINES_SCHEMA = {
         "christian_liberty",
         "discipline",
         "parachurch",
+        "marriage_roles",
       ],
     },
     badges: { type: "ARRAY" as const, items: { type: "STRING" as const } },

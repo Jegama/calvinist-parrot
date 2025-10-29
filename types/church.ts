@@ -70,6 +70,7 @@ export interface TertiaryDoctrinesResponse {
     christian_liberty: string | null;
     discipline: string | null;
     parachurch: string | null;
+    marriage_roles: string | null;
   };
   badges: string[];
 }
@@ -167,6 +168,7 @@ export interface ChurchEvaluationRaw {
       christian_liberty: string | null;
       discipline: string | null;
       parachurch: string | null;
+      marriage_roles: string | null;
     };
     badges: string[];
     notes: ChurchNote[];

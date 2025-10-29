@@ -9,7 +9,8 @@ const COMMON_RULES = `### General Extraction Rules
 
 * Work only from the provided pages. Never invent facts.
 * Be precise and conservative: if in doubt, return \`unknown\`/\`null\`.
-* For any field, if not stated, use \`"null"\` (or \`"unknown"\` for doctrine booleans).`;
+* For any field, if not stated, use \`"null"\` (or \`"unknown"\` for doctrine booleans).
+* Badges policy (applies to ALL prompts below that output a \`badges\` array): Only use the badges explicitly listed in that prompt section. Copy the badge label verbatim (including emoji, spelling, and capitalization). Do NOT invent new badges or variants. If none apply, return an empty array [].`;
 
 // ============================================================================
 // Call 1: Basic Fields Prompt
@@ -52,6 +53,21 @@ Extract the following fields from the website content:
 
 If you cannot find a suitable page for any category, set it to \`null\`.`;
 
+// Add-on within the same call (no extra latency): detect additional heterodoxy signals and record as notes
+// These are not additional booleans; only add notes if clearly present on the site.
+export const CORE_HETERODOXY_NOTES_APPENDIX = `
+
+### Additional Heterodoxy Indicators (notes-only, no extra fields)
+
+If you detect any of the following clearly on the site, add a note for each (do NOT change the 10 core booleans because of these alone):
+
+- Label: "Open Theism" — Text: short quote (≤30 words) indicating denial of God's exhaustive foreknowledge — Source URL: where found
+- Label: "New Apostolic Reformation (NAR)" — Text: quote showing modern apostles/prophets with governing authority — Source URL
+- Label: "Progressive Christianity" — Text: quote indicating explicit alignment with Progressive Christianity or doctrine relativizing historic orthodoxy — Source URL
+- Label: "Religious Pluralism" — Text: quote indicating multiple paths to God or interfaith equivalence — Source URL
+
+Only add these notes if the content is explicit and unambiguous.`;
+
 // ============================================================================
 // Call 2: Core Doctrines Prompt
 // ============================================================================
@@ -91,7 +107,9 @@ For each doctrine you mark as \`"true"\` or \`"false"\`, capture a note with:
 - \`text\`: Short quote (≤30 words) from the website showing the belief
 - \`source_url\`: URL where you found this statement
 
-If a doctrine is \`unknown\`, do not create a note for it.`;
+If a doctrine is \`unknown\`, do not create a note for it.
+
+${CORE_HETERODOXY_NOTES_APPENDIX}`;
 
 // ============================================================================
 // Call 3: Secondary Doctrines Prompt
@@ -119,12 +137,28 @@ Extract the church's positions on these secondary doctrines. Provide **neutral**
 
 Use the neutral phrases suggested in the definitions above (e.g., "Believer's baptism by immersion", "Elder-led congregational", etc.).
 
-### Badges to Detect (add to badges array if applicable including the emoji including the emoji):
+### Badges to Detect (add to badges array if applicable, including the emoji):
+
+STRICT BADGE OUTPUT RULES:
+- Use ONLY the badges listed below.
+- Output them VERBATIM, including the emoji and exact wording.
+- Do NOT create new badges or variants.
+- If none apply, return an empty array []
 
 - **🕊️ Cautious Continuationist**: If gifts are stated as continued but with restraint/caution (not normative for all)
 - **🔥 Charismatic**: If tongues/prophecy/healing are normative and emphasized
 - **📜 Reformed**: If the church clearly identifies with Reformed soteriology (five points of Calvinism, TULIP, Doctrines of Grace)
+- **🧭 Arminian**: If the church clearly identifies with Arminian soteriology (conditional election, prevenient grace, resistible grace, conditional security)
 - **🍷 Paedocommunion**: If infants/children partake in communion (rare but important)
+- **🔄 Dispensational**: Distinct Israel/Church, dispensations, rapture timeline emphasis
+- **🧑‍🎓 Wesleyan-Holiness**: Entire sanctification/sinless perfection language
+- **🧱 KJV-Only**: KJV-onlyism stated as doctrinal stance or requirement and treats the King James Version as the only valid English Bible translation for doctrine and practice
+- **🎯 Seeker-Sensitive**: Explicit seeker model for weekend services (programmatic, attractional), distinct from entertainment-driven excess
+- **🥖 Real Presence (Lutheran)**: Lutheran sacramental union/real presence/sacramental union in the Lord's Supper explicitly affirmed
+
+MUTUALLY EXCLUSIVE SOTERIOLOGY IDENTITY BADGES:
+- Add only ONE of the following if clearly claimed: **📜 Reformed** OR **🧭 Arminian**.
+- If unclear or both are implied without explicit self-identification, omit both.
 
 Only add badges you have clear evidence for. Return empty array if none apply.`;
 
@@ -150,15 +184,28 @@ Extract the church's positions on these tertiary doctrines. Provide **neutral** 
 5. **christian_liberty**
 6. **discipline**
 7. **parachurch**
-8. **non_essential** (optional catch-all field)
+8. **marriage_roles**
+9. **non_essential** (optional catch-all field)
 
-Use the neutral phrases suggested in the definitions above (e.g., "Amillennial", "Contemporary", "Not stated", etc.).
+Use the neutral phrases suggested in the definitions above (e.g., "Amillennial", "Contemporary", "Complementarian", "Egalitarian", "Patriarchal", "Not stated", etc.).
 
-### Badges to Detect (add to badges array if applicable including the emoji):
+### Badges to Detect (add to badges array if applicable, including the emoji):
+
+STRICT BADGE OUTPUT RULES:
+- Use ONLY the badges listed below.
+- Output them VERBATIM, including the emoji and exact wording.
+- Do NOT create new badges or variants.
+- If none apply, return an empty array []
 
 - **📖 Expository Preaching**: If the church emphasizes verse-by-verse preaching through books of the Bible
 - **🎵 Regulative Principle of Worship**: If they explicitly follow only elements prescribed in Scripture for worship
-- **📿 High Church/Liturgical**: If Anglican, Lutheran, or uses formal liturgy (Book of Common Prayer, LSB, etc.)
+- **🕯️ High Church/Liturgical**: If Anglican, Lutheran, or uses formal liturgy (Book of Common Prayer, LSB, etc.)
+- **👥 Plurality of Elders**: Explicit elder plurality in governance
+- **📘 Membership & Discipline**: Formal membership and published discipline policy
+- **📚 Catechism Use**: Active teaching/use of recognized catechisms
+- **🎶 Exclusive Psalmody**: Psalms-only singing
+- **🎼 Instrument-Free Worship**: A cappella only
+- **🍼 Family-Integrated**: Family-integrated model emphasized
 
 Only add badges you have clear evidence for. Return empty array if none apply.`;
 
@@ -230,9 +277,15 @@ Determine if the church **adopts** a historic confession as their doctrinal stan
 - Any modern (post-1700) confessions or statements
 - Denominational statements that are not historic Reformed confessions
 
-### Badges to Detect (add to badges array if applicable including the emoji):
+### Badges to Detect (add to badges array if applicable, including the emoji):
 
-- **🤝 Denomination-Affiliated**: If the church is a member of, affiliated with, or part of ANY formal denominational body, network, fellowship, or association. This includes:
+STRICT BADGE OUTPUT RULES:
+- Use ONLY the badges listed below.
+- Output them VERBATIM, including the emoji and exact wording.
+- Do NOT create new badges or variants.
+- If none apply, return an empty array []
+
+- **🤝 Denomination/Network Affiliated**: If the church is a member of, affiliated with, or part of ANY formal denominational body, network, fellowship, or association. This includes:
   - Traditional denominations: PCA, OPC, SBC, LCMS, CREC, RPCNA, ARP, etc.
   - Reformed networks/fellowships: ARBCA (Association of Reformed Baptist Churches of America), FIRE (Fellowship of Independent Reformed Evangelicals), Acts 29, Sovereign Grace Churches, etc.
   - Any organization that provides: formal membership, mutual accountability, cooperative missions, credentialing, or structured fellowship
@@ -243,26 +296,26 @@ Determine if the church **adopts** a historic confession as their doctrinal stan
   - Operate with complete autonomy (no external accountability structure)
   - Not participate in cooperative denominational missions or credentialing
   - Be explicitly described as "independent" or "non-denominational" WITHOUT belonging to any named network
-  - **CRITICAL**: If the church mentions being part of ANY network, fellowship, association, or cooperative body → DO NOT use this badge, use 🤝 Denomination-Affiliated instead
+  - **CRITICAL**: If the church mentions being part of ANY network, fellowship, association, or cooperative body → DO NOT use this badge, use 🤝 Denomination/Network Affiliated instead
 
 - **🏠 House Church**: If church meets in homes (no dedicated building)
 - **🏢 Multi-Site**: If one church with multiple campuses/locations
 - **👥 Small Church**: If stated membership is under 100
 - **🏟️ Megachurch**: If stated membership/attendance is over 2000
 
-**IMPORTANT**: 🤝 Denomination-Affiliated and 🆓 Independent are **mutually exclusive**. Add only ONE of these badges:
-- If the church has ANY denominational oversight/affiliation/network/fellowship membership → use 🤝 Denomination-Affiliated
+**IMPORTANT**: 🤝 Denomination/Network Affiliated and 🆓 Independent are **mutually exclusive**. Add only ONE of these badges:
+- If the church has ANY denominational oversight/affiliation/network/fellowship membership → use 🤝 Denomination/Network Affiliated
 - If the church is explicitly autonomous with NO formal ties to ANY network/denomination → use 🆓 Independent  
 - If unclear → omit both
 
-**COMMON CONFUSION**: Churches may describe themselves as "independent" while also being part of a network/fellowship. In these cases, ALWAYS prioritize the network affiliation over the self-description. A church that is "independent Baptist but part of ARBCA" should get 🤝 Denomination-Affiliated, NOT 🆓 Independent.
+**COMMON CONFUSION**: Churches may describe themselves as "independent" while also being part of a network/fellowship. In these cases, ALWAYS prioritize the network affiliation over the self-description. A church that is "independent Baptist but part of ARBCA" should get 🤝 Denomination/Network Affiliated, NOT 🆓 Independent.
 
 **Notes:**
 If \`adopted = true\`, add a note:
 - \`label\`: "Adopted Confession"
 - \`text\`: "Church adopts [confession name] as their doctrinal standard"
 - \`source_url\`: URL where you found this
-If "🤝 Denomination-Affiliated" badge is present, add a note:
+If "🤝 Denomination/Network Affiliated" badge is present, add a note:
 - \`label\`: "Denomination Affiliation" OR "Network Affiliation" (use "Network Affiliation" for fellowships/networks like FIRE, Acts 29, ARBCA; use "Denomination Affiliation" for traditional denominations like PCA, SBC)
 - \`text\`: "Church is affiliated with [denomination/network name]" (include a brief description if provided, e.g., "Church is a member of FIRE (Fellowship of Independent Reformed Evangelicals), a network for independent Reformed baptistic churches")
 - \`source_url\`: URL where you found this
@@ -276,7 +329,15 @@ export const RED_FLAGS_PROMPT = `${COMMON_RULES}
 
 ### Task: Detect Red Flags & Concerning Theological Indicators
 
-Review all website content for the following red flag indicators. Add badges ONLY if you have clear evidence, including the emoji:
+Review all website content for the following red flag indicators.
+
+STRICT BADGE OUTPUT RULES:
+- Use ONLY the red flag badges listed below.
+- Output them VERBATIM, including the emoji and exact wording.
+- Do NOT create new badges or variants.
+- If none apply, return an empty array []
+
+Add badges ONLY if you have clear evidence, including the emoji:
 
 ### Red Flag Badges:
 

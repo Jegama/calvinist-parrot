@@ -35,6 +35,7 @@ import {
   applyConfessionToCoreDoctrines,
   applyConfessionToSecondary,
 } from "@/utils/confessionInference";
+import { filterAllowlistedBadges } from "@/utils/badges";
 
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
@@ -441,17 +442,64 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
     computedBadges.push("📜 Reformed");
   }
 
+  // Core-denial derived critical red flags (overlap with core definitions)
+  if (normalizedCore.trinity === "false") {
+    computedBadges.push("⚠️ Non-Trinitarian");
+  }
+  if (normalizedCore.scripture_authority === "false") {
+    computedBadges.push("⚠️ Denies Inerrancy of Scripture");
+  }
+  if (normalizedCore.justification_by_faith === "false") {
+    computedBadges.push("⚠️ Works-Based Justification");
+  }
+  if (normalizedCore.return_and_judgment === "false") {
+    computedBadges.push("⚠️ Universalism");
+  }
+
   if (!confessionAdopted && coverageRatio < 0.5) {
     computedBadges.push("⚠️ Low Essentials Coverage");
   }
 
-  // Merge LLM-detected + computed badges
-  const allBadges = [...new Set([...computedBadges, ...llmBadges])];
+  // Informational badges from site structure/availability
+  const beliefsUrl = raw.church.best_pages_for?.beliefs ?? null;
+  const confessionName = raw.church.confession?.name ?? null;
+  const confessionAdopt = Boolean(raw.church.confession?.adopted);
+  if (!beliefsUrl && !confessionName && !confessionAdopt) {
+    computedBadges.push("ℹ️ No Statement of Faith");
+  }
+  if (!beliefsUrl && coverageRatio < 0.3) {
+    computedBadges.push("ℹ️ Minimal Doctrinal Detail");
+  }
+
+  // Merge LLM-detected + computed badges, then enforce allowlist
+  const mergedBadges = [...new Set([...computedBadges, ...llmBadges])];
+  const allBadges = filterAllowlistedBadges(mergedBadges);
 
   // ============================================================================
   // Determine evaluation status
   // ============================================================================
   
+  // Derive additional red flags from core notes (core prompt notes-only heterodoxy indicators)
+  const lowerNotes = (raw.church.notes || []).map((n) => ({
+    label: (n.label || "").toLowerCase(),
+    text: (n.text || "").toLowerCase(),
+  }));
+  const noteIndicates = (tokens: string[]) =>
+    lowerNotes.some((n) => tokens.some((t) => n.label.includes(t) || n.text.includes(t)));
+
+  if (noteIndicates(["open theism"])) {
+    allBadges.push("⚠️ Open Theism");
+  }
+  if (noteIndicates(["new apostolic reformation", "modern apostle", "modern apostles", "apostolic government"])) {
+    allBadges.push("⚠️ New Apostolic Reformation (NAR)");
+  }
+  if (noteIndicates(["progressive christianity", "progressive faith"])) {
+    allBadges.push("⚠️ Progressive Christianity");
+  }
+  if (noteIndicates(["religious pluralism", "many paths", "all religions", "interfaith equivalence"])) {
+    allBadges.push("⚠️ Religious Pluralism");
+  }
+
   // Define critical red flags that immediately make status NOT_ENDORSED
   const criticalRedFlagBadges = [
     "⚠️ Prosperity Gospel",
@@ -459,11 +507,25 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
     "⚠️ Entertainment-Driven",
     "🏳️‍🌈 LGBTQ Affirming",
     "👩‍🏫 Ordained Women",
+    "⚠️ Denies Inerrancy of Scripture",
+    "⚠️ Non-Trinitarian",
+    "⚠️ Works-Based Justification",
+    "⚠️ Universalism",
+    "⚠️ Open Theism",
+    "⚠️ New Apostolic Reformation (NAR)",
+    "⚠️ Progressive Christianity",
+    "⚠️ Religious Pluralism",
   ];
 
   // Define badges indicating significant secondary differences from Reformed theology
   const secondaryDifferenceBadges = [
     "🔥 Charismatic",
+    "🔄 Dispensational",
+    "🧑‍🎓 Wesleyan-Holiness",
+    "🧱 KJV-Only",
+    "🎯 Seeker-Sensitive",
+    "🥖 Real Presence (Lutheran)",
+    "🧭 Arminian",
   ];
 
   const hasCriticalRedFlag = allBadges.some((badge) => criticalRedFlagBadges.includes(badge));

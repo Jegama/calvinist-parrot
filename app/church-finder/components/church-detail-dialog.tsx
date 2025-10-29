@@ -162,6 +162,14 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
       "⚠️ Entertainment-Driven",
       "🏳️‍🌈 LGBTQ Affirming",
       "👩‍🏫 Ordained Women",
+      "⚠️ Denies Inerrancy of Scripture",
+      "⚠️ Non-Trinitarian",
+      "⚠️ Works-Based Justification",
+      "⚠️ Universalism",
+      "⚠️ Open Theism",
+      "⚠️ New Apostolic Reformation (NAR)",
+      "⚠️ Progressive Christianity",
+      "⚠️ Religious Pluralism",
     ]);
 
     const presentCritical = (evaluation.badges || []).filter((b) => CRITICAL_RED_FLAGS.has(b));

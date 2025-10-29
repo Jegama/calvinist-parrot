@@ -1,7 +1,7 @@
 // ============================================================================
 // Tertiary Doctrines Definitions
 // ============================================================================
-// Detailed definitions for the 8 tertiary doctrines that are less central
+// Detailed definitions for the 9 tertiary doctrines that are less central
 // and do not significantly impact unity or fellowship.
 
 export const TERTIARY_DOCTRINES_DEFINITIONS = `## Tertiary Doctrines - Detailed Definitions
@@ -210,7 +210,35 @@ These doctrines are less central and do not significantly impact unity or fellow
 
 ---
 
-### 8. **Non-essential Doctrines** (\`non_essential\`)
+### 8. **Marriage Roles** (\`marriage_roles\`)
+
+**Definition**: Views on gender roles within marriage (husband and wife responsibilities in the home).
+
+**Common positions:**
+- **Complementarian**: Men and women are equal in dignity and worth but have distinct, complementary roles in marriage; typically teaches husband headship/sacrificial leadership and wife respectful submission (Ephesians 5), with mutual love and service
+- **Egalitarian**: Men and women are equal in role and function within marriage; leadership and responsibilities are shared, with emphasis on mutual submission and equal partnership
+- **Patriarchal**: Emphasizes strong male headship and hierarchical family structure; husband/father exercises governing authority in the household; sometimes described as "biblical patriarchy"
+
+**What to look for:**
+- Check for: "complementarian", "egalitarian", "patriarchal", "biblical patriarchy", "husband is head of the wife", "wives submit", "mutual submission", "equal partnership", references to Ephesians 5, Genesis 1–2 applied to marriage roles
+- Look on beliefs/teaching pages about marriage/family, marriage series pages, or statements of faith addressing the home/family
+
+**Neutral phrases to use:**
+- "Complementarian"
+- "Egalitarian"
+- "Patriarchal"
+- "Not stated"
+
+**Edge cases:**
+- If they explicitly affirm husband headship and wives’ submission in marriage, mark "Complementarian" (even if the label isn’t used)
+- If they emphasize mutual submission/equal partnership with no role distinction based on gender, mark "Egalitarian" (even if the label isn’t used)
+- If they explicitly use terms like "biblical patriarchy" or "patriarchal" to describe family order, mark "Patriarchal"
+- Statements only about the definition of marriage (e.g., "between one man and one woman") without role details → "Not stated"
+- Many churches do not state a view—mark "Not stated" unless clear
+
+---
+
+### 9. **Non-essential Doctrines** (\`non_essential\`)
 
 **Definition**: Varied interpretations of non-essential biblical passages or theological questions.
 
