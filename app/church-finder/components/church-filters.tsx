@@ -178,8 +178,9 @@ export function ChurchFiltersBar({
               <SelectItem value="exclude_red_flag_and_limited">Recommended & Biblically Sound</SelectItem>
               <SelectItem value="historic_reformed">Historic Reformed (Confessional)</SelectItem>
               <SelectItem value="recommended">Recommended</SelectItem>
-              <SelectItem value="caution">Proceed with Caution</SelectItem>
-              <SelectItem value="red_flag">Not Endorsed</SelectItem>
+              <SelectItem value="biblically_sound_with_differences">Biblically Sound with Differences</SelectItem>
+              <SelectItem value="limited_information">Limited Information</SelectItem>
+              <SelectItem value="not_endorsed">Not Endorsed</SelectItem>
             </SelectContent>
           </Select>
         </div>

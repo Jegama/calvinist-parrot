@@ -142,7 +142,7 @@ export async function GET(request: Request) {
   const city = searchParams.get("city");
   const denomination = searchParams.get("denomination");
   const confessional = parseBooleanParam(searchParams.get("confessional"));
-  const status = searchParams.get("status"); // "historic_reformed" | "recommended" | "caution" | "red_flag" | "exclude_red_flag_and_limited"
+  const status = searchParams.get("status"); // "historic_reformed" | "recommended" | "biblically_sound_with_differences" | "limited_information" | "not_endorsed" | "exclude_red_flag_and_limited"
 
   const addressFilter: Prisma.churchAddressWhereInput = {};
   if (state) {
@@ -196,12 +196,11 @@ export async function GET(request: Request) {
         return !latestEval || (latestEval.status !== "NOT_ENDORSED" && latestEval.status !== "LIMITED_INFORMATION");
       } else if (status === "recommended") {
         return latestEval?.status === "RECOMMENDED";
-      } else if (status === "caution") {
-        return (
-          latestEval?.status === "BIBLICALLY_SOUND_WITH_DIFFERENCES" ||
-          latestEval?.status === "LIMITED_INFORMATION"
-        );
-      } else if (status === "red_flag") {
+      } else if (status === "biblically_sound_with_differences") {
+        return latestEval?.status === "BIBLICALLY_SOUND_WITH_DIFFERENCES";
+      } else if (status === "limited_information") {
+        return latestEval?.status === "LIMITED_INFORMATION";
+      } else if (status === "not_endorsed") {
         return latestEval?.status === "NOT_ENDORSED";
       }
       return true;
