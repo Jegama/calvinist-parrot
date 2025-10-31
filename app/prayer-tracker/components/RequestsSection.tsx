@@ -11,6 +11,7 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -114,15 +115,18 @@ export function RequestsSection({
                 <SelectLabel>Your Household</SelectLabel>
                 <SelectItem value="household">Our Family</SelectItem>
               </SelectGroup>
-              {categoryKeys.map((category) => (
-                <SelectGroup key={category}>
-                  <SelectLabel>{category}</SelectLabel>
-                  {familiesByCategory[category].map((family) => (
-                    <SelectItem key={family.id} value={family.id}>
-                      {family.familyName}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
+              {categoryKeys.map((category, index) => (
+                <div key={category}>
+                  {index > 0 && <SelectSeparator />}
+                  <SelectGroup>
+                    <SelectLabel>{category}</SelectLabel>
+                    {familiesByCategory[category].map((family) => (
+                      <SelectItem key={family.id} value={family.id}>
+                        {family.familyName}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </div>
               ))}
             </SelectContent>
           </Select>
@@ -225,8 +229,8 @@ export function RequestsSection({
                           {item.status === "ANSWERED"
                             ? "Answered"
                             : isAnswering
-                            ? "Saving..."
-                            : "Mark Answered"}
+                              ? "Saving..."
+                              : "Mark Answered"}
                         </Button>
                       </div>
                     </div>

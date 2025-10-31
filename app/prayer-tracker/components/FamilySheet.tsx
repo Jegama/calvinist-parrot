@@ -65,7 +65,7 @@ export function FamilySheet({
   const showRestore = Boolean(sheetState.archivedAt);
 
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
+    <Sheet open={isOpen} onOpenChange={onOpenChange} modal={false}>
       <SheetContent className="sm:max-w-lg bg-card">
         <SheetHeader>
           <SheetTitle>Edit family</SheetTitle>
