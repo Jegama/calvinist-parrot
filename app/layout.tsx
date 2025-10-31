@@ -8,6 +8,7 @@ import { Header } from "@/components/Header"
 import { AppProviders } from "@/components/providers/app-providers"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Analytics } from "@vercel/analytics/react"
+import { siteMetadata } from "@/lib/seo"
 
 // Load variable fonts and expose as CSS variables for system-wide use
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
@@ -15,10 +16,7 @@ const sourceSerif = Source_Serif_4({ subsets: ["latin"], variable: "--font-serif
 const lora = Lora({ subsets: ["latin"], weight: ["600"], variable: "--font-serif-lora" })
 const spectral = Spectral({ subsets: ["latin"], weight: ["600"], variable: "--font-serif-spectral" })
 
-export const metadata: Metadata = {
-  title: "Calvinist Parrot",
-  description: "An AI-powered theological assistant – merging centuries-old Reformed wisdom with modern machine intelligence.",
-}
+export const metadata: Metadata = siteMetadata;
 
 export default function RootLayout({
   children,
