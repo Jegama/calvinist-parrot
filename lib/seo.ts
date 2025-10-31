@@ -4,12 +4,12 @@ import type { Metadata } from 'next';
 export const siteMetadata: Metadata = {
   metadataBase: new URL('https://www.calvinistparrot.com/'),
   title: {
-    default: 'Calvinist Parrot — Your AI Theological Assistant',
+    default: 'Calvinist Parrot - Your AI Theological Assistant',
     template: '%s | Calvinist Parrot'
   },
   description: 'An AI-powered theological assistant for chat, prayer tracking, and finding biblically sound churches. Engage with Reformed wisdom, organize your prayer life, and discover a faithful congregation near you.',
   openGraph: {
-    title: 'Calvinist Parrot — AI Chat, Prayer Tracker & Church Finder',
+    title: 'Calvinist Parrot - AI Chat, Prayer Tracker & Church Finder',
     description: 'Chat with a Reformed AI, manage prayer requests, and discover faithful churches. Calvinist Parrot provides free digital tools to help you grow in your faith and connect with a local church.',
     url: 'https://www.calvinistparrot.com/',
     siteName: 'Calvinist Parrot',
@@ -20,13 +20,13 @@ export const siteMetadata: Metadata = {
         url: '/calvinist-parrot.png', // The image I need
         width: 1200,
         height: 630,
-        alt: 'Calvinist Parrot — AI Theological Assistant'
+        alt: 'Calvinist Parrot - AI Theological Assistant'
       }
     ]
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Calvinist Parrot — AI Chat, Prayer Tracker & Church Finder',
+    title: 'Calvinist Parrot - AI Chat, Prayer Tracker & Church Finder',
     description: 'Chat with a Reformed AI, manage prayer requests, and discover faithful churches. Calvinist Parrot provides free digital tools to help you grow in your faith and connect with a local church.',
     images: ['/calvinist-parrot.png'] // The image I need
   },
