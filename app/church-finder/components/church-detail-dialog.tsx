@@ -319,7 +319,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                     ⚠️ Limited Doctrinal Information
                   </h3>
                   <p className="text-sm font-medium status-text--warning">
-                    The church's website does not clearly state several essential Christian doctrines.
+                    The church&apos;s website does not clearly state several essential Christian doctrines.
                   </p>
                   <div className="rounded-md border border-destructive/30 bg-background p-4 shadow-sm">
                     <div className="flex items-center justify-between mb-3">
