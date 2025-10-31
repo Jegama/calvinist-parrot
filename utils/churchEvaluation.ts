@@ -552,20 +552,21 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   if (falseCount > 0 || hasCriticalRedFlag) {
     status = "not_endorsed";
   }
-  // Priority 2: Significant secondary differences → BIBLICALLY_SOUND_WITH_DIFFERENCES
+  // Priority 2: Low coverage (<50%) → LIMITED_INFORMATION
+  // Not enough doctrinal clarity online; encourage users to contact the church
+  // This must come BEFORE secondary differences check to avoid misclassification
+  else if (coverageRatio < 0.5) {
+    status = "limited_information";
+  }
+  // Priority 3: Significant secondary differences → BIBLICALLY_SOUND_WITH_DIFFERENCES
   // Christian but holds positions we note for discernment
   else if (hasSecondaryDifferences) {
     status = "biblically_sound_with_differences";
   }
-  // Priority 3: Good coverage (>=50%) without secondary differences → RECOMMENDED
+  // Priority 4: Good coverage (>=50%) without secondary differences → RECOMMENDED
   // Affirms essentials and generally holds to Reformed or compatible theology
-  else if (coverageRatio >= 0.5) {
-    status = "recommended";
-  }
-  // Priority 4: Low coverage (<50%) → LIMITED_INFORMATION
-  // Not enough doctrinal clarity online; encourage users to contact the church
   else {
-    status = "limited_information";
+    status = "recommended";
   }
 
   return {

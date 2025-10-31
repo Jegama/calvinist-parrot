@@ -68,7 +68,7 @@ const STATUS_CONFIG = {
     textColor: "status-text--recommended",
     iconColor: "status-text--recommended",
     title: "Recommended",
-    description: "This church clearly affirms all essential Christian doctrines and generally holds to Reformed or compatible theology.",
+    description: "Based on what is published, the church affirms a majority of essential Christian doctrines and holds to Reformed or compatible theology. We can commend this church.",
   },
   biblically_sound_with_differences: {
     icon: Info,
@@ -76,9 +76,9 @@ const STATUS_CONFIG = {
     borderColor: "",
     textColor: "status-text--info",
     iconColor: "status-text--info",
-    title: "Biblically Sound",
+    title: "Biblically Sound (With Differences)",
     description:
-      "This church affirms all essential Christian doctrines but holds to secondary theological positions that differ from Reformed theology (e.g., charismatic, continuationist). While biblically orthodox, we note these differences for your discernment.",
+      "This church affirms a majority of essential Christian doctrines but holds to secondary theological positions that differ from Reformed theology (such as charismatic or Arminian views). While biblically orthodox, we note these differences for your discernment.",
   },
   limited_information: {
     icon: AlertTriangle,
@@ -88,7 +88,7 @@ const STATUS_CONFIG = {
     iconColor: "status-text--warning",
     title: "Limited Information",
     description:
-      "The website does not clearly state several essential doctrines. We encourage you to reach out to the church directly for clarification before making a decision.",
+      "The church's website does not clearly state a majority of essential doctrines. This does not mean the church denies these doctrines—it may simply not be stated clearly online. We encourage you to reach out to the church directly for clarification before making a decision.",
   },
   not_endorsed: {
     icon: AlertCircle,

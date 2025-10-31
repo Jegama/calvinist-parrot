@@ -404,6 +404,10 @@
     color: hsl(32 90% 30%) !important;
   }
 
+  .dark .status-text--warning {
+    color: hsl(var(--warning)) !important;
+  }
+
   .status-text--danger {
     color: hsl(var(--destructive)) !important;
   }
@@ -421,5 +425,11 @@
     border: 1px solid hsl(var(--destructive) / 0.4) !important;
     color: hsl(var(--destructive)) !important;
     border-radius: 9999px !important;
+  }
+
+  .dark .badge--red-flag {
+    background-color: hsl(var(--destructive) / 0.15) !important;
+    border: 1px solid hsl(var(--destructive) / 0.45) !important;
+    color: hsl(var(--destructive)) !important;
   }
 }
