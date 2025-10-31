@@ -9,6 +9,11 @@ import { MarkdownWithBibleVerses } from '@/components/MarkdownWithBibleVerses';
 
 const md_text = `Welcome! I'm here to guide you through the Bible from a Reformed perspective. Feel free to ask me anything about Scripture. I'll provide insights based on my knowledge and understanding as a Reformed Christian.
 
+I can help you with:
+- **Real-Time Chat:** Engage in interactive sessions with streamed responses.
+- **Prayer Tracker:** Organize your prayer life with rotating prayer assignments, personal and family prayer requests, and prayer journals—designed to help you pray consistently for your household and broader faith community.
+- **Church Finder:** Discover biblically sound churches with AI-powered doctrinal evaluations. Each church is analyzed for adherence to essential Christian doctrines, historic Reformed confessions, and theological soundness to help you find a faithful congregation.
+
 #### Acknowledgements
 
 Huge thanks to [AO Lab](https://helloaolab.my.canva.site/) for graciously providing the [API](https://bible.helloao.org/docs/) with the Berean Standard Bible ([BSB](https://berean.bible/)) translation and the Bible Commentaries.
@@ -17,11 +22,7 @@ If you want to learn the legal restrictions to sharing God's word, click [here](
 
 ## Calvinist Parrot APIs
 
-I'm opening 2 APIs! Both are fully guarded so you don't have to worry about prompting or anything.
-
-### Parrot QA API
-
-If you want to add a QA function to your website, please see the [Parrot QA API documentation](/documentation-parrot-qa) so you can use it!
+I'm opening an API! It is fully guarded so you don't have to worry about prompting or anything.
 
 ### Parrot Chat API
 

@@ -63,11 +63,17 @@
 
 ## Brand Colors & Design System
 - **Always use CSS variables** defined in `app/globals.css` instead of hardcoded colors—enables theme switching and maintains brand consistency.
+- Reference `docs/CP Ministries/Design System.md` for end-to-end foundations, tokens, and component patterns.
 - Reference `docs/CP Ministries/Color System Mapping.md` for comprehensive color usage guidelines and semantic meaning.
 - Key brand colors: Deep Teal (`--accent`) for headers/links, Deep Blue (`--primary`) for actions, Sage Green (`--user-message`) for user content, Cream (`--background`) for warmth.
 - Consult `docs/CP Ministries/Brand Identity.md` for overall brand voice, color psychology, and visual style guidelines.
 - Use semantic Tailwind classes (`bg-primary`, `text-accent`) rather than arbitrary hex utility classes to maintain theme consistency.
 - Light mode uses warm Cream backgrounds; dark mode uses pure white text for readability—both automatically adjust via CSS variables.
+
+## Typography
+- Global body font: Inter (variable) via `--font-sans`; headings use Source Serif 4 (variable) via `--font-serif`.
+- Fonts are loaded in `app/layout.tsx` and applied in `app/globals.css` (`body` uses sans; `h1–h6` use serif).
+- Prefer Tailwind classes `font-sans` and `font-serif` when overriding in components; these map to the CSS variables.
 
 ## Content & Prompt Style
 - When writing or editing prompts, UI copy, or any website text, always consult the doctrinal and voice guide in `docs/Master prompt.md` to ensure alignment with tone, citations, and theological boundaries.

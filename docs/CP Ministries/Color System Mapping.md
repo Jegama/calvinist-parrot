@@ -38,7 +38,9 @@ These variables use the brand colors for specific semantic purposes:
 | Variable | Purpose | Light Mode | Dark Mode |
 |----------|---------|------------|-----------|
 | `--success` | Success messages, positive feedback | `142, 50%, 45%` (green) | `142, 60%, 50%` (lighter green) |
-| `--destructive` | Errors, warnings | `0, 65%, 45%` (red) | `0, 65%, 50%` (lighter red) |
+| `--destructive` | Errors, destructive actions | `0, 70%, 50%` (red) | `0, 70%, 55%` (brighter red) |
+| `--info` | Informational emphasis, neutral highlights | `180, 100%, 15%` (Deep Teal) | `180, 100%, 30%` (lighter Deep Teal) |
+| `--warning` | Warnings and limited information | `42, 100%, 70%` (Warm Gold) | `42, 100%, 70%` (unchanged) |
 
 ## Dark Mode Adjustments
 
@@ -54,6 +56,7 @@ In dark mode, brand colors are adjusted for better contrast and readability:
   - Primary: `199, 100%, 22%` → `199, 100%, 35%` (lighter Deep Blue)
   - Accent: `180, 100%, 15%` → `180, 100%, 30%` (lighter Deep Teal)
   - Sidebar Accent: `172, 43%, 55%` → `172, 45%, 45%` (adjusted Mint Green)
+  - Focus ring: `--ring` becomes near-white `0, 0%, 98%` for stronger contrast
 - **Message Bubbles**: Both inverted for consistency
   - **User Messages**: Darker Sage Green `82, 25%, 35%` with white text
   - **Parrot Messages**: Lighter Deep Blue `199, 100%, 35%` with white text
@@ -80,6 +83,11 @@ In dark mode, brand colors are adjusted for better contrast and readability:
 |-------|---------|----------|
 | `.sidebar-button` | Sidebar navigation items | Transparent with hover state |
 | `.sidebar-button[data-active="true"]` | Active sidebar item | Mint Green background with text color |
+
+Sidebar palette reference:
+
+- Light mode: `--sidebar-accent: 172, 43%, 55%`, `--sidebar-primary: 0, 0%, 20%`, `--sidebar-ring: 199, 100%, 22%`
+- Dark mode: `--sidebar-accent: 172, 45%, 45%`, `--sidebar-primary: 199, 100%, 35%`, `--sidebar-ring: 199, 100%, 35%`
 
 ## Usage Guidelines
 
@@ -125,8 +133,6 @@ Use Tailwind's semantic color classes:
 
 Consider adding these semantic variables if needed:
 
-- `--warning` (Warm Gold) - For warning states
-- `--info` (Mint Green) - For informational messages
 - `--highlight` (Royal Purple) - For special emphasis
 
 ## Testing Checklist
@@ -205,3 +211,19 @@ When making color changes or adding new components:
 // Header separator (visible in both modes)
 <Separator className="header-separator" />
 ```
+
+### Status Utilities
+
+These utility classes provide consistent, theme-aware treatments for status chips and alerts using the semantic variables:
+
+- `.status--confessional`, `.status--recommended`, `.status--info`, `.status--warning`, `.status--danger`
+- Text-color helpers: `.status-text--confessional`, `.status-text--recommended`, `.status-text--info`, `.status-text--warning`, `.status-text--danger`
+
+Use them for badges, chips, and alert surfaces where a quick, branded status treatment is needed.
+
+### Liquid Glass Effects
+
+Optional frosted-glass aesthetics aligned with brand tones:
+
+- `.liquid-glass-header`: frosted, translucent header with subtle inner glow; adapts to dark mode.
+- `.liquid-glass-pill`: compact frosted bar (e.g., mobile chat header) with rounded pill shape; adapts to dark mode.

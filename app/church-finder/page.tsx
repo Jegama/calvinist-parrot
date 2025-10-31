@@ -6,7 +6,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ChurchDetail, ChurchListItem } from "@/types/church";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Info } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, Info } from "lucide-react";
 import { ChurchDetailDialog } from "./components/church-detail-dialog";
 import { ChurchDiscoveryPanel } from "./components/church-discovery-panel";
 import { ChurchFiltersBar } from "./components/church-filters";
@@ -23,17 +24,17 @@ const DEFAULT_FILTERS: ChurchFilters = {
   city: null,
   denomination: null,
   confessional: null,
-  status: "exclude_red_flag", // Exclude non-endorsed churches by default
+  status: "exclude_red_flag_and_limited", // Exclude non-endorsed and limited info churches by default
 };
 
-// Reset filters maintains the default exclusion of red_flag churches
+// Reset filters maintains the default exclusion of red_flag and limited info churches
 const RESET_FILTERS: ChurchFilters = {
   page: 1,
   state: null,
   city: null,
   denomination: null,
   confessional: null,
-  status: "exclude_red_flag",
+  status: "exclude_red_flag_and_limited",
 };
 
 export default function ChurchFinderPage() {
@@ -41,6 +42,8 @@ export default function ChurchFinderPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [discoveryOpen, setDiscoveryOpen] = useState(false);
   const filtersContainerRef = useRef<HTMLDivElement | null>(null);
   const [mapHeight, setMapHeight] = useState<number | null>(null);
 
@@ -97,7 +100,7 @@ export default function ChurchFinderPage() {
       filters.city ?? "",
       filters.denomination ?? "",
       filters.confessional ?? "all",
-      filters.status ?? "exclude_red_flag",
+      filters.status ?? "exclude_red_flag_and_limited",
     ],
     [filters]
   );
@@ -209,11 +212,11 @@ export default function ChurchFinderPage() {
         <p className="text-muted-foreground mb-4">
           We&apos;re building a community-maintained directory to help believers find churches anchored in the Gospel and the essentials of the faith. Filter by location and denominational distinctives, and contribute by adding churches so others can benefit.
         </p>
-        <div className="flex items-center gap-3 mb-4">
-          <Button variant="outline" size="sm" asChild>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+          <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
             <Link href="/doctrinal-statement">View Our Doctrinal Statement</Link>
           </Button>
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
             <Link href="/church-finder/guide">How evaluations work</Link>
           </Button>
         </div>
@@ -232,15 +235,30 @@ export default function ChurchFinderPage() {
         <div className="space-y-4">
           {/* Filters shown between discovery and list on mobile */}
           <div className="lg:hidden">
-            <ChurchFiltersBar
-              availableStates={metaQuery.data?.states ?? []}
-              denominations={metaQuery.data?.denominations ?? []}
-              filters={filters}
-              onFiltersChange={handleFiltersChange}
-              onReset={handleResetFilters}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-            />
+            <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full flex items-center justify-between"
+                >
+                  <span className="font-semibold">Filter churches</span>
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${filtersOpen ? "rotate-180" : ""}`}
+                  />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                <ChurchFiltersBar
+                  availableStates={metaQuery.data?.states ?? []}
+                  denominations={metaQuery.data?.denominations ?? []}
+                  filters={filters}
+                  onFiltersChange={handleFiltersChange}
+                  onReset={handleResetFilters}
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                />
+              </CollapsibleContent>
+            </Collapsible>
           </div>
 
           {viewMode === "list" ? (
@@ -284,7 +302,25 @@ export default function ChurchFinderPage() {
 
       {/* Discovery Panel - moved to bottom for crowd-sourced contribution */}
       <div className="mt-8">
-        <ChurchDiscoveryPanel onChurchCreated={handleChurchCreated} onChurchView={handleChurchView} />
+        <Collapsible open={discoveryOpen} onOpenChange={setDiscoveryOpen} className="lg:open">
+          <CollapsibleTrigger asChild className="lg:hidden">
+            <Button
+              variant="outline"
+              className="w-full flex items-center justify-between mb-4"
+            >
+              <span className="font-semibold">Add a church to our directory</span>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${discoveryOpen ? "rotate-180" : ""}`}
+              />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent forceMount className="hidden lg:block">
+            <ChurchDiscoveryPanel onChurchCreated={handleChurchCreated} onChurchView={handleChurchView} />
+          </CollapsibleContent>
+          <CollapsibleContent className="lg:hidden">
+            <ChurchDiscoveryPanel onChurchCreated={handleChurchCreated} onChurchView={handleChurchView} />
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       <ChurchDetailDialog

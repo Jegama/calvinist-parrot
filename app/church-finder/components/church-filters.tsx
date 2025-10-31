@@ -42,7 +42,7 @@ export function ChurchFiltersBar({
 
   const stateValue = useMemo(() => filters.state ?? "all", [filters.state]);
   const denominationValue = useMemo(() => filters.denomination ?? "all", [filters.denomination]);
-  const statusValue = useMemo(() => filters.status ?? "exclude_red_flag", [filters.status]);
+  const statusValue = useMemo(() => filters.status ?? "exclude_red_flag_and_limited", [filters.status]);
   const cityValue = useMemo(() => filters.city ?? "", [filters.city]);
 
   const handleStateChange = useCallback(
@@ -78,8 +78,8 @@ export function ChurchFiltersBar({
   const handleStatusChange = useCallback(
     (value: string) => {
       onFiltersChange((prev) => {
-        if ((prev.status ?? "exclude_red_flag") === value) return prev;
-        const newStatus = value === "all" ? "exclude_red_flag" : (value as ChurchFilters["status"]);
+        if ((prev.status ?? "exclude_red_flag_and_limited") === value) return prev;
+        const newStatus = value === "all" ? "exclude_red_flag_and_limited" : (value as ChurchFilters["status"]);
         return { ...prev, page: 1, status: newStatus };
       });
     },
@@ -172,14 +172,15 @@ export function ChurchFiltersBar({
           <Label htmlFor="status-filter">Church Status</Label>
           <Select value={statusValue} onValueChange={handleStatusChange}>
             <SelectTrigger id="status-filter">
-              <SelectValue placeholder="All churches (excluding Not Endorsed)" />
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="exclude_red_flag">All churches (excluding Not Endorsed)</SelectItem>
+              <SelectItem value="exclude_red_flag_and_limited">Recommended & Biblically Sound</SelectItem>
               <SelectItem value="historic_reformed">Historic Reformed (Confessional)</SelectItem>
               <SelectItem value="recommended">Recommended</SelectItem>
-              <SelectItem value="caution">Proceed with Caution</SelectItem>
-              <SelectItem value="red_flag">Not Endorsed</SelectItem>
+              <SelectItem value="biblically_sound_with_differences">Biblically Sound with Differences</SelectItem>
+              <SelectItem value="limited_information">Limited Information</SelectItem>
+              <SelectItem value="not_endorsed">Not Endorsed</SelectItem>
             </SelectContent>
           </Select>
         </div>

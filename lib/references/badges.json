@@ -43,6 +43,10 @@
     "description": "This church meets in homes rather than a dedicated building, often emphasizing intimate fellowship and simple worship.",
     "category": "structure"
   },
+  "🏡 Home Groups": {
+    "description": "This church runs weekday home-based groups (community/life groups) for fellowship, prayer, and Bible study.",
+    "category": "structure"
+  },
   "🏢 Multi-Site": {
     "description": "This church operates multiple campuses or locations under one leadership structure.",
     "category": "structure"
@@ -137,6 +141,10 @@
   },
   "📚 Catechism Use": {
     "description": "This church actively teaches and uses recognized catechisms for discipleship.",
+    "category": "practice"
+  },
+  "🗒️ Biblical Counseling": {
+    "description": "This church highlights a Scripture-centered counseling ministry (often ACBC-trained or equivalent biblical counselors).",
     "category": "practice"
   },
   "🎶 Exclusive Psalmody": {

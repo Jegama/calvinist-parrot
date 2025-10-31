@@ -11,7 +11,7 @@ export type ChurchFilters = {
   city?: string | null;
   denomination?: string | null;
   confessional?: "true" | "false" | null;
-  status?: "historic_reformed" | "recommended" | "caution" | "red_flag" | "exclude_red_flag" | null;
+  status?: "historic_reformed" | "recommended" | "biblically_sound_with_differences" | "limited_information" | "not_endorsed" | "exclude_red_flag_and_limited" | null;
 };
 
 function buildQuery(params: ChurchFilters): string {

@@ -201,11 +201,13 @@ STRICT BADGE OUTPUT RULES:
 - **🎵 Regulative Principle of Worship**: If they explicitly follow only elements prescribed in Scripture for worship
 - **🕯️ High Church/Liturgical**: If Anglican, Lutheran, or uses formal liturgy (Book of Common Prayer, LSB, etc.)
 - **👥 Plurality of Elders**: Explicit elder plurality in governance
+- **📘 Biblical Counseling**: If they promote a biblical counseling ministry (e.g., ACBC-certified counselors, counseling center grounded in Scripture)
 - **📘 Membership & Discipline**: Formal membership and published discipline policy
 - **📚 Catechism Use**: Active teaching/use of recognized catechisms
 - **🎶 Exclusive Psalmody**: Psalms-only singing
 - **🎼 Instrument-Free Worship**: A cappella only
 - **🍼 Family-Integrated**: Family-integrated model emphasized
+- **🏠 Home Groups**: If they run weekday small groups meeting in homes (community groups, life groups, missional communities, etc.)
 
 Only add badges you have clear evidence for. Return empty array if none apply.`;
 
