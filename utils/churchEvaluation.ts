@@ -169,7 +169,7 @@ export async function crawlChurchSite(website: string): Promise<TavilyCrawlResul
 
     const response = (await tavilyClient.crawl(website, {
       instructions:
-        "I need the following:\n1. doctrinal statement, their beliefs, doctrine, teaching statement, or statement of faith.\n2. The address of the church/main campus.\n3. Their pastors, elders, bishops, priests, or reverends.",
+        "I need the following:\n1. doctrinal statement, their beliefs, doctrine, teaching statement, or statement of faith.\n2. The address of the church/main campus.\n3. Their pastors, elders, bishops, priests, or reverends.\n4. Ministries that they have, like Biblical Counseling, Youth Group, Children's Ministry, etc.\n5. If they have home groups/community groups/life groups, etc.",
       max_depth: 2,
       extract_depth: "advanced",
       allow_external: false,
