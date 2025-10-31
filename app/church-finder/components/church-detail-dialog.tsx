@@ -173,7 +173,6 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
     ]);
 
     const presentCritical = (evaluation.badges || []).filter((b) => CRITICAL_RED_FLAGS.has(b));
-    const lowCoverage = evaluation.coverageRatio < 0.5;
 
     if (falseDoctrine.length > 0 && presentCritical.length > 0) {
       const sample = presentCritical.slice(0, 2).join(", ");
@@ -185,10 +184,6 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
     if (presentCritical.length > 0) {
       const sample = presentCritical.slice(0, 2).join(", ");
       return `We cannot endorse this church due to serious concerns (e.g., ${sample}). See the positions below.`;
-    }
-    if (lowCoverage) {
-      const pct = Math.round(evaluation.coverageRatio * 100);
-      return `We cannot endorse this church at this time due to insufficient published doctrinal clarity (${pct}% of essentials affirmed online). We encourage you to contact the church for clarification.`;
     }
 
     return STATUS_CONFIG.not_endorsed.description;
@@ -318,13 +313,13 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
               )}
 
               {/* Low Essentials Coverage Warning */}
-              {evaluation && evaluation.coverageRatio < 0.5 && falseDoctrine.length === 0 && (
+              {evaluation && evaluation.coverageRatio < 0.5 && falseDoctrine.length === 0 && redFlagBadges.length === 0 && (
                 <div className="space-y-4 rounded-lg p-4 shadow-md status--warning">
                   <h3 className="text-lg font-semibold status-text--warning flex items-center gap-2">
-                    ⚠️ Insufficient Doctrinal Information
+                    ⚠️ Limited Doctrinal Information
                   </h3>
                   <p className="text-sm font-medium status-text--warning">
-                    We cannot endorse at this time because the church’s website does not clearly affirm enough essential Christian doctrines.
+                    The church's website does not clearly state several essential Christian doctrines.
                   </p>
                   <div className="rounded-md border border-destructive/30 bg-background p-4 shadow-sm">
                     <div className="flex items-center justify-between mb-3">
@@ -340,7 +335,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                     </p>
                     <div className="rounded bg-muted/50 p-3">
                       <p className="text-sm text-foreground/90">
-                        <span className="font-medium">Why this matters:</span> We look for a church to publicly affirm at least 50% of essential Christian doctrines to recommend it with confidence. This does not necessarily mean the church denies these doctrines—it may simply not be stated online. We encourage you to contact them directly to inquire about their beliefs.
+                        <span className="font-medium">What this means:</span> This does not mean the church denies these doctrines—it may simply not be stated clearly online. We encourage you to reach out to the church directly for clarification before making a decision.
                       </p>
                     </div>
                   </div>

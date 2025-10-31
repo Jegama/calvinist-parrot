@@ -41,36 +41,6 @@ const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 const MODEL = "gemini-2.5-flash-preview-09-2025";
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 1000;
-
-/**
- * Retry wrapper for async functions with exponential backoff
- */
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  operationName: string,
-  maxRetries = MAX_RETRIES
-): Promise<T> {
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error as Error;
-      console.warn(`${operationName} failed (attempt ${attempt}/${maxRetries}):`, error);
-
-      if (attempt < maxRetries) {
-        const delay = RETRY_DELAY_MS * Math.pow(2, attempt - 1); // Exponential backoff
-        // console.log(`Retrying ${operationName} in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-
-  throw new Error(`Something went wrong with the LLM, please try again: ${lastError?.message || 'Unknown error'}`);
-}
 
 type TavilyCrawlResult = {
   base_url?: string;
@@ -263,156 +233,132 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     redFlags,
   ] = await Promise.all([
     // Call 1: Basic Fields
-    withRetry(
-      () =>
-        genai.models
-          .generateContent({
-            model: MODEL,
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: `${systemPrompt}\n\n${BASIC_FIELDS_PROMPT}\n\n${contentBlocks}` }],
-              },
-            ],
-            config: {
-              responseMimeType: "application/json",
-              responseSchema: BASIC_FIELDS_SCHEMA,
-              seed: 1689,
-            },
-          })
-          .then((res) => {
-            if (!res.text) throw new Error("Empty response from Call 1");
-            return JSON.parse(res.text) as BasicFieldsResponse;
-          }),
-      "Call 1: Basic Fields"
-    ),
+    genai.models
+      .generateContent({
+        model: MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${systemPrompt}\n\n${BASIC_FIELDS_PROMPT}\n\n${contentBlocks}` }],
+          },
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: BASIC_FIELDS_SCHEMA,
+          seed: 1689,
+        },
+      })
+      .then((res) => {
+        if (!res.text) throw new Error("Empty response from Call 1");
+        return JSON.parse(res.text) as BasicFieldsResponse;
+      }),
 
     // Call 2: Core Doctrines
-    withRetry(
-      () =>
-        genai.models
-          .generateContent({
-            model: MODEL,
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: `${systemPrompt}\n\n${CORE_DOCTRINES_PROMPT}\n\n${contentBlocks}` }],
-              },
-            ],
-            config: {
-              responseMimeType: "application/json",
-              responseSchema: CORE_DOCTRINES_SCHEMA,
-              seed: 1689,
-            },
-          })
-          .then((res) => {
-            if (!res.text) throw new Error("Empty response from Call 2");
-            return JSON.parse(res.text) as CoreDoctrinesResponse;
-          }),
-      "Call 2: Core Doctrines"
-    ),
+    genai.models
+      .generateContent({
+        model: MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${systemPrompt}\n\n${CORE_DOCTRINES_PROMPT}\n\n${contentBlocks}` }],
+          },
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: CORE_DOCTRINES_SCHEMA,
+          seed: 1689,
+        },
+      })
+      .then((res) => {
+        if (!res.text) throw new Error("Empty response from Call 2");
+        return JSON.parse(res.text) as CoreDoctrinesResponse;
+      }),
 
     // Call 3: Secondary Doctrines
-    withRetry(
-      () =>
-        genai.models
-          .generateContent({
-            model: MODEL,
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: `${systemPrompt}\n\n${SECONDARY_DOCTRINES_PROMPT}\n\n${contentBlocks}` }],
-              },
-            ],
-            config: {
-              responseMimeType: "application/json",
-              responseSchema: SECONDARY_DOCTRINES_SCHEMA,
-              seed: 1689,
-            },
-          })
-          .then((res) => {
-            if (!res.text) throw new Error("Empty response from Call 3");
-            return JSON.parse(res.text) as SecondaryDoctrinesResponse;
-          }),
-      "Call 3: Secondary Doctrines"
-    ),
+    genai.models
+      .generateContent({
+        model: MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${systemPrompt}\n\n${SECONDARY_DOCTRINES_PROMPT}\n\n${contentBlocks}` }],
+          },
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: SECONDARY_DOCTRINES_SCHEMA,
+          seed: 1689,
+        },
+      })
+      .then((res) => {
+        if (!res.text) throw new Error("Empty response from Call 3");
+        return JSON.parse(res.text) as SecondaryDoctrinesResponse;
+      }),
 
     // Call 4: Tertiary Doctrines
-    withRetry(
-      () =>
-        genai.models
-          .generateContent({
-            model: MODEL,
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: `${systemPrompt}\n\n${TERTIARY_DOCTRINES_PROMPT}\n\n${contentBlocks}` }],
-              },
-            ],
-            config: {
-              responseMimeType: "application/json",
-              responseSchema: TERTIARY_DOCTRINES_SCHEMA,
-              seed: 1689,
-            },
-          })
-          .then((res) => {
-            if (!res.text) throw new Error("Empty response from Call 4");
-            return JSON.parse(res.text) as TertiaryDoctrinesResponse;
-          }),
-      "Call 4: Tertiary Doctrines"
-    ),
+    genai.models
+      .generateContent({
+        model: MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${systemPrompt}\n\n${TERTIARY_DOCTRINES_PROMPT}\n\n${contentBlocks}` }],
+          },
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: TERTIARY_DOCTRINES_SCHEMA,
+          seed: 1689,
+        },
+      })
+      .then((res) => {
+        if (!res.text) throw new Error("Empty response from Call 4");
+        return JSON.parse(res.text) as TertiaryDoctrinesResponse;
+      }),
 
     // Call 5: Denomination & Confession
-    withRetry(
-      () =>
-        genai.models
-          .generateContent({
-            model: MODEL,
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  { text: `${systemPrompt}\n\n${DENOMINATION_CONFESSION_PROMPT}\n\n${contentBlocks}` },
-                ],
-              },
+    genai.models
+      .generateContent({
+        model: MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: `${systemPrompt}\n\n${DENOMINATION_CONFESSION_PROMPT}\n\n${contentBlocks}` },
             ],
-            config: {
-              responseMimeType: "application/json",
-              responseSchema: DENOMINATION_CONFESSION_SCHEMA,
-              seed: 1689,
-            },
-          })
-          .then((res) => {
-            if (!res.text) throw new Error("Empty response from Call 5");
-            return JSON.parse(res.text) as DenominationConfessionResponse;
-          }),
-      "Call 5: Denomination & Confession"
-    ),
+          },
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: DENOMINATION_CONFESSION_SCHEMA,
+          seed: 1689,
+        },
+      })
+      .then((res) => {
+        if (!res.text) throw new Error("Empty response from Call 5");
+        return JSON.parse(res.text) as DenominationConfessionResponse;
+      }),
 
     // Call 6: Red Flags Analysis
-    withRetry(
-      () =>
-        genai.models
-          .generateContent({
-            model: MODEL,
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: `${systemPrompt}\n\n${RED_FLAGS_PROMPT}\n\n${contentBlocks}` }],
-              },
-            ],
-            config: {
-              responseMimeType: "application/json",
-              responseSchema: RED_FLAGS_SCHEMA,
-              seed: 1689,
-            },
-          })
-          .then((res) => {
-            if (!res.text) throw new Error("Empty response from Call 6");
-            return JSON.parse(res.text) as RedFlagsResponse;
-          }),
-      "Call 6: Red Flags Analysis"
-    ),
+    genai.models
+      .generateContent({
+        model: MODEL,
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: `${systemPrompt}\n\n${RED_FLAGS_PROMPT}\n\n${contentBlocks}` }],
+          },
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: RED_FLAGS_SCHEMA,
+          seed: 1689,
+        },
+      })
+      .then((res) => {
+        if (!res.text) throw new Error("Empty response from Call 6");
+        return JSON.parse(res.text) as RedFlagsResponse;
+      }),
   ]);
 
   // console.log("All 6 parallel calls completed. Checking known confessional churches...");
@@ -601,23 +547,23 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
 
   let status: EvaluationStatus;
 
-  // Priority 1: False doctrines OR critical red flags OR low coverage → NOT_ENDORSED
-  if (falseCount > 0 || hasCriticalRedFlag || coverageRatio < 0.5) {
+  // Priority 1: False doctrines OR critical red flags → NOT_ENDORSED
+  // We only mark as NOT_ENDORSED when we have clear evidence of doctrinal error
+  if (falseCount > 0 || hasCriticalRedFlag) {
     status = "not_endorsed";
   }
   // Priority 2: Significant secondary differences → BIBLICALLY_SOUND_WITH_DIFFERENCES
+  // Christian but holds positions we note for discernment
   else if (hasSecondaryDifferences) {
     status = "biblically_sound_with_differences";
   }
-  // Priority 3: Good coverage (>=70%) but not confessional → RECOMMENDED
-  else if (coverageRatio >= 0.7) {
+  // Priority 3: Good coverage (>=50%) without secondary differences → RECOMMENDED
+  // Affirms essentials and generally holds to Reformed or compatible theology
+  else if (coverageRatio >= 0.5) {
     status = "recommended";
   }
-  // Priority 4: Moderate coverage (50-70%) → LIMITED_INFORMATION
-  else if (coverageRatio >= 0.5) {
-    status = "limited_information";
-  }
-  // Fallback: Should not reach here, but default to LIMITED_INFORMATION
+  // Priority 4: Low coverage (<50%) → LIMITED_INFORMATION
+  // Not enough doctrinal clarity online; encourage users to contact the church
   else {
     status = "limited_information";
   }
