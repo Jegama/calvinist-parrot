@@ -19,8 +19,8 @@ const nextConfig = {
     ];
   },
   outputFileTracingIncludes: {
-    '/api/(.*)': ['./node_modules/.prisma/client/**/*'],
-    '/(.*)': ['./node_modules/.prisma/client/**/*'],
+    '/': ['./node_modules/.prisma/client/**/*'],
+    '/api/**': ['./node_modules/.prisma/client/**/*'],
   },
 }
 
