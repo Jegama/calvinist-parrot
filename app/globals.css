@@ -432,4 +432,17 @@
     border: 1px solid hsl(var(--destructive) / 0.45) !important;
     color: hsl(var(--destructive)) !important;
   }
+
+  .badge--info {
+    background-color: hsl(var(--info) / 0.1) !important;
+    border: 1px solid hsl(var(--info) / 0.4) !important;
+    color: hsl(var(--info)) !important;
+    border-radius: 9999px !important;
+  }
+
+  .dark .badge--info {
+    background-color: hsl(var(--info) / 0.15) !important;
+    border: 1px solid hsl(var(--info) / 0.45) !important;
+    color: hsl(var(--info)) !important;
+  }
 }

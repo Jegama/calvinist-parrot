@@ -373,9 +373,23 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                     {evaluation.badges.map((badge) => {
                       const badgeInfo = badgesJson[badge as keyof typeof badgesJson];
                       const isRedFlag = badgeInfo?.category === "red_flag";
+                      // List of secondary difference badges from churchEvaluation.ts
+                      const secondaryDifferenceBadges = [
+                        "🍷 Paedocommunion",
+                        "🔥 Charismatic",
+                        "🔄 Dispensational",
+                        "🧑‍🎓 Wesleyan-Holiness",
+                        "🧱 KJV-Only",
+                        "🎯 Seeker-Sensitive",
+                        "🥖 Real Presence (Lutheran)",
+                        "🧭 Arminian",
+                      ];
+                      const isSecondaryDifference = secondaryDifferenceBadges.includes(badge);
                       const badgeClasses = isRedFlag
                         ? "badge--red-flag px-3 py-1.5 text-sm font-medium"
-                        : "badge--neutral px-3 py-1.5 text-sm font-medium";
+                        : isSecondaryDifference
+                          ? "badge--info px-3 py-1.5 text-sm font-medium"
+                          : "badge--neutral px-3 py-1.5 text-sm font-medium";
 
                       return (
                         <Tooltip key={badge}>

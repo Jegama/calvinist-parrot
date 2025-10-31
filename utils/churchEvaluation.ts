@@ -534,7 +534,6 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   // Define badges indicating significant secondary differences from Reformed theology
   const secondaryDifferenceBadges = [
     "🔥 Charismatic",
-    "🔄 Dispensational",
     "🧑‍🎓 Wesleyan-Holiness",
     "🧱 KJV-Only",
     "🎯 Seeker-Sensitive",

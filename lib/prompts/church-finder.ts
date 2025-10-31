@@ -61,7 +61,7 @@ export const CORE_HETERODOXY_NOTES_APPENDIX = `
 
 If you detect any of the following clearly on the site, add a note for each (do NOT change the 10 core booleans because of these alone):
 
-- Label: "Open Theism" — Text: short quote (≤30 words) indicating denial of God's exhaustive foreknowledge — Source URL: where found
+- Label: "Open Theism" — Text: short quote (≤30 words) indicating **denial** of God's exhaustive foreknowledge — Source URL: where found
 - Label: "New Apostolic Reformation (NAR)" — Text: quote showing modern apostles/prophets with governing authority — Source URL
 - Label: "Progressive Christianity" — Text: quote indicating explicit alignment with Progressive Christianity or doctrine relativizing historic orthodoxy — Source URL
 - Label: "Religious Pluralism" — Text: quote indicating multiple paths to God or interfaith equivalence — Source URL
