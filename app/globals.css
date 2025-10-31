@@ -187,6 +187,7 @@
 
   .dark .app-header {
     background-color: hsl(var(--card));
+    color: hsl(var(--foreground));
     border-bottom: 1px solid hsl(var(--border));
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
