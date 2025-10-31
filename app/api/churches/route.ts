@@ -142,7 +142,7 @@ export async function GET(request: Request) {
   const city = searchParams.get("city");
   const denomination = searchParams.get("denomination");
   const confessional = parseBooleanParam(searchParams.get("confessional"));
-  const status = searchParams.get("status"); // "historic_reformed" | "recommended" | "caution" | "red_flag" | "exclude_red_flag"
+  const status = searchParams.get("status"); // "historic_reformed" | "recommended" | "caution" | "red_flag" | "exclude_red_flag_and_limited"
 
   const addressFilter: Prisma.churchAddressWhereInput = {};
   if (state) {
@@ -191,9 +191,9 @@ export async function GET(request: Request) {
     const filteredChurches = allChurches.filter((church) => {
       const latestEval = church.evaluations[0];
 
-      if (status === "exclude_red_flag") {
-        // Exclude if latest eval is NOT_ENDORSED
-        return !latestEval || latestEval.status !== "NOT_ENDORSED";
+      if (status === "exclude_red_flag_and_limited") {
+        // Exclude if latest eval is NOT_ENDORSED or LIMITED_INFORMATION
+        return !latestEval || (latestEval.status !== "NOT_ENDORSED" && latestEval.status !== "LIMITED_INFORMATION");
       } else if (status === "recommended") {
         return latestEval?.status === "RECOMMENDED";
       } else if (status === "caution") {
