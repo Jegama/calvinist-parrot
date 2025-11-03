@@ -29,6 +29,7 @@ import denominationAliasesJson from "@/lib/references/denomination_aliases.json"
 import badgesJson from "@/lib/references/badges.json";
 import { cn } from "@/lib/utils";
 import { createChurch } from "@/app/church-finder/api";
+import { secondaryDifferenceBadges } from "@/lib/schemas/church-finder";
 
 function normalizeDenomination(label: string): string {
   const trimmed = label.trim();
@@ -373,17 +374,6 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                     {evaluation.badges.map((badge) => {
                       const badgeInfo = badgesJson[badge as keyof typeof badgesJson];
                       const isRedFlag = badgeInfo?.category === "red_flag";
-                      // List of secondary difference badges from churchEvaluation.ts
-                      const secondaryDifferenceBadges = [
-                        "🍷 Paedocommunion",
-                        "🔥 Charismatic",
-                        "🔄 Dispensational",
-                        "🧑‍🎓 Wesleyan-Holiness",
-                        "🧱 KJV-Only",
-                        "🎯 Seeker-Sensitive",
-                        "🥖 Real Presence (Lutheran)",
-                        "🧭 Arminian",
-                      ];
                       const isSecondaryDifference = secondaryDifferenceBadges.includes(badge);
                       const badgeClasses = isRedFlag
                         ? "badge--red-flag px-3 py-1.5 text-sm font-medium"

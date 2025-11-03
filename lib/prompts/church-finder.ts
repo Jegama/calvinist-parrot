@@ -53,21 +53,6 @@ Extract the following fields from the website content:
 
 If you cannot find a suitable page for any category, set it to \`null\`.`;
 
-// Add-on within the same call (no extra latency): detect additional heterodoxy signals and record as notes
-// These are not additional booleans; only add notes if clearly present on the site.
-export const CORE_HETERODOXY_NOTES_APPENDIX = `
-
-### Additional Heterodoxy Indicators (notes-only, no extra fields)
-
-If you detect any of the following clearly on the site, add a note for each (do NOT change the 10 core booleans because of these alone):
-
-- Label: "Open Theism" — Text: short quote (≤30 words) indicating **denial** of God's exhaustive foreknowledge — Source URL: where found
-- Label: "New Apostolic Reformation (NAR)" — Text: quote showing modern apostles/prophets with governing authority — Source URL
-- Label: "Progressive Christianity" — Text: quote indicating explicit alignment with Progressive Christianity or doctrine relativizing historic orthodoxy — Source URL
-- Label: "Religious Pluralism" — Text: quote indicating multiple paths to God or interfaith equivalence — Source URL
-
-Only add these notes if the content is explicit and unambiguous.`;
-
 // ============================================================================
 // Call 2: Core Doctrines Prompt
 // ============================================================================
@@ -107,9 +92,7 @@ For each doctrine you mark as \`"true"\` or \`"false"\`, capture a note with:
 - \`text\`: Short quote (≤30 words) from the website showing the belief
 - \`source_url\`: URL where you found this statement
 
-If a doctrine is \`unknown\`, do not create a note for it.
-
-${CORE_HETERODOXY_NOTES_APPENDIX}`;
+If a doctrine is \`unknown\`, do not create a note for it.`;
 
 // ============================================================================
 // Call 3: Secondary Doctrines Prompt
@@ -145,12 +128,13 @@ STRICT BADGE OUTPUT RULES:
 - Do NOT create new badges or variants.
 - If none apply, return an empty array []
 
-- **🕊️ Cautious Continuationist**: If gifts are stated as continued but with restraint/caution (not normative for all)
-- **🔥 Charismatic**: If tongues/prophecy/healing are normative and emphasized
 - **📜 Reformed**: If the church clearly identifies with Reformed soteriology (five points of Calvinism, TULIP, Doctrines of Grace)
 - **🧭 Arminian**: If the church clearly identifies with Arminian soteriology (conditional election, prevenient grace, resistible grace, conditional security)
+- **📃 Covenant Theology**: The church explicitly identifies with Covenant Theology or describes Scripture as one covenant of grace across Old and New Testaments, emphasizing the unity of God’s redemptive plan and continuity between Israel and the Church.
+- **🔄 Dispensational**: The church distinguishes Israel and the Church as separate peoples of God and/or structures history in distinct “dispensations,” often emphasizing a literal hermeneutic and rapture/millennial timeline.
 - **🍷 Paedocommunion**: If infants/children partake in communion (rare but important)
-- **🔄 Dispensational**: Distinct Israel/Church, dispensations, rapture timeline emphasis
+- **🕊️ Cautious Continuationist**: If gifts are stated as continued but with restraint/caution (not normative for all)
+- **🔥 Charismatic**: If tongues/prophecy/healing are normative and emphasized
 - **🧑‍🎓 Wesleyan-Holiness**: Entire sanctification/sinless perfection language
 - **🧱 KJV-Only**: KJV-onlyism stated as doctrinal stance or requirement and treats the King James Version as the only valid English Bible translation for doctrine and practice
 - **🎯 Seeker-Sensitive**: Explicit seeker model for weekend services (programmatic, attractional), distinct from entertainment-driven excess
@@ -159,6 +143,10 @@ STRICT BADGE OUTPUT RULES:
 MUTUALLY EXCLUSIVE SOTERIOLOGY IDENTITY BADGES:
 - Add only ONE of the following if clearly claimed: **📜 Reformed** OR **🧭 Arminian**.
 - If unclear or both are implied without explicit self-identification, omit both.
+
+MUTUALLY EXCLUSIVE HERMENEUTICAL BADGES:
+- Add only ONE of the following if clearly claimed: **📃 Covenant Theology** OR **🔄 Dispensational**.
+- If unclear or both are implied, omit both.
 
 Only add badges you have clear evidence for. Return empty array if none apply.`;
 
@@ -314,6 +302,7 @@ STRICT BADGE OUTPUT RULES:
 - **🏢 Multi-Site**: If one church with multiple campuses/locations
 - **👥 Small Church**: If stated membership is under 100
 - **🏟️ Megachurch**: If stated membership/attendance is over 2000
+- **🌍 Missions-Focused**: If the church has a strong emphasis on missions (e.g., dedicated missions staff, active missionary support, missions trips, church planting initiatives, explicit Great Commission focus in their vision/values)
 
 **IMPORTANT**: 🤝 Denomination/Network Affiliated and 🆓 Independent are **mutually exclusive**. Add only ONE of these badges:
 - If the church has ANY denominational oversight/affiliation/network/fellowship membership → use 🤝 Denomination/Network Affiliated
@@ -412,9 +401,34 @@ Examples that DO NOT count (omit the badge):
 - "We will not affirm sins including homosexuality and transgenderism."
 - "We love all people" / "All are welcome" without membership/leadership/marriage specifics.
 
+**⚠️ Open Theism**:
+- Explicit denial of God's exhaustive foreknowledge
+- Teaching that the future is not fully known by God
+- God learning or changing His mind based on human actions
+- Statements like "God doesn't know the future" or "God takes risks"
+
+**⚠️ New Apostolic Reformation (NAR)**:
+- Claims of modern-day apostles with governing authority over churches
+- Prophetic movements with extra-biblical revelation
+- Dominionism or Seven Mountains Mandate
+- Apostolic networks or apostolic government structures
+
+**⚠️ Progressive Christianity**:
+- Explicit identification with Progressive Christianity movement
+- Rejection of substitutionary atonement
+- Denial of biblical inerrancy or authority
+- Affirmation of universalism (all will be saved)
+- Doctrine presented as culturally relative rather than binding truth
+
+**⚠️ Religious Pluralism**:
+- Teaching that multiple religions lead to God/salvation
+- Interfaith worship or equivalence of religions
+- "Many paths to God" or "All faiths are valid"
+- Rejection of exclusivity of Christ for salvation
+
 ### Notes:
 For each red flag badge you add, create a note with:
-- \`label\`: Name of the badge (e.g., "Prosperity Gospel", "LGBTQ Affirming")
+- \`label\`: Name of the badge (e.g., "Prosperity Gospel", "LGBTQ Affirming", "New Apostolic Reformation (NAR)")
 - \`text\`: Brief explanation of what you found (≤50 words)
 - \`source_url\`: URL where you found this evidence
 

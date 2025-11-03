@@ -19,6 +19,7 @@
 Balance warmth (for approachability) with seriousness (for theological weight)
 
 - **Primary Colors:**
+
 | Name         | Hex       | HSL                     | Usage                                                                 |
 |--------------|-----------|-------------------------|-----------------------------------------------------------------------|
 | Deep Teal    | `#004D4D` | `180, 100%, 15%`        | Symbolizes trust, theological depth, and digital stability           |
@@ -26,6 +27,7 @@ Balance warmth (for approachability) with seriousness (for theological weight)
 | Warm Gold    | `#FFD166` | `42, 100%, 70%`         | Represents Gospel clarity, joy, and warmth in outreach                |
 
 - **Accent Colors:**
+
 | Name           | Hex       | HSL                     | Usage                                                                 |
 |----------------|-----------|-------------------------|-----------------------------------------------------------------------|
 | Royal Purple   | `#5D4777` | `268, 25%, 37%`         | Expresses dignity, wisdom, and Reformed historical richness           |
@@ -33,6 +35,7 @@ Balance warmth (for approachability) with seriousness (for theological weight)
 | Mint Green     | `#5ABFB1` | `172, 43%, 55%`         | Used for sidebar active states, providing a refreshing, modern touch  |
 
 - **Neutral Backgrounds & Text:**
+
 | Name           | Hex       | HSL                     | Usage                                                                    |
 |----------------|-----------|-------------------------|--------------------------------------------------------------------------|
 | Soft Parchment | `#F4E5C0` | `43, 68%, 85%`          | Suggests Scripture paper, warmth, and traditional text backgrounds       |

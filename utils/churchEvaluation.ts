@@ -42,6 +42,48 @@ const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 const MODEL = "gemini-2.5-flash-preview-09-2025";
 
+// Define critical red flags that immediately make status NOT_ENDORSED
+const criticalRedFlagBadges = [
+  "⚠️ Prosperity Gospel",
+  "⚠️ Hyper-Charismatic",
+  "⚠️ Entertainment-Driven",
+  "🏳️‍🌈 LGBTQ Affirming",
+  "👩‍🏫 Ordained Women",
+  "⚠️ Denies Inerrancy of Scripture",
+  "⚠️ Non-Trinitarian",
+  "⚠️ Works-Based Justification",
+  "⚠️ Universalism",
+  "⚠️ Open Theism",
+  "⚠️ New Apostolic Reformation (NAR)",
+  "⚠️ Progressive Christianity",
+  "⚠️ Religious Pluralism",
+];
+
+// Define badges indicating significant secondary differences from Reformed theology
+const secondaryDifferenceBadges = [
+  "🔥 Charismatic",
+  "🧑‍🎓 Wesleyan-Holiness",
+  "🧱 KJV-Only",
+  "🎯 Seeker-Sensitive",
+  "🥖 Real Presence (Lutheran)",
+  "🧭 Arminian",
+];
+
+// Define badges that indicate Reformed distinctives
+// Churches must have at least one of these to be "recommended" (in addition to having no secondary differences)
+const reformedDistinctiveBadges = [
+  "📜 Reformed", // Explicit Reformed soteriology (primary indicator)
+  "📃 Covenant Theology", // Reformed hermeneutical framework
+  "📖 Expository Preaching", // Reformed emphasis on systematic Bible exposition
+  "🎵 Regulative Principle of Worship", // Classic Reformed worship principle
+  "👥 Plurality of Elders", // Reformed church governance
+  "📘 Membership & Discipline", // Reformed emphasis on formal membership and discipline
+  "📚 Catechism Use", // Reformed tradition of catechesis
+  "🎶 Exclusive Psalmody", // Stricter Reformed practice
+  "🎼 Instrument-Free Worship", // Some Reformed churches (stricter)
+  "🕯️ High Church/Liturgical", // Confessional Reformed (Anglican/Lutheran with Reformed theology)
+];
+
 type TavilyCrawlResult = {
   base_url?: string;
   results?: Array<{
@@ -493,56 +535,9 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   // Determine evaluation status
   // ============================================================================
 
-  // Derive additional red flags from core notes (core prompt notes-only heterodoxy indicators)
-  const lowerNotes = (raw.church.notes || []).map((n) => ({
-    label: (n.label || "").toLowerCase(),
-    text: (n.text || "").toLowerCase(),
-  }));
-  const noteIndicates = (tokens: string[]) =>
-    lowerNotes.some((n) => tokens.some((t) => n.label.includes(t) || n.text.includes(t)));
-
-  if (noteIndicates(["open theism"])) {
-    allBadges.push("⚠️ Open Theism");
-  }
-  if (noteIndicates(["new apostolic reformation", "modern apostle", "modern apostles", "apostolic government"])) {
-    allBadges.push("⚠️ New Apostolic Reformation (NAR)");
-  }
-  if (noteIndicates(["progressive christianity", "progressive faith"])) {
-    allBadges.push("⚠️ Progressive Christianity");
-  }
-  if (noteIndicates(["religious pluralism", "many paths", "all religions", "interfaith equivalence"])) {
-    allBadges.push("⚠️ Religious Pluralism");
-  }
-
-  // Define critical red flags that immediately make status NOT_ENDORSED
-  const criticalRedFlagBadges = [
-    "⚠️ Prosperity Gospel",
-    "⚠️ Hyper-Charismatic",
-    "⚠️ Entertainment-Driven",
-    "🏳️‍🌈 LGBTQ Affirming",
-    "👩‍🏫 Ordained Women",
-    "⚠️ Denies Inerrancy of Scripture",
-    "⚠️ Non-Trinitarian",
-    "⚠️ Works-Based Justification",
-    "⚠️ Universalism",
-    "⚠️ Open Theism",
-    "⚠️ New Apostolic Reformation (NAR)",
-    "⚠️ Progressive Christianity",
-    "⚠️ Religious Pluralism",
-  ];
-
-  // Define badges indicating significant secondary differences from Reformed theology
-  const secondaryDifferenceBadges = [
-    "🔥 Charismatic",
-    "🧑‍🎓 Wesleyan-Holiness",
-    "🧱 KJV-Only",
-    "🎯 Seeker-Sensitive",
-    "🥖 Real Presence (Lutheran)",
-    "🧭 Arminian",
-  ];
-
   const hasCriticalRedFlag = allBadges.some((badge) => criticalRedFlagBadges.includes(badge));
   const hasSecondaryDifferences = allBadges.some((badge) => secondaryDifferenceBadges.includes(badge));
+  const hasReformedDistinctive = allBadges.some((badge) => reformedDistinctiveBadges.includes(badge));
 
   let status: EvaluationStatus;
 
@@ -553,19 +548,19 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   }
   // Priority 2: Low coverage (<50%) → LIMITED_INFORMATION
   // Not enough doctrinal clarity online; encourage users to contact the church
-  // This must come BEFORE secondary differences check to avoid misclassification
   else if (coverageRatio < 0.5) {
     status = "limited_information";
   }
-  // Priority 3: Significant secondary differences → BIBLICALLY_SOUND_WITH_DIFFERENCES
-  // Christian but holds positions we note for discernment
-  else if (hasSecondaryDifferences) {
-    status = "biblically_sound_with_differences";
-  }
-  // Priority 4: Good coverage (>=50%) without secondary differences → RECOMMENDED
-  // Affirms essentials and generally holds to Reformed or compatible theology
-  else {
+  // Priority 3: Good coverage with Reformed distinctives AND no secondary differences → RECOMMENDED
+  // Affirms essentials and demonstrates Reformed theology without problematic secondary positions
+  else if (hasReformedDistinctive && !hasSecondaryDifferences) {
     status = "recommended";
+  }
+  // Priority 4: Everything else with good coverage → BIBLICALLY_SOUND_WITH_DIFFERENCES
+  // Either: (a) has secondary theological differences (Arminian, Charismatic, etc.), OR
+  //         (b) solid Christian church but lacks Reformed distinctives
+  else {
+    status = "biblically_sound_with_differences";
   }
 
   return {

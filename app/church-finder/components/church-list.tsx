@@ -6,6 +6,7 @@ import type { ChurchListItem, EvaluationStatus } from "@/types/church";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
 import badgesJson from "@/lib/references/badges.json";
+import { secondaryDifferenceBadges } from "@/lib/schemas/church-finder";
 
 const STATUS_STYLES: Record<EvaluationStatus | "confessional", string> = {
   recommended: "status--recommended",
@@ -208,17 +209,6 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                         {sortedBadges.slice(0, maxBadges).map((badge) => {
                           const badgeInfo = (badgesJson as Record<string, { description?: string; category?: string }>)[badge];
                           const isRedFlag = badgeInfo?.category === "red_flag";
-                          // List of secondary difference badges from churchEvaluation.ts
-                          const secondaryDifferenceBadges = [
-                            "🍷 Paedocommunion",
-                            "🔥 Charismatic",
-                            "🔄 Dispensational",
-                            "🧑‍🎓 Wesleyan-Holiness",
-                            "🧱 KJV-Only",
-                            "🎯 Seeker-Sensitive",
-                            "🥖 Real Presence (Lutheran)",
-                            "🧭 Arminian",
-                          ];
                           const isSecondaryDifference = secondaryDifferenceBadges.includes(badge);
                           const badgeClasses = isRedFlag
                             ? "badge--red-flag px-2 py-0.5 text-xs"

@@ -59,6 +59,10 @@
     "description": "This church has a stated membership or attendance over 2,000, typically offering diverse ministries and programs.",
     "category": "structure"
   },
+  "🌍 Missions-Focused": {
+    "description": "This church demonstrates a strong emphasis on missions, including missionary support, church planting, missions trips, or explicit Great Commission focus in their vision and values.",
+    "category": "structure"
+  },
   "⚠️ Prosperity Gospel": {
     "description": "This church teaches Word of Faith theology or emphasizes guaranteed health and wealth through faith or giving, which departs from biblical teaching on suffering and God's purposes (Romans 8:28-29; 2 Corinthians 12:7-10).",
     "category": "red_flag"
@@ -113,6 +117,10 @@
   },
   "🔄 Dispensational": {
     "description": "This church holds a dispensational framework with a distinction between Israel and the Church and often a rapture timeline emphasis.",
+    "category": "theological"
+  },
+  "📃 Covenant Theology": {
+    "description": "This church explicitly teaches covenant theology, seeing Scripture's unity through God's covenants (works, grace, redemption) rather than through dispensational distinctions.",
     "category": "theological"
   },
   "🧑‍🎓 Wesleyan-Holiness": {

@@ -15,6 +15,29 @@ export const CORE_DOCTRINE_KEYS: CoreDoctrineKey[] = [
   "character_of_god",
 ];
 
+export const reformedDistinctiveBadges = [
+  "📜 Reformed", // Explicit Reformed soteriology (primary indicator)
+  "📃 Covenant Theology", // Reformed hermeneutical framework
+  "📖 Expository Preaching", // Reformed emphasis on systematic Bible exposition
+  "🎵 Regulative Principle of Worship", // Classic Reformed worship principle
+  "👥 Plurality of Elders", // Reformed church governance
+  "📘 Membership & Discipline", // Reformed emphasis on formal membership and discipline
+  "📚 Catechism Use", // Reformed tradition of catechesis
+  "🎶 Exclusive Psalmody", // Stricter Reformed practice
+  "🎼 Instrument-Free Worship", // Some Reformed churches (stricter)
+];
+
+export const secondaryDifferenceBadges = [
+  "🍷 Paedocommunion",
+  "🔥 Charismatic",
+  "🔄 Dispensational",
+  "🧑‍🎓 Wesleyan-Holiness",
+  "🧱 KJV-Only",
+  "🎯 Seeker-Sensitive",
+  "🥖 Real Presence (Lutheran)",
+  "🧭 Arminian",
+];
+
 // ============================================================================
 // Call 1: Basic Fields Schema
 // ============================================================================
