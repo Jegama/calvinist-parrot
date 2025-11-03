@@ -7,10 +7,25 @@ import { TERTIARY_DOCTRINES_DEFINITIONS } from "./tertiary-doctrines-definitions
 // ============================================================================
 const COMMON_RULES = `### General Extraction Rules
 
-* Work only from the provided pages. Never invent facts.
-* Be precise and conservative: if in doubt, return \`unknown\`/\`null\`.
-* For any field, if not stated, use \`"null"\` (or \`"unknown"\` for doctrine booleans).
-* Badges policy (applies to ALL prompts below that output a \`badges\` array): Only use the badges explicitly listed in that prompt section. Copy the badge label verbatim (including emoji, spelling, and capitalization). Do NOT invent new badges or variants. If none apply, return an empty array [].`;
+STRICT OUTPUT:
+- Return JSON only that conforms exactly to the provided schema for this call.
+- Do not include Markdown, explanations, comments, or extra keys not in the schema.
+- Use absolute URLs from the provided content when populating any URL field.
+
+EVIDENCE AND CONSERVATISM:
+- Work only from the provided pages. Never invent or infer beyond explicit statements.
+- If a value is not clearly stated, return \`null\` (or \`"unknown"\` for doctrine booleans).
+- Quotes in notes must be short, verbatim excerpts from the page, not paraphrases.
+
+DEDUPLICATION & HYGIENE:
+- Deduplicate arrays (addresses, service_times, badges). Keep the clearest single representation.
+- Prefer canonical/complete forms (e.g., “Street” over “St”, full state name over abbreviation) when normalizing duplicates.
+- Ignore social media profiles as sources unless they are embedded official pages with doctrinal content.
+
+BADGES POLICY:
+- Only use the badges explicitly listed in the current prompt section.
+- Output the badge label verbatim (including emoji, spelling, and capitalization).
+- Do NOT invent new badges or variants. If none apply, return an empty array [].`;
 
 // ============================================================================
 // Call 1: Basic Fields Prompt
@@ -51,6 +66,11 @@ Extract the following fields from the website content:
   - \`about\`: About / mission / values / who we are page
   - \`leadership\`: Elders / staff / team / leadership page
 
+ADDITIONAL GUIDANCE:
+- Prefer “Contact/Visit/Plan Your Visit” pages for addresses when available; avoid map widgets without text unless they clearly display a postal address.
+- Exclude P.O. Boxes if a physical address is available; if only a P.O. Box is present, include it.
+- For leadership, prefer pages listing elders/pastors over general staff directories.
+
 If you cannot find a suitable page for any category, set it to \`null\`.`;
 
 // ============================================================================
@@ -89,7 +109,7 @@ Set each to \`"true"\`, \`"false"\`, or \`"unknown"\`:
 **Notes Array:**
 For each doctrine you mark as \`"true"\` or \`"false"\`, capture a note with:
 - \`label\`: Name of the doctrine (e.g., "trinity", "scripture_authority", "resurrection_of_jesus")
-- \`text\`: Short quote (≤30 words) from the website showing the belief
+- \`text\`: Short, verbatim quote (≤30 words) from the website showing the belief (no paraphrases)
 - \`source_url\`: URL where you found this statement
 
 If a doctrine is \`unknown\`, do not create a note for it.`;
@@ -118,7 +138,7 @@ Extract the church's positions on these secondary doctrines. Provide **neutral**
 7. **security**
 8. **atonement_model**
 
-Use the neutral phrases suggested in the definitions above (e.g., "Believer's baptism by immersion", "Elder-led congregational", etc.).
+Use the neutral phrases suggested in the definitions above (e.g., "Believer's baptism by immersion", "Elder-led congregational", etc.). If not stated, return \`null\`.
 
 ### Badges to Detect (add to badges array if applicable, including the emoji):
 
@@ -128,14 +148,14 @@ STRICT BADGE OUTPUT RULES:
 - Do NOT create new badges or variants.
 - If none apply, return an empty array []
 
-- **📜 Reformed**: If the church clearly identifies with Reformed soteriology (five points of Calvinism, TULIP, Doctrines of Grace)
-- **🧭 Arminian**: If the church clearly identifies with Arminian soteriology (conditional election, prevenient grace, resistible grace, conditional security)
+- **📜 Reformed**: If the church clearly identifies with Reformed theology, emphasizing God's sovereignty in salvation (often called the Doctrines of Grace, five points of Calvinism, or TULIP). Look for explicit self-identification as "Reformed" or direct affirmation of Reformed soteriology.
+- **🧭 Arminian**: If the church clearly identifies with Arminian soteriology (conditional election, prevenient grace, resistible grace, and often conditional security). Look for explicit self-identification as "Arminian" or direct affirmation of these doctrines.
 - **📃 Covenant Theology**: The church explicitly identifies with Covenant Theology or describes Scripture as one covenant of grace across Old and New Testaments, emphasizing the unity of God’s redemptive plan and continuity between Israel and the Church.
 - **🔄 Dispensational**: The church distinguishes Israel and the Church as separate peoples of God and/or structures history in distinct “dispensations,” often emphasizing a literal hermeneutic and rapture/millennial timeline.
-- **🍷 Paedocommunion**: If infants/children partake in communion (rare but important)
-- **🕊️ Cautious Continuationist**: If gifts are stated as continued but with restraint/caution (not normative for all)
-- **🔥 Charismatic**: If tongues/prophecy/healing are normative and emphasized
-- **🧑‍🎓 Wesleyan-Holiness**: Entire sanctification/sinless perfection language
+- **🍷 Paedocommunion**: If the church allows baptized children (including infants) to partake in the Lord's Supper. This is a practice held by some Presbyterian and Reformed congregations. Rare but theologically significant.
+- **🕊️ Cautious Continuationist**: If the church holds that certain spiritual gifts (prophecy, tongues, healing) may continue today but exercises caution and does not see them as normative for all believers. Look for language like "open but cautious" or "gifts may continue but are not expected."
+- **🔥 Charismatic**: If the church emphasizes the ongoing work of the Holy Spirit through tongues, prophecy, and healing as normative expressions of the Christian life. Look for regular practice, expectation, or emphasis on these gifts in corporate worship or teaching.
+- **🧑‍🎓 Wesleyan-Holiness**: If the church teaches entire sanctification or sinless perfection (Holiness/Wesleyan tradition). Look for language about "second blessing," "entire sanctification," "Christian perfection," or "sinless perfection."
 - **🧱 KJV-Only**: KJV-onlyism stated as doctrinal stance or requirement and treats the King James Version as the only valid English Bible translation for doctrine and practice
 - **🎯 Seeker-Sensitive**: Explicit seeker model for weekend services (programmatic, attractional), distinct from entertainment-driven excess
 - **🥖 Real Presence (Lutheran)**: Lutheran sacramental union/real presence/sacramental union in the Lord's Supper explicitly affirmed
@@ -185,17 +205,17 @@ STRICT BADGE OUTPUT RULES:
 - Do NOT create new badges or variants.
 - If none apply, return an empty array []
 
-- **📖 Expository Preaching**: If the church emphasizes verse-by-verse preaching through books of the Bible
-- **🎵 Regulative Principle of Worship**: If they explicitly follow only elements prescribed in Scripture for worship
+- **📖 Expository Preaching**: If the church emphasizes verse-by-verse teaching through books of the Bible, seeking to explain and apply Scripture in its context. Look for phrases like "expositional preaching," "verse-by-verse," "through the Bible," or sermon series covering entire books.
+- **🎵 Regulative Principle of Worship**: If the church explicitly follows the Regulative Principle, worshiping according to elements explicitly prescribed in Scripture (such as prayer, preaching, singing psalms and hymns, and sacraments). Look for explicit mention of "Regulative Principle" or statements about only including worship elements commanded in Scripture.
 - **🕯️ High Church/Liturgical**: If Anglican, Lutheran, or uses formal liturgy (Book of Common Prayer, LSB, etc.)
-- **👥 Plurality of Elders**: Explicit elder plurality in governance
-- **📘 Biblical Counseling**: If they promote a biblical counseling ministry (e.g., ACBC-certified counselors, counseling center grounded in Scripture)
-- **📘 Membership & Discipline**: Formal membership and published discipline policy
-- **📚 Catechism Use**: Active teaching/use of recognized catechisms
-- **🎶 Exclusive Psalmody**: Psalms-only singing
-- **🎼 Instrument-Free Worship**: A cappella only
-- **🍼 Family-Integrated**: Family-integrated model emphasized
-- **🏠 Home Groups**: If they run weekday small groups meeting in homes (community groups, life groups, missional communities, etc.)
+- **👥 Plurality of Elders**: If the church explicitly practices a plurality of elders in governance. Look for phrases like "elder-led," "plurality of elders," "multiple elders," or a leadership page listing multiple elders (not just one pastor).
+- **🗒️ Biblical Counseling**: If they promote a biblical counseling ministry (e.g., ACBC-certified counselors, counseling center grounded in Scripture)
+- **📘 Membership & Discipline**: If the church maintains formal membership and publishes a church discipline process. Look for membership requirements/covenant, discipline policy, or references to Matthew 18 church discipline procedures.
+- **📚 Catechism Use**: If the church actively teaches and uses recognized catechisms for discipleship. Look for mentions of Westminster Shorter/Larger Catechism, Heidelberg Catechism, Baptist Catechism, or catechism classes/resources.
+- **🎶 Exclusive Psalmody**: If the church practices exclusive psalm singing in corporate worship (no hymns or contemporary songs, only the Psalms). This is a stricter Reformed practice held by some Presbyterian churches (RPCNA, Free Church of Scotland).
+- **🎼 Instrument-Free Worship**: If the church practices a cappella (instrument-free) corporate worship. Look for explicit statements about no instruments in worship services or "a cappella" worship.
+- **🍼 Family-Integrated**: If the church follows a family-integrated model that keeps families together in worship (no age-segregated Sunday school or children's church) and emphasizes family discipleship. Look for phrases like "family-integrated church," "families worship together," or explicit rejection of age-segregated ministry.
+- **🏡 Home Groups**: If they run weekday small groups meeting in homes (community groups, life groups, missional communities, etc.)
 
 Only add badges you have clear evidence for. Return empty array if none apply.`;
 
@@ -298,10 +318,10 @@ STRICT BADGE OUTPUT RULES:
   - Be explicitly described as "independent" or "non-denominational" WITHOUT belonging to any named network
   - **CRITICAL**: If the church mentions being part of ANY network, fellowship, association, or cooperative body → DO NOT use this badge, use 🤝 Denomination/Network Affiliated instead
 
-- **🏠 House Church**: If church meets in homes (no dedicated building)
-- **🏢 Multi-Site**: If one church with multiple campuses/locations
-- **👥 Small Church**: If stated membership is under 100
-- **🏟️ Megachurch**: If stated membership/attendance is over 2000
+- **🏠 House Church**: If the church meets in homes rather than a dedicated building, often emphasizing intimate fellowship and simple worship. Look for phrases like "house church," "meeting in homes," or absence of a church building address.
+- **🏢 Multi-Site**: If the church operates multiple campuses or locations under one leadership structure. Look for phrases like "multi-site," "campuses," or multiple addresses listed with shared leadership/name.
+- **👥 Small Church**: If the church has a stated membership or attendance under 100, often providing close-knit fellowship and personal care. Look for explicit membership/attendance numbers on the website.
+- **🏟️ Megachurch**: If the church has a stated membership or attendance over 2,000, typically offering diverse ministries and programs. Look for explicit membership/attendance numbers or indicators of very large scale (multiple services, large facility, extensive staff).
 - **🌍 Missions-Focused**: If the church has a strong emphasis on missions (e.g., dedicated missions staff, active missionary support, missions trips, church planting initiatives, explicit Great Commission focus in their vision/values)
 
 **IMPORTANT**: 🤝 Denomination/Network Affiliated and 🆓 Independent are **mutually exclusive**. Add only ONE of these badges:
@@ -339,7 +359,7 @@ STRICT BADGE OUTPUT RULES:
 - Do NOT create new badges or variants.
 - If none apply, return an empty array []
 
-Add badges ONLY if you have clear evidence, including the emoji:
+Add badges ONLY if you have clear evidence, including the emoji. If none of the red flags apply but doctrinal information is sparse or absent, consider adding the informational badges listed at the end of this section.
 
 ### Red Flag Badges:
 
@@ -425,6 +445,10 @@ Examples that DO NOT count (omit the badge):
 - Interfaith worship or equivalence of religions
 - "Many paths to God" or "All faiths are valid"
 - Rejection of exclusivity of Christ for salvation
+
+### Informational Badges (use only when applicable):
+- **ℹ️ Minimal Doctrinal Detail**: Crawl-accessible pages lacked substantive doctrinal detail; site may impede crawling or does not present a published doctrinal statement online.
+- **ℹ️ No Statement of Faith**: No statement of faith or doctrinal statement was found during crawl (no beliefs/statement-of-faith/confession pages detected).
 
 ### Notes:
 For each red flag badge you add, create a note with:

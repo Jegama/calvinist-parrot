@@ -520,10 +520,10 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   const beliefsUrl = raw.church.best_pages_for?.beliefs ?? null;
   const confessionName = raw.church.confession?.name ?? null;
   const confessionAdopt = Boolean(raw.church.confession?.adopted);
-  if (!beliefsUrl && !confessionName && !confessionAdopt) {
+  if (!beliefsUrl && !confessionName && !confessionAdopt && !llmBadges.includes("ℹ️ No Statement of Faith")) {
     computedBadges.push("ℹ️ No Statement of Faith");
   }
-  if (!beliefsUrl && coverageRatio < 0.3) {
+  if (!beliefsUrl && coverageRatio < 0.3 && !llmBadges.includes("ℹ️ Minimal Doctrinal Detail")) {
     computedBadges.push("ℹ️ Minimal Doctrinal Detail");
   }
 
