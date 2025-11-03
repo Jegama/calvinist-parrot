@@ -175,28 +175,50 @@ export async function crawlChurchSite(website: string): Promise<TavilyCrawlResul
     throw new Error("TAVILY_API_KEY is not configured");
   }
 
-  // console.log(`Starting Tavily crawl for website: ${website}`);
-
   try {
+    // Run crawl AND extract in parallel to ensure root page content
+    const [crawlResponse, extractResponse] = await Promise.all([
+      // Existing crawl
+      tavilyClient.crawl(website, {
+        instructions:
+          "I need the following:\n1. doctrinal statement, their beliefs, doctrine, teaching statement, or statement of faith.\n2. The address of the church/main campus.\n3. Their pastors, elders, bishops, priests, or reverends.\n4. Ministries that they have, like Biblical Counseling, Youth Group, Children's Ministry, etc.\n5. If they have home groups/community groups/life groups, etc.",
+        max_depth: 2,
+        extract_depth: "advanced",
+        allow_external: false,
+      }),
 
-    const response = (await tavilyClient.crawl(website, {
-      instructions:
-        "I need the following:\n1. doctrinal statement, their beliefs, doctrine, teaching statement, or statement of faith.\n2. The address of the church/main campus.\n3. Their pastors, elders, bishops, priests, or reverends.\n4. Ministries that they have, like Biblical Counseling, Youth Group, Children's Ministry, etc.\n5. If they have home groups/community groups/life groups, etc.",
-      max_depth: 2,
-      extract_depth: "advanced",
-      allow_external: false,
-    })) as TavilyCrawlResult;
+      // NEW: Extract root page explicitly
+      tavilyClient.extract([website], {
+        extract_depth: "advanced",
+        format: "markdown",
+      }).catch(() => ({ results: [] })) // Graceful fallback if root fails
+    ]);
 
-    const cleaned = dropAnchorDupes(response);
+    // Merge results: crawl + root extract
+    const crawlData = crawlResponse as TavilyCrawlResult;
+    const extractData = extractResponse as { results: Array<{ url: string; rawContent?: string; favicon?: string | null }> };
 
-    // console.log(`Cleaned data: ${JSON.stringify(cleaned, null, 2)}`);
+    const mergedResults = [
+      ...(Array.isArray(extractData.results) ? extractData.results.map(r => ({
+        url: r.url,
+        rawContent: r.rawContent,
+        favicon: r.favicon
+      })) : []),
+      ...(Array.isArray(crawlData.results) ? crawlData.results : [])
+    ];
 
+    const merged: TavilyCrawlResult = {
+      base_url: crawlData.base_url || website,
+      results: mergedResults
+    };
+
+    // dropAnchorDupes will handle any overlap between extract and crawl
+    const cleaned = dropAnchorDupes(merged);
     return cleaned;
+
   } catch (error) {
     console.error("Tavily crawl error:", error);
-    throw new Error(
-      `Failed to crawl website: ${error instanceof Error ? error.message : "Unknown error"}`
-    );
+    throw new Error(`Failed to crawl website: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
 
