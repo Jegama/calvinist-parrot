@@ -77,7 +77,6 @@ const reformedDistinctiveBadges = [
   "📖 Expository Preaching", // Reformed emphasis on systematic Bible exposition
   "🎵 Regulative Principle of Worship", // Classic Reformed worship principle
   "👥 Plurality of Elders", // Reformed church governance
-  "📘 Membership & Discipline", // Reformed emphasis on formal membership and discipline
   "📚 Catechism Use", // Reformed tradition of catechesis
   "🎶 Exclusive Psalmody", // Stricter Reformed practice
   "🎼 Instrument-Free Worship", // Some Reformed churches (stricter)

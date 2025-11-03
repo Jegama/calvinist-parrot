@@ -136,7 +136,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const pageParam = Number.parseInt(searchParams.get("page") ?? "1", 10);
   const page = Number.isNaN(pageParam) || pageParam < 1 ? 1 : pageParam;
-  const pageSize = DEFAULT_PAGE_SIZE;
+  const pageSizeParam = Number.parseInt(searchParams.get("pageSize") ?? String(DEFAULT_PAGE_SIZE), 10);
+  const pageSize = Number.isNaN(pageSizeParam) || pageSizeParam < 1 ? DEFAULT_PAGE_SIZE : pageSizeParam;
 
   const state = searchParams.get("state");
   const city = searchParams.get("city");

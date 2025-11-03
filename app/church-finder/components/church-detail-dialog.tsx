@@ -79,7 +79,7 @@ const STATUS_CONFIG = {
     iconColor: "status-text--info",
     title: "Biblically Sound (With Differences)",
     description:
-      "This church affirms a majority of essential Christian doctrines but holds to secondary theological positions that differ from Reformed theology (such as charismatic or Arminian views). While biblically orthodox, we note these differences for your discernment.",
+      "This church affirms a majority of essential Christian doctrines and is biblically orthodox. However, it either holds to secondary theological positions that differ from Reformed theology, or it does not clearly identify with Reformed distinctives. While we can affirm their commitment to essential Christianity, we note these differences for your discernment.",
   },
   limited_information: {
     icon: AlertTriangle,
