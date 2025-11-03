@@ -675,11 +675,11 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                   <Separator />
                   <section className="space-y-3">
                     <h3 className="text-base font-semibold text-foreground">Admin Actions</h3>
-                    <Alert className="bg-amber-100 border-amber-300 dark:bg-amber-950/30 dark:border-amber-800">
-                      <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                      <AlertTitle className="text-amber-900 dark:text-amber-300">Re-evaluate Church</AlertTitle>
+                    <Alert className="bg-primary/5 border-primary/20 dark:bg-primary/10 dark:border-primary/30">
+                      <Info className="h-4 w-4 !text-primary" />
+                      <AlertTitle className="text-primary font-semibold">Re-evaluate Church</AlertTitle>
                       <AlertDescription className="space-y-3">
-                        <p className="text-amber-800 dark:text-amber-400">
+                        <p className="text-foreground/80">
                           This will re-run the evaluation pipeline for this church using the current website content.
                           The existing evaluation will be replaced.
                         </p>
@@ -689,7 +689,6 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                           </code>
                           <Button
                             type="button"
-                            variant="outline"
                             size="sm"
                             onClick={() => reEvaluateMutation.mutate()}
                             disabled={reEvaluateMutation.status === "pending"}
@@ -699,14 +698,14 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                           </Button>
                         </div>
                         {reEvaluateMutation.isError && (
-                          <p className="text-sm text-red-600 dark:text-red-400">
+                          <p className="text-sm text-destructive">
                             {reEvaluateMutation.error instanceof Error
                               ? reEvaluateMutation.error.message
                               : "Re-evaluation failed"}
                           </p>
                         )}
                         {reEvaluateMutation.isSuccess && (
-                          <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                          <p className="text-sm text-success">
                             ✓ Re-evaluation complete! The page will refresh with updated data.
                           </p>
                         )}

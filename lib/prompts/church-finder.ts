@@ -378,11 +378,12 @@ Add badges ONLY if you have clear evidence, including the emoji. If none of the 
 - Apostolic/prophetic movements (NAR - New Apostolic Reformation)
 
 **⚠️ Entertainment-Driven**: 
-- Church marketed primarily as entertainment venue
-- Diluted or absent gospel presentation
+- Church's **primary/adult worship services** marketed as entertainment venue
+- Diluted or absent gospel presentation in main services
 - Sermons focus on self-help rather than Scripture
 - Heavy emphasis on production/performance over worship
 - "Seeker-driven" model where biblical content is minimized to attract crowds
+- **NOTE**: Youth and children's ministries naturally use engaging methods (games, activities, creative lessons) to reach their age group. Only flag if the church's MAIN worship services show entertainment-driven compromise, not based solely on youth/children's ministry descriptions.
 
 **👩‍🏫 Ordained Women**:
 - Women serving as **pastors**, **elders**, **bishops**, **priests**, or **reverends** (senior teaching/governing roles)

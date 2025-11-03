@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import type { ChurchDetail, ChurchSearchResult } from "@/types/church";
 import { checkChurchExists, createChurch, fetchChurchDetail, searchChurches } from "@/app/church-finder/api";
@@ -42,7 +42,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
   const [existingChurchIds, setExistingChurchIds] = useState<Map<string, string>>(new Map());
   const [evaluationStatus, setEvaluationStatus] = useState<EvaluationStatus>("idle");
   const [searchEvaluationStatuses, setSearchEvaluationStatuses] = useState<Map<string, EvaluationStatus>>(new Map());
-  
+
   // Bulk re-evaluation state
   const [isBulkReEvaluating, setIsBulkReEvaluating] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<BulkReEvaluationProgress | null>(null);
@@ -214,7 +214,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
 
   const handleBulkReEvaluate = async () => {
     if (!isAdmin || !user?.$id) return;
-    
+
     setIsBulkReEvaluating(true);
     setBulkProgress({
       total: 0,
@@ -225,25 +225,17 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
     });
 
     try {
-      // Fetch all churches (paginate through all pages)
-      const churches: Array<{ id: string; name: string; website: string }> = [];
-      let page = 1;
-      let hasMore = true;
-
-      while (hasMore) {
-        const response = await fetch(`/api/churches?page=${page}&pageSize=100`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch churches");
-        }
-        const data = await response.json();
-        churches.push(...data.items.map((item: ChurchDetail) => ({
-          id: item.id,
-          name: item.name,
-          website: item.website,
-        })));
-        hasMore = data.items.length === 100; // If we got a full page, there might be more
-        page++;
+      // Fetch all churches in one request with a very high page size
+      const response = await fetch(`/api/churches?page=1&pageSize=10000`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch churches");
       }
+      const data = await response.json();
+      const churches = data.items.map((item: ChurchDetail) => ({
+        id: item.id,
+        name: item.name,
+        website: item.website,
+      }));
 
       setBulkProgress((prev) => ({
         ...prev!,
@@ -254,7 +246,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
       // Re-evaluate each church sequentially (to avoid rate limits)
       for (let i = 0; i < churches.length; i++) {
         const church = churches[i];
-        
+
         setBulkProgress((prev) => ({
           ...prev!,
           current: i + 1,
@@ -438,43 +430,43 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
             <Separator />
             <section className="space-y-3">
               <h3 className="text-base font-semibold text-foreground">Admin Actions</h3>
-              <Alert className="bg-amber-100 border-amber-300 dark:bg-amber-950/30 dark:border-amber-800">
-                <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-                <AlertTitle className="text-amber-900 dark:text-amber-300">Bulk Re-evaluate All Churches</AlertTitle>
+              <Alert className="bg-primary/5 border-primary/20 dark:bg-primary/10 dark:border-primary/30">
+                <Info className="h-4 w-4 !text-primary" />
+                <AlertTitle className="text-primary font-semibold">Bulk Re-evaluate All Churches</AlertTitle>
                 <AlertDescription className="space-y-3">
-                  <p className="text-amber-800 dark:text-amber-400">
+                  <p className="text-foreground/80">
                     This will re-run the evaluation pipeline for ALL churches in the database using their current website content.
                     This process may take a long time depending on the number of churches.
                   </p>
-                  
+
                   {bulkProgress && (
-                    <div className="rounded-md border border-amber-300 bg-white dark:bg-amber-950/50 p-4 space-y-3">
+                    <div className="rounded-md border border-primary/30 bg-card p-4 space-y-3 shadow-sm">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-amber-900 dark:text-amber-300">
+                        <span className="font-medium text-foreground">
                           Progress: {bulkProgress.current} / {bulkProgress.total}
                         </span>
-                        <span className="text-sm text-amber-700 dark:text-amber-400">
-                          {bulkProgress.total > 0 
+                        <span className="text-sm text-primary font-semibold">
+                          {bulkProgress.total > 0
                             ? `${Math.round((bulkProgress.current / bulkProgress.total) * 100)}%`
                             : "0%"}
                         </span>
                       </div>
-                      
-                      <div className="w-full bg-amber-200 dark:bg-amber-900/30 rounded-full h-2.5">
-                        <div 
-                          className="bg-amber-600 dark:bg-amber-500 h-2.5 rounded-full transition-all duration-300"
-                          style={{ 
-                            width: `${bulkProgress.total > 0 
-                              ? (bulkProgress.current / bulkProgress.total) * 100 
-                              : 0}%` 
+
+                      <div className="w-full bg-primary/10 rounded-full h-2.5">
+                        <div
+                          className="bg-primary h-2.5 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${bulkProgress.total > 0
+                              ? (bulkProgress.current / bulkProgress.total) * 100
+                              : 0}%`
                           }}
                         />
                       </div>
-                      
-                      <p className="text-sm text-amber-900 dark:text-amber-300">
+
+                      <p className="text-sm text-foreground">
                         <span className="font-medium">Current:</span> {bulkProgress.currentChurchName}
                       </p>
-                      
+
                       {bulkProgress.completed.length > 0 && (
                         <div className="text-sm">
                           <p className="font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
@@ -483,16 +475,16 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
                           </p>
                         </div>
                       )}
-                      
+
                       {bulkProgress.failed.length > 0 && (
                         <div className="text-sm">
-                          <p className="font-medium text-red-700 dark:text-red-400 flex items-center gap-2">
+                          <p className="font-medium text-destructive flex items-center gap-2">
                             <AlertTriangle className="h-4 w-4" />
                             Failed: {bulkProgress.failed.length}
                           </p>
                           <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
                             {bulkProgress.failed.map((failure, idx) => (
-                              <p key={idx} className="text-xs text-red-600 dark:text-red-400">
+                              <p key={idx} className="text-xs text-destructive/80">
                                 • {failure.name}: {failure.error}
                               </p>
                             ))}
@@ -501,13 +493,12 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
                       )}
                     </div>
                   )}
-                  
+
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                     <Button
                       type="button"
                       onClick={handleBulkReEvaluate}
                       disabled={isBulkReEvaluating}
-                      variant="destructive"
                       className="w-full sm:w-auto"
                     >
                       {isBulkReEvaluating ? (
@@ -520,7 +511,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
                       )}
                     </Button>
                     {isBulkReEvaluating && (
-                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                      <p className="text-xs text-muted-foreground">
                         Please keep this page open. This may take several minutes.
                       </p>
                     )}
