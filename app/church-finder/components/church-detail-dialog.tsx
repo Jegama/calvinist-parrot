@@ -245,11 +245,17 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                         const title = church.name ? `Church Finder – ${church.name}` : "Church Finder";
                         const text = church.website ? `Details and evaluation for ${church.name}` : `Church details`;
                         try {
-                          // Attempt native share first
-                          await (navigator as any).share({ title, text, url });
-                          return;
-                        } catch (err: any) {
-                          if (err && (err.name === "AbortError" || err.name === "NotAllowedError")) {
+                          // Attempt native share first (if supported)
+                          const nav = navigator as Navigator & {
+                            share?: (data: ShareData) => Promise<void>;
+                          };
+                          if (typeof nav.share === "function") {
+                            await nav.share({ title, text, url });
+                            return;
+                          }
+                        } catch (err: unknown) {
+                          const name = (err as { name?: string }).name;
+                          if (name === "AbortError" || name === "NotAllowedError") {
                             // User dismissed/denied share sheet; do nothing
                             return;
                           }
