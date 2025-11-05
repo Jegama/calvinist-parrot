@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertCircle, CheckCircle2, AlertTriangle, ChevronDown, Info } from "lucide-react";
+import { AlertCircle, CheckCircle2, AlertTriangle, ChevronDown, Info, Share2, Check } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import type { ChurchDetail, CoreDoctrineKey } from "@/types/church";
@@ -119,6 +119,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
     : (status as keyof typeof STATUS_CONFIG | null);
   const [coreDoctrinesOpen, setCoreDoctrinesOpen] = useState(false);
   const [otherDoctrinesOpen, setOtherDoctrinesOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const isAdmin = user?.$id === process.env.NEXT_PUBLIC_ADMIN_ID;
 
@@ -222,11 +223,57 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
           {church ? (
             <div className="space-y-6 overflow-x-hidden">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <DialogHeader className="flex-1">
+                <DialogHeader className="flex-1 pr-10 sm:pr-0">
                   <DialogTitle className="text-xl font-semibold text-foreground sm:text-2xl">{church.name}</DialogTitle>
                   <DialogDescription className="text-sm">
                     {church.city && church.state ? `${church.city}, ${church.state}` : church.city ?? church.state ?? "Location unknown"}
                   </DialogDescription>
+                  <div className="mt-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={async () => {
+                        if (!church) return;
+                        const url = `${window.location.origin}/church-finder?church=${encodeURIComponent(church.id)}`;
+                        const title = church.name ? `Church Finder – ${church.name}` : "Church Finder";
+                        const text = church.website ? `Details and evaluation for ${church.name}` : `Church details`;
+                        try {
+                          // Attempt native share first
+                          await (navigator as any).share({ title, text, url });
+                          return;
+                        } catch (err: any) {
+                          if (err && (err.name === "AbortError" || err.name === "NotAllowedError")) {
+                            // User dismissed/denied share sheet; do nothing
+                            return;
+                          }
+                          // Otherwise fall through to copy
+                        }
+                        try {
+                          await navigator.clipboard.writeText(url);
+                          setCopied(true);
+                          window.setTimeout(() => setCopied(false), 2000);
+                        } catch {
+                          // Very old browsers: show prompt as last resort
+                          // eslint-disable-next-line no-alert
+                          window.prompt("Copy this link", url);
+                        }
+                      }}
+                      aria-label="Share church link"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="h-4 w-4 text-green-600" />
+                          <span className="ml-2">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Share2 className="h-4 w-4" />
+                          <span className="ml-2">Share</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </DialogHeader>
                 {church.confessionAdopted && (
                   <div className="flex justify-center lg:justify-end">

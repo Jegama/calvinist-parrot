@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ChurchDetail, ChurchListItem } from "@/types/church";
@@ -46,6 +47,9 @@ export default function ChurchFinderPage() {
   const [discoveryOpen, setDiscoveryOpen] = useState(false);
   const filtersContainerRef = useRef<HTMLDivElement | null>(null);
   const [mapHeight, setMapHeight] = useState<number | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const updateMapHeight = useCallback((next: number) => {
     if (!Number.isFinite(next) || next <= 0) {
@@ -199,6 +203,55 @@ export default function ChurchFinderPage() {
     // Invalidate list queries to show updated data
     void queryClient.invalidateQueries({ queryKey: ["churches"], refetchType: "active" });
   }, [queryClient]);
+
+  // Keep URL in sync with dialog state for shareable links (?church=<id>)
+  useEffect(() => {
+    const idFromParam = searchParams.get("church");
+    // If the URL has a church param, open the dialog for that ID
+    if (idFromParam && idFromParam !== selectedChurchId) {
+      setSelectedChurchId(idFromParam);
+      setDetailOpen(true);
+    }
+    // If there's no param and dialog is open without a selected id, ensure closed
+    if (!idFromParam && detailOpen && !selectedChurchId) {
+      setDetailOpen(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    const current = searchParams.get("church");
+    // Add or update the church param when opening a church
+    if (detailOpen && selectedChurchId) {
+      if (current !== selectedChurchId) {
+        const params = new URLSearchParams(searchParams);
+        params.set("church", selectedChurchId);
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname);
+      }
+    } else {
+      // Remove the param when dialog closes
+      if (current) {
+        const params = new URLSearchParams(searchParams);
+        params.delete("church");
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname);
+      }
+    }
+  }, [detailOpen, selectedChurchId, searchParams, router, pathname]);
+
+  // If a shared link points to a non-existent church, gracefully close the dialog
+  useEffect(() => {
+    if (detailOpen && selectedChurchId && detailQuery.isError) {
+      // Remove invalid param from URL and reset state
+      const params = new URLSearchParams(searchParams);
+      params.delete("church");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+      setDetailOpen(false);
+      setSelectedChurchId(null);
+    }
+  }, [detailOpen, selectedChurchId, detailQuery.isError, searchParams, router, pathname]);
 
   const churches = churchQuery.data?.items ?? [];
   const total = churchQuery.data?.total ?? 0;
