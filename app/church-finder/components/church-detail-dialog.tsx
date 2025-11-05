@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertCircle, CheckCircle2, AlertTriangle, ChevronDown, Info, Share2, Check } from "lucide-react";
+import { AlertCircle, CheckCircle2, AlertTriangle, ChevronDown, Info, Share, Check } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import type { ChurchDetail, CoreDoctrineKey } from "@/types/church";
@@ -222,9 +222,15 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
         <TooltipProvider delayDuration={0}>
           {church ? (
             <div className="space-y-6 overflow-x-hidden">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <DialogHeader className="flex-1 pr-10 sm:pr-0">
-                  <DialogTitle className="text-xl font-semibold text-foreground sm:text-2xl">{church.name}</DialogTitle>
+              <div
+                className={cn(
+                  "items-start gap-2 sm:gap-4",
+                  church.confessionAdopted ? "grid grid-cols-[minmax(0,1fr),auto]" : "grid grid-cols-1",
+                  "lg:grid-cols-[1fr,auto]"
+                )}
+              >
+                <DialogHeader className={cn("flex-1 text-left", !church.confessionAdopted && "pr-12 sm:pr-0")}>
+                  <DialogTitle className="text-xl font-semibold text-foreground sm:text-2xl break-words leading-tight">{church.name}</DialogTitle>
                   <DialogDescription className="text-sm">
                     {church.city && church.state ? `${church.city}, ${church.state}` : church.city ?? church.state ?? "Location unknown"}
                   </DialogDescription>
@@ -232,7 +238,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                     <Button
                       variant="outline"
                       size="sm"
-                      className="shrink-0"
+                      className="shrink-0 focus-visible:ring-inset focus-visible:ring-2"
                       onClick={async () => {
                         if (!church) return;
                         const url = `${window.location.origin}/church-finder?church=${encodeURIComponent(church.id)}`;
@@ -268,21 +274,21 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                         </>
                       ) : (
                         <>
-                          <Share2 className="h-4 w-4" />
-                          <span className="ml-2">Share</span>
+                          <Share className="h-4 w-4" />
+                          <span className="ml-1">Share</span>
                         </>
                       )}
                     </Button>
                   </div>
                 </DialogHeader>
                 {church.confessionAdopted && (
-                  <div className="flex justify-center lg:justify-end">
+                  <div className="flex justify-end">
                     <Image
                       src="/confessional_seal.png"
                       alt="Confessional Church Seal"
-                      width={80}
-                      height={80}
-                      className="object-contain sm:h-[100px] sm:w-[100px]"
+                      width={100}
+                      height={100}
+                      className="object-contain h-20 w-20 sm:h-[100px] sm:w-[100px]"
                     />
                   </div>
                 )}
