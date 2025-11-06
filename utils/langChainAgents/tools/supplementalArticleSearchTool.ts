@@ -1,6 +1,6 @@
 // utils/langChainAgents/tools/supplementalArticleSearchTool.ts
 
-import { tool } from "@langchain/core/tools";
+import { tool } from "langchain";
 import { tavily } from "@tavily/core";
 import { z } from "zod";
 

@@ -1,17 +1,15 @@
 // utils/langChainAgents/mainAgent.ts
 
+import { createAgent } from "langchain";
 import { ChatOpenAI } from "@langchain/openai";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { toolsArray } from "./tools";
 
-const mini_model = "gpt-5-mini";
-
-const llm = new ChatOpenAI({
-    model: mini_model,
+const model = new ChatOpenAI({
+    model: "gpt-5-mini",
     streaming: true,
 });
 
-export const parrotWorkflow = createReactAgent({
-    llm,
+export const parrotWorkflow = createAgent({
+    model,
     tools: toolsArray,
 });

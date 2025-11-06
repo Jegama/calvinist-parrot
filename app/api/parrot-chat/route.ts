@@ -8,7 +8,7 @@ import type { Prisma } from '@prisma/client';
 import { sendError, sendProgress } from '@/lib/progressUtils';
 import prisma from '@/lib/prisma';
 import * as prompts from '@/lib/prompts/core';
-import { SystemMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
+import { SystemMessage, HumanMessage, AIMessage } from 'langchain';
 import { parrotWorkflow } from '@/utils/langChainAgents/mainAgent';
 import { generateConversationName } from '@/utils/generateConversationName';
 
