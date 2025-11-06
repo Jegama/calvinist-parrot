@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ChurchDetail, ChurchListItem } from "@/types/church";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ const RESET_FILTERS: ChurchFilters = {
   status: "exclude_red_flag_and_limited",
 };
 
-export default function ChurchFinderPage() {
+function ChurchFinderClient() {
   const [filters, setFilters] = useState<ChurchFilters>(DEFAULT_FILTERS);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [detailOpen, setDetailOpen] = useState(false);
@@ -388,5 +388,25 @@ export default function ChurchFinderPage() {
         onChurchUpdated={handleChurchUpdated}
       />
     </div>
+  );
+}
+
+export default function ChurchFinderPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          <header className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Church Finder</h1>
+            <p className="text-muted-foreground">Loading…</p>
+          </header>
+          <div className="rounded-lg border border-border bg-card shadow-sm p-6 text-center text-sm text-muted-foreground">
+            Preparing church data…
+          </div>
+        </div>
+      }
+    >
+      <ChurchFinderClient />
+    </Suspense>
   );
 }
