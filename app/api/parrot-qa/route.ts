@@ -12,9 +12,9 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 })
 
-const ft_model = process.env.FT_MODEL || "gpt-5-mini"
-const main_model = "gpt-5"
-const mini_model = "gpt-5-mini"
+const ft_model = process.env.FT_MODEL || "gpt-4.1-mini"
+const main_model = "gpt-4.1"
+const mini_model = "gpt-4.1-mini"
 
 export async function POST(req: NextRequest) {
   const { question, userId = null, denomination = "reformed-baptist" } = await req.json();

@@ -11,6 +11,7 @@ import * as prompts from '@/lib/prompts/core';
 import { SystemMessage, HumanMessage, AIMessage } from 'langchain';
 import { parrotWorkflow } from '@/utils/langChainAgents/mainAgent';
 import { generateConversationName } from '@/utils/generateConversationName';
+import { updateUserMemoriesFromConversation } from '@/utils/memoryExtraction';
 
 export async function POST(request: Request) {
   interface ChatRequestBody {
@@ -97,6 +98,16 @@ export async function POST(request: Request) {
 
   // If chatID and message run main system <-- This continues the converation and is the main use case.
   if (chatId && message) {
+    // Fetch userId from chatHistory if not provided in request
+    let effectiveUserId = userId;
+    if (!effectiveUserId) {
+      const chatRecord = await prisma.chatHistory.findUnique({ 
+        where: { id: chatId },
+        select: { userId: true }
+      });
+      effectiveUserId = chatRecord?.userId || '';
+    }
+
     const mapDenominationPrompt = (value: string) => {
       switch (value) {
         case "reformed-baptist":
@@ -144,6 +155,10 @@ export async function POST(request: Request) {
     const coreSysPromptWithDenomination = prompts.CORE_SYS_PROMPT.replace('{denomination}', secondaryPromptText);
     const newParrotSysPrompt = prompts.PARROT_SYS_PROMPT_MAIN.replace('{CORE}', coreSysPromptWithDenomination);
 
+    // Capture variables for stream closure
+    const capturedUserId = effectiveUserId;
+    const capturedChatId = chatId;
+    const capturedDenomination = denomination;
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -208,7 +223,7 @@ export async function POST(request: Request) {
           // Fetch initial messages only once
           type ChatMessageSummary = { sender: string; content: string };
           const previousMessages: ChatMessageSummary[] = await prisma.chatMessage.findMany({
-            where: { chatId },
+            where: { chatId: capturedChatId },
             orderBy: { timestamp: 'asc' },
             select: { sender: true, content: true },
           });
@@ -230,7 +245,7 @@ export async function POST(request: Request) {
             conversationMessages.push(userMessage);
             pendingWrites.push(
               prisma.chatMessage.create({
-                data: { chatId, sender: 'user', content: message },
+                data: { chatId: capturedChatId, sender: 'user', content: message },
               })
             );
 
@@ -370,7 +385,7 @@ export async function POST(request: Request) {
                       content: friendly.finish,
                     }, controller);
                     await prisma.chatMessage.create({
-                      data: { chatId, sender: 'gotQuestions', content: parsedReferences },
+                      data: { chatId: capturedChatId, sender: 'gotQuestions', content: parsedReferences },
                     });
                     sendProgress({
                       type: 'progress',
@@ -391,7 +406,7 @@ export async function POST(request: Request) {
             // When finished, store parrotReply in DB, etc.
             pendingWrites.push(
               prisma.chatMessage.create({
-                data: { chatId, sender: 'parrot', content: parrotReply },
+                data: { chatId: capturedChatId, sender: 'parrot', content: parrotReply },
               })
             );
             conversationMessages.push({ sender: 'parrot', content: parrotReply });
@@ -405,16 +420,23 @@ export async function POST(request: Request) {
             sendError(error, 'parrot_response', controller);
           }
 
+          // Fetch current chat metadata (for naming and memory extraction)
+          let currentChat: Awaited<ReturnType<typeof prisma.chatHistory.findUnique>> = null;
+          try {
+            currentChat = await prisma.chatHistory.findUnique({ where: { id: capturedChatId } });
+          } catch (error) {
+            console.error('Error fetching chat metadata:', error);
+          }
+
           // Handle conversation naming
           try {
-            const currentChat = await prisma.chatHistory.findUnique({ where: { id: chatId } });
             if (currentChat && currentChat.conversationName === 'New Conversation') {
               const allMessagesStr = conversationMessages.map((m) => `${m.sender}: ${m.content}`).join('\n');
               const conversationName = await generateConversationName(allMessagesStr);
 
               pendingWrites.push(
                 prisma.chatHistory.update({
-                  where: { id: chatId },
+                  where: { id: capturedChatId },
                   data: {
                     conversationName: conversationName || 'New Conversation',
                   },
@@ -431,6 +453,25 @@ export async function POST(request: Request) {
             } catch (error) {
               sendError(error, 'persist_messages', controller);
             }
+          }
+
+          // 🧠 Extract and update user memories in the background
+          // This runs asynchronously and doesn't block the response
+          if (capturedUserId) {
+            updateUserMemoriesFromConversation(
+              capturedUserId,
+              conversationMessages.map(m => ({ sender: m.sender, content: m.content })),
+              {
+                category: currentChat?.category,
+                subcategory: currentChat?.subcategory,
+                denomination: currentChat?.denomination || capturedDenomination,
+              }
+            ).catch((error) => {
+              // Log but don't fail - memory extraction is non-critical
+              console.error('Background memory extraction failed:', error);
+            });
+          } else {
+            console.warn('⚠️ Memory extraction skipped: userId is undefined');
           }
 
           sendProgress({ type: 'done' }, controller);
