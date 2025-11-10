@@ -154,7 +154,7 @@ model parrotDevotionals {
   createdAt       DateTime @default(now())
 }
 
-model store {
+model MemoryStore {
   namespace_path String
   key            String
   value          Json

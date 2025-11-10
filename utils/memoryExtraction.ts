@@ -3,12 +3,13 @@
 
 import OpenAI from "openai";
 import { updateUserProfile, getUserProfile, type UserProfileMemory } from "@/lib/langGraphStore";
+import { MEMORY_EXTRACTION_SYS_PROMPT, MERGE_MEMORIES_SYS_PROMPT, extractionSchema, mergeSchema } from "@/lib/prompts/memory";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const EXTRACTION_MODEL = "gpt-4o-mini"; // Fast and cost-effective for extraction
+const EXTRACTION_MODEL = "gpt-4.1-mini"; // Fast and cost-effective for extraction
 
 interface ConversationMessage {
   sender: string;
@@ -47,63 +48,14 @@ async function extractMemoriesFromConversation(
     .map(m => `${m.sender === 'user' ? 'User' : 'Parrot'}: ${m.content}`)
     .join('\n\n');
 
-  const systemPrompt = `You are a memory extraction assistant for a Reformed Christian chatbot.
-
-Analyze the conversation and extract:
-
-1. **Theological Interests**: Topics the user asked about (e.g., "eschatology", "predestination", "covenant theology")
-   - For each topic, note: how many times mentioned, key context
-   
-2. **Personal Context**: Life situations mentioned (e.g., "married with kids", "facing grief", "new believer")
-   - **lifeStage**: Family status, age group, life phase (e.g., "young parent", "retired", "college student")
-   - **concerns**: Current struggles, questions, or challenges mentioned (e.g., "struggling with prayer", "doubts about assurance")
-   - **spiritualJourney**: Growth areas, conversion story elements, spiritual milestones, areas of conviction or doubt
-     * Examples: "recently converted", "growing in prayer life", "wrestling with Reformed soteriology", "convicted about family worship"
-     * Include both struggles AND growth/victories
-   
-3. **Question Patterns**: Categorize the types of questions (e.g., "Reformed theology: 1", "Practical living: 1")
-
-4. **Preferences**: Any explicit preferences mentioned (e.g., denomination, preferred topics)
-
-Guidelines:
-- Only extract information EXPLICITLY mentioned in the conversation
-- Don't make assumptions or inferences beyond what's stated
-- For theological topics, use specific terms (not generic "theology")
-- For spiritual journey: capture both challenges and growth indicators
-- Be concise - each context should be 1-2 sentences max
-- Return empty arrays/objects if nothing relevant found
-
-Return a JSON object with this structure:
-{
-  "theologicalInterests": {
-    "topic_name": {
-      "count": 1,
-      "contexts": ["Brief context from conversation"]
-    }
-  },
-  "personalContext": {
-    "lifeStage": "Description if mentioned",
-    "concerns": ["Concern 1", "Concern 2"],
-    "spiritualJourney": ["Journey note 1", "Journey note 2"]
-  },
-  "questionPatterns": {
-    "Reformed theology": 1,
-    "Practical living": 1
-  },
-  "preferences": {
-    "denomination": "if mentioned",
-    "preferredTopics": ["topic1"]
-  }
-}`;
-
   try {
     const response = await openai.chat.completions.create({
       model: EXTRACTION_MODEL,
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: MEMORY_EXTRACTION_SYS_PROMPT },
         { role: "user", content: conversationText }
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: "json_schema", json_schema: extractionSchema },
       temperature: 0.3, // Lower temperature for more consistent extraction
     });
 
@@ -132,45 +84,22 @@ async function mergeMemories(
     lastUpdated: new Date().toISOString(),
   };
 
-  const systemPrompt = `You are merging new conversation memories with an existing user profile.
-
-Rules for merging:
-1. **Theological Interests**: 
-   - Increment counts for existing topics
-   - Add new topics
-   - Append new contexts (keep max 5 most recent)
-   - Update lastMentioned dates
-
-2. **Personal Context**:
-   - Update lifeStage if new info is more recent/detailed
-   - Merge concerns (deduplicate)
-   - Merge spiritual journey notes (chronological)
-
-3. **Question Patterns**:
-   - Add counts for categories
-
-4. **Preferences**:
-   - Update if explicitly changed
-   - Keep existing if not mentioned
-
-Return the complete merged profile as JSON.`;
-
   try {
     const response = await openai.chat.completions.create({
       model: EXTRACTION_MODEL,
       messages: [
-        { role: "system", content: systemPrompt },
-        { 
-          role: "user", 
+        { role: "system", content: MERGE_MEMORIES_SYS_PROMPT },
+        {
+          role: "user",
           content: `Existing profile:\n${JSON.stringify(existingProfile, null, 2)}\n\nNew memories:\n${JSON.stringify(newMemories, null, 2)}`
         }
       ],
-      response_format: { type: "json_object" },
+      response_format: { type: "json_schema", json_schema: mergeSchema },
       temperature: 0.3,
     });
 
     const merged = JSON.parse(response.choices[0].message.content || "{}");
-    
+
     // Ensure required fields
     return {
       userId,
@@ -227,7 +156,7 @@ export async function updateUserMemoriesFromConversation(
 
     // Add metadata to extracted memories if provided
     if (metadata?.category && extracted.questionPatterns) {
-      extracted.questionPatterns[metadata.category] = 
+      extracted.questionPatterns[metadata.category] =
         (extracted.questionPatterns[metadata.category] || 0) + 1;
     }
 

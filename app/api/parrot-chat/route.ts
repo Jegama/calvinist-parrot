@@ -12,6 +12,7 @@ import { SystemMessage, HumanMessage, AIMessage } from 'langchain';
 import { parrotWorkflow } from '@/utils/langChainAgents/mainAgent';
 import { generateConversationName } from '@/utils/generateConversationName';
 import { updateUserMemoriesFromConversation } from '@/utils/memoryExtraction';
+import { getMemoryStore, MemoryNamespaces, MemoryKeys } from '@/lib/langGraphStore';
 
 export async function POST(request: Request) {
   interface ChatRequestBody {
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
     // Fetch userId from chatHistory if not provided in request
     let effectiveUserId = userId;
     if (!effectiveUserId) {
-      const chatRecord = await prisma.chatHistory.findUnique({ 
+      const chatRecord = await prisma.chatHistory.findUnique({
         where: { id: chatId },
         select: { userId: true }
       });
@@ -259,14 +260,110 @@ export async function POST(request: Request) {
           // Parrot's answer
           let parrotReply = '';
           try {
+            // =============================
+            // 🧠 Long-term memory recall with lightweight caching
+            // Skip semantic search + profile summary if profile unchanged AND
+            // last recall was for the same user AND query is similar.
+            let memorySystemMessage: string | null = null;
+            const recallCacheKey = `recall-cache-${capturedUserId}`;
+            interface RecallCache {
+              lastProfileUpdated: string | null;
+              lastQuery: string | null;
+              lastResult: string | null;
+            }
+            // Attach a simple global cache object on globalThis (typed)
+            type GlobalCacheShape = { __PARROT_MEMORY_CACHE__?: Record<string, RecallCache> };
+            const g = globalThis as GlobalCacheShape;
+            if (!g.__PARROT_MEMORY_CACHE__) {
+              g.__PARROT_MEMORY_CACHE__ = {};
+            }
+            const globalCache = g.__PARROT_MEMORY_CACHE__;
+
+            if (capturedUserId) {
+              try {
+                const store = getMemoryStore();
+                const profileNamespace = MemoryNamespaces.userProfile(capturedUserId);
+                const profileDoc = await store.get(profileNamespace, MemoryKeys.USER_PROFILE);
+                const profile = profileDoc?.value as import('@/lib/langGraphStore').UserProfileMemory | undefined;
+                const profileUpdated = profile?.lastUpdated || null;
+                const cacheEntry: RecallCache = globalCache[recallCacheKey] || { lastProfileUpdated: null, lastQuery: null, lastResult: null };
+
+                const normalizedQuery = (message || '').trim().toLowerCase();
+                const querySimilar = cacheEntry.lastQuery ? normalizedQuery.startsWith(cacheEntry.lastQuery.slice(0, 40)) : false;
+                const profileUnchanged = cacheEntry.lastProfileUpdated === profileUpdated;
+
+                // If we have a cached result and nothing changed + similar query, reuse
+                if (cacheEntry.lastResult && profileUnchanged && querySimilar) {
+                  memorySystemMessage = cacheEntry.lastResult;
+                } else {
+                  // Perform fresh semantic search only if we have a message
+                  let semanticSnippets: string[] = [];
+                  if (normalizedQuery) {
+                    const hits = await store.search(["memories", capturedUserId], { query: message, limit: 3 });
+                    semanticSnippets = hits
+                      .map(h => {
+                        try {
+                          if (h?.value?.data) return String(h.value.data).slice(0, 180);
+                          return JSON.stringify(h.value).slice(0, 180);
+                        } catch { return ''; }
+                      })
+                      .filter(Boolean);
+                  }
+
+                  if (profile) {
+                    const interests = Object.entries(profile.theologicalInterests || {})
+                      .sort((a, b) => ((b[1]?.count || 0) as number) - ((a[1]?.count || 0) as number))
+                      .slice(0, 3)
+                      .map(([k, v]) => `${k} (x${(v as { count: number })?.count || 0})`);
+                    const concerns: string[] = (profile.personalContext?.concerns || []).slice(0, 3);
+                    const journey: string[] = (profile.personalContext?.spiritualJourney || []).slice(-2);
+                    const denom = profile.preferences?.denomination;
+
+                    memorySystemMessage = [
+                      'User Memory Context (from prior conversations):',
+                      interests.length ? `Top theological interests: ${interests.join(', ')}` : null,
+                      concerns.length ? `Current concerns: ${concerns.join('; ')}` : null,
+                      journey.length ? `Spiritual journey notes: ${journey.join(' | ')}` : null,
+                      denom ? `Preferred denomination: ${denom}` : null,
+                      semanticSnippets.length ? `Relevant prior memory snippets:\n- ${semanticSnippets.join('\n- ')}` : null,
+                      'Use this context to personalize the answer when appropriate. Do NOT repeat verbatim; integrate naturally.'
+                    ].filter(Boolean).join('\n');
+                  } else if (semanticSnippets.length) {
+                    memorySystemMessage = [
+                      'User Memory Context (semantic hits only):',
+                      semanticSnippets.map(s => `- ${s}`).join('\n'),
+                      'Integrate if relevant.'
+                    ].join('\n');
+                  }
+
+                  // Update cache
+                  globalCache[recallCacheKey] = {
+                    lastProfileUpdated: profileUpdated,
+                    lastQuery: normalizedQuery,
+                    lastResult: memorySystemMessage,
+                  };
+                }
+              } catch (e) {
+                console.error('Memory recall failed (non-fatal):', e);
+              }
+            }
+
             const parrotHistory = buildParrotHistory(
               conversationMessages,
               newParrotSysPrompt
             );
 
+            if (memorySystemMessage) {
+              // Insert AFTER the core system prompt to preserve primary system instructions precedence
+              parrotHistory.splice(1, 0, new SystemMessage(memorySystemMessage));
+            } else if (capturedUserId) {
+              // Minimal hint so the agent can call the native tool with the correct userId if needed
+              parrotHistory.splice(1, 0, new SystemMessage(`When you need prior user context, call the tool userMemoryRecall with { userId: "${capturedUserId}", query: the current user question }.`));
+            }
+
             const eventStream = parrotWorkflow.streamEvents(
               { messages: parrotHistory },
-              { version: "v2", streamMode: ["updates", "messages"] }
+              { version: "v2", streamMode: ["updates", "messages"], configurable: { thread_id: capturedChatId, userId: capturedUserId } }
             );
 
             for await (const { event, tags, data } of eventStream) {
