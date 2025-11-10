@@ -18,7 +18,7 @@ export default function MainChatPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
   const { userId, ensureCookieId } = useUserIdentifier();
-  const { chats, createChat, upsertChat } = useChatList(userId);
+  const { chats, createChat, upsertChat, removeChat } = useChatList(userId);
 
   const handleStartNewChat = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +49,10 @@ export default function MainChatPage() {
 
   return (
     <SidebarProvider>
-      <AppSidebar chats={chats} />
+      <AppSidebar chats={chats} onDeleted={(id) => {
+        // Optimistically remove from cache
+        removeChat(id);
+      }} />
       <SidebarInset className="flex h-[calc(100vh-var(--app-header-height))] flex-col overflow-hidden">
         <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <SidebarTrigger className="-ml-1" />

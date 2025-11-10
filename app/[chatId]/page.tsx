@@ -49,7 +49,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const { userId } = useUserIdentifier();
-  const { chats, invalidate: invalidateChatList, upsertChat } = useChatList(userId);
+  const { chats, invalidate: invalidateChatList, upsertChat, removeChat } = useChatList(userId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState<{ title: string; content: string } | null>(null);
   const autoSentRef = useRef(false);
@@ -328,7 +328,12 @@ export default function ChatPage() {
   if (!chat) {
     return (
       <SidebarProvider>
-        <AppSidebar chats={chats} currentChatId={params.chatId} />
+        <AppSidebar chats={chats} currentChatId={params.chatId} onDeleted={(id) => {
+          removeChat(id);
+          if (id === params.chatId) {
+            router.push('/');
+          }
+        }} />
         <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))] !bg-transparent">
           <div className="flex min-h-full flex-col">
             <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -362,13 +367,17 @@ export default function ChatPage() {
 
   return (
     <SidebarProvider>
-      <AppSidebar chats={chats} currentChatId={params.chatId} />
+      <AppSidebar chats={chats} currentChatId={params.chatId} onDeleted={(id) => {
+        removeChat(id);
+        if (id === params.chatId) {
+          router.push('/');
+        }
+      }} />
       <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))] !bg-transparent">
         <div className="flex min-h-full flex-col">
-          <header 
-            className={`sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center transition-all duration-200 ease-in-out ${
-              isMobile && isScrolled ? "!bg-transparent" : isScrolled ? "!bg-transparent" : "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-            } ${isMobile && !isScrolled ? "!bg-transparent !backdrop-blur-none" : ""}`}
+          <header
+            className={`sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center transition-all duration-200 ease-in-out ${isMobile && isScrolled ? "!bg-transparent" : isScrolled ? "!bg-transparent" : "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+              } ${isMobile && !isScrolled ? "!bg-transparent !backdrop-blur-none" : ""}`}
             style={{
               height: isMobile ? (isScrolled ? "2.5rem" : "3.5rem") : (isScrolled ? "3rem" : "4rem"),
               justifyContent: isMobile && isScrolled ? "center" : "flex-start",
@@ -395,8 +404,8 @@ export default function ChatPage() {
                 gap: isMobile && isScrolled ? 0 : "0.5rem",
               }}
             >
-              <SidebarTrigger 
-                className="-ml-1 transition-all duration-700 ease-in-out" 
+              <SidebarTrigger
+                className="-ml-1 transition-all duration-700 ease-in-out"
                 style={{
                   opacity: isMobile && isScrolled ? 0 : 1,
                   width: isMobile && isScrolled ? 0 : "auto",
@@ -406,8 +415,8 @@ export default function ChatPage() {
                   transform: isMobile && isScrolled ? "scale(0)" : "scale(1)",
                 }}
               />
-              <Separator 
-                orientation="vertical" 
+              <Separator
+                orientation="vertical"
                 className="h-4 transition-all duration-700 ease-in-out"
                 style={{
                   opacity: isMobile && isScrolled ? 0 : 1,
@@ -417,7 +426,7 @@ export default function ChatPage() {
                   transform: isMobile && isScrolled ? "scale(0)" : "scale(1)",
                 }}
               />
-              <h2 
+              <h2
                 className="leading-tight transition-all duration-700 ease-in-out truncate"
                 style={{
                   fontSize: isMobile ? (isScrolled ? "0.75rem" : "1rem") : (isScrolled ? "0.875rem" : "1.125rem"),
@@ -432,7 +441,7 @@ export default function ChatPage() {
           </header>
           <div className="flex-1 overflow-hidden px-4 pb-6 pt-4">
             <Card className="mx-auto flex h-full w-full max-w-2xl flex-col">
-              <CardContent 
+              <CardContent
                 ref={messagesContainerRef}
                 className="flex-1 space-y-4 overflow-y-auto p-6"
               >
