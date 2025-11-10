@@ -49,29 +49,30 @@ export function AppSidebar({ chats, currentChatId, onDeleted, className, style, 
   return (
     <Sidebar {...props} className={className} style={mergedStyle}>
       <SidebarContent>
-        <SidebarHeader><br />Your Conversations</SidebarHeader>
+        <SidebarHeader>Your Conversations</SidebarHeader>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-0">
               {chats.map((c, index) => (
                 <React.Fragment key={c.id}>
-                  <SidebarMenuItem className="px-2 py-1">
+                  <SidebarMenuItem className="px-2 py-0.5 border-t border-sidebar-border first:border-t-0">
                     <div className="group flex items-center justify-between gap-2">
                       <SidebarMenuButton
                         asChild
                         isActive={c.id === currentChatId}
-                        className="sidebar-button flex-1 text-left"
+                        size="lg"
+                        className="sidebar-button flex-1 text-left h-auto min-h-8 py-1.5"
                       >
                         <Link href={`/${c.id}`} prefetch={false} title={c.conversationName || "Unnamed Conversation"}>
-                          {/* Two-line clamp (no plugin) */}
                           <span
-                            className="block text-sm leading-snug"
+                            className="block text-sm leading-tight"
                             style={{
                               display: '-webkit-box',
                               WebkitBoxOrient: 'vertical',
                               overflow: 'hidden',
                               WebkitLineClamp: 2,
-                              wordBreak: 'break-word'
+                              wordBreak: 'break-word',
+                              whiteSpace: 'normal',
                             }}
                           >
                             {c.conversationName || "Unnamed Conversation"}
@@ -89,9 +90,7 @@ export function AppSidebar({ chats, currentChatId, onDeleted, className, style, 
                       </button>
                     </div>
                   </SidebarMenuItem>
-                  {index < chats.length - 1 && (
-                    <hr className="border-t border-sidebar-border mx-2 my-1" />
-                  )}
+                  {/* Separator replaced by item borders for tighter spacing */}
                 </React.Fragment>
               ))}
             </SidebarMenu>
