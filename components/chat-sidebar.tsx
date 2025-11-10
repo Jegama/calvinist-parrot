@@ -49,7 +49,7 @@ export function AppSidebar({ chats, currentChatId, onDeleted, className, style, 
   return (
     <Sidebar {...props} className={className} style={mergedStyle}>
       <SidebarContent>
-        <SidebarHeader>Your Conversations</SidebarHeader>
+        <SidebarHeader><br />Your Conversations</SidebarHeader>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-0">
