@@ -6,7 +6,9 @@ import { PostgresStore } from "@langchain/langgraph-checkpoint-postgres/store";
 const DB_URI = process.env.DATABASE_URL;
 
 if (!DB_URI) {
-  throw new Error("DATABASE_URL environment variable is required for memory store");
+  throw new Error(
+    "DATABASE_URL environment variable is required for memory store"
+  );
 }
 
 // Singleton instance of the memory store
@@ -26,11 +28,11 @@ export function getMemoryStore(): PostgresStore {
 /**
  * Initialize the memory store tables in the database
  * Call this once during application startup or via a setup script
- * 
+ *
  * This creates the necessary tables in PostgreSQL to store:
  * - Cross-thread memories organized by namespace
  * - Semantic search indices (if configured)
- * 
+ *
  * Safe to call multiple times - will only create tables if they don't exist
  */
 export async function setupMemoryStore(): Promise<void> {
@@ -61,12 +63,6 @@ export const MemoryNamespaces = {
    * Key: "personal-context"
    */
   personalContext: (userId: string) => ["memories", userId, "personal"],
-
-  /**
-   * Question patterns: Categories and frequency of questions asked
-   * Key: "question-patterns"
-   */
-  questionPatterns: (userId: string) => ["memories", userId, "patterns"],
 };
 
 /**
@@ -77,7 +73,6 @@ export const MemoryKeys = {
   USER_PROFILE: "profile",
   THEOLOGICAL_INTERESTS: "theological-interests",
   PERSONAL_CONTEXT: "personal-context",
-  QUESTION_PATTERNS: "question-patterns",
 } as const;
 
 /**
@@ -97,11 +92,7 @@ export interface UserProfileMemory extends Record<string, unknown> {
     concerns?: string[];
     spiritualJourney?: string[];
   };
-  questionPatterns: {
-    [category: string]: number;
-  };
   preferences?: {
-    denomination?: string;
     preferredTopics?: string[];
   };
   lastUpdated: string;
@@ -116,16 +107,16 @@ export async function updateUserProfile(
 ): Promise<void> {
   const store = getMemoryStore();
   const namespace = MemoryNamespaces.userProfile(userId);
-  
+
   // Get existing profile or create default
   const existing = await store.get(namespace, MemoryKeys.USER_PROFILE);
-  const currentProfile: UserProfileMemory = (existing?.value as UserProfileMemory) || {
-    userId,
-    theologicalInterests: {},
-    personalContext: {},
-    questionPatterns: {},
-    lastUpdated: new Date().toISOString(),
-  };
+  const currentProfile: UserProfileMemory =
+    (existing?.value as UserProfileMemory) || {
+      userId,
+      theologicalInterests: {},
+      personalContext: {},
+      lastUpdated: new Date().toISOString(),
+    };
 
   // Merge updates
   const updatedProfile: UserProfileMemory = {
@@ -141,10 +132,12 @@ export async function updateUserProfile(
 /**
  * Example helper to retrieve user profile memory
  */
-export async function getUserProfile(userId: string): Promise<UserProfileMemory | null> {
+export async function getUserProfile(
+  userId: string
+): Promise<UserProfileMemory | null> {
   const store = getMemoryStore();
   const namespace = MemoryNamespaces.userProfile(userId);
-  
+
   const result = await store.get(namespace, MemoryKeys.USER_PROFILE);
   return (result?.value as UserProfileMemory) || null;
 }

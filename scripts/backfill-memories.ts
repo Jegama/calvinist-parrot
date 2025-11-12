@@ -1,6 +1,6 @@
 // scripts/backfill-memories.ts
 // Backfill memory extraction for historical conversations
-// Run with: npx tsx scripts/backfill-memories.ts [--user-id=<id>] [--process-all] [--batch-size=<n>] [--dry-run]
+// Run with: npx tsx scripts/backfill-memories.ts [--user-id=<id>] [--process-all] [--batch-size=<n>] [--min-messages=<n>] [--oldest=<n>] [--dry-run]
 
 import prisma from "@/lib/prisma";
 import { updateUserMemoriesFromConversation } from "@/utils/memoryExtraction";
@@ -11,6 +11,7 @@ interface BackfillOptions {
   batchSize?: number;
   dryRun?: boolean;
   minMessages?: number;
+  oldest?: number; // Limit to the first N oldest conversations per user
 }
 
 interface UserStats {
@@ -24,9 +25,11 @@ interface UserStats {
 /**
  * Get all unique users with their conversation counts
  */
-async function getUserConversationCounts(): Promise<Array<{ userId: string; count: number }>> {
+async function getUserConversationCounts(): Promise<
+  Array<{ userId: string; count: number }>
+> {
   const users = await prisma.chatHistory.groupBy({
-    by: ['userId'],
+    by: ["userId"],
     _count: {
       id: true,
     },
@@ -37,12 +40,12 @@ async function getUserConversationCounts(): Promise<Array<{ userId: string; coun
     },
     orderBy: {
       _count: {
-        id: 'desc',
+        id: "desc",
       },
     },
   });
 
-  return users.map(u => ({ userId: u.userId, count: u._count.id }));
+  return users.map((u) => ({ userId: u.userId, count: u._count.id }));
 }
 
 /**
@@ -50,7 +53,12 @@ async function getUserConversationCounts(): Promise<Array<{ userId: string; coun
  */
 async function processUserConversations(
   userId: string,
-  options: { minMessages: number; dryRun: boolean; batchSize: number }
+  options: {
+    minMessages: number;
+    dryRun: boolean;
+    batchSize: number;
+    oldest?: number;
+  }
 ): Promise<UserStats> {
   const stats: UserStats = {
     userId,
@@ -62,6 +70,7 @@ async function processUserConversations(
 
   let skip = 0;
   let hasMore = true;
+  let considered = 0; // how many oldest conversations we've considered for this user
 
   while (hasMore) {
     const conversations = await prisma.chatHistory.findMany({
@@ -71,12 +80,12 @@ async function processUserConversations(
       },
       include: {
         messages: {
-          orderBy: { timestamp: 'asc' },
+          orderBy: { timestamp: "asc" },
           select: { sender: true, content: true },
         },
       },
       // Process oldest first for chronological memory building
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: "asc" },
       skip,
       take: options.batchSize,
     });
@@ -88,17 +97,33 @@ async function processUserConversations(
 
     stats.totalConversations += conversations.length;
 
+    let reachedOldestLimit = false;
     for (const chat of conversations) {
-      const { messages, conversationName, category, subcategory } = chat;
+      // If an oldest limit is provided, stop once we have considered N conversations
+      if (
+        typeof options.oldest === "number" &&
+        options.oldest > 0 &&
+        considered >= options.oldest
+      ) {
+        reachedOldestLimit = true;
+        break;
+      }
+
+      considered += 1;
+      const { messages, conversationName } = chat;
 
       // Skip conversations without enough messages
       if (messages.length < options.minMessages) {
-        console.log(`   ⏭️  Skipping "${conversationName}" - only ${messages.length} message(s)`);
+        console.log(
+          `   ⏭️  Skipping "${conversationName}" - only ${messages.length} message(s)`
+        );
         stats.skipped++;
         continue;
       }
 
-      console.log(`   🔄 Processing "${conversationName}" (${messages.length} messages)`);
+      console.log(
+        `   🔄 Processing "${conversationName}" (${messages.length} messages)`
+      );
 
       if (options.dryRun) {
         console.log(`      ✅ Would process (dry run)`);
@@ -109,14 +134,14 @@ async function processUserConversations(
       try {
         await updateUserMemoriesFromConversation(
           userId,
-          messages.map(m => ({ sender: m.sender, content: m.content })),
+          messages.map((m) => ({ sender: m.sender, content: m.content }))
         );
 
         console.log(`      ✅ Memories extracted`);
         stats.processed++;
 
         // Rate limiting delay
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
       } catch (error) {
         console.error(`      ❌ Error:`, error);
         stats.errors++;
@@ -126,7 +151,7 @@ async function processUserConversations(
     skip += options.batchSize;
 
     // If we got fewer than batchSize, we're done
-    if (conversations.length < options.batchSize) {
+    if (conversations.length < options.batchSize || reachedOldestLimit) {
       hasMore = false;
     }
   }
@@ -141,6 +166,7 @@ async function backfillMemories(options: BackfillOptions = {}) {
     batchSize = 50,
     dryRun = false,
     minMessages = 2,
+    oldest,
   } = options;
 
   console.log("🔄 Starting memory backfill...");
@@ -171,19 +197,25 @@ async function backfillMemories(options: BackfillOptions = {}) {
       const allUsers = await getUserConversationCounts();
 
       // Filter out users with only 1 conversation (likely anonymous/one-time users)
-      usersToProcess = allUsers.filter(u => u.count > 1);
+      usersToProcess = allUsers.filter((u) => u.count > 1);
       const skippedUsers = allUsers.length - usersToProcess.length;
 
       console.log(`📌 Found ${allUsers.length} total users`);
-      console.log(`   Skipping ${skippedUsers} users with only 1 conversation (anonymous/one-time users)`);
-      console.log(`   Processing ${usersToProcess.length} users with 2+ conversations:\n`);
+      console.log(
+        `   Skipping ${skippedUsers} users with only 1 conversation (anonymous/one-time users)`
+      );
+      console.log(
+        `   Processing ${usersToProcess.length} users with 2+ conversations:\n`
+      );
 
       usersToProcess.forEach((u, i) => {
         console.log(`   ${i + 1}. User ${u.userId}: ${u.count} conversations`);
       });
       console.log();
     } else {
-      console.error("❌ Error: Must specify either --user-id=<id> or --process-all");
+      console.error(
+        "❌ Error: Must specify either --user-id=<id> or --process-all"
+      );
       console.log("Run with --help for usage information");
       process.exit(1);
     }
@@ -203,7 +235,9 @@ async function backfillMemories(options: BackfillOptions = {}) {
       const { userId: currentUserId, count } = usersToProcess[i];
 
       console.log("\n" + "─".repeat(50));
-      console.log(`👤 Processing user ${i + 1}/${usersToProcess.length}: ${currentUserId}`);
+      console.log(
+        `👤 Processing user ${i + 1}/${usersToProcess.length}: ${currentUserId}`
+      );
       console.log(`   Total conversations: ${count}`);
       console.log("─".repeat(50));
 
@@ -211,6 +245,7 @@ async function backfillMemories(options: BackfillOptions = {}) {
         minMessages,
         dryRun,
         batchSize,
+        oldest,
       });
 
       allStats.push(stats);
@@ -218,12 +253,14 @@ async function backfillMemories(options: BackfillOptions = {}) {
       totalSkipped += stats.skipped;
       totalErrors += stats.errors;
 
-      console.log(`\n   ✅ User complete: ${stats.processed} processed, ${stats.skipped} skipped, ${stats.errors} errors`);
+      console.log(
+        `\n   ✅ User complete: ${stats.processed} processed, ${stats.skipped} skipped, ${stats.errors} errors`
+      );
 
       // Pause between users to avoid rate limits
       if (i < usersToProcess.length - 1) {
         console.log("   ⏸️  Pausing 2s before next user...");
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     }
 
@@ -238,7 +275,9 @@ async function backfillMemories(options: BackfillOptions = {}) {
     console.log("\nPer-user breakdown:");
     allStats.forEach((stat, i) => {
       console.log(`  ${i + 1}. ${stat.userId}:`);
-      console.log(`     Processed: ${stat.processed}, Skipped: ${stat.skipped}, Errors: ${stat.errors}`);
+      console.log(
+        `     Processed: ${stat.processed}, Skipped: ${stat.skipped}, Errors: ${stat.errors}`
+      );
     });
     console.log("=".repeat(50));
 
@@ -246,7 +285,6 @@ async function backfillMemories(options: BackfillOptions = {}) {
       console.log("\n💡 View extracted memories at:");
       console.log(`   http://localhost:3000/api/user-memory?userId=<USER_ID>`);
     }
-
   } catch (error) {
     console.error("❌ Fatal error during backfill:", error);
     process.exit(1);
@@ -261,17 +299,19 @@ function parseArgs(): BackfillOptions {
   const options: BackfillOptions = {};
 
   for (const arg of args) {
-    if (arg.startsWith('--user-id=')) {
-      options.userId = arg.split('=')[1];
-    } else if (arg === '--process-all') {
+    if (arg.startsWith("--user-id=")) {
+      options.userId = arg.split("=")[1];
+    } else if (arg === "--process-all") {
       options.processAll = true;
-    } else if (arg.startsWith('--batch-size=')) {
-      options.batchSize = parseInt(arg.split('=')[1], 10);
-    } else if (arg === '--dry-run') {
+    } else if (arg.startsWith("--batch-size=")) {
+      options.batchSize = parseInt(arg.split("=")[1], 10);
+    } else if (arg === "--dry-run") {
       options.dryRun = true;
-    } else if (arg.startsWith('--min-messages=')) {
-      options.minMessages = parseInt(arg.split('=')[1], 10);
-    } else if (arg === '--help' || arg === '-h') {
+    } else if (arg.startsWith("--min-messages=")) {
+      options.minMessages = parseInt(arg.split("=")[1], 10);
+    } else if (arg.startsWith("--oldest=")) {
+      options.oldest = parseInt(arg.split("=")[1], 10);
+    } else if (arg === "--help" || arg === "-h") {
       console.log(`
 Memory Backfill Script
 ======================
@@ -284,6 +324,7 @@ Options:
   --process-all         Process ALL users and their conversations (use with caution!)
   --batch-size=<n>      Number of conversations to process per user batch (default: 50)
   --min-messages=<n>    Only process conversations with at least N messages (default: 2)
+  --oldest=<n>          Process only the first N oldest conversations per user (e.g., --oldest=10)
   --dry-run             Show what would be processed without saving
   --help, -h            Show this help message
 
@@ -292,7 +333,7 @@ Examples:
   npx tsx scripts/backfill-memories.ts --process-all --dry-run
 
   # Process all conversations for a specific user
-  npx tsx scripts/backfill-memories.ts --user-id=6754db6b00119ba9e0da
+  npx tsx scripts/backfill-memories.ts --user-id=abcd1234efgh5678ijkl90mn
 
   # Process all users with custom batch size
   npx tsx scripts/backfill-memories.ts --process-all --batch-size=25

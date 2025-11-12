@@ -2,8 +2,15 @@
 // Background memory extraction from conversations
 
 import OpenAI from "openai";
-import { updateUserProfile, getUserProfile, type UserProfileMemory } from "@/lib/langGraphStore";
-import { MEMORY_EXTRACTION_SYS_PROMPT, MERGE_MEMORIES_SYS_PROMPT, extractionSchema, mergeSchema } from "@/lib/prompts/memory";
+import {
+  updateUserProfile,
+  getUserProfile,
+  type UserProfileMemory,
+} from "@/lib/langGraphStore";
+import {
+  MEMORY_EXTRACTION_SYS_PROMPT,
+  extractionSchema,
+} from "@/lib/prompts/memory";
 import prisma from "@/lib/prisma";
 
 const openai = new OpenAI({
@@ -20,8 +27,8 @@ interface ConversationMessage {
 interface ExtractedMemories {
   theologicalInterests?: {
     [topic: string]: {
-      count: number;
-      contexts: string[];
+      count?: number;
+      contexts?: string[];
     };
   };
   personalContext?: {
@@ -35,7 +42,12 @@ interface ExtractedMemories {
     tertiaryDoctrineQuestions?: number;
   };
   spiritualStatus?: {
-    status?: "seeker" | "new_believer" | "mature_believer" | "unclear";
+    status?:
+      | "seeker"
+      | "new_believer"
+      | "growing_believer"
+      | "mature_believer"
+      | "unclear";
     gospelPresented?: boolean;
   };
   ministryContext?: string[];
@@ -57,18 +69,18 @@ async function extractMemoriesFromConversation(
   messages: ConversationMessage[]
 ): Promise<ExtractedMemories> {
   const conversationText = messages
-    .map(m => `${m.sender === 'user' ? 'User' : 'Parrot'}: ${m.content}`)
-    .join('\n\n');
+    .map((m) => `${m.sender === "user" ? "User" : "Parrot"}: ${m.content}`)
+    .join("\n\n");
 
   try {
     const response = await openai.chat.completions.create({
       model: EXTRACTION_MODEL,
       messages: [
         { role: "system", content: MEMORY_EXTRACTION_SYS_PROMPT },
-        { role: "user", content: conversationText }
+        { role: "user", content: conversationText },
       ],
       response_format: { type: "json_schema", json_schema: extractionSchema },
-      temperature: 0.3, // Lower temperature for more consistent extraction
+      temperature: 0.1, // Lower temperature for more consistent extraction
     });
 
     const extracted = JSON.parse(response.choices[0].message.content || "{}");
@@ -87,48 +99,230 @@ async function mergeMemories(
   userId: string,
   newMemories: ExtractedMemories
 ): Promise<UserProfileMemory> {
-  // Get existing profile
-  const existingProfile = await getUserProfile(userId) || {
+  const existingProfile: UserProfileMemory = (await getUserProfile(userId)) || {
     userId,
     theologicalInterests: {},
     personalContext: {},
-    questionPatterns: {},
     lastUpdated: new Date().toISOString(),
   };
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: EXTRACTION_MODEL,
-      messages: [
-        { role: "system", content: MERGE_MEMORIES_SYS_PROMPT },
-        {
-          role: "user",
-          content: `Existing profile:\n${JSON.stringify(existingProfile, null, 2)}\n\nNew memories:\n${JSON.stringify(newMemories, null, 2)}`
-        }
-      ],
-      response_format: { type: "json_schema", json_schema: mergeSchema },
-      temperature: 0.3,
-    });
+  const nowIso = new Date().toISOString();
 
-    const merged = JSON.parse(response.choices[0].message.content || "{}");
+  const clampUnique = (arr: string[] = [], max: number) => {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const item of arr) {
+      const key = String(item).trim();
+      if (!key) continue;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(key);
+      }
+      if (result.length >= max) break;
+    }
+    return result;
+  };
 
-    // Ensure required fields
-    return {
-      userId,
-      theologicalInterests: merged.theologicalInterests || existingProfile.theologicalInterests,
-      personalContext: merged.personalContext || existingProfile.personalContext,
-      questionPatterns: merged.questionPatterns || existingProfile.questionPatterns,
-      preferences: merged.preferences || existingProfile.preferences,
-      lastUpdated: new Date().toISOString(),
-    };
-  } catch (error) {
-    console.error("Error merging memories:", error);
-    // Return existing profile with updated timestamp on error
-    return {
-      ...existingProfile,
-      lastUpdated: new Date().toISOString(),
-    };
+  // Canonicalize topic keys to snake_case and strip punctuation/spaces
+  const canonicalizeTopic = (s: string) =>
+    String(s)
+      .normalize("NFKD")
+      .toLowerCase()
+      .replace(/[\u2018\u2019\u201C\u201D'"`]/g, "") // smart quotes + quotes
+      .replace(/[^a-z0-9]+/g, "_") // non-alphanum -> underscore
+      .replace(/^_+|_+$/g, "") // trim underscores
+      .replace(/_{2,}/g, "_"); // collapse repeats
+
+  // Normalize variants
+  const normalizedNew = { ...newMemories };
+  if (normalizedNew.theologicalInterests) {
+    for (const [topic, info] of Object.entries(
+      normalizedNew.theologicalInterests
+    )) {
+      // Support model variant keys
+      // @ts-expect-error allow mentions alias
+      const altCount = info.mentions as number | undefined;
+      // @ts-expect-error allow keyContext alias
+      const altContexts = info.keyContext as string[] | undefined;
+      if (altCount !== undefined && info.count === undefined)
+        info.count = altCount;
+      if (altContexts && (!info.contexts || info.contexts.length === 0))
+        info.contexts = altContexts;
+      if (Array.isArray(info.contexts))
+        info.contexts = info.contexts.map((c) => String(c));
+    }
+
+    // Canonicalize and merge duplicate keys
+    const canonicalMap: NonNullable<ExtractedMemories["theologicalInterests"]> =
+      {};
+    for (const [rawKey, info] of Object.entries(
+      normalizedNew.theologicalInterests
+    )) {
+      const key = canonicalizeTopic(rawKey);
+      if (!key) continue;
+      const target = (canonicalMap[key] ||= { count: 0, contexts: [] });
+      const addCount = Math.max(0, Number(info?.count ?? 1));
+      target.count = Math.max(0, Number(target.count ?? 0)) + addCount;
+      const ctx = Array.isArray(info?.contexts)
+        ? info!.contexts!.map((c) => String(c)).filter(Boolean)
+        : [];
+      target.contexts = [...(target.contexts || []), ...ctx];
+    }
+    normalizedNew.theologicalInterests = canonicalMap;
   }
+
+  // Start with existing interests but canonicalize keys and merge duplicates
+  const interests: {
+    [topic: string]: {
+      count: number;
+      lastMentioned: string;
+      contexts: string[];
+    };
+  } = {};
+  for (const [rawKey, data] of Object.entries(
+    existingProfile.theologicalInterests || {}
+  )) {
+    const key = canonicalizeTopic(rawKey);
+    if (!key) continue;
+    if (!interests[key]) {
+      interests[key] = {
+        count: Math.max(0, Number((data as any)?.count ?? 0)),
+        lastMentioned: String((data as any)?.lastMentioned || nowIso),
+        contexts: Array.isArray((data as any)?.contexts)
+          ? ((data as any)?.contexts as string[]).map((c) => String(c))
+          : [],
+      };
+    } else {
+      // merge duplicate existing keys
+      interests[key].count += Math.max(0, Number((data as any)?.count ?? 0));
+      const existingTime = Date.parse(interests[key].lastMentioned || "0");
+      const candidateTime = Date.parse(
+        String((data as any)?.lastMentioned || "0")
+      );
+      if (candidateTime > existingTime) {
+        interests[key].lastMentioned = String((data as any)?.lastMentioned);
+      }
+      const merged = [
+        ...interests[key].contexts,
+        ...(Array.isArray((data as any)?.contexts)
+          ? ((data as any)?.contexts as string[])
+          : []
+        ).map((c) => String(c)),
+      ];
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const c of merged) {
+        const t = c.trim();
+        if (!t || seen.has(t)) continue;
+        seen.add(t);
+        out.push(t);
+      }
+      interests[key].contexts = out;
+    }
+  }
+  const MAX_CONTEXTS_PER_TOPIC = 5;
+  const MAX_TOTAL_TOPICS = 40; // global cap to prevent unbounded growth
+  if (normalizedNew.theologicalInterests) {
+    for (const [topic, info] of Object.entries(
+      normalizedNew.theologicalInterests
+    )) {
+      const newCount = Math.max(0, Number(info?.count ?? 1));
+      const newContexts = Array.isArray(info?.contexts)
+        ? info!.contexts!.map((c) => String(c)).filter(Boolean)
+        : [];
+      if (!interests[topic]) {
+        interests[topic] = { count: 0, lastMentioned: nowIso, contexts: [] };
+      }
+      interests[topic].count += newCount;
+      interests[topic].lastMentioned = nowIso;
+      const mergedContexts = [
+        ...newContexts.slice(-MAX_CONTEXTS_PER_TOPIC),
+        ...(interests[topic].contexts || []),
+      ];
+      // Deduplicate preserving order, clamp
+      const unique: string[] = [];
+      const seenCtx = new Set<string>();
+      for (const c of mergedContexts) {
+        const trimmed = c.trim();
+        if (!trimmed) continue;
+        if (!seenCtx.has(trimmed)) {
+          seenCtx.add(trimmed);
+          unique.push(trimmed);
+        }
+        if (unique.length >= MAX_CONTEXTS_PER_TOPIC) break;
+      }
+      interests[topic].contexts = unique;
+    }
+  }
+
+  // If total topics exceed cap, keep highest count & most recently mentioned
+  const topicEntries = Object.entries(interests);
+  if (topicEntries.length > MAX_TOTAL_TOPICS) {
+    topicEntries.sort((a, b) => {
+      const countDiff = b[1].count - a[1].count;
+      if (countDiff !== 0) return countDiff;
+      // newer lastMentioned first
+      return Date.parse(b[1].lastMentioned) - Date.parse(a[1].lastMentioned);
+    });
+    const trimmed = topicEntries.slice(0, MAX_TOTAL_TOPICS);
+    const newMap: typeof interests = {};
+    for (const [k, v] of trimmed) newMap[k] = v;
+    // Drop less significant topics
+    for (const k of Object.keys(interests)) {
+      if (!newMap[k]) delete interests[k];
+    }
+  }
+
+  // Merge personal context
+  const existingPc = existingProfile.personalContext || {};
+  const newPc = normalizedNew.personalContext || {};
+  const MAX_CONCERNS = 50;
+  const MAX_JOURNEY = 50;
+  const concerns = clampUnique(
+    [
+      ...(newPc.concerns || []).map((c) => String(c)).filter(Boolean),
+      ...(existingPc.concerns || []).map((c) => String(c)).filter(Boolean),
+    ],
+    MAX_CONCERNS
+  );
+  const journey = clampUnique(
+    [
+      ...(newPc.spiritualJourney || []).map((c) => String(c)).filter(Boolean),
+      ...(existingPc.spiritualJourney || [])
+        .map((c) => String(c))
+        .filter(Boolean),
+    ],
+    MAX_JOURNEY
+  );
+  const lifeStage = newPc.lifeStage || existingPc.lifeStage;
+
+  // Merge preferences
+  const existingPref = existingProfile.preferences || {};
+  const newPref = normalizedNew.preferences || {};
+  const MAX_PREF_TOPICS = 30;
+  const preferredTopics = clampUnique(
+    [
+      ...(newPref.preferredTopics || []).map((t) => String(t)).filter(Boolean),
+      ...(existingPref.preferredTopics || [])
+        .map((t) => String(t))
+        .filter(Boolean),
+    ],
+    MAX_PREF_TOPICS
+  );
+
+  return {
+    userId: existingProfile.userId,
+    theologicalInterests: interests,
+    personalContext: {
+      ...existingPc,
+      lifeStage,
+      concerns,
+      spiritualJourney: journey,
+    },
+    preferences:
+      preferredTopics.length > 0 ? { preferredTopics } : existingPref,
+    lastUpdated: nowIso,
+  };
 }
 
 /**
@@ -164,13 +358,19 @@ async function syncToPrisma(
 
     // Doctrinal question tracking
     if (extracted.questionPatterns?.coreDoctrineQuestions) {
-      updateData.coreDoctrineQuestions = { increment: extracted.questionPatterns.coreDoctrineQuestions };
+      updateData.coreDoctrineQuestions = {
+        increment: extracted.questionPatterns.coreDoctrineQuestions,
+      };
     }
     if (extracted.questionPatterns?.secondaryDoctrineQuestions) {
-      updateData.secondaryDoctrineQuestions = { increment: extracted.questionPatterns.secondaryDoctrineQuestions };
+      updateData.secondaryDoctrineQuestions = {
+        increment: extracted.questionPatterns.secondaryDoctrineQuestions,
+      };
     }
     if (extracted.questionPatterns?.tertiaryDoctrineQuestions) {
-      updateData.tertiaryDoctrineQuestions = { increment: extracted.questionPatterns.tertiaryDoctrineQuestions };
+      updateData.tertiaryDoctrineQuestions = {
+        increment: extracted.questionPatterns.tertiaryDoctrineQuestions,
+      };
     }
 
     // Ministry context
@@ -178,9 +378,14 @@ async function syncToPrisma(
       // Merge with existing (deduplicate)
       const existing = await prisma.userProfile.findUnique({
         where: { appwriteUserId: userId },
-        select: { ministryContext: true }
+        select: { ministryContext: true },
       });
-      const combined = [...new Set([...(existing?.ministryContext || []), ...extracted.ministryContext])];
+      const combined = [
+        ...new Set([
+          ...(existing?.ministryContext || []),
+          ...extracted.ministryContext,
+        ]),
+      ];
       updateData.ministryContext = combined;
     }
 
@@ -191,7 +396,8 @@ async function syncToPrisma(
 
     // Learning preferences
     if (extracted.learningPreferences?.followUpTendency) {
-      updateData.followUpTendency = extracted.learningPreferences.followUpTendency;
+      updateData.followUpTendency =
+        extracted.learningPreferences.followUpTendency;
     }
     if (extracted.learningPreferences?.preferredDepth) {
       updateData.preferredDepth = extracted.learningPreferences.preferredDepth;
@@ -219,23 +425,41 @@ async function syncToPrisma(
       };
 
       // Convert increment operations to initial values for create
-      if (updateData.spiritualStatus) createData.spiritualStatus = updateData.spiritualStatus;
-      if (updateData.gospelPresentedAt) createData.gospelPresentedAt = updateData.gospelPresentedAt;
-      if (updateData.gospelPresentationCount) createData.gospelPresentationCount = updateData.gospelPresentationCount.increment;
-      if (updateData.coreDoctrineQuestions) createData.coreDoctrineQuestions = updateData.coreDoctrineQuestions.increment;
-      if (updateData.secondaryDoctrineQuestions) createData.secondaryDoctrineQuestions = updateData.secondaryDoctrineQuestions.increment;
-      if (updateData.tertiaryDoctrineQuestions) createData.tertiaryDoctrineQuestions = updateData.tertiaryDoctrineQuestions.increment;
-      if (updateData.ministryContext) createData.ministryContext = updateData.ministryContext;
-      if (updateData.churchInvolvement) createData.churchInvolvement = updateData.churchInvolvement;
-      if (updateData.followUpTendency) createData.followUpTendency = updateData.followUpTendency;
-      if (updateData.preferredDepth) createData.preferredDepth = updateData.preferredDepth;
+      if (updateData.spiritualStatus)
+        createData.spiritualStatus = updateData.spiritualStatus;
+      if (updateData.gospelPresentedAt)
+        createData.gospelPresentedAt = updateData.gospelPresentedAt;
+      if (updateData.gospelPresentationCount)
+        createData.gospelPresentationCount =
+          updateData.gospelPresentationCount.increment;
+      if (updateData.coreDoctrineQuestions)
+        createData.coreDoctrineQuestions =
+          updateData.coreDoctrineQuestions.increment;
+      if (updateData.secondaryDoctrineQuestions)
+        createData.secondaryDoctrineQuestions =
+          updateData.secondaryDoctrineQuestions.increment;
+      if (updateData.tertiaryDoctrineQuestions)
+        createData.tertiaryDoctrineQuestions =
+          updateData.tertiaryDoctrineQuestions.increment;
+      if (updateData.ministryContext)
+        createData.ministryContext = updateData.ministryContext;
+      if (updateData.churchInvolvement)
+        createData.churchInvolvement = updateData.churchInvolvement;
+      if (updateData.followUpTendency)
+        createData.followUpTendency = updateData.followUpTendency;
+      if (updateData.preferredDepth)
+        createData.preferredDepth = updateData.preferredDepth;
 
       await prisma.userProfile.upsert({
         where: { appwriteUserId: userId },
         update: updateData,
         create: createData,
       });
-      console.log(`✅ Synced ${Object.keys(updateData).length} fields to Prisma for user ${userId}`);
+      console.log(
+        `✅ Synced ${
+          Object.keys(updateData).length
+        } fields to Prisma for user ${userId}`
+      );
     }
   } catch (error) {
     console.error("Error syncing to Prisma:", error);
@@ -246,17 +470,17 @@ async function syncToPrisma(
 /**
  * Main function: Extract and update user memories from conversation
  * This runs in the background after conversations complete
- * 
+ *
  * @param userId - The user's ID
  * @param messages - Recent conversation messages (typically last exchange)
  */
 export async function updateUserMemoriesFromConversation(
   userId: string,
-  messages: ConversationMessage[],
+  messages: ConversationMessage[]
 ): Promise<void> {
   try {
     // Validate userId
-    if (!userId || userId === 'undefined' || userId === 'null') {
+    if (!userId || userId === "undefined" || userId === "null") {
       console.warn(`⚠️ Memory extraction skipped: invalid userId (${userId})`);
       return;
     }
@@ -301,7 +525,6 @@ export async function updateUserMemoriesSimple(
   try {
     const existing = await getUserProfile(userId);
     const interests = existing?.theologicalInterests || {};
-    const patterns = existing?.questionPatterns || {};
 
     // Update theological interest
     if (!interests[topic]) {
@@ -315,13 +538,9 @@ export async function updateUserMemoriesSimple(
       interests[topic].contexts = interests[topic].contexts.slice(-5);
     }
 
-    // Update question pattern
-    patterns[category] = (patterns[category] || 0) + 1;
-
     await updateUserProfile(userId, {
       userId,
       theologicalInterests: interests,
-      questionPatterns: patterns,
       personalContext: existing?.personalContext || {},
       lastUpdated: new Date().toISOString(),
     });

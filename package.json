@@ -1,6 +1,6 @@
 {
   "name": "calvinist-parrot",
-  "version": "0.4",
+  "version": "0.5",
   "private": true,
   "scripts": {
     "dev": "next dev",

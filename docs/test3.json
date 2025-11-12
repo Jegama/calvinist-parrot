@@ -1,0 +1,194 @@
+{
+    "userId": "",
+    "lastUpdated": "2025-11-12T19:45:55.658Z",
+    "preferences": {
+        "preferredTopics": [
+            "first_commandment",
+            "idolatry",
+            "service_to_god",
+            "problem_of_evil",
+            "gods_sovereignty",
+            "suffering_and_redemption",
+            "eschatology",
+            "sanctification",
+            "glorification",
+            "second_commandment",
+            "worship",
+            "gratitude",
+            "glorifying_god",
+            "heart_condition",
+            "prayer",
+            "scripture_study",
+            "obedience"
+        ]
+    },
+    "personalContext": {
+        "concerns": [
+            "idolatry in service to God",
+            "motivation for serving God",
+            "questioning the existence of evil if God is good",
+            "avoiding idolatry",
+            "distractions from God",
+            "prioritizing worship of God",
+            "prioritizing other allegiances over God",
+            "understanding heart's condition regarding idolatry"
+        ],
+        "spiritualJourney": [
+            "seeking to serve God with a genuine heart",
+            "reflecting on relationship with God versus service activities",
+            "seeking understanding of God's goodness amid suffering",
+            "growing in understanding of worship",
+            "reflecting on God's nature and worship practices",
+            "seeking to cultivate deeper relationship with God",
+            "practicing gratitude to avoid idolatry",
+            "committed to spiritual disciplines like prayer and scripture reading",
+            "examining heart's devotion to God",
+            "growing in understanding of first commandment implications",
+            "growing in understanding of first commandment",
+            "seeking to deepen relationship with God through prayer and scripture",
+            "reflecting on obedience and faithfulness"
+        ]
+    },
+    "theologicalInterests": {
+        "gospel": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:51.005Z"
+        },
+        "prayer": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:10.414Z"
+        },
+        "worship": {
+            "count": 2,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:43.780Z"
+        },
+        "idolatry": {
+            "count": 5,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:55.605Z"
+        },
+        "gratitude": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:37.403Z"
+        },
+        "obedience": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:10.414Z"
+        },
+        "sacraments": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:43.780Z"
+        },
+        "eschatology": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:47.029Z"
+        },
+        "faithfulness": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:10.414Z"
+        },
+        "glorification": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:47.029Z"
+        },
+        "nature_of_god": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:43.780Z"
+        },
+        "glorifying_god": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:26.538Z"
+        },
+        "sanctification": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:47.029Z"
+        },
+        "service_to_god": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:55.605Z"
+        },
+        "grace_and_works": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:55.605Z"
+        },
+        "heart_condition": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:17.774Z"
+        },
+        "problem_of_evil": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:51.005Z"
+        },
+        "scripture_study": {
+            "count": 2,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:37.403Z"
+        },
+        "gods_sovereignty": {
+            "count": 9,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:55.605Z"
+        },
+        "spiritual_growth": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:37.403Z"
+        },
+        "biblical_examples": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:17.774Z"
+        },
+        "first_commandment": {
+            "count": 5,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:55.605Z"
+        },
+        "second_commandment": {
+            "count": 5,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:43.780Z"
+        },
+        "scripture_authority": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:43.780Z"
+        },
+        "motivation_in_service": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:55.605Z"
+        },
+        "suffering_and_redemption": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:51.005Z"
+        },
+        "community_in_christian_life": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:37.403Z"
+        },
+        "westminster_shorter_catechism": {
+            "count": 1,
+            "contexts": [],
+            "lastMentioned": "2025-11-12T19:45:26.538Z"
+        }
+    }
+}
