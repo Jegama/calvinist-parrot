@@ -14,7 +14,12 @@ import {
 import { Family, NewFamilyFormState } from "../types";
 import { useEffect, useMemo, useState } from "react";
 import { formatRelative } from "../utils";
-import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ChevronFirst,
+  ChevronLast,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { ARCHIVED_CATEGORY } from "../constants";
 
 const joinClassNames = (base: string, extra?: string) => {
@@ -73,6 +78,57 @@ export function FamilySection({
   );
   const showArchiveMetadata = categoryFilter === ARCHIVED_CATEGORY;
 
+  const paginationControls = (
+    <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <span>
+        {Math.min((page - 1) * PAGE_SIZE + 1, total)}-
+        {Math.min(page * PAGE_SIZE, total)} of {total}
+        {categoryFilter !== "all" ? ` in ${categoryFilter}` : ""}
+      </span>
+      <div className="flex items-center gap-1.5">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPage(1)}
+          disabled={!canPrev}
+          aria-label="Go to first page"
+        >
+          <ChevronFirst className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={!canPrev}
+          aria-label="Go to previous page"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <span className="px-1">
+          Page {page} / {totalPages}
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          disabled={!canNext}
+          aria-label="Go to next page"
+        >
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPage(totalPages)}
+          disabled={!canNext}
+          aria-label="Go to last page"
+        >
+          <ChevronLast className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <Card className={joinClassNames("", className)}>
       <CardHeader>
@@ -80,22 +136,30 @@ export function FamilySection({
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground">Add a new family</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground">
+            Add a new family
+          </h3>
           <div className="grid gap-3 md:grid-cols-2">
             <Input
               placeholder="Family name"
               value={newFamily.familyName}
-              onChange={(event) => onNewFamilyChange({ familyName: event.target.value })}
+              onChange={(event) =>
+                onNewFamilyChange({ familyName: event.target.value })
+              }
             />
             <Input
               placeholder="Parents"
               value={newFamily.parents}
-              onChange={(event) => onNewFamilyChange({ parents: event.target.value })}
+              onChange={(event) =>
+                onNewFamilyChange({ parents: event.target.value })
+              }
             />
             <Input
               placeholder="Children (comma-separated)"
               value={newFamily.children}
-              onChange={(event) => onNewFamilyChange({ children: event.target.value })}
+              onChange={(event) =>
+                onNewFamilyChange({ children: event.target.value })
+              }
             />
             <div className="space-y-2">
               <Select
@@ -103,7 +167,8 @@ export function FamilySection({
                 onValueChange={(value) =>
                   onNewFamilyChange({
                     categorySelect: value,
-                    customCategory: value === "__custom" ? newFamily.customCategory : "",
+                    customCategory:
+                      value === "__custom" ? newFamily.customCategory : "",
                   })
                 }
               >
@@ -124,12 +189,16 @@ export function FamilySection({
                 <Input
                   placeholder="New category name"
                   value={newFamily.customCategory}
-                  onChange={(event) => onNewFamilyChange({ customCategory: event.target.value })}
+                  onChange={(event) =>
+                    onNewFamilyChange({ customCategory: event.target.value })
+                  }
                 />
               )}
             </div>
           </div>
-          {familyFormError && <p className="text-xs text-destructive">{familyFormError}</p>}
+          {familyFormError && (
+            <p className="text-xs text-destructive">{familyFormError}</p>
+          )}
           <Button onClick={onCreateFamily} className="w-full md:w-auto">
             Add Family
           </Button>
@@ -138,7 +207,9 @@ export function FamilySection({
         <Separator />
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <h3 className="text-sm font-semibold text-muted-foreground">Current families</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground">
+            Current families
+          </h3>
           <Select value={categoryFilter} onValueChange={onCategoryFilterChange}>
             <SelectTrigger className="w-full md:w-[220px]">
               <SelectValue placeholder="Filter by category" />
@@ -155,61 +226,24 @@ export function FamilySection({
         </div>
 
         {filteredFamilies.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Add a family card to get started.</p>
+          <p className="text-sm text-muted-foreground">
+            Add a family card to get started.
+          </p>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>
-                {Math.min((page - 1) * PAGE_SIZE + 1, total)}-
-                {Math.min(page * PAGE_SIZE, total)} of {total}
-                {categoryFilter !== "all" ? ` in ${categoryFilter}` : ""}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage(1)}
-                  disabled={!canPrev}
-                  aria-label="Go to first page"
-                >
-                  <ChevronFirst className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={!canPrev}
-                  aria-label="Go to previous page"
-                >
-                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <span className="px-1">Page {page} / {totalPages}</span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={!canNext}
-                  aria-label="Go to next page"
-                >
-                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage(totalPages)}
-                  disabled={!canNext}
-                  aria-label="Go to last page"
-                >
-                  <ChevronLast className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </div>
-            </div>
+            {paginationControls}
 
             <div className="grid gap-4 md:grid-cols-2">
               {pagedFamilies.map((family) => (
-                <div key={family.id} className="rounded-lg border bg-card p-4 shadow-sm">
+                <div
+                  key={family.id}
+                  className="rounded-lg border bg-card p-4 shadow-sm"
+                >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 cursor-pointer" onClick={() => onViewFamilyDetail(family)}>
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() => onViewFamilyDetail(family)}
+                    >
                       <h4 className="text-base font-semibold hover:text-primary transition-colors">
                         {family.familyName}
                       </h4>
@@ -219,21 +253,28 @@ export function FamilySection({
                         </span>
                       )}
                     </div>
-                    <Button size="sm" variant="outline" onClick={() => onEditFamily(family)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onEditFamily(family)}
+                    >
                       Edit
                     </Button>
                   </div>
                   <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                     {family.parents && <p>Parents: {family.parents}</p>}
-                    {Array.isArray(family.children) && family.children.length > 0 && (
-                      <p>Children: {family.children.join(", ")}</p>
-                    )}
+                    {Array.isArray(family.children) &&
+                      family.children.length > 0 && (
+                        <p>Children: {family.children.join(", ")}</p>
+                      )}
                     {showArchiveMetadata && family.archivedAt ? (
                       <p>Archived: {formatRelative(family.archivedAt)}</p>
                     ) : (
                       <p>
                         Last prayed: {formatRelative(family.lastPrayedAt)}
-                        {family.lastPrayedBy?.displayName ? ` - by ${family.lastPrayedBy.displayName}` : ""}
+                        {family.lastPrayedBy?.displayName
+                          ? ` - by ${family.lastPrayedBy.displayName}`
+                          : ""}
                       </p>
                     )}
                   </div>
@@ -241,53 +282,7 @@ export function FamilySection({
               ))}
             </div>
 
-            {/* Duplicate controls at bottom for convenience */}
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>
-                {Math.min((page - 1) * PAGE_SIZE + 1, total)}-
-                {Math.min(page * PAGE_SIZE, total)} of {total}
-                {categoryFilter !== "all" ? ` in ${categoryFilter}` : ""}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage(1)}
-                  disabled={!canPrev}
-                  aria-label="Go to first page"
-                >
-                  <ChevronFirst className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={!canPrev}
-                  aria-label="Go to previous page"
-                >
-                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <span className="px-1">Page {page} / {totalPages}</span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={!canNext}
-                  aria-label="Go to next page"
-                >
-                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage(totalPages)}
-                  disabled={!canNext}
-                  aria-label="Go to last page"
-                >
-                  <ChevronLast className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </div>
-            </div>
+            {paginationControls}
           </div>
         )}
       </CardContent>

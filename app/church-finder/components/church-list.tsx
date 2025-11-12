@@ -1,10 +1,26 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import type { ChurchListItem, EvaluationStatus } from "@/types/church";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  ChevronFirst,
+  ChevronLast,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import badgesJson from "@/lib/references/badges.json";
 import { secondaryDifferenceBadges } from "@/lib/schemas/church-finder";
 
@@ -35,86 +51,99 @@ function formatLocation(church: ChurchListItem): string {
 
 // Coverage percent is displayed via a progress bar; keep helper minimal if needed later
 
-export function ChurchList({ items, page, pageSize, total, loading, onPageChange, onSelect }: ChurchListProps) {
+export function ChurchList({
+  items,
+  page,
+  pageSize,
+  total,
+  loading,
+  onPageChange,
+  onSelect,
+}: ChurchListProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const paginationControls = (
+    <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <span>
+        {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of{" "}
+        {total}
+      </span>
+      <div className="flex items-center gap-1.5">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={page <= 1 || loading}
+          onClick={() => onPageChange(1)}
+          aria-label="Go to first page"
+        >
+          <ChevronFirst className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={page <= 1 || loading}
+          onClick={() => onPageChange(page - 1)}
+          aria-label="Go to previous page"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <span className="px-1">
+          Page {page} / {totalPages}
+        </span>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={page >= totalPages || loading}
+          onClick={() => onPageChange(page + 1)}
+          aria-label="Go to next page"
+        >
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={page >= totalPages || loading}
+          onClick={() => onPageChange(totalPages)}
+          aria-label="Go to last page"
+        >
+          <ChevronLast className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <TooltipProvider delayDuration={0}>
       <div className="space-y-4">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
-          </span>
-          <div className="flex items-center gap-1.5">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page <= 1 || loading}
-              onClick={() => onPageChange(1)}
-              aria-label="Go to first page"
-            >
-              <ChevronFirst className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page <= 1 || loading}
-              onClick={() => onPageChange(page - 1)}
-              aria-label="Go to previous page"
-            >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <span className="px-1">
-              Page {page} / {totalPages}
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page >= totalPages || loading}
-              onClick={() => onPageChange(page + 1)}
-              aria-label="Go to next page"
-            >
-              <ChevronRight className="h-4 w-4" aria-hidden="true" />
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={page >= totalPages || loading}
-              onClick={() => onPageChange(totalPages)}
-              aria-label="Go to last page"
-            >
-              <ChevronLast className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </div>
-        </div>
-
+        {paginationControls}
         <div className="grid gap-3 md:grid-cols-2">
           {items.length === 0 && !loading ? (
             <Card>
               <CardHeader>
                 <CardTitle>No churches found</CardTitle>
-                <CardDescription>Try adjusting your filters or search criteria.</CardDescription>
+                <CardDescription>
+                  Try adjusting your filters or search criteria.
+                </CardDescription>
               </CardHeader>
             </Card>
           ) : (
             items.map((church) => {
               const status = church.status ?? "limited_information";
-              const displayKey: keyof typeof STATUS_STYLES = church.confessionAdopted
-                ? "confessional"
-                : status;
+              const displayKey: keyof typeof STATUS_STYLES =
+                church.confessionAdopted ? "confessional" : status;
               const displayLabel = church.confessionAdopted
                 ? "Confessional Reformed"
                 : status === "not_endorsed"
-                  ? "Not Endorsed"
-                  : status === "limited_information"
-                    ? "Limited Info"
-                    : status === "biblically_sound_with_differences"
-                      ? "Biblically Sound"
-                      : "Recommended";
+                ? "Not Endorsed"
+                : status === "limited_information"
+                ? "Limited Info"
+                : status === "biblically_sound_with_differences"
+                ? "Biblically Sound"
+                : "Recommended";
               const badges = church.badges ?? [];
               // Prioritize badges by category and cap the number shown
               const CATEGORY_PRIORITY: Record<string, number> = {
@@ -125,8 +154,11 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                 info: 4,
               };
               const getPriority = (badge: string) => {
-                const category = (badgesJson as Record<string, { category?: string }>)[badge]?.category;
-                if (category && CATEGORY_PRIORITY[category] !== undefined) return CATEGORY_PRIORITY[category];
+                const category = (
+                  badgesJson as Record<string, { category?: string }>
+                )[badge]?.category;
+                if (category && CATEGORY_PRIORITY[category] !== undefined)
+                  return CATEGORY_PRIORITY[category];
                 return 999; // unknown badge keys go last
               };
               const sortedBadges = [...badges].sort((a, b) => {
@@ -145,9 +177,11 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                   onClick={() => onSelect(church)}
                 >
                   <CardHeader className="space-y-1.5">
-                    <CardTitle className="text-xl font-semibold text-foreground">{church.name}</CardTitle>
+                    <CardTitle className="text-xl font-semibold text-foreground">
+                      {church.name}
+                    </CardTitle>
                     <CardDescription>{formatLocation(church)}</CardDescription>
-                    {(church.status || church.confessionAdopted) ? (
+                    {church.status || church.confessionAdopted ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span
@@ -162,12 +196,12 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                             {church.confessionAdopted
                               ? "Publicly subscribes to a historic Reformed confession."
                               : status === "not_endorsed"
-                                ? "We cannot endorse this church based on what is published."
-                                : status === "limited_information"
-                                  ? "Website does not clearly state several essentials."
-                                  : status === "biblically_sound_with_differences"
-                                    ? "Affirms essentials but holds to non-Reformed secondary positions."
-                                    : "We can commend this church based on essentials affirmed on its site."}
+                              ? "We cannot endorse this church based on what is published."
+                              : status === "limited_information"
+                              ? "Website does not clearly state several essentials."
+                              : status === "biblically_sound_with_differences"
+                              ? "Affirms essentials but holds to non-Reformed secondary positions."
+                              : "We can commend this church based on essentials affirmed on its site."}
                           </p>
                         </TooltipContent>
                       </Tooltip>
@@ -177,26 +211,37 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                     {/* Left column: Denomination + Services */}
                     <div className="order-2 lg:order-1 space-y-4">
                       <div className="space-y-1">
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Denomination</p>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Denomination
+                        </p>
                         <p className="text-sm text-foreground">
                           {church.denomination.label ?? "Unknown"}
                           {typeof church.denomination.confidence === "number"
-                            ? ` (${Math.round(church.denomination.confidence * 100)}% confidence)`
+                            ? ` (${Math.round(
+                                church.denomination.confidence * 100
+                              )}% confidence)`
                             : ""}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Services</p>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          Services
+                        </p>
                         <div className="mt-1 flex flex-wrap gap-1">
                           {church.serviceTimes.length > 0 ? (
                             church.serviceTimes.slice(0, 3).map((service) => (
-                              <span key={service.id} className="badge--neutral px-2 py-0.5 text-xs">
+                              <span
+                                key={service.id}
+                                className="badge--neutral px-2 py-0.5 text-xs"
+                              >
                                 {service.label}
                               </span>
                             ))
                           ) : (
-                            <span className="badge--neutral px-2 py-0.5 text-xs">Not listed</span>
+                            <span className="badge--neutral px-2 py-0.5 text-xs">
+                              Not listed
+                            </span>
                           )}
                         </div>
                       </div>
@@ -204,27 +249,39 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
 
                     {/* Right column: At a Glance badges */}
                     <div className="order-1 lg:order-2 space-y-1">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">At a Glance</p>
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        At a Glance
+                      </p>
                       <div className="flex flex-wrap gap-1">
                         {sortedBadges.slice(0, maxBadges).map((badge) => {
-                          const badgeInfo = (badgesJson as Record<string, { description?: string; category?: string }>)[badge];
+                          const badgeInfo = (
+                            badgesJson as Record<
+                              string,
+                              { description?: string; category?: string }
+                            >
+                          )[badge];
                           const isRedFlag = badgeInfo?.category === "red_flag";
-                          const isSecondaryDifference = secondaryDifferenceBadges.includes(badge);
+                          const isSecondaryDifference =
+                            secondaryDifferenceBadges.includes(badge);
                           const badgeClasses = isRedFlag
                             ? "badge--red-flag px-2 py-0.5 text-xs"
                             : isSecondaryDifference
-                              ? "badge--info px-2 py-0.5 text-xs"
-                              : "badge--neutral px-2 py-0.5 text-xs";
+                            ? "badge--info px-2 py-0.5 text-xs"
+                            : "badge--neutral px-2 py-0.5 text-xs";
 
                           return (
                             <Tooltip key={badge}>
                               <TooltipTrigger asChild>
-                                <span className={badgeClasses}>
-                                  {badge}
-                                </span>
+                                <span className={badgeClasses}>{badge}</span>
                               </TooltipTrigger>
-                              <TooltipContent side="bottom" className="max-w-sm">
-                                <p>{badgeInfo?.description ?? "No description available"}</p>
+                              <TooltipContent
+                                side="bottom"
+                                className="max-w-sm"
+                              >
+                                <p>
+                                  {badgeInfo?.description ??
+                                    "No description available"}
+                                </p>
                               </TooltipContent>
                             </Tooltip>
                           );
@@ -235,8 +292,13 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                               <button
                                 type="button"
                                 className="badge--neutral px-2 py-0.5 text-xs"
-                                onClick={(e) => { e.stopPropagation(); onSelect(church); }}
-                                aria-label={`View ${sortedBadges.length - maxBadges} more badges`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSelect(church);
+                                }}
+                                aria-label={`View ${
+                                  sortedBadges.length - maxBadges
+                                } more badges`}
                               >
                                 +{sortedBadges.length - maxBadges} more
                               </button>
@@ -247,7 +309,9 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                           </Tooltip>
                         ) : null}
                         {badges.length === 0 ? (
-                          <span className="badge--neutral px-2 py-0.5 text-xs">Limited information</span>
+                          <span className="badge--neutral px-2 py-0.5 text-xs">
+                            Limited information
+                          </span>
                         ) : null}
                       </div>
                     </div>
@@ -257,6 +321,8 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
             })
           )}
         </div>
+
+        {paginationControls}
       </div>
     </TooltipProvider>
   );
