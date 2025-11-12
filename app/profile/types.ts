@@ -11,6 +11,13 @@ export type ProfileStats = {
   denomination?: string | null;
 };
 
+export type ProfileOverviewResponse = {
+  questions: Question[];
+  profile: ProfileStats | null;
+  space: RawPrayerSpace;
+  membership: RawMembershipInfo | null;
+};
+
 export type SpaceMember = {
   id: string;
   displayName: string;
@@ -30,20 +37,26 @@ export type PrayerSpace = {
   members: SpaceMember[];
 };
 
-export type RawSpaceMember = Partial<{
-  id: string | number;
-  displayName: string;
-  appwriteUserId: string;
-  role: string;
-  joinedAt: string | Date;
-}> | null | undefined;
+export type RawSpaceMember =
+  | Partial<{
+      id: string | number;
+      displayName: string;
+      appwriteUserId: string;
+      role: string;
+      joinedAt: string | Date;
+    }>
+  | null
+  | undefined;
 
-export type RawPrayerSpace = Partial<{
-  id: string | number;
-  spaceName: string;
-  shareCode: string;
-  members: RawSpaceMember[];
-}> | null | undefined;
+export type RawPrayerSpace =
+  | Partial<{
+      id: string | number;
+      spaceName: string;
+      shareCode: string;
+      members: RawSpaceMember[];
+    }>
+  | null
+  | undefined;
 
 export type RawMembershipInfo = RawSpaceMember & { spaceId?: string | number };
 
