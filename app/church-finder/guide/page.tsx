@@ -28,6 +28,8 @@ Essentials include core Christian doctrines such as the Trinity, the authority o
 * Churches that affirm a majority of essential doctrines and are biblically orthodox, but either hold to secondary positions that differ from Reformed theology or do not clearly identify with Reformed distinctives, are labeled **Biblically Sound (With Differences)** to help you make an informed decision.
 * Some denominations or movements have well-known doctrinal positions that conflict with essential Christian doctrine. When applicable, we display a brief note for awareness.
 
+For the criteria we use when partnering with or recommending churches beyond this descriptive evaluation, see our [Church Partnership and Recommendation Policy](/church-finder/policy).
+
 ## Limits and Corrections
 
 We do not infer beliefs that are not stated online. If you see something inaccurate, please [email us](mailto:contact@calvinistparrotministries.org) with the page link and what needs correction.

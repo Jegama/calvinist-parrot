@@ -47,3 +47,14 @@ Tertiary doctrines are less central and do not significantly impact unity or fel
 ## Commitment to Unity and Grace
 
 In all doctrinal matters, Calvinist Parrot Ministries commits to uphold doctrinal integrity while engaging believers with humility, gentleness, and respect (1 Peter 3:15). We strive for unity in essential beliefs, liberty in non-essentials, and charity in all things.
+
+We joyfully collaborate with churches and ministries that affirm these essentials—even where sincere believers differ on secondary doctrines—seeking to serve the wider body of Christ with grace and truth (John 17:20–23; Philippians 1:5).
+
+## Partnership and Recommendations (Summary)
+
+In stewarding Gospel faithfulness and unity, we partner with and recommend ministries that:
+
+- Affirm the core doctrines summarized above; and
+- Do not deny any essential doctrine and are free of disqualifying concerns as described in our Ministry Partnership and Recommendation Policy (Romans 16:17; Ephesians 4:15).
+
+For full criteria and examples of disqualifying concerns, see our Ministry Partnership and Recommendation Policy.

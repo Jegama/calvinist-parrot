@@ -1,6 +1,6 @@
 // langChainAgents/tools/calvinReviewerTool.ts
 
-import { tool } from "@langchain/core/tools";
+import { tool } from "langchain";
 import { z } from "zod";
 import OpenAI from "openai";
 import { CALVIN_SYS_PROMPT_REVIEWER } from "@/lib/prompts/core";

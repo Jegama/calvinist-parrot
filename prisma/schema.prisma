@@ -3,28 +3,268 @@
 // Always use  `npx prisma migrate dev` to apply changes to the database
 // To see the tables locally, use `npx prisma studio`
 
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model questionHistory {
-  id             String  @id @default(cuid())
-  question       String
-  category       String
-  subcategory    String
-  issue_type     String
+  id              String   @id @default(cuid())
+  question        String
+  category        String
+  subcategory     String
+  issue_type      String
   reviewed_answer String
-  userId         String?
-  denomination   String @default("reformed-baptist")
-  createdAt      DateTime @default(now())
+  userId          String?
+  createdAt       DateTime @default(now())
+  denomination    String   @default("reformed-baptist")
 }
 
-// Prayer Tracker models
+model userProfile {
+  id                         String             @id @default(cuid())
+  appwriteUserId             String             @unique
+  displayName                String
+  email                      String?
+  defaultSpaceId             String?
+  answeredPersonalCount      Int                @default(0)
+  answeredFamilyCount        Int                @default(0)
+  journalEntriesCount        Int                @default(0)
+  lastPrayerAt               DateTime?
+  lastSeenAt                 DateTime           @default(now())
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+  
+  // Theological Preferences & Learning
+  denomination               String?            @default("reformed-baptist")
+  preferredDepth             String?            @default("concise") // "concise" | "moderate" | "detailed"
+  followUpTendency           String?            // "deep_diver" | "quick_mover" | "balanced" | null
+  
+  // Spiritual Journey Tracking (PRIVATE - never reveal to user)
+  spiritualStatus            String?            // "seeker" | "new_believer" | "mature_believer" | "unclear"
+  gospelPresentedAt          DateTime?          // Last time Gospel was clearly presented
+  gospelPresentationCount    Int                @default(0)
+  
+  // Doctrinal Question Tracking
+  coreDoctrineQuestions      Int                @default(0)
+  secondaryDoctrineQuestions Int                @default(0)
+  tertiaryDoctrineQuestions  Int                @default(0)
+  
+  // Ministry & Life Context
+  ministryContext            String[]           // ["parent", "pastor", "teacher", "student", etc.]
+  churchInvolvement          String?            // "active_member" | "seeking_church" | "unclear"
+  
+  defaultSpace               prayerFamilySpace? @relation("DefaultSpaceProfiles", fields: [defaultSpaceId], references: [id])
+}
+
+model prayerFamilySpace {
+  id               String                  @id @default(cuid())
+  spaceName        String
+  shareCode        String                  @unique
+  createdByUserId  String
+  archivedAt       DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  families         prayerFamily[]
+  journal          prayerJournalEntry[]
+  members          prayerMember[]
+  personalRequests prayerPersonalRequest[]
+  profiles         userProfile[]           @relation("DefaultSpaceProfiles")
+}
+
+model prayerMember {
+  id             String            @id @default(cuid())
+  spaceId        String
+  appwriteUserId String
+  displayName    String
+  role           MemberRole        @default(MEMBER)
+  joinedAt       DateTime          @default(now())
+  lastPrayed     prayerFamily[]    @relation("LastPrayedBy")
+  space          prayerFamilySpace @relation(fields: [spaceId], references: [id])
+}
+
+model prayerFamily {
+  id                   String                @id @default(cuid())
+  spaceId              String
+  familyName           String
+  parents              String
+  children             String[]
+  categoryTag          String?
+  lastPrayedAt         DateTime?
+  lastPrayedByMemberId String?
+  journalNotes         String?
+  linkedScripture      String?
+  archivedAt           DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  lastPrayedBy         prayerMember?         @relation("LastPrayedBy", fields: [lastPrayedByMemberId], references: [id])
+  space                prayerFamilySpace     @relation(fields: [spaceId], references: [id])
+  requests             prayerFamilyRequest[]
+}
+
+model prayerFamilyRequest {
+  id              String        @id @default(cuid())
+  familyId        String
+  status          RequestStatus @default(ACTIVE)
+  requestText     String
+  notes           String?
+  linkedScripture String?
+  dateAdded       DateTime      @default(now())
+  dateUpdated     DateTime      @updatedAt
+  lastPrayedAt    DateTime?
+  answeredAt      DateTime?
+  family          prayerFamily  @relation(fields: [familyId], references: [id])
+}
+
+model prayerPersonalRequest {
+  id                String            @id @default(cuid())
+  spaceId           String
+  status            RequestStatus     @default(ACTIVE)
+  requestText       String
+  notes             String?
+  linkedScripture   String?
+  requesterMemberId String?
+  dateAdded         DateTime          @default(now())
+  dateUpdated       DateTime          @updatedAt
+  lastPrayedAt      DateTime?
+  answeredAt        DateTime?
+  space             prayerFamilySpace @relation(fields: [spaceId], references: [id])
+}
+
+model prayerJournalEntry {
+  id        String            @id @default(cuid())
+  spaceId   String
+  entryDate DateTime          @default(now())
+  entryText String
+  tags      String[]
+  space     prayerFamilySpace @relation(fields: [spaceId], references: [id])
+}
+
+model chatHistory {
+  id               String        @id @default(cuid())
+  userId           String
+  conversationName String
+  createdAt        DateTime      @default(now())
+  modifiedAt       DateTime      @updatedAt
+  category         String
+  issue_type       String
+  subcategory      String
+  denomination     String        @default("reformed-baptist")
+  messages         chatMessage[] @relation("ChatMessages")
+}
+
+model chatMessage {
+  id        String      @id @default(cuid())
+  chatId    String
+  sender    String
+  content   String
+  timestamp DateTime    @default(now())
+  chat      chatHistory @relation("ChatMessages", fields: [chatId], references: [id])
+}
+
+model parrotDevotionals {
+  id              String   @id @default(cuid())
+  devotional_id   String   @unique
+  bible_verse     String
+  title           String
+  devotional_text String
+  createdAt       DateTime @default(now())
+}
+
+model MemoryStore {
+  namespace_path String
+  key            String
+  value          Json
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  expires_at     DateTime? @db.Timestamptz(6)
+
+  @@id([namespace_path, key])
+  @@index([namespace_path], map: "idx_store_namespace_path")
+  @@index([value], map: "idx_store_value_gin", type: Gin)
+  @@map("store")
+}
+
+model church {
+  id                     String              @id @default(cuid())
+  name                   String
+  website                String              @unique
+  phone                  String?
+  email                  String?
+  denominationLabel      String?
+  denominationConfidence Float?
+  denominationSignals    String[]
+  confessionAdopted      Boolean             @default(false)
+  confessionName         String?
+  confessionSourceUrl    String?
+  bestBeliefsUrl         String?
+  bestConfessionUrl      String?
+  bestAboutUrl           String?
+  bestLeadershipUrl      String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  addresses              churchAddress[]
+  evaluations            churchEvaluation[]
+  serviceTimes           churchServiceTime[]
+}
+
+model churchAddress {
+  id        String   @id @default(cuid())
+  churchId  String
+  street1   String?
+  street2   String?
+  city      String?
+  state     String?
+  postCode  String?
+  latitude  Float?
+  longitude Float?
+  sourceUrl String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  church    church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+}
+
+model churchServiceTime {
+  id        String   @id @default(cuid())
+  churchId  String
+  label     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  church    church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+}
+
+model churchEvaluation {
+  id                         String                 @id @default(cuid())
+  churchId                   String
+  rawEvaluation              Json
+  badges                     String[]
+  secondary                  Json?
+  tertiary                   Json?
+  coreOnSiteCount            Int
+  coreTotalCount             Int
+  coverageRatio              Float
+  status                     ChurchEvaluationStatus
+  coreTrinity                CoreDoctrineStatus
+  coreGospel                 CoreDoctrineStatus
+  coreJustificationByFaith   CoreDoctrineStatus
+  coreChristDeityHumanity    CoreDoctrineStatus
+  coreScriptureAuthority     CoreDoctrineStatus
+  coreIncarnationVirginBirth CoreDoctrineStatus
+  coreAtonementNecessary     CoreDoctrineStatus
+  coreResurrectionOfJesus    CoreDoctrineStatus
+  coreReturnAndJudgment      CoreDoctrineStatus
+  coreCharacterOfGod         CoreDoctrineStatus
+  createdAt                  DateTime               @default(now())
+  church                     church                 @relation(fields: [churchId], references: [id], onDelete: Cascade)
+}
+
+model store_migrations {
+  v Int @id
+}
 
 enum MemberRole {
   OWNER
@@ -37,138 +277,6 @@ enum RequestStatus {
   ARCHIVED
 }
 
-model userProfile {
-  id                     String   @id @default(cuid())
-  appwriteUserId         String   @unique
-  displayName            String
-  email                  String?
-  defaultSpaceId         String?
-  defaultSpace           prayerFamilySpace? @relation("DefaultSpaceProfiles", fields: [defaultSpaceId], references: [id])
-  answeredPersonalCount  Int      @default(0)
-  answeredFamilyCount    Int      @default(0)
-  journalEntriesCount    Int      @default(0)
-  lastPrayerAt           DateTime?
-  lastSeenAt             DateTime @default(now())
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-}
-
-model prayerFamilySpace {
-  id               String   @id @default(cuid())
-  spaceName        String
-  shareCode        String   @unique
-  createdByUserId  String
-  archivedAt       DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  members          prayerMember[]
-  families         prayerFamily[]
-  personalRequests prayerPersonalRequest[]
-  journal          prayerJournalEntry[]
-  profiles         userProfile[] @relation("DefaultSpaceProfiles")
-}
-
-model prayerMember {
-  id             String   @id @default(cuid())
-  spaceId        String
-  space          prayerFamilySpace @relation(fields: [spaceId], references: [id])
-  appwriteUserId String
-  displayName    String
-  role           MemberRole @default(MEMBER)
-  joinedAt       DateTime @default(now())
-  lastPrayed     prayerFamily[] @relation("LastPrayedBy")
-}
-
-model prayerFamily {
-  id                      String   @id @default(cuid())
-  spaceId                 String
-  space                   prayerFamilySpace @relation(fields: [spaceId], references: [id])
-  familyName              String
-  parents                 String
-  children                String[]
-  categoryTag             String?
-  lastPrayedAt            DateTime?
-  lastPrayedByMemberId    String?
-  lastPrayedBy            prayerMember? @relation("LastPrayedBy", fields: [lastPrayedByMemberId], references: [id])
-  journalNotes            String?
-  linkedScripture         String?
-  archivedAt              DateTime?
-  requests                prayerFamilyRequest[]
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
-}
-
-model prayerFamilyRequest {
-  id              String   @id @default(cuid())
-  familyId        String
-  family          prayerFamily @relation(fields: [familyId], references: [id])
-  status          RequestStatus @default(ACTIVE)
-  requestText     String
-  notes           String?
-  linkedScripture String?
-  dateAdded       DateTime @default(now())
-  dateUpdated     DateTime @updatedAt
-  lastPrayedAt    DateTime?
-  answeredAt      DateTime?
-}
-
-model prayerPersonalRequest {
-  id                String   @id @default(cuid())
-  spaceId           String
-  space             prayerFamilySpace @relation(fields: [spaceId], references: [id])
-  status            RequestStatus @default(ACTIVE)
-  requestText       String
-  notes             String?
-  linkedScripture   String?
-  requesterMemberId String?
-  dateAdded         DateTime @default(now())
-  dateUpdated       DateTime @updatedAt
-  lastPrayedAt      DateTime?
-  answeredAt        DateTime?
-}
-
-model prayerJournalEntry {
-  id        String   @id @default(cuid())
-  spaceId   String
-  space     prayerFamilySpace @relation(fields: [spaceId], references: [id])
-  entryDate DateTime @default(now())
-  entryText String
-  tags      String[]
-}
-
-model chatHistory {
-  id              String    @id @default(cuid())
-  userId          String
-  conversationName String
-  category        String
-  subcategory     String
-  issue_type      String
-  denomination    String @default("reformed-baptist")
-  messages        chatMessage[] @relation("ChatMessages")
-  createdAt       DateTime  @default(now())
-  modifiedAt      DateTime  @updatedAt
-}
-
-model chatMessage {
-  id        String       @id @default(cuid())
-  chatId    String
-  chat      chatHistory  @relation(fields: [chatId], references: [id], name: "ChatMessages")
-  sender    String       // 'user' or 'assistant'
-  content   String
-  timestamp DateTime     @default(now())
-}
-
-model parrotDevotionals {
-  id          String    @id @default(cuid())
-  devotional_id String @unique
-  bible_verse String
-  title       String
-  devotional_text     String
-  createdAt   DateTime  @default(now())
-}
-
-// Church Finder models
-
 enum CoreDoctrineStatus {
   TRUE
   FALSE
@@ -180,78 +288,4 @@ enum ChurchEvaluationStatus {
   BIBLICALLY_SOUND_WITH_DIFFERENCES
   LIMITED_INFORMATION
   NOT_ENDORSED
-}
-
-model church {
-  id                    String   @id @default(cuid())
-  name                  String
-  website               String   @unique
-  phone                 String?
-  email                 String?
-  denominationLabel     String?
-  denominationConfidence Float?
-  denominationSignals   String[]
-  confessionAdopted     Boolean  @default(false)
-  confessionName        String?
-  confessionSourceUrl   String?
-  bestBeliefsUrl        String?
-  bestConfessionUrl     String?
-  bestAboutUrl          String?
-  bestLeadershipUrl     String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  addresses             churchAddress[]
-  serviceTimes          churchServiceTime[]
-  evaluations           churchEvaluation[]
-}
-
-model churchAddress {
-  id         String   @id @default(cuid())
-  churchId   String
-  church     church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  street1    String?
-  street2    String?
-  city       String?
-  state      String?
-  postCode   String?
-  latitude   Float?
-  longitude  Float?
-  sourceUrl  String?
-  isPrimary  Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-model churchServiceTime {
-  id        String   @id @default(cuid())
-  churchId  String
-  church    church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  label     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model churchEvaluation {
-  id                          String   @id @default(cuid())
-  churchId                    String
-  church                      church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  rawEvaluation               Json
-  badges                      String[]
-  secondary                   Json?
-  tertiary                    Json?
-  coreOnSiteCount             Int
-  coreTotalCount              Int
-  coverageRatio               Float
-  status                      ChurchEvaluationStatus
-  coreTrinity                 CoreDoctrineStatus
-  coreGospel                  CoreDoctrineStatus
-  coreJustificationByFaith    CoreDoctrineStatus
-  coreChristDeityHumanity     CoreDoctrineStatus
-  coreScriptureAuthority      CoreDoctrineStatus
-  coreIncarnationVirginBirth  CoreDoctrineStatus
-  coreAtonementNecessary      CoreDoctrineStatus
-  coreResurrectionOfJesus     CoreDoctrineStatus
-  coreReturnAndJudgment       CoreDoctrineStatus
-  coreCharacterOfGod          CoreDoctrineStatus
-  createdAt                   DateTime @default(now())
 }

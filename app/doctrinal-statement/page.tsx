@@ -55,6 +55,10 @@ Tertiary doctrines are less central and do not significantly impact unity or fel
 
 In all doctrinal matters, Calvinist Parrot Ministries commits to uphold doctrinal integrity while engaging believers with humility, gentleness, and respect (1 Peter 3:15). We strive for unity in essential beliefs, liberty in non-essentials, and charity in all things.
 
+## Partnership and Platform Access
+
+We gladly partner across Gospel‑affirming traditions that hold these core doctrines while differing on secondary matters (John 17:20–23; Philippians 1:5). Partnership and API integrations are limited to churches and ministries that do not deny any essential doctrine and are free of disqualifying critical concerns (Romans 16:17; Ephesians 4:15). For full criteria and disqualifying red flags, see our [Church Partnership and Recommendation Policy](/church-finder/policy).
+
 # Soli Deo Gloria
 
 * Romans 11:36`;

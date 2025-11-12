@@ -113,6 +113,30 @@ export function RequestSheet({
               ))}
             </SelectContent>
           </Select>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground" htmlFor="request-last-prayed">
+              Last prayed on
+            </label>
+            <div className="flex gap-2">
+              <Input
+                id="request-last-prayed"
+                type="date"
+                value={sheetState.lastPrayedAt}
+                onChange={(event) => onUpdate({ lastPrayedAt: event.target.value })}
+                max="9999-12-31"
+              />
+              {sheetState.lastPrayedAt && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onUpdate({ lastPrayedAt: "" })}
+                  disabled={isLoading}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
           <p className="text-xs text-muted-foreground">
             Status: {isAnswered ? "Answered" : "Active"}
           </p>

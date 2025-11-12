@@ -253,6 +253,7 @@ export async function updateUnifiedRequest(
   payload: {
     requestText?: string;
     notes?: string | null;
+    lastPrayedAt?: string | null;
     markAnswered?: boolean;
     isHouseholdRequest: boolean;
     linkedToFamily?: string;

@@ -18,7 +18,12 @@ import {
 import { UnifiedRequest, NewPersonalFormState, Family } from "../types";
 import { formatRelative, formatTimeSince } from "../utils";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ChevronFirst,
+  ChevronLast,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 
 const joinClassNames = (base: string, extra?: string) => {
   if (!extra) return base;
@@ -84,7 +89,60 @@ export function RequestsSection({
     return grouped;
   }, [families]);
 
-  const categoryKeys = useMemo(() => Object.keys(familiesByCategory).sort(), [familiesByCategory]);
+  const categoryKeys = useMemo(
+    () => Object.keys(familiesByCategory).sort(),
+    [familiesByCategory]
+  );
+
+  const paginationControls = (
+    <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <span>
+        {Math.min((page - 1) * PAGE_SIZE + 1, total)}-
+        {Math.min(page * PAGE_SIZE, total)} of {total}
+      </span>
+      <div className="flex items-center gap-1.5">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPage(1)}
+          disabled={!canPrev}
+          aria-label="Go to first page"
+        >
+          <ChevronFirst className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={!canPrev}
+          aria-label="Go to previous page"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <span className="px-1">
+          Page {page} / {totalPages}
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          disabled={!canNext}
+          aria-label="Go to next page"
+        >
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPage(totalPages)}
+          disabled={!canNext}
+          aria-label="Go to last page"
+        >
+          <ChevronLast className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <Card className={joinClassNames("", className)}>
@@ -96,16 +154,22 @@ export function RequestsSection({
           <Input
             placeholder="Request"
             value={newRequest.text}
-            onChange={(event) => onNewRequestChange({ text: event.target.value })}
+            onChange={(event) =>
+              onNewRequestChange({ text: event.target.value })
+            }
           />
           <Textarea
             placeholder="Notes (optional)"
             value={newRequest.notes}
-            onChange={(event) => onNewRequestChange({ notes: event.target.value })}
+            onChange={(event) =>
+              onNewRequestChange({ notes: event.target.value })
+            }
           />
           <Select
             value={newRequest.linkedToFamily}
-            onValueChange={(value) => onNewRequestChange({ linkedToFamily: value })}
+            onValueChange={(value) =>
+              onNewRequestChange({ linkedToFamily: value })
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="Link to..." />
@@ -130,7 +194,9 @@ export function RequestsSection({
               ))}
             </SelectContent>
           </Select>
-          {requestFormError && <p className="text-xs text-destructive">{requestFormError}</p>}
+          {requestFormError && (
+            <p className="text-xs text-destructive">{requestFormError}</p>
+          )}
           <Button onClick={onCreateRequest} className="w-full">
             Add Request
           </Button>
@@ -139,56 +205,12 @@ export function RequestsSection({
         <Separator />
 
         {requests.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No active requests yet.</p>
+          <p className="text-sm text-muted-foreground">
+            No active requests yet.
+          </p>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>
-                {Math.min((page - 1) * PAGE_SIZE + 1, total)}-
-                {Math.min(page * PAGE_SIZE, total)} of {total}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage(1)}
-                  disabled={!canPrev}
-                  aria-label="Go to first page"
-                >
-                  <ChevronFirst className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={!canPrev}
-                  aria-label="Go to previous page"
-                >
-                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <span className="px-1">
-                  Page {page} / {totalPages}
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={!canNext}
-                  aria-label="Go to next page"
-                >
-                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage(totalPages)}
-                  disabled={!canNext}
-                  aria-label="Go to last page"
-                >
-                  <ChevronLast className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </div>
-            </div>
+            {paginationControls}
 
             <div className="grid gap-4 md:grid-cols-2">
               {pagedRequests.map((item) => {
@@ -196,19 +218,30 @@ export function RequestsSection({
                 const isAnswering = answeringRequestId === item.id;
 
                 return (
-                  <div key={item.id} className="rounded-lg border bg-card px-4 py-3 shadow-sm">
+                  <div
+                    key={item.id}
+                    className="rounded-lg border bg-card px-4 py-3 shadow-sm"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold">{item.requestText}</p>
+                          <p className="text-sm font-semibold">
+                            {item.requestText}
+                          </p>
                           <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium">
-                            {isHouseholdRequest ? "Our Family" : item.familyName}
+                            {isHouseholdRequest
+                              ? "Our Family"
+                              : item.familyName}
                           </span>
                         </div>
-                        {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
+                        {item.notes && (
+                          <p className="text-xs text-muted-foreground">
+                            {item.notes}
+                          </p>
+                        )}
                         <p className="text-xs text-muted-foreground">
-                          Last prayed: {formatTimeSince(item.lastPrayedAt)} - Added{" "}
-                          {formatRelative(item.dateAdded)}
+                          Last prayed: {formatTimeSince(item.lastPrayedAt)} -
+                          Added {formatRelative(item.dateAdded)}
                         </p>
                         {item.status === "ANSWERED" && item.answeredAt && (
                           <p className="text-xs text-success">
@@ -217,20 +250,26 @@ export function RequestsSection({
                         )}
                       </div>
                       <div className="flex flex-col gap-2">
-                        <Button size="sm" variant="outline" onClick={() => onEditRequest(item)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onEditRequest(item)}
+                        >
                           Edit
                         </Button>
                         <Button
                           size="sm"
                           variant="secondary"
-                          onClick={() => onMarkAnswered(item.id, isHouseholdRequest)}
+                          onClick={() =>
+                            onMarkAnswered(item.id, isHouseholdRequest)
+                          }
                           disabled={item.status === "ANSWERED" || isAnswering}
                         >
                           {item.status === "ANSWERED"
                             ? "Answered"
                             : isAnswering
-                              ? "Saving..."
-                              : "Mark Answered"}
+                            ? "Saving..."
+                            : "Mark Answered"}
                         </Button>
                       </div>
                     </div>
@@ -239,53 +278,7 @@ export function RequestsSection({
               })}
             </div>
 
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>
-                {Math.min((page - 1) * PAGE_SIZE + 1, total)}-
-                {Math.min(page * PAGE_SIZE, total)} of {total}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage(1)}
-                  disabled={!canPrev}
-                  aria-label="Go to first page"
-                >
-                  <ChevronFirst className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={!canPrev}
-                  aria-label="Go to previous page"
-                >
-                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <span className="px-1">
-                  Page {page} / {totalPages}
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={!canNext}
-                  aria-label="Go to next page"
-                >
-                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage(totalPages)}
-                  disabled={!canNext}
-                  aria-label="Go to last page"
-                >
-                  <ChevronLast className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </div>
-            </div>
+            {paginationControls}
           </div>
         )}
       </CardContent>

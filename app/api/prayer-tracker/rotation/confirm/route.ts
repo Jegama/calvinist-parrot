@@ -77,6 +77,13 @@ export async function POST(request: Request) {
           },
         })
       );
+      // Also update all family-specific requests for this family
+      transactions.push(
+        prisma.prayerFamilyRequest.updateMany({
+          where: { familyId: familyId, status: "ACTIVE" },
+          data: { lastPrayedAt: now },
+        })
+      );
     });
   }
 
