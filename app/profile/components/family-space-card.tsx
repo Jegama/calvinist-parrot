@@ -44,7 +44,6 @@ export function FamilySpaceCard({
   space,
   membership,
   userId,
-  userName,
   onUpdate,
 }: FamilySpaceCardProps) {
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
