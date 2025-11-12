@@ -27,6 +27,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     userId?: string;
     requestText?: string;
     notes?: string | null;
+    lastPrayedAt?: string | null;
     status?: "ACTIVE" | "ANSWERED" | "ARCHIVED";
     markAnswered?: boolean;
     isHouseholdRequest?: boolean; // Current table location
@@ -34,7 +35,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     originalLinkedToFamily?: string; // Original family assignment
   };
   const userId = resolveUserId(request, body.userId);
-  const { requestText, notes, status, markAnswered, isHouseholdRequest, linkedToFamily, originalLinkedToFamily } = body;
+  const { requestText, notes, lastPrayedAt, status, markAnswered, isHouseholdRequest, linkedToFamily, originalLinkedToFamily } = body;
 
   if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 
@@ -165,6 +166,9 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
   if (notes !== undefined) {
     data.notes = notes ? notes.trim() : null;
+  }
+  if (lastPrayedAt !== undefined) {
+    data.lastPrayedAt = lastPrayedAt ? new Date(lastPrayedAt) : null;
   }
 
   if (status) {

@@ -94,4 +94,5 @@ export type PersonalSheetState = {
   status: "ACTIVE" | "ANSWERED" | "ARCHIVED";
   linkedToFamily: string; // "household" or a familyId
   originalLinkedToFamily?: string; // Track original value to detect changes
+  lastPrayedAt: string;
 };

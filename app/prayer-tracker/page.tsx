@@ -89,6 +89,7 @@ export default function PrayerTrackerPage() {
 		notes: "",
 		status: "ACTIVE",
 		linkedToFamily: "household",
+		lastPrayedAt: "",
 	}));
 	const [personalSheetError, setPersonalSheetError] = useState<string | null>(null);
 	const [answeringPersonalId, setAnsweringPersonalId] = useState<string | null>(null);
@@ -535,6 +536,7 @@ export default function PrayerTrackerPage() {
 
 	function openRequestEditor(item: UnifiedRequest) {
 		const linkedTo = item.familyId || "household";
+		const lastPrayedDate = isoToDateInput(item.lastPrayedAt);
 		setPersonalSheet({
 			id: item.id,
 			requestText: item.requestText,
@@ -542,13 +544,14 @@ export default function PrayerTrackerPage() {
 			status: item.status ?? "ACTIVE",
 			linkedToFamily: linkedTo,
 			originalLinkedToFamily: linkedTo, // Track original for change detection
+			lastPrayedAt: lastPrayedDate,
 		});
 		setPersonalSheetError(null);
 		setIsPersonalSheetOpen(true);
 	}
 
 	function resetRequestSheet() {
-		setPersonalSheet({ id: "", requestText: "", notes: "", status: "ACTIVE", linkedToFamily: "household" });
+		setPersonalSheet({ id: "", requestText: "", notes: "", status: "ACTIVE", linkedToFamily: "household", lastPrayedAt: "" });
 		setPersonalSheetLoading(false);
 		setPersonalSheetError(null);
 	}
@@ -560,6 +563,14 @@ export default function PrayerTrackerPage() {
 			setPersonalSheetError("Request text is required.");
 			return;
 		}
+		
+		// Convert date using utility
+		const lastPrayedAtIso = dateInputToIso(personalSheet.lastPrayedAt);
+		if (personalSheet.lastPrayedAt.trim() && !lastPrayedAtIso) {
+			setPersonalSheetError("Please choose a valid last prayed date.");
+			return;
+		}
+		
 		setPersonalSheetLoading(true);
 		setPersonalSheetError(null);
 
@@ -567,6 +578,7 @@ export default function PrayerTrackerPage() {
 		const result = await api.updateUnifiedRequest(user.$id, personalSheet.id, {
 			requestText: trimmed,
 			notes: personalSheet.notes.trim() || null,
+			lastPrayedAt: lastPrayedAtIso,
 			isHouseholdRequest,
 			linkedToFamily: personalSheet.linkedToFamily,
 			originalLinkedToFamily: personalSheet.originalLinkedToFamily,
