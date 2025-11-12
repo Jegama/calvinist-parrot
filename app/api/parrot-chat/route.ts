@@ -12,7 +12,6 @@ import { SystemMessage, HumanMessage, AIMessage } from 'langchain';
 import { parrotWorkflow } from '@/utils/langChainAgents/mainAgent';
 import { generateConversationName } from '@/utils/generateConversationName';
 import { updateUserMemoriesFromConversation } from '@/utils/memoryExtraction';
-import { getMemoryStore, MemoryNamespaces, MemoryKeys } from '@/lib/langGraphStore';
 
 export async function POST(request: Request) {
   interface ChatRequestBody {
@@ -554,10 +553,6 @@ export async function POST(request: Request) {
             updateUserMemoriesFromConversation(
               capturedUserId,
               conversationMessages.map(m => ({ sender: m.sender, content: m.content })),
-              {
-                category: currentChat?.category,
-                subcategory: currentChat?.subcategory,
-              }
             ).catch((error) => {
               // Log but don't fail - memory extraction is non-critical
               console.error('Background memory extraction failed:', error);

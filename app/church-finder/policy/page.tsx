@@ -61,7 +61,7 @@ When a church lacks a published statement of faith, confession, or doctrinal det
 
 ## Correction and Appeals
 
-If you believe an assessment is inaccurate, please email contact@calvinistparrotministries.org with:
+If you believe an assessment is inaccurate, [please email](mailto:contact@calvinistparrotministries.org) with:
 
 - URL(s) showing the clarifying doctrinal statement(s)
 - A concise summary of the correction

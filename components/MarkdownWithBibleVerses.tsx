@@ -81,7 +81,7 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
         {children}
       </a>
     ),
-    code: ({ className, children, node, ...props }) => {
+    code: ({ className, children, ...props }) => {
       // Check if this is a code block (has className) vs inline code
       const isCodeBlock = /language-(\w+)/.test(className || '');
       

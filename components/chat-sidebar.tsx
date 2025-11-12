@@ -53,7 +53,7 @@ export function AppSidebar({ chats, currentChatId, onDeleted, className, style, 
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-0">
-              {chats.map((c, index) => (
+              {chats.map((c) => (
                 <React.Fragment key={c.id}>
                   <SidebarMenuItem className="px-2 py-0.5 border-t border-sidebar-border first:border-t-0">
                     <div className="group flex items-center justify-between gap-2">

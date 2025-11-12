@@ -249,15 +249,10 @@ async function syncToPrisma(
  * 
  * @param userId - The user's ID
  * @param messages - Recent conversation messages (typically last exchange)
- * @param metadata - Optional metadata (category, subcategory, etc.)
  */
 export async function updateUserMemoriesFromConversation(
   userId: string,
   messages: ConversationMessage[],
-  metadata?: {
-    category?: string;
-    subcategory?: string;
-  }
 ): Promise<void> {
   try {
     // Validate userId

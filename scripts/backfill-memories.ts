@@ -110,10 +110,6 @@ async function processUserConversations(
         await updateUserMemoriesFromConversation(
           userId,
           messages.map(m => ({ sender: m.sender, content: m.content })),
-          {
-            category: category || undefined,
-            subcategory: subcategory || undefined,
-          }
         );
 
         console.log(`      ✅ Memories extracted`);

@@ -46,7 +46,7 @@ import {
   toPrayerSpace,
 } from "./types";
 import { useProfileUiStore } from "./ui-store";
-import { CheckCircle2, Copy, X, ExternalLink, Check } from "lucide-react";
+import { CheckCircle2, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import * as denominations from "@/lib/denominations";
 
@@ -315,7 +315,7 @@ export default function ProfilePage() {
                   <Accordion type="single" collapsible className="w-full">
                     <AccordionItem value="denomination-preview" className="border-none">
                       <AccordionTrigger className="text-sm font-semibold text-muted-foreground hover:no-underline py-2">
-                        What this means
+                        Doctrinal Distinctives
                       </AccordionTrigger>
                       <AccordionContent className="pt-2">
                         <div className="p-3 bg-muted/50 rounded-md text-sm space-y-2">
