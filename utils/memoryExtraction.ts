@@ -4,6 +4,7 @@
 import OpenAI from "openai";
 import { updateUserProfile, getUserProfile, type UserProfileMemory } from "@/lib/langGraphStore";
 import { MEMORY_EXTRACTION_SYS_PROMPT, MERGE_MEMORIES_SYS_PROMPT, extractionSchema, mergeSchema } from "@/lib/prompts/memory";
+import prisma from "@/lib/prisma";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -29,10 +30,21 @@ interface ExtractedMemories {
     spiritualJourney?: string[];
   };
   questionPatterns?: {
-    [category: string]: number;
+    coreDoctrineQuestions?: number;
+    secondaryDoctrineQuestions?: number;
+    tertiaryDoctrineQuestions?: number;
+  };
+  spiritualStatus?: {
+    status?: "seeker" | "new_believer" | "mature_believer" | "unclear";
+    gospelPresented?: boolean;
+  };
+  ministryContext?: string[];
+  churchInvolvement?: "active_member" | "seeking_church" | "unclear";
+  learningPreferences?: {
+    followUpTendency?: "deep_diver" | "quick_mover" | "balanced";
+    preferredDepth?: "concise" | "moderate" | "detailed";
   };
   preferences?: {
-    denomination?: string;
     preferredTopics?: string[];
   };
 }
@@ -120,6 +132,118 @@ async function mergeMemories(
 }
 
 /**
+ * Sync extracted memory data to Prisma userProfile table
+ * This updates spiritual status, doctrinal question counts, ministry context, and learning preferences
+ */
+async function syncToPrisma(
+  userId: string,
+  extracted: ExtractedMemories
+): Promise<void> {
+  try {
+    const updateData: {
+      spiritualStatus?: string;
+      gospelPresentedAt?: Date;
+      gospelPresentationCount?: { increment: number };
+      coreDoctrineQuestions?: { increment: number };
+      secondaryDoctrineQuestions?: { increment: number };
+      tertiaryDoctrineQuestions?: { increment: number };
+      ministryContext?: string[];
+      churchInvolvement?: string;
+      followUpTendency?: string;
+      preferredDepth?: string;
+    } = {};
+
+    // Spiritual status (PRIVATE)
+    if (extracted.spiritualStatus?.status) {
+      updateData.spiritualStatus = extracted.spiritualStatus.status;
+    }
+    if (extracted.spiritualStatus?.gospelPresented) {
+      updateData.gospelPresentedAt = new Date();
+      updateData.gospelPresentationCount = { increment: 1 };
+    }
+
+    // Doctrinal question tracking
+    if (extracted.questionPatterns?.coreDoctrineQuestions) {
+      updateData.coreDoctrineQuestions = { increment: extracted.questionPatterns.coreDoctrineQuestions };
+    }
+    if (extracted.questionPatterns?.secondaryDoctrineQuestions) {
+      updateData.secondaryDoctrineQuestions = { increment: extracted.questionPatterns.secondaryDoctrineQuestions };
+    }
+    if (extracted.questionPatterns?.tertiaryDoctrineQuestions) {
+      updateData.tertiaryDoctrineQuestions = { increment: extracted.questionPatterns.tertiaryDoctrineQuestions };
+    }
+
+    // Ministry context
+    if (extracted.ministryContext && extracted.ministryContext.length > 0) {
+      // Merge with existing (deduplicate)
+      const existing = await prisma.userProfile.findUnique({
+        where: { appwriteUserId: userId },
+        select: { ministryContext: true }
+      });
+      const combined = [...new Set([...(existing?.ministryContext || []), ...extracted.ministryContext])];
+      updateData.ministryContext = combined;
+    }
+
+    // Church involvement
+    if (extracted.churchInvolvement) {
+      updateData.churchInvolvement = extracted.churchInvolvement;
+    }
+
+    // Learning preferences
+    if (extracted.learningPreferences?.followUpTendency) {
+      updateData.followUpTendency = extracted.learningPreferences.followUpTendency;
+    }
+    if (extracted.learningPreferences?.preferredDepth) {
+      updateData.preferredDepth = extracted.learningPreferences.preferredDepth;
+    }
+
+    // Only update if we have data
+    if (Object.keys(updateData).length > 0) {
+      // Build create data (converts increments to initial values)
+      const createData: {
+        appwriteUserId: string;
+        displayName: string;
+        spiritualStatus?: string;
+        gospelPresentedAt?: Date;
+        gospelPresentationCount?: number;
+        coreDoctrineQuestions?: number;
+        secondaryDoctrineQuestions?: number;
+        tertiaryDoctrineQuestions?: number;
+        ministryContext?: string[];
+        churchInvolvement?: string;
+        followUpTendency?: string;
+        preferredDepth?: string;
+      } = {
+        appwriteUserId: userId,
+        displayName: "User", // Will be updated by auth flow
+      };
+
+      // Convert increment operations to initial values for create
+      if (updateData.spiritualStatus) createData.spiritualStatus = updateData.spiritualStatus;
+      if (updateData.gospelPresentedAt) createData.gospelPresentedAt = updateData.gospelPresentedAt;
+      if (updateData.gospelPresentationCount) createData.gospelPresentationCount = updateData.gospelPresentationCount.increment;
+      if (updateData.coreDoctrineQuestions) createData.coreDoctrineQuestions = updateData.coreDoctrineQuestions.increment;
+      if (updateData.secondaryDoctrineQuestions) createData.secondaryDoctrineQuestions = updateData.secondaryDoctrineQuestions.increment;
+      if (updateData.tertiaryDoctrineQuestions) createData.tertiaryDoctrineQuestions = updateData.tertiaryDoctrineQuestions.increment;
+      if (updateData.ministryContext) createData.ministryContext = updateData.ministryContext;
+      if (updateData.churchInvolvement) createData.churchInvolvement = updateData.churchInvolvement;
+      if (updateData.followUpTendency) createData.followUpTendency = updateData.followUpTendency;
+      if (updateData.preferredDepth) createData.preferredDepth = updateData.preferredDepth;
+
+      await prisma.userProfile.upsert({
+        where: { appwriteUserId: userId },
+        update: updateData,
+        create: createData,
+      });
+      console.log(`✅ Synced ${Object.keys(updateData).length} fields to Prisma for user ${userId}`);
+    }
+  } catch (error) {
+    console.error("Error syncing to Prisma:", error);
+    // Don't throw - memory sync shouldn't break the app
+  }
+}
+
+/**
  * Main function: Extract and update user memories from conversation
  * This runs in the background after conversations complete
  * 
@@ -133,7 +257,6 @@ export async function updateUserMemoriesFromConversation(
   metadata?: {
     category?: string;
     subcategory?: string;
-    denomination?: string;
   }
 ): Promise<void> {
   try {
@@ -154,21 +277,13 @@ export async function updateUserMemoriesFromConversation(
     // Step 1: Extract new memories from conversation
     const extracted = await extractMemoriesFromConversation(messages);
 
-    // Add metadata to extracted memories if provided
-    if (metadata?.category && extracted.questionPatterns) {
-      extracted.questionPatterns[metadata.category] =
-        (extracted.questionPatterns[metadata.category] || 0) + 1;
-    }
+    // Step 2: Sync structured data to Prisma (spiritual status, doctrinal questions, ministry context, learning preferences)
+    await syncToPrisma(userId, extracted);
 
-    if (metadata?.denomination && !extracted.preferences?.denomination) {
-      if (!extracted.preferences) extracted.preferences = {};
-      extracted.preferences.denomination = metadata.denomination;
-    }
-
-    // Step 2: Merge with existing profile
+    // Step 3: Merge with existing profile in JSON store (for unstructured data like interests)
     const mergedProfile = await mergeMemories(userId, extracted);
 
-    // Step 3: Update store
+    // Step 4: Update JSON store
     await updateUserProfile(userId, mergedProfile);
 
     console.log(`✅ Memories updated for user ${userId}`);

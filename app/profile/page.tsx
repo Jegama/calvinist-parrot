@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +46,9 @@ import {
   toPrayerSpace,
 } from "./types";
 import { useProfileUiStore } from "./ui-store";
+import { CheckCircle2, Copy, X, ExternalLink, Check } from "lucide-react";
+import Link from "next/link";
+import * as denominations from "@/lib/denominations";
 
 type ProfileOverviewResponse = {
   questions: Question[];
@@ -48,6 +56,16 @@ type ProfileOverviewResponse = {
   space: RawPrayerSpace;
   membership: RawMembershipInfo | null;
 };
+
+const DENOMINATION_OPTIONS = [
+  { value: "reformed-baptist", label: "Reformed Baptist" },
+  { value: "presbyterian", label: "Presbyterian" },
+  { value: "wesleyan", label: "Wesleyan/Methodist" },
+  { value: "lutheran", label: "Lutheran" },
+  { value: "anglican", label: "Anglican/Episcopal" },
+  { value: "pentecostal", label: "Pentecostal/Charismatic" },
+  { value: "non-denom", label: "Non-Denominational" },
+] as const;
 
 async function fetchProfileOverview(userId: string): Promise<ProfileOverviewResponse> {
   const response = await fetch(`/api/profile/overview?userId=${encodeURIComponent(userId)}`);
@@ -94,6 +112,12 @@ export default function ProfilePage() {
   const router = useRouter();
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const regenerateTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Denomination selector state
+  const [selectedDenomination, setSelectedDenomination] = useState<string>("reformed-baptist");
+  const [isSavingDenomination, setIsSavingDenomination] = useState(false);
+  const [denominationSaved, setDenominationSaved] = useState(false);
+
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
   const profileQueryKey = useMemo(() => ["profile-overview", user?.$id ?? "guest"], [user?.$id]);
@@ -136,6 +160,13 @@ export default function ProfilePage() {
     }
   }, [resetUi, user]);
 
+  // Sync selected denomination with profile data
+  useEffect(() => {
+    if (profileStats?.denomination) {
+      setSelectedDenomination(profileStats.denomination);
+    }
+  }, [profileStats?.denomination]);
+
   useEffect(() => {
     if (space) {
       setSpaceNameInput(space.spaceName ?? "");
@@ -151,6 +182,32 @@ export default function ProfilePage() {
       if (regenerateTimeoutRef.current) clearTimeout(regenerateTimeoutRef.current);
     };
   }, []);
+
+  const handleSaveDenomination = async () => {
+    if (!user || !selectedDenomination) return;
+
+    setIsSavingDenomination(true);
+    setDenominationSaved(false);
+
+    try {
+      const res = await fetch(`/api/user-profile`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.$id, denomination: selectedDenomination }),
+      });
+
+      if (res.ok) {
+        await profileOverview.refetch();
+        setDenominationSaved(true);
+        // Hide success message after 5 seconds
+        setTimeout(() => setDenominationSaved(false), 5000);
+      }
+    } catch (error) {
+      console.error("Failed to update denomination:", error);
+    } finally {
+      setIsSavingDenomination(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -207,6 +264,85 @@ export default function ProfilePage() {
                 <span className="font-semibold">Last prayed together:</span> {new Date(profileStats.lastPrayerAt).toLocaleString()}
               </p>
             )}
+          </CardContent>
+        </Card>
+      )}
+      {profileStats && (
+        <Card className="mx-auto max-w-2xl mt-6">
+          <CardHeader>
+            <CardTitle>Theological Preferences</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {denominationSaved && (
+              <Alert className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <AlertTitle className="text-green-800 dark:text-green-200">Saved successfully</AlertTitle>
+                <AlertDescription className="text-green-700 dark:text-green-300">
+                  Your theological preference has been updated. Parrot will now respond according to your tradition&apos;s distinctives.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-semibold mb-1">Denomination</p>
+                <p className="text-sm text-muted-foreground">
+                  This helps Parrot tailor responses to your tradition&apos;s secondary doctrines (baptism, church governance, spiritual gifts, etc.).
+                  All responses remain anchored in the essentials we hold in common.
+                </p>
+              </div>
+
+              <Select
+                value={selectedDenomination}
+                onValueChange={setSelectedDenomination}
+              >
+                <SelectTrigger className="w-full sm:w-[300px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DENOMINATION_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {selectedDenomination && (() => {
+                // Map hyphenated DB format to underscore export format
+                const denominationKey = selectedDenomination.replace(/-/g, '_') as keyof typeof denominations;
+                return denominations[denominationKey] && (
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="denomination-preview" className="border-none">
+                      <AccordionTrigger className="text-sm font-semibold text-muted-foreground hover:no-underline py-2">
+                        What this means
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-2">
+                        <div className="p-3 bg-muted/50 rounded-md text-sm space-y-2">
+                          <div className="text-muted-foreground leading-relaxed">
+                            <MarkdownWithBibleVerses content={denominations[denominationKey]} />
+                          </div>
+                          <Link
+                            href="/doctrinal-statement"
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2"
+                          >
+                            See full doctrinal statement <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                );
+              })()}
+
+              <Button
+                onClick={handleSaveDenomination}
+                disabled={selectedDenomination === (profileStats?.denomination || 'reformed-baptist') || isSavingDenomination}
+                className="w-full sm:w-auto"
+              >
+                {isSavingDenomination ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

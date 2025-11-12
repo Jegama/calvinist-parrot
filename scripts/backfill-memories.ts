@@ -89,7 +89,7 @@ async function processUserConversations(
     stats.totalConversations += conversations.length;
 
     for (const chat of conversations) {
-      const { messages, conversationName, category, subcategory, denomination } = chat;
+      const { messages, conversationName, category, subcategory } = chat;
 
       // Skip conversations without enough messages
       if (messages.length < options.minMessages) {
@@ -113,7 +113,6 @@ async function processUserConversations(
           {
             category: category || undefined,
             subcategory: subcategory || undefined,
-            denomination: denomination || undefined,
           }
         );
 

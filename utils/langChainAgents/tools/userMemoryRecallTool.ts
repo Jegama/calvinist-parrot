@@ -9,10 +9,12 @@ async function recallUserMemory(input: { userId: string; query?: string }): Prom
   const store = getMemoryStore();
 
   try {
+    // Get JSON store profile (unstructured memories only)
     const profileNs = MemoryNamespaces.userProfile(userId);
     const profileDoc = await store.get(profileNs, MemoryKeys.USER_PROFILE);
     const profile = (profileDoc?.value as UserProfileMemory) || null;
 
+    // Semantic search across conversation-derived memories if query provided
     let hits: Array<{ key: string; snippet: string }> = [];
     if (query) {
       const results = await store.search(["memories", userId], { query, limit: 5 });
@@ -31,6 +33,7 @@ async function recallUserMemory(input: { userId: string; query?: string }): Prom
       });
     }
 
+    // Extract top theological interests from unstructured memory
     const topInterests = profile?.theologicalInterests
       ? (Object.entries(profile.theologicalInterests)
           .sort((a, b) => ((b[1]?.count || 0) as number) - ((a[1]?.count || 0) as number))
@@ -40,11 +43,13 @@ async function recallUserMemory(input: { userId: string; query?: string }): Prom
 
     const payload = {
       userId,
-      denomination: profile?.preferences?.denomination || null,
+      // Unstructured data from conversation-derived memories
       topInterests,
       concerns: (profile?.personalContext?.concerns || []).slice(0, 5),
       spiritualJourney: (profile?.personalContext?.spiritualJourney || []).slice(-3),
-      hits,
+      lifeStage: profile?.personalContext?.lifeStage || null,
+      // Semantic search results (if query provided)
+      searchHits: hits,
     };
 
     return JSON.stringify(payload);
@@ -56,9 +61,9 @@ async function recallUserMemory(input: { userId: string; query?: string }): Prom
 export const userMemoryRecallTool = tool(recallUserMemory, {
   name: "userMemoryRecall",
   description:
-    "Recall long-term user memory. Provide userId and optional query. Returns preferences, top interests, concerns, and relevant memory snippets.",
+    "Recall unstructured user memories from prior conversations: theological interests, personal concerns, spiritual journey notes, and life stage. Use this tool when you need to recall specific details mentioned in previous conversations. This performs semantic search over conversation-derived memories stored in MemoryStore. NOTE: Structured data (denomination, ministry context, learning preferences) is already provided in your system prompt - no need to recall that here.",
   schema: z.object({
     userId: z.string().describe("The Appwrite/DB user id for namespacing memory."),
-    query: z.string().optional().describe("Optional natural language query to search relevant memories."),
+    query: z.string().optional().describe("Optional natural language query to search relevant memories semantically."),
   }),
 });

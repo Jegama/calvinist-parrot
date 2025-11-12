@@ -81,13 +81,28 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
         {children}
       </a>
     ),
-    code: ({ className, children, ...props }) => (
-        <pre className="overflow-auto max-h-[500px] bg-secondary text-secondary-foreground p-4 rounded text-sm mb-4">
-          <code className={className} {...props}>
-            {children}
-          </code>
-        </pre>
-      ),
+    code: ({ className, children, node, ...props }) => {
+      // Check if this is a code block (has className) vs inline code
+      const isCodeBlock = /language-(\w+)/.test(className || '');
+      
+      if (isCodeBlock) {
+        // Block-level code (from ```language)
+        return (
+          <pre className="overflow-auto max-h-[500px] bg-secondary text-secondary-foreground p-4 rounded text-sm mb-4">
+            <code className={className} {...props}>
+              {children}
+            </code>
+          </pre>
+        );
+      }
+      
+      // Inline code (from `code`)
+      return (
+        <code className="bg-secondary text-secondary-foreground px-1.5 py-0.5 rounded text-sm" {...props}>
+          {children}
+        </code>
+      );
+    },
   };
 
   return <ReactMarkdown components={customComponents}>{content}</ReactMarkdown>;

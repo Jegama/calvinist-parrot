@@ -24,6 +24,8 @@ https://calvinistparrot.com/api/parrot-chat
 ## Overview
 The Parrot Chat endpoint provides real-time conversational interactions by streaming responses. It handles creating chat sessions, processing user messages, maintaining context, and integrating multiple theological agents including a final review stage ("Calvin's Review").
 
+**Important**: The API now includes an intelligent memory extraction system that learns from conversations to provide personalized pastoral care. The \`userId\` is **required** for this feature to work properly—it enables the system to build a profile of each user's spiritual journey, theological questions, and ministry context over time.
+
 As with the [Parrot QA API](/documentation-parrot-qa), the Parrot Chat endpoint supports multiple denominational modes to cater to various theological traditions. However, we will not compromise on the following essential doctrines:
 
 - **The Trinity:** One God, eternally existing in three persons—Father, Son, and Holy Spirit.
@@ -46,32 +48,50 @@ For simplicity, I created this other endpoint that focuses on quick QA. Please c
 ## How It Works
 
 1. **Chat Session Initialization**  
-  There are two ways to start a new chat:
-  - **From Parrot QA**: Initialize with both question and answer
-  - **From Chat Interface**: Initialize with just a question
+   There are two ways to start a new chat:
+   - **From Parrot QA**: Initialize with both question and answer
+   - **From Chat Interface**: Initialize with just a question
 
 2. **Chat Continuation**  
-  - Uses stored chat history to maintain context
-  - Processes messages through multiple agents and tools
-  - Streams real-time responses with progress updates
+   - Uses stored chat history to maintain context
+   - Processes messages through multiple agents and tools
+   - Streams real-time responses with progress updates
 
-3. **Denomination Handling**  
-  - Each denomination maps to a specific system prompt
-  - Affects how the AI interprets and responds to questions
-  - Maintains core doctrinal consistency while respecting denominational distinctives
+3. **Memory Extraction & Personalization** 🧠  
+   - **Automatic Learning**: After each conversation, the system extracts and updates user memories in the background
+   - **Pastoral Context**: Builds a profile including spiritual maturity, ministry context, theological preferences, and question history
+   - **Smart Responses**: Future conversations are informed by this context for more personalized, pastorally-appropriate answers
+   - **Privacy**: Memory data is tied to \`userId\` and never exposed to other users
+   - **No Interruption**: Memory extraction happens asynchronously and doesn't block responses
 
-## API Reference
+4. **Denomination Handling**  
+   - User's denomination preference is stored in their profile and automatically applied
+   - Each denomination maps to a specific system prompt
+   - Affects how the AI interprets and responds to questions
+   - Maintains core doctrinal consistency while respecting denominational distinctives
+
+## Why userId is Critical
+
+The \`userId\` parameter enables:
+- **Memory persistence** across conversations
+- **Spiritual journey tracking** (seeker → new believer → mature believer progression)
+- **Personalized depth** (concise vs. detailed responses based on learned preferences)
+- **Gospel presentation tracking** (avoids redundant salvation explanations)
+- **Ministry context awareness** (tailors examples to user's roles)
+- **Doctrinal question history** (identifies areas needing more teaching)
+
+Without a \`userId\`, the system cannot learn or personalize—each conversation becomes isolated and generic.## API Reference
 
 ### Request Structure
 
 Send a JSON payload with these possible fields:
 
-- *userId* (string): Unique identifier for the user.
+- **userId** (string, **REQUIRED**): Unique identifier for the user. Critical for memory extraction and personalization. Without this, the system cannot learn user preferences or provide pastoral continuity across conversations.
 - *chatId* (string, optional): Identifier for an existing chat session.
 - *message* (string): The user's chat message.
 - *initialQuestion* (string, optional): For starting a new chat session.
 - *initialAnswer* (string, optional): Initial answer for a new chat session.
-- *denomination* (string, optional): The theological perspective. Possible values:
+- *denomination* (string, optional): The theological perspective. **Note**: This parameter is now primarily stored in the user's profile. If provided, it will be used as a fallback when no profile denomination exists. Possible values:
   - *reformed-baptist* (Reformed Baptist perspective - default)
   - *presbyterian* (Presbyterian perspective)
   - *wesleyan* (Wesleyan perspective)
@@ -110,6 +130,32 @@ The API streams different event types as JSON objects:
   \`\`\`json
   {"type": "done"}
   \`\`\`
+
+### Memory Extraction (Background Process)
+
+After the response stream completes, the system automatically extracts and updates user memories in a background process (non-blocking). This includes:
+
+**Extracted Information:**
+- Spiritual status (seeker, new believer, growing believer, mature believer)
+- Ministry context (teacher, elder, small group leader, etc.)
+- Church involvement level
+- Preferred answer depth (concise, moderate, detailed)
+- Follow-up tendency (high, moderate, low)
+- Gospel presentation count
+- Doctrinal question categories (core, secondary, tertiary)
+
+**How it Works:**
+1. After Parrot's response is sent, the conversation history is analyzed
+2. An LLM extracts structured insights using a JSON schema
+3. Memories are stored in a LangGraph MemoryStore (key-value pairs)
+4. User profile counters are updated (question types, Gospel presentations)
+5. Future conversations inject this context into the system prompt for personalized responses
+
+**Developer Notes:**
+- Memory extraction never blocks the response stream
+- Errors in memory extraction are logged but don't affect user experience
+- Memory data is scoped to \`userId\` only
+- The system uses conservative updates (won't overwrite established preferences with weak signals)
 
 ### Usage Patterns
 

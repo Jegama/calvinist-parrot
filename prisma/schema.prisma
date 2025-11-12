@@ -25,19 +25,39 @@ model questionHistory {
 }
 
 model userProfile {
-  id                    String             @id @default(cuid())
-  appwriteUserId        String             @unique
-  displayName           String
-  email                 String?
-  defaultSpaceId        String?
-  answeredPersonalCount Int                @default(0)
-  answeredFamilyCount   Int                @default(0)
-  journalEntriesCount   Int                @default(0)
-  lastPrayerAt          DateTime?
-  lastSeenAt            DateTime           @default(now())
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
-  defaultSpace          prayerFamilySpace? @relation("DefaultSpaceProfiles", fields: [defaultSpaceId], references: [id])
+  id                         String             @id @default(cuid())
+  appwriteUserId             String             @unique
+  displayName                String
+  email                      String?
+  defaultSpaceId             String?
+  answeredPersonalCount      Int                @default(0)
+  answeredFamilyCount        Int                @default(0)
+  journalEntriesCount        Int                @default(0)
+  lastPrayerAt               DateTime?
+  lastSeenAt                 DateTime           @default(now())
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+  
+  // Theological Preferences & Learning
+  denomination               String?            @default("reformed-baptist")
+  preferredDepth             String?            @default("concise") // "concise" | "moderate" | "detailed"
+  followUpTendency           String?            // "deep_diver" | "quick_mover" | "balanced" | null
+  
+  // Spiritual Journey Tracking (PRIVATE - never reveal to user)
+  spiritualStatus            String?            // "seeker" | "new_believer" | "mature_believer" | "unclear"
+  gospelPresentedAt          DateTime?          // Last time Gospel was clearly presented
+  gospelPresentationCount    Int                @default(0)
+  
+  // Doctrinal Question Tracking
+  coreDoctrineQuestions      Int                @default(0)
+  secondaryDoctrineQuestions Int                @default(0)
+  tertiaryDoctrineQuestions  Int                @default(0)
+  
+  // Ministry & Life Context
+  ministryContext            String[]           // ["parent", "pastor", "teacher", "student", etc.]
+  churchInvolvement          String?            // "active_member" | "seeking_church" | "unclear"
+  
+  defaultSpace               prayerFamilySpace? @relation("DefaultSpaceProfiles", fields: [defaultSpaceId], references: [id])
 }
 
 model prayerFamilySpace {

@@ -8,6 +8,7 @@ export type ProfileStats = {
   answeredFamilyCount: number;
   answeredPersonalCount: number;
   lastPrayerAt?: string | null;
+  denomination?: string | null;
 };
 
 export type SpaceMember = {

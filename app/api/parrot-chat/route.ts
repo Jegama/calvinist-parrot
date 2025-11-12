@@ -152,14 +152,104 @@ export async function POST(request: Request) {
       return history;
     };
 
-    const secondaryPromptText = mapDenominationPrompt(denomination);
+    // Fetch user profile for pastoral context injection
+    const userProfile = await prisma.userProfile.findUnique({
+      where: { appwriteUserId: effectiveUserId },
+      select: {
+        denomination: true,
+        preferredDepth: true,
+        followUpTendency: true,
+        spiritualStatus: true,
+        gospelPresentationCount: true,
+        coreDoctrineQuestions: true,
+        secondaryDoctrineQuestions: true,
+        tertiaryDoctrineQuestions: true,
+        ministryContext: true,
+        churchInvolvement: true,
+      },
+    });
+
+    // Build pastoral context from Prisma data
+    const buildPastoralContext = (): string => {
+      if (!userProfile) {
+        return '# Pastoral Context\n(No user profile data available yet. User preferences will be learned over time.)';
+      }
+
+      const lines: string[] = ['# Pastoral Context'];
+      lines.push('Use this structured data to inform your pastoral approach silently (NEVER mention these details explicitly to the user):');
+      lines.push('');
+
+      // Denomination (user-controlled preference)
+      if (userProfile.denomination) {
+        lines.push(`- **User's Theological Tradition**: ${userProfile.denomination} (apply appropriate secondary doctrine framework)`);
+      }
+
+      // Spiritual Status (PRIVATE - for agent's internal use only)
+      if (userProfile.spiritualStatus) {
+        const statusMap: Record<string, string> = {
+          seeker: 'Exploring faith (emphasize Gospel clarity, avoid jargon)',
+          new_believer: 'Recently saved (gentle discipleship, foundational truths)',
+          growing_believer: 'Established in faith (balanced teaching, application focus)',
+          mature_believer: 'Spiritually mature (deeper doctrine, ministry application)',
+        };
+        lines.push(`- **Spiritual Maturity** (PRIVATE): ${statusMap[userProfile.spiritualStatus] || userProfile.spiritualStatus}`);
+      }
+
+      // Gospel Engagement
+      if (userProfile.gospelPresentationCount !== null && userProfile.gospelPresentationCount > 0) {
+        lines.push(`- **Gospel Presentations Received**: ${userProfile.gospelPresentationCount} time(s) — avoid redundant Gospel explanations unless specifically asked`);
+      }
+
+      // Ministry Context
+      if (userProfile.ministryContext && userProfile.ministryContext.length > 0) {
+        lines.push(`- **Ministry Roles**: ${userProfile.ministryContext.join(', ')} — tailor examples and applications to these contexts`);
+      }
+
+      // Church Involvement
+      if (userProfile.churchInvolvement) {
+        lines.push(`- **Church Involvement**: ${userProfile.churchInvolvement}`);
+      }
+
+      // Learning Preferences
+      if (userProfile.preferredDepth) {
+        const depthMap: Record<string, string> = {
+          concise: 'Prefers brief, focused answers (60-100 words)',
+          moderate: 'Comfortable with moderate detail (3-5 paragraphs)',
+          detailed: 'Appreciates thorough explanations and outlines',
+        };
+        lines.push(`- **Preferred Answer Depth**: ${depthMap[userProfile.preferredDepth] || userProfile.preferredDepth}`);
+      }
+
+      if (userProfile.followUpTendency) {
+        lines.push(`- **Follow-Up Style**: ${userProfile.followUpTendency === 'high' ? 'Frequently asks follow-ups' : userProfile.followUpTendency === 'low' ? 'Prefers standalone answers' : 'Moderate follow-up engagement'}`);
+      }
+
+      // Doctrinal Question History
+      const coreQ = userProfile.coreDoctrineQuestions || 0;
+      const secondaryQ = userProfile.secondaryDoctrineQuestions || 0;
+      const tertiaryQ = userProfile.tertiaryDoctrineQuestions || 0;
+      if (coreQ + secondaryQ + tertiaryQ > 0) {
+        lines.push(`- **Doctrinal Question History**: ${coreQ} core, ${secondaryQ} secondary, ${tertiaryQ} tertiary — ${coreQ > 3 ? 'needs clarity on essentials' : 'solid foundation in essentials'}; ${secondaryQ > 5 ? 'exploring denominational distinctives' : ''}; ${tertiaryQ > 5 ? 'interested in disputable matters' : ''}`);
+      }
+
+      lines.push('');
+      lines.push('**Remember**: Use this context to shape your tone, depth, examples, and doctrinal emphasis. Do NOT explicitly reference this data in your response (e.g., never say "I see you\'re a new believer" or "Based on your spiritual status").');
+
+      return lines.join('\n');
+    };
+
+    const pastoralContext = buildPastoralContext();
+
+    // Use profile denomination if available, fallback to request parameter for backward compatibility
+    const effectiveDenomination = userProfile?.denomination || denomination;
+    const secondaryPromptText = mapDenominationPrompt(effectiveDenomination);
     const coreSysPromptWithDenomination = prompts.CORE_SYS_PROMPT.replace('{denomination}', secondaryPromptText);
-    const newParrotSysPrompt = prompts.PARROT_SYS_PROMPT_MAIN.replace('{CORE}', coreSysPromptWithDenomination);
+    let newParrotSysPrompt = prompts.PARROT_SYS_PROMPT_MAIN.replace('{CORE}', coreSysPromptWithDenomination);
+    newParrotSysPrompt = newParrotSysPrompt.replace('{PASTORAL_CONTEXT}', pastoralContext);
 
     // Capture variables for stream closure
     const capturedUserId = effectiveUserId;
     const capturedChatId = chatId;
-    const capturedDenomination = denomination;
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -260,107 +350,13 @@ export async function POST(request: Request) {
           // Parrot's answer
           let parrotReply = '';
           try {
-            // =============================
-            // 🧠 Long-term memory recall with lightweight caching
-            // Skip semantic search + profile summary if profile unchanged AND
-            // last recall was for the same user AND query is similar.
-            let memorySystemMessage: string | null = null;
-            const recallCacheKey = `recall-cache-${capturedUserId}`;
-            interface RecallCache {
-              lastProfileUpdated: string | null;
-              lastQuery: string | null;
-              lastResult: string | null;
-            }
-            // Attach a simple global cache object on globalThis (typed)
-            type GlobalCacheShape = { __PARROT_MEMORY_CACHE__?: Record<string, RecallCache> };
-            const g = globalThis as GlobalCacheShape;
-            if (!g.__PARROT_MEMORY_CACHE__) {
-              g.__PARROT_MEMORY_CACHE__ = {};
-            }
-            const globalCache = g.__PARROT_MEMORY_CACHE__;
-
-            if (capturedUserId) {
-              try {
-                const store = getMemoryStore();
-                const profileNamespace = MemoryNamespaces.userProfile(capturedUserId);
-                const profileDoc = await store.get(profileNamespace, MemoryKeys.USER_PROFILE);
-                const profile = profileDoc?.value as import('@/lib/langGraphStore').UserProfileMemory | undefined;
-                const profileUpdated = profile?.lastUpdated || null;
-                const cacheEntry: RecallCache = globalCache[recallCacheKey] || { lastProfileUpdated: null, lastQuery: null, lastResult: null };
-
-                const normalizedQuery = (message || '').trim().toLowerCase();
-                const querySimilar = cacheEntry.lastQuery ? normalizedQuery.startsWith(cacheEntry.lastQuery.slice(0, 40)) : false;
-                const profileUnchanged = cacheEntry.lastProfileUpdated === profileUpdated;
-
-                // If we have a cached result and nothing changed + similar query, reuse
-                if (cacheEntry.lastResult && profileUnchanged && querySimilar) {
-                  memorySystemMessage = cacheEntry.lastResult;
-                } else {
-                  // Perform fresh semantic search only if we have a message
-                  let semanticSnippets: string[] = [];
-                  if (normalizedQuery) {
-                    const hits = await store.search(["memories", capturedUserId], { query: message, limit: 3 });
-                    semanticSnippets = hits
-                      .map(h => {
-                        try {
-                          if (h?.value?.data) return String(h.value.data).slice(0, 180);
-                          return JSON.stringify(h.value).slice(0, 180);
-                        } catch { return ''; }
-                      })
-                      .filter(Boolean);
-                  }
-
-                  if (profile) {
-                    const interests = Object.entries(profile.theologicalInterests || {})
-                      .sort((a, b) => ((b[1]?.count || 0) as number) - ((a[1]?.count || 0) as number))
-                      .slice(0, 3)
-                      .map(([k, v]) => `${k} (x${(v as { count: number })?.count || 0})`);
-                    const concerns: string[] = (profile.personalContext?.concerns || []).slice(0, 3);
-                    const journey: string[] = (profile.personalContext?.spiritualJourney || []).slice(-2);
-                    const denom = profile.preferences?.denomination;
-
-                    memorySystemMessage = [
-                      'User Memory Context (from prior conversations):',
-                      interests.length ? `Top theological interests: ${interests.join(', ')}` : null,
-                      concerns.length ? `Current concerns: ${concerns.join('; ')}` : null,
-                      journey.length ? `Spiritual journey notes: ${journey.join(' | ')}` : null,
-                      denom ? `Preferred denomination: ${denom}` : null,
-                      semanticSnippets.length ? `Relevant prior memory snippets:\n- ${semanticSnippets.join('\n- ')}` : null,
-                      'Use this context to personalize the answer when appropriate. Do NOT repeat verbatim; integrate naturally.'
-                    ].filter(Boolean).join('\n');
-                  } else if (semanticSnippets.length) {
-                    memorySystemMessage = [
-                      'User Memory Context (semantic hits only):',
-                      semanticSnippets.map(s => `- ${s}`).join('\n'),
-                      'Integrate if relevant.'
-                    ].join('\n');
-                  }
-
-                  // Update cache
-                  globalCache[recallCacheKey] = {
-                    lastProfileUpdated: profileUpdated,
-                    lastQuery: normalizedQuery,
-                    lastResult: memorySystemMessage,
-                  };
-                }
-              } catch (e) {
-                console.error('Memory recall failed (non-fatal):', e);
-              }
-            }
-
+            // Build message history with system prompt (Prisma context already injected)
             const parrotHistory = buildParrotHistory(
               conversationMessages,
               newParrotSysPrompt
             );
 
-            if (memorySystemMessage) {
-              // Insert AFTER the core system prompt to preserve primary system instructions precedence
-              parrotHistory.splice(1, 0, new SystemMessage(memorySystemMessage));
-            } else if (capturedUserId) {
-              // Minimal hint so the agent can call the native tool with the correct userId if needed
-              parrotHistory.splice(1, 0, new SystemMessage(`When you need prior user context, call the tool userMemoryRecall with { userId: "${capturedUserId}", query: the current user question }.`));
-            }
-
+            // Start streaming LLM response
             const eventStream = parrotWorkflow.streamEvents(
               { messages: parrotHistory },
               { version: "v2", streamMode: ["updates", "messages"], configurable: { thread_id: capturedChatId, userId: capturedUserId } }
@@ -561,7 +557,6 @@ export async function POST(request: Request) {
               {
                 category: currentChat?.category,
                 subcategory: currentChat?.subcategory,
-                denomination: currentChat?.denomination || capturedDenomination,
               }
             ).catch((error) => {
               // Log but don't fail - memory extraction is non-critical
