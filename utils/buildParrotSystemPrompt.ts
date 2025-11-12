@@ -190,5 +190,12 @@ export function buildParrotSystemPrompt(params: {
     pastoralContext
   );
 
+  // Inject effective user id literal for tools that require it (do not expose to user)
+  const effectiveUserIdLiteral = effectiveUserId || "unknown_user";
+  newParrotSysPrompt = newParrotSysPrompt.replace(
+    /\{EFFECTIVE_USER_ID\}/g,
+    effectiveUserIdLiteral
+  );
+
   return newParrotSysPrompt;
 }

@@ -136,9 +136,8 @@ async function mergeMemories(
   // Normalize variants
   const normalizedNew = { ...newMemories };
   if (normalizedNew.theologicalInterests) {
-    for (const [topic, info] of Object.entries(
-      normalizedNew.theologicalInterests
-    )) {
+    // Normalize each interest entry (ignore key here; canonicalization happens below)
+    for (const info of Object.values(normalizedNew.theologicalInterests)) {
       // Support model variant keys
       // @ts-expect-error allow mentions alias
       const altCount = info.mentions as number | undefined;
@@ -179,35 +178,41 @@ async function mergeMemories(
       contexts: string[];
     };
   } = {};
-  for (const [rawKey, data] of Object.entries(
-    existingProfile.theologicalInterests || {}
-  )) {
+  type InterestData = {
+    count?: number;
+    lastMentioned?: string;
+    contexts?: string[];
+  };
+  const existingInterests: Record<string, InterestData> =
+    (existingProfile.theologicalInterests as Record<string, InterestData>) ||
+    {};
+  for (const [rawKey, data] of Object.entries(existingInterests)) {
     const key = canonicalizeTopic(rawKey);
     if (!key) continue;
     if (!interests[key]) {
+      const dataCount = Math.max(0, Number(data?.count ?? 0));
+      const dataLastMentioned = String(data?.lastMentioned || nowIso);
+      const dataContexts = Array.isArray(data?.contexts)
+        ? data.contexts.map((c) => String(c))
+        : [];
       interests[key] = {
-        count: Math.max(0, Number((data as any)?.count ?? 0)),
-        lastMentioned: String((data as any)?.lastMentioned || nowIso),
-        contexts: Array.isArray((data as any)?.contexts)
-          ? ((data as any)?.contexts as string[]).map((c) => String(c))
-          : [],
+        count: dataCount,
+        lastMentioned: dataLastMentioned,
+        contexts: dataContexts,
       };
     } else {
       // merge duplicate existing keys
-      interests[key].count += Math.max(0, Number((data as any)?.count ?? 0));
+      interests[key].count += Math.max(0, Number(data?.count ?? 0));
       const existingTime = Date.parse(interests[key].lastMentioned || "0");
-      const candidateTime = Date.parse(
-        String((data as any)?.lastMentioned || "0")
-      );
+      const candidateTime = Date.parse(String(data?.lastMentioned || "0"));
       if (candidateTime > existingTime) {
-        interests[key].lastMentioned = String((data as any)?.lastMentioned);
+        interests[key].lastMentioned = String(data?.lastMentioned);
       }
       const merged = [
         ...interests[key].contexts,
-        ...(Array.isArray((data as any)?.contexts)
-          ? ((data as any)?.contexts as string[])
-          : []
-        ).map((c) => String(c)),
+        ...(Array.isArray(data?.contexts) ? data.contexts : []).map((c) =>
+          String(c)
+        ),
       ];
       const seen = new Set<string>();
       const out: string[] = [];

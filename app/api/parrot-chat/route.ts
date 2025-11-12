@@ -164,7 +164,7 @@ export async function POST(request: Request) {
       effectiveUserId,
     });
 
-    console.log(`📝 Parrot system prompt built for user:\n ${effectiveUserId}`);
+    // console.log(`📝 Parrot system prompt built for user:\n ${newParrotSysPrompt}`);
 
     // Capture variables for stream closure
     const capturedUserId = effectiveUserId;
@@ -359,7 +359,13 @@ export async function POST(request: Request) {
                   const firstToolCall = messageWithToolCall?.tool_calls?.[0];
                   if (firstToolCall) {
                     const args = firstToolCall.args ?? {};
-                    if (typeof args.query === "string" && args.query.trim()) {
+                    // Suppress progress for userMemoryRecall per requirement
+                    if (firstToolCall.name === "userMemoryRecall") {
+                      // Do nothing: no progress UI for memory recall
+                    } else if (
+                      typeof args.query === "string" &&
+                      args.query.trim()
+                    ) {
                       const friendly = getFriendlyToolMessage(
                         firstToolCall.name
                       );
@@ -415,17 +421,20 @@ export async function POST(request: Request) {
                 }
               } else if (event === "on_tool_start") {
                 const toolName = extractToolName(data);
-                const friendly = getFriendlyToolMessage(toolName);
-                if (!activeToolRuns.has(toolName ?? "unknown")) {
-                  activeToolRuns.add(toolName ?? "unknown");
-                  sendProgress(
-                    {
-                      type: "progress",
-                      title: friendly.title,
-                      content: friendly.start,
-                    },
-                    controller
-                  );
+                // Skip progress for userMemoryRecall
+                if (toolName !== "userMemoryRecall") {
+                  const friendly = getFriendlyToolMessage(toolName);
+                  if (!activeToolRuns.has(toolName ?? "unknown")) {
+                    activeToolRuns.add(toolName ?? "unknown");
+                    sendProgress(
+                      {
+                        type: "progress",
+                        title: friendly.title,
+                        content: friendly.start,
+                      },
+                      controller
+                    );
+                  }
                 }
               } else if (event === "on_tool_end") {
                 console.log("Tool end:", data.output.name);

@@ -87,7 +87,6 @@ async function recallUserMemory(input: {
       searchHits: hits,
       truncated: !full,
     };
-
     return JSON.stringify(payload);
   } catch (error) {
     return JSON.stringify({
