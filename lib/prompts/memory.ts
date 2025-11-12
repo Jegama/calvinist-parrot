@@ -62,6 +62,9 @@ Guidelines:
 - All theologicalInterests keys MUST be snake_case; do not output keys with spaces, hyphens, or mixed casing.
  - Prefer specific, user-asked subjects over broad/derived tags (e.g., choose "first_commandment" over generic "obedience" unless the user explicitly asked about obedience).
  - Avoid near-synonyms as separate keys; map them to a single best canonical topic for this turn.
+ - Conservative profile-aware updates: ONLY output a new value for spiritualStatus, followUpTendency, churchInvolvement, preferredDepth, or ministryContext if this conversation provides strong, fresh evidence of change. If not, omit that field entirely so existing profile values remain unchanged.
+ - Do NOT downgrade spiritualStatus or churchInvolvement (e.g., from mature_believer to growing_believer, or active_member to seeking_church) unless the user explicitly expresses regression or uncertainty.
+ - Ministry context: output roles exactly as stated; do not fabricate or copy prior roles. Avoid duplicating synonyms (e.g., elder / church_leader). If multiple synonymous roles appear, choose the most representative single canonical form.
 
 Return only valid JSON matching the schema. No commentary, no markdown.`;
 

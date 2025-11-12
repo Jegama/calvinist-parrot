@@ -2,6 +2,7 @@
 // Background memory extraction from conversations
 
 import OpenAI from "openai";
+import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import {
   updateUserProfile,
   getUserProfile,
@@ -22,6 +23,15 @@ const EXTRACTION_MODEL = "gpt-4.1-mini"; // Fast and cost-effective for extracti
 interface ConversationMessage {
   sender: string;
   content: string;
+}
+
+// Minimal, read-only profile context to guide extraction disambiguation
+interface ProfileContextForExtraction {
+  spiritualStatus?: "seeker" | "new_believer" | "growing_believer" | "mature_believer" | "unclear";
+  followUpTendency?: "deep_diver" | "quick_mover" | "balanced";
+  churchInvolvement?: "active_member" | "seeking_church" | "unclear";
+  preferredDepth?: "concise" | "moderate" | "detailed";
+  ministryContext?: string[];
 }
 
 interface ExtractedMemories {
@@ -65,20 +75,50 @@ interface ExtractedMemories {
  * Extract memories from a conversation using LLM
  * This identifies theological topics, personal context, and question patterns
  */
+function buildProfileContextSystemMessage(
+  profile: ProfileContextForExtraction
+): string {
+  // Keep it compact and directive: disambiguation-only, no carryover
+  const payload = {
+    spiritualStatus: profile.spiritualStatus || null,
+    followUpTendency: profile.followUpTendency || null,
+    churchInvolvement: profile.churchInvolvement || null,
+    preferredDepth: profile.preferredDepth || null,
+    ministryContext: Array.isArray(profile.ministryContext)
+      ? profile.ministryContext
+      : [],
+  };
+  return (
+    "READ-ONLY USER PROFILE CONTEXT — use only for disambiguation and synonym unification; do NOT invent or carry facts from this profile. Prefer conversation evidence from lines starting with 'User:'. If no strong new evidence, omit changes to these fields.\n" +
+    JSON.stringify(payload)
+  );
+}
+
 async function extractMemoriesFromConversation(
-  messages: ConversationMessage[]
+  messages: ConversationMessage[],
+  profile?: ProfileContextForExtraction
 ): Promise<ExtractedMemories> {
   const conversationText = messages
     .map((m) => `${m.sender === "user" ? "User" : "Parrot"}: ${m.content}`)
     .join("\n\n");
 
   try {
+    const messagesPayload: ChatCompletionMessageParam[] = [
+      { role: "system", content: MEMORY_EXTRACTION_SYS_PROMPT },
+      ...(profile
+        ? ([
+            {
+              role: "system",
+              content: buildProfileContextSystemMessage(profile),
+            },
+          ] as ChatCompletionMessageParam[])
+        : []),
+      { role: "user", content: conversationText },
+    ];
+
     const response = await openai.chat.completions.create({
       model: EXTRACTION_MODEL,
-      messages: [
-        { role: "system", content: MEMORY_EXTRACTION_SYS_PROMPT },
-        { role: "user", content: conversationText },
-      ],
+      messages: messagesPayload,
       response_format: { type: "json_schema", json_schema: extractionSchema },
       temperature: 0.1, // Lower temperature for more consistent extraction
     });
@@ -339,6 +379,49 @@ async function syncToPrisma(
   extracted: ExtractedMemories
 ): Promise<void> {
   try {
+    // Fetch existing profile once for conservative, profile-aware updates
+    const existing = await prisma.userProfile.findUnique({
+      where: { appwriteUserId: userId },
+      select: {
+        spiritualStatus: true,
+        gospelPresentedAt: true,
+        churchInvolvement: true,
+        followUpTendency: true,
+        preferredDepth: true,
+        ministryContext: true,
+        coreDoctrineQuestions: true,
+        secondaryDoctrineQuestions: true,
+        tertiaryDoctrineQuestions: true,
+      },
+    });
+
+    // Helper: canonicalize ministry roles to a stable, snake_case vocabulary
+    const canonicalizeRole = (s: string) =>
+      String(s)
+        .normalize("NFKD")
+        .toLowerCase()
+        .replace(/[\u2018\u2019\u201C\u201D'"`]/g, "")
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .replace(/_{2,}/g, "_");
+
+    const roleAliasMap: Record<string, string> = {
+      // Family terms
+      father: "parent",
+      mother: "parent",
+      dad: "parent",
+      mom: "parent",
+      // Small group synonyms
+      home_group_leader: "small_group_leader",
+      community_group_leader: "small_group_leader",
+      // Keep distinct roles for accuracy (no collapsing of seminary_student, church_staff, elder, deacon, worship_pastor, evangelist, etc.)
+    };
+
+    const mapRole = (r: string) => {
+      const c = canonicalizeRole(r);
+      return roleAliasMap[c] || c;
+    };
+
     const updateData: {
       spiritualStatus?: string;
       gospelPresentedAt?: Date;
@@ -352,9 +435,23 @@ async function syncToPrisma(
       preferredDepth?: string;
     } = {};
 
-    // Spiritual status (PRIVATE)
+    // Spiritual status (PRIVATE) — conservative: only move from null/unclear to known, or to a higher maturity tier
     if (extracted.spiritualStatus?.status) {
-      updateData.spiritualStatus = extracted.spiritualStatus.status;
+      const rank: Record<string, number> = {
+        unclear: 0,
+        seeker: 1,
+        new_believer: 2,
+        growing_believer: 3,
+        mature_believer: 4,
+      };
+      const current = (existing?.spiritualStatus as string | null) || "unclear";
+      const next = extracted.spiritualStatus.status as string;
+      const shouldUpdate =
+        next !== "unclear" &&
+        ((rank[next] ?? -1) > (rank[current] ?? -1) || current === "unclear");
+      if (shouldUpdate) {
+        updateData.spiritualStatus = next;
+      }
     }
     if (extracted.spiritualStatus?.gospelPresented) {
       updateData.gospelPresentedAt = new Date();
@@ -378,34 +475,61 @@ async function syncToPrisma(
       };
     }
 
-    // Ministry context
+    // Ministry context — canonicalize and merge with existing (dedupe)
     if (extracted.ministryContext && extracted.ministryContext.length > 0) {
-      // Merge with existing (deduplicate)
-      const existing = await prisma.userProfile.findUnique({
-        where: { appwriteUserId: userId },
-        select: { ministryContext: true },
-      });
-      const combined = [
-        ...new Set([
-          ...(existing?.ministryContext || []),
-          ...extracted.ministryContext,
-        ]),
-      ];
-      updateData.ministryContext = combined;
+      const existingRoles = (existing?.ministryContext || []).map(mapRole);
+      const incoming = extracted.ministryContext.map(mapRole).filter(Boolean);
+      const merged = [...existingRoles, ...incoming];
+      const unique: string[] = [];
+      const seen = new Set<string>();
+      for (const r of merged) {
+        if (!r || seen.has(r)) continue;
+        seen.add(r);
+        unique.push(r);
+      }
+      // keep a reasonable cap to avoid unbounded growth
+      updateData.ministryContext = unique.slice(0, 15);
     }
 
     // Church involvement
     if (extracted.churchInvolvement) {
-      updateData.churchInvolvement = extracted.churchInvolvement;
+      const ciRank: Record<string, number> = {
+        unclear: 0,
+        seeking_church: 1,
+        active_member: 2,
+      };
+      const current = (existing?.churchInvolvement as string | null) || "unclear";
+      const next = extracted.churchInvolvement as string;
+      if ((ciRank[next] ?? -1) > (ciRank[current] ?? -1) || current === "unclear") {
+        updateData.churchInvolvement = next;
+      }
     }
 
     // Learning preferences
     if (extracted.learningPreferences?.followUpTendency) {
-      updateData.followUpTendency =
-        extracted.learningPreferences.followUpTendency;
+      const current = existing?.followUpTendency as
+        | "deep_diver"
+        | "quick_mover"
+        | "balanced"
+        | null
+        | undefined;
+      const next = extracted.learningPreferences.followUpTendency;
+      // Only set if empty, or if moving from balanced -> a strong extreme
+      if (!current || (current === "balanced" && next !== "balanced")) {
+        updateData.followUpTendency = next;
+      }
     }
     if (extracted.learningPreferences?.preferredDepth) {
-      updateData.preferredDepth = extracted.learningPreferences.preferredDepth;
+      const current = existing?.preferredDepth as
+        | "concise"
+        | "moderate"
+        | "detailed"
+        | null
+        | undefined;
+      const next = extracted.learningPreferences.preferredDepth;
+      if (!current || current !== next) {
+        updateData.preferredDepth = next;
+      }
     }
 
     // Only update if we have data
@@ -498,8 +622,41 @@ export async function updateUserMemoriesFromConversation(
 
     console.log(`🧠 Extracting memories for user ${userId}...`);
 
+    // Build compact, read-only profile context for extraction
+    const existingForContext = await prisma.userProfile.findUnique({
+      where: { appwriteUserId: userId },
+      select: {
+        spiritualStatus: true,
+        followUpTendency: true,
+        churchInvolvement: true,
+        preferredDepth: true,
+        ministryContext: true,
+      },
+    });
+    const profileContext: ProfileContextForExtraction | undefined =
+      existingForContext
+        ? {
+            spiritualStatus:
+              (existingForContext.spiritualStatus as ProfileContextForExtraction["spiritualStatus"]) ||
+              undefined,
+            followUpTendency:
+              (existingForContext.followUpTendency as ProfileContextForExtraction["followUpTendency"]) ||
+              undefined,
+            churchInvolvement:
+              (existingForContext.churchInvolvement as ProfileContextForExtraction["churchInvolvement"]) ||
+              undefined,
+            preferredDepth:
+              (existingForContext.preferredDepth as ProfileContextForExtraction["preferredDepth"]) ||
+              undefined,
+            ministryContext: existingForContext.ministryContext || [],
+          }
+        : undefined;
+
     // Step 1: Extract new memories from conversation
-    const extracted = await extractMemoriesFromConversation(messages);
+    const extracted = await extractMemoriesFromConversation(
+      messages,
+      profileContext
+    );
 
     // Step 2: Sync structured data to Prisma (spiritual status, doctrinal questions, ministry context, learning preferences)
     await syncToPrisma(userId, extracted);
