@@ -7,6 +7,7 @@ import { updateUserMemoriesFromConversation } from "@/utils/memoryExtraction";
 
 interface BackfillOptions {
   userId?: string;
+  skipUserId?: string;
   processAll?: boolean;
   batchSize?: number;
   dryRun?: boolean;
@@ -162,6 +163,7 @@ async function processUserConversations(
 async function backfillMemories(options: BackfillOptions = {}) {
   const {
     userId,
+    skipUserId,
     processAll = false,
     batchSize = 50,
     dryRun = false,
@@ -198,11 +200,22 @@ async function backfillMemories(options: BackfillOptions = {}) {
 
       // Filter out users with only 1 conversation (likely anonymous/one-time users)
       usersToProcess = allUsers.filter((u) => u.count > 1);
+      
+      // Filter out skipped user if specified
+      if (skipUserId) {
+        const beforeCount = usersToProcess.length;
+        usersToProcess = usersToProcess.filter((u) => u.userId !== skipUserId);
+        const skippedCount = beforeCount - usersToProcess.length;
+        if (skippedCount > 0) {
+          console.log(`🚫 Skipping user: ${skipUserId}`);
+        }
+      }
+      
       const skippedUsers = allUsers.length - usersToProcess.length;
 
       console.log(`📌 Found ${allUsers.length} total users`);
       console.log(
-        `   Skipping ${skippedUsers} users with only 1 conversation (anonymous/one-time users)`
+        `   Skipping ${skippedUsers} users with only 1 conversation (anonymous/one-time users)${skipUserId ? ' + manually excluded user' : ''}`
       );
       console.log(
         `   Processing ${usersToProcess.length} users with 2+ conversations:\n`
@@ -301,6 +314,8 @@ function parseArgs(): BackfillOptions {
   for (const arg of args) {
     if (arg.startsWith("--user-id=")) {
       options.userId = arg.split("=")[1];
+    } else if (arg.startsWith("--skip-user-id=")) {
+      options.skipUserId = arg.split("=")[1];
     } else if (arg === "--process-all") {
       options.processAll = true;
     } else if (arg.startsWith("--batch-size=")) {
@@ -321,6 +336,7 @@ Usage:
 
 Options:
   --user-id=<id>        Process conversations for this specific user only
+  --skip-user-id=<id>   Exclude this user from processing (useful with --process-all)
   --process-all         Process ALL users and their conversations (use with caution!)
   --batch-size=<n>      Number of conversations to process per user batch (default: 50)
   --min-messages=<n>    Only process conversations with at least N messages (default: 2)
@@ -334,6 +350,9 @@ Examples:
 
   # Process all conversations for a specific user
   npx tsx scripts/backfill-memories.ts --user-id=abcd1234efgh5678ijkl90mn
+
+  # Process all users EXCEPT one (useful after stopping mid-run)
+  npx tsx scripts/backfill-memories.ts --process-all --skip-user-id=abcd1234efgh5678ijkl90mn
 
   # Process all users with custom batch size
   npx tsx scripts/backfill-memories.ts --process-all --batch-size=25
