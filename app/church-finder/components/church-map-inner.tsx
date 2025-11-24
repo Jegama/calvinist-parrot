@@ -71,9 +71,7 @@ export function ChurchMapInner({ churches, onSelect, height }: ChurchMapInnerPro
       return;
     }
 
-    const bounds = L.latLngBounds(
-      markers.map((church) => [church.latitude as number, church.longitude as number])
-    );
+    const bounds = L.latLngBounds(markers.map((church) => [church.latitude as number, church.longitude as number]));
 
     map.fitBounds(bounds.pad(0.2), { maxZoom: 11 });
   }, [markers]);
@@ -84,10 +82,7 @@ export function ChurchMapInner({ churches, onSelect, height }: ChurchMapInnerPro
 
   return (
     <div
-      className={cn(
-        "overflow-hidden rounded-lg border border-border bg-card/80",
-        styles.mapShell
-      )}
+      className={cn("overflow-hidden rounded-lg border border-border bg-card/80", styles.mapShell)}
       style={{ height: resolvedHeight }}
     >
       {markers.length === 0 ? (

@@ -19,8 +19,11 @@ import { fetchChurchDetail, fetchChurches, fetchChurchMeta } from "./api";
 
 type ViewMode = "list" | "map";
 
+const CLIENT_PAGE_SIZE = 10;
+const SERVER_PAGE_SIZE = 50;
+const EMPTY_CHURCHES: ChurchListItem[] = [];
+
 const DEFAULT_FILTERS: ChurchFilters = {
-  page: 1,
   state: null,
   city: null,
   denomination: null,
@@ -30,7 +33,6 @@ const DEFAULT_FILTERS: ChurchFilters = {
 
 // Reset filters maintains the default exclusion of red_flag and limited info churches
 const RESET_FILTERS: ChurchFilters = {
-  page: 1,
   state: null,
   city: null,
   denomination: null,
@@ -40,6 +42,7 @@ const RESET_FILTERS: ChurchFilters = {
 
 function ChurchFinderClient() {
   const [filters, setFilters] = useState<ChurchFilters>(DEFAULT_FILTERS);
+  const [listPage, setListPage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
@@ -99,19 +102,18 @@ function ChurchFinderClient() {
   const churchQueryKey = useMemo(
     () => [
       "churches",
-      filters.page ?? 1,
       filters.state ?? "",
       filters.city ?? "",
       filters.denomination ?? "",
       filters.confessional ?? "all",
       filters.status ?? "exclude_red_flag_and_limited",
     ],
-    [filters]
+    [filters.state, filters.city, filters.denomination, filters.confessional, filters.status]
   );
 
   const churchQuery = useQuery({
     queryKey: churchQueryKey,
-    queryFn: () => fetchChurches(filters),
+    queryFn: () => fetchChurches({ ...filters, pageSize: SERVER_PAGE_SIZE }, { fetchAll: true }),
   });
 
   const metaQuery = useQuery({
@@ -134,30 +136,30 @@ function ChurchFinderClient() {
     setSelectedChurchId(church.id);
   };
 
-  const handleFiltersChange = useCallback((next: ChurchFilters | ((prev: ChurchFilters) => ChurchFilters)) => {
-    setFilters((prev) => {
-      const nextFilters = typeof next === "function" ? next(prev) : next;
+  const handleFiltersChange = useCallback(
+    (next: ChurchFilters | ((prev: ChurchFilters) => ChurchFilters)) => {
+      setFilters((prev) => {
+        const nextFilters = typeof next === "function" ? next(prev) : next;
 
-      // Only update if filters actually changed
-      if (
-        prev.page === nextFilters.page &&
-        prev.state === nextFilters.state &&
-        prev.city === nextFilters.city &&
-        prev.denomination === nextFilters.denomination &&
-        prev.confessional === nextFilters.confessional &&
-        prev.status === nextFilters.status
-      ) {
-        return prev;
-      }
-      return nextFilters;
-    });
-  }, []);
+        if (
+          prev.state === nextFilters.state &&
+          prev.city === nextFilters.city &&
+          prev.denomination === nextFilters.denomination &&
+          prev.confessional === nextFilters.confessional &&
+          prev.status === nextFilters.status
+        ) {
+          return prev;
+        }
+        return nextFilters;
+      });
+      setListPage(1);
+    },
+    [setListPage]
+  );
 
   const handleResetFilters = useCallback(() => {
     setFilters((prev) => {
-      // Only reset if filters are not already at reset state
       if (
-        prev.page === RESET_FILTERS.page &&
         prev.state === RESET_FILTERS.state &&
         prev.city === RESET_FILTERS.city &&
         prev.denomination === RESET_FILTERS.denomination &&
@@ -168,41 +170,54 @@ function ChurchFinderClient() {
       }
       return { ...RESET_FILTERS };
     });
-  }, []);
+    setListPage(1);
+  }, [setListPage]);
 
-  const handlePageChange = useCallback((page: number) => {
-    setFilters((prev) => ({ ...prev, page }));
-  }, []);
+  const handlePageChange = useCallback(
+    (page: number) => {
+      setListPage(page);
+    },
+    [setListPage]
+  );
 
-  const handleChurchCreated = useCallback((church: ChurchDetail) => {
-    setFilters((prev) => ({ ...prev, page: 1 }));
+  const handleChurchCreated = useCallback(
+    (church: ChurchDetail) => {
+      setListPage(1);
 
-    // Invalidate and refetch both church list and metadata
-    void queryClient.invalidateQueries({ queryKey: ["churches"], refetchType: "active" });
-    void queryClient.invalidateQueries({ queryKey: ["churches", "meta"], refetchType: "active" });
+      // Invalidate and refetch both church list and metadata
+      void queryClient.invalidateQueries({ queryKey: ["churches"], refetchType: "active" });
+      void queryClient.invalidateQueries({ queryKey: ["churches", "meta"], refetchType: "active" });
 
-    // Cache the newly created church detail
-    queryClient.setQueryData(["church-detail", church.id], church);
+      // Cache the newly created church detail
+      queryClient.setQueryData(["church-detail", church.id], church);
 
-    setSelectedChurchId(church.id);
-    setDetailOpen(true);
-  }, [queryClient]);
+      setSelectedChurchId(church.id);
+      setDetailOpen(true);
+    },
+    [queryClient, setListPage]
+  );
 
-  const handleChurchView = useCallback((church: ChurchDetail) => {
-    // Cache the church detail
-    queryClient.setQueryData(["church-detail", church.id], church);
+  const handleChurchView = useCallback(
+    (church: ChurchDetail) => {
+      // Cache the church detail
+      queryClient.setQueryData(["church-detail", church.id], church);
 
-    setSelectedChurchId(church.id);
-    setDetailOpen(true);
-  }, [queryClient]);
+      setSelectedChurchId(church.id);
+      setDetailOpen(true);
+    },
+    [queryClient]
+  );
 
-  const handleChurchUpdated = useCallback((church: ChurchDetail) => {
-    // Update the cache with the re-evaluated church
-    queryClient.setQueryData(["church-detail", church.id], church);
+  const handleChurchUpdated = useCallback(
+    (church: ChurchDetail) => {
+      // Update the cache with the re-evaluated church
+      queryClient.setQueryData(["church-detail", church.id], church);
 
-    // Invalidate list queries to show updated data
-    void queryClient.invalidateQueries({ queryKey: ["churches"], refetchType: "active" });
-  }, [queryClient]);
+      // Invalidate list queries to show updated data
+      void queryClient.invalidateQueries({ queryKey: ["churches"], refetchType: "active" });
+    },
+    [queryClient]
+  );
 
   // Keep URL in sync with dialog state for shareable links (?church=<id>)
   useEffect(() => {
@@ -253,17 +268,29 @@ function ChurchFinderClient() {
     }
   }, [detailOpen, selectedChurchId, detailQuery.isError, searchParams, router, pathname]);
 
-  const churches = churchQuery.data?.items ?? [];
-  const total = churchQuery.data?.total ?? 0;
-  const page = churchQuery.data?.page ?? filters.page ?? 1;
-  const pageSize = churchQuery.data?.pageSize ?? 10;
+  const churches = churchQuery.data?.items ?? EMPTY_CHURCHES;
+  const total = churchQuery.data?.total ?? churches.length;
+
+  const paginatedChurches = useMemo(() => {
+    if (!churches.length) return [];
+    const start = (listPage - 1) * CLIENT_PAGE_SIZE;
+    return churches.slice(start, start + CLIENT_PAGE_SIZE);
+  }, [churches, listPage]);
+
+  const totalPages = Math.max(1, Math.ceil(Math.max(total, churches.length) / CLIENT_PAGE_SIZE));
+
+  useEffect(() => {
+    setListPage((prev) => Math.min(prev, totalPages));
+  }, [setListPage, totalPages]);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">Church Finder</h1>
         <p className="text-muted-foreground mb-4">
-          We&apos;re building a community-maintained directory to help believers find churches anchored in the Gospel and the essentials of the faith. Filter by location and denominational distinctives, and contribute by adding churches so others can benefit.
+          We&apos;re building a community-maintained directory to help believers find churches anchored in the Gospel
+          and the essentials of the faith. Filter by location and denominational distinctives, and contribute by adding
+          churches so others can benefit.
         </p>
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
           <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
@@ -277,8 +304,15 @@ function ChurchFinderClient() {
           <Info className="h-4 w-4 text-primary" />
           <AlertTitle className="text-foreground font-semibold">How these evaluations work</AlertTitle>
           <AlertDescription className="text-foreground/80">
-            We summarize what a church states on its website—nothing more. If something isn&apos;t clearly written online, we can&apos;t
-            infer their position. If you see an error, <a href="mailto:contact@calvinistparrotministries.org" className="text-primary underline underline-offset-2 hover:no-underline">email us</a> with the page link and what needs correction.
+            We summarize what a church states on its website—nothing more. If something isn&apos;t clearly written
+            online, we can&apos;t infer their position. If you see an error,{" "}
+            <a
+              href="mailto:contact@calvinistparrotministries.org"
+              className="text-primary underline underline-offset-2 hover:no-underline"
+            >
+              email us
+            </a>{" "}
+            with the page link and what needs correction.
           </AlertDescription>
         </Alert>
       </header>
@@ -290,14 +324,9 @@ function ChurchFinderClient() {
           <div className="lg:hidden">
             <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
               <CollapsibleTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full flex items-center justify-between"
-                >
+                <Button variant="outline" className="w-full flex items-center justify-between">
                   <span className="font-semibold">Filter churches</span>
-                  <ChevronDown
-                    className={`h-4 w-4 transition-transform ${filtersOpen ? "rotate-180" : ""}`}
-                  />
+                  <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-4">
@@ -321,9 +350,9 @@ function ChurchFinderClient() {
               </div>
             ) : (
               <ChurchList
-                items={churches}
-                page={page}
-                pageSize={pageSize}
+                items={paginatedChurches}
+                page={listPage}
+                pageSize={CLIENT_PAGE_SIZE}
                 total={total}
                 loading={churchQuery.isFetching}
                 onPageChange={handlePageChange}
@@ -357,14 +386,9 @@ function ChurchFinderClient() {
       <div className="mt-8">
         <Collapsible open={discoveryOpen} onOpenChange={setDiscoveryOpen} className="lg:open">
           <CollapsibleTrigger asChild className="lg:hidden">
-            <Button
-              variant="outline"
-              className="w-full flex items-center justify-between mb-4"
-            >
+            <Button variant="outline" className="w-full flex items-center justify-between mb-4">
               <span className="font-semibold">Add a church to our directory</span>
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${discoveryOpen ? "rotate-180" : ""}`}
-              />
+              <ChevronDown className={`h-4 w-4 transition-transform ${discoveryOpen ? "rotate-180" : ""}`} />
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent forceMount className="hidden lg:block">

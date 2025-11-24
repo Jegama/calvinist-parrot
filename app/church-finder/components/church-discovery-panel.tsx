@@ -58,7 +58,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
     if (evaluationStatus === "fetching") {
       // Move to analyzing after 12 seconds (realistic crawl time)
       const timer = setTimeout(() => {
-        setEvaluationStatus((prev) => prev === "fetching" ? "analyzing" : prev);
+        setEvaluationStatus((prev) => (prev === "fetching" ? "analyzing" : prev));
       }, 12000);
       timers.push(timer);
     }
@@ -266,7 +266,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
           }));
 
           // Small delay to avoid overwhelming the API
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         } catch (error) {
           console.error(`Failed to re-evaluate ${church.name}:`, error);
           setBulkProgress((prev) => ({
@@ -287,7 +287,6 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
         ...prev!,
         currentChurchName: "Complete!",
       }));
-
     } catch (error) {
       console.error("Bulk re-evaluation error:", error);
       setBulkProgress((prev) => ({
@@ -335,8 +334,8 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
           </div>
           {creationError ? <p className="text-sm text-red-500">{creationError}</p> : null}
           <p className="text-xs text-muted-foreground">
-            We read what the church publishes on its website and summarize it with our evaluation pipeline. If a belief is not
-            stated online, we cannot infer it.
+            We read what the church publishes on its website and summarize it with our evaluation pipeline. If a belief
+            is not stated online, we cannot infer it.
           </p>
         </section>
 
@@ -346,7 +345,14 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
           <h3 className="text-lg font-semibold text-foreground">Search by city</h3>
           <p className="text-xs text-muted-foreground">
             Very basic search to find churches in a city. If you want to contribute with a better search system,
-            consider <a href="https://github.com/Jegama/calvinist-parrot" className="underline underline-offset-2 hover:no-underline">taking a look at our GitHub repo</a>.
+            consider{" "}
+            <a
+              href="https://github.com/Jegama/calvinist-parrot"
+              className="underline underline-offset-2 hover:no-underline"
+            >
+              taking a look at our GitHub repo
+            </a>
+            .
           </p>
           <div className="grid gap-3 md:grid-cols-[2fr,1fr,auto]">
             <Input
@@ -361,7 +367,11 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
               placeholder="State (optional)"
               aria-label="State name"
             />
-            <Button type="button" onClick={() => searchMutation.mutate()} disabled={searchMutation.status === "pending"}>
+            <Button
+              type="button"
+              onClick={() => searchMutation.mutate()}
+              disabled={searchMutation.status === "pending"}
+            >
               {searchMutation.status === "pending" ? <Spinner /> : "Search"}
             </Button>
           </div>
@@ -407,7 +417,9 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
                           {evaluatingIds.has(result.id) ? (
                             <span className="flex items-center gap-2 whitespace-nowrap">
                               <Spinner />
-                              <span className="text-xs">{getStatusMessage(searchEvaluationStatuses.get(result.id) ?? "idle")}</span>
+                              <span className="text-xs">
+                                {getStatusMessage(searchEvaluationStatuses.get(result.id) ?? "idle")}
+                              </span>
                             </span>
                           ) : existingChurchIds.has(result.id) ? (
                             "View"
@@ -435,8 +447,8 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
                 <AlertTitle className="text-primary font-semibold">Bulk Re-evaluate All Churches</AlertTitle>
                 <AlertDescription className="space-y-3">
                   <p className="text-foreground/80">
-                    This will re-run the evaluation pipeline for ALL churches in the database using their current website content.
-                    This process may take a long time depending on the number of churches.
+                    This will re-run the evaluation pipeline for ALL churches in the database using their current
+                    website content. This process may take a long time depending on the number of churches.
                   </p>
 
                   {bulkProgress && (
@@ -456,9 +468,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
                         <div
                           className="bg-primary h-2.5 rounded-full transition-all duration-300"
                           style={{
-                            width: `${bulkProgress.total > 0
-                              ? (bulkProgress.current / bulkProgress.total) * 100
-                              : 0}%`
+                            width: `${bulkProgress.total > 0 ? (bulkProgress.current / bulkProgress.total) * 100 : 0}%`,
                           }}
                         />
                       </div>
@@ -524,7 +534,14 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
 
         <Separator />
         <p className="text-xs text-muted-foreground">
-          Notice an error? <a href="mailto:contact@calvinistparrotministries.org" className="underline underline-offset-2 hover:no-underline">Email us</a> with the page link and what needs correction.
+          Notice an error?{" "}
+          <a
+            href="mailto:contact@calvinistparrotministries.org"
+            className="underline underline-offset-2 hover:no-underline"
+          >
+            Email us
+          </a>{" "}
+          with the page link and what needs correction.
         </p>
       </CardContent>
     </Card>
