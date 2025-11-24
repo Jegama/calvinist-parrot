@@ -267,7 +267,6 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                           window.setTimeout(() => setCopied(false), 2000);
                         } catch {
                           // Very old browsers: show prompt as last resort
-                          // eslint-disable-next-line no-alert
                           window.prompt("Copy this link", url);
                         }
                       }}

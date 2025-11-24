@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Family, NewFamilyFormState } from "../types";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { formatRelative } from "../utils";
 import {
   ChevronFirst,
@@ -56,22 +56,42 @@ export function FamilySection({
 }: FamilySectionProps) {
   // Pagination state
   const PAGE_SIZE = 10;
-  const [page, setPage] = useState(1);
+  const [pagesByCategory, setPagesByCategory] = useState<Record<string, number>>({});
   const total = filteredFamilies.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const activePage = pagesByCategory[categoryFilter] ?? 1;
+  const currentPage = Math.min(activePage, totalPages);
 
-  useEffect(() => {
-    // Reset to first page when filter changes or list size shrinks below current window
-    setPage(1);
-  }, [categoryFilter]);
+  const setPageForFilter = useCallback(
+    (nextPage: number) => {
+      setPagesByCategory((prev) => {
+        const clamped = Math.max(1, Math.min(nextPage, totalPages));
+        if (prev[categoryFilter] === clamped) {
+          return prev;
+        }
+        return { ...prev, [categoryFilter]: clamped };
+      });
+    },
+    [categoryFilter, totalPages]
+  );
+
+  const handleCategoryFilterChange = useCallback(
+    (value: string) => {
+      if (value !== categoryFilter) {
+        setPagesByCategory((prev) => (prev[value] === 1 ? prev : { ...prev, [value]: 1 }));
+      }
+      onCategoryFilterChange(value);
+    },
+    [categoryFilter, onCategoryFilterChange]
+  );
 
   const pagedFamilies = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
+    const start = (currentPage - 1) * PAGE_SIZE;
     return filteredFamilies.slice(start, start + PAGE_SIZE);
-  }, [filteredFamilies, page]);
+  }, [filteredFamilies, currentPage]);
 
-  const canPrev = page > 1;
-  const canNext = page < totalPages;
+  const canPrev = currentPage > 1;
+  const canNext = currentPage < totalPages;
   const selectableCategories = useMemo(
     () => categories.filter((category) => category !== ARCHIVED_CATEGORY),
     [categories]
@@ -81,15 +101,15 @@ export function FamilySection({
   const paginationControls = (
     <div className="flex items-center justify-between text-xs text-muted-foreground">
       <span>
-        {Math.min((page - 1) * PAGE_SIZE + 1, total)}-
-        {Math.min(page * PAGE_SIZE, total)} of {total}
+        {Math.min((currentPage - 1) * PAGE_SIZE + 1, total)}-
+        {Math.min(currentPage * PAGE_SIZE, total)} of {total}
         {categoryFilter !== "all" ? ` in ${categoryFilter}` : ""}
       </span>
       <div className="flex items-center gap-1.5">
         <Button
           size="sm"
           variant="outline"
-          onClick={() => setPage(1)}
+          onClick={() => setPageForFilter(1)}
           disabled={!canPrev}
           aria-label="Go to first page"
         >
@@ -98,19 +118,19 @@ export function FamilySection({
         <Button
           size="sm"
           variant="outline"
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          onClick={() => setPageForFilter(currentPage - 1)}
           disabled={!canPrev}
           aria-label="Go to previous page"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         </Button>
         <span className="px-1">
-          Page {page} / {totalPages}
+          Page {currentPage} / {totalPages}
         </span>
         <Button
           size="sm"
           variant="outline"
-          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          onClick={() => setPageForFilter(currentPage + 1)}
           disabled={!canNext}
           aria-label="Go to next page"
         >
@@ -119,7 +139,7 @@ export function FamilySection({
         <Button
           size="sm"
           variant="outline"
-          onClick={() => setPage(totalPages)}
+          onClick={() => setPageForFilter(totalPages)}
           disabled={!canNext}
           aria-label="Go to last page"
         >
@@ -210,7 +230,7 @@ export function FamilySection({
           <h3 className="text-sm font-semibold text-muted-foreground">
             Current families
           </h3>
-          <Select value={categoryFilter} onValueChange={onCategoryFilterChange}>
+          <Select value={categoryFilter} onValueChange={handleCategoryFilterChange}>
             <SelectTrigger className="w-full md:w-[220px]">
               <SelectValue placeholder="Filter by category" />
             </SelectTrigger>

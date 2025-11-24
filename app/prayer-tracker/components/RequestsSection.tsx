@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { UnifiedRequest, NewPersonalFormState, Family } from "../types";
 import { formatRelative, formatTimeSince } from "../utils";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ChevronFirst,
   ChevronLast,
@@ -59,24 +59,15 @@ export function RequestsSection({
   const [page, setPage] = useState(1);
   const total = requests.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-  useEffect(() => {
-    setPage((current) => Math.min(current, totalPages));
-  }, [totalPages]);
-
-  useEffect(() => {
-    if (total === 0) {
-      setPage(1);
-    }
-  }, [total]);
+  const currentPage = total === 0 ? 1 : Math.min(page, totalPages);
 
   const pagedRequests = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
+    const start = (currentPage - 1) * PAGE_SIZE;
     return requests.slice(start, start + PAGE_SIZE);
-  }, [page, requests]);
+  }, [currentPage, requests]);
 
-  const canPrev = page > 1;
-  const canNext = page < totalPages;
+  const canPrev = currentPage > 1;
+  const canNext = currentPage < totalPages;
 
   // Group families by category for the dropdown
   const familiesByCategory = useMemo(() => {
@@ -97,8 +88,8 @@ export function RequestsSection({
   const paginationControls = (
     <div className="flex items-center justify-between text-xs text-muted-foreground">
       <span>
-        {Math.min((page - 1) * PAGE_SIZE + 1, total)}-
-        {Math.min(page * PAGE_SIZE, total)} of {total}
+        {Math.min((currentPage - 1) * PAGE_SIZE + 1, total)}-
+        {Math.min(currentPage * PAGE_SIZE, total)} of {total}
       </span>
       <div className="flex items-center gap-1.5">
         <Button
@@ -113,19 +104,19 @@ export function RequestsSection({
         <Button
           size="sm"
           variant="outline"
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          onClick={() => setPage(Math.max(1, currentPage - 1))}
           disabled={!canPrev}
           aria-label="Go to previous page"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         </Button>
         <span className="px-1">
-          Page {page} / {totalPages}
+          Page {currentPage} / {totalPages}
         </span>
         <Button
           size="sm"
           variant="outline"
-          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
           disabled={!canNext}
           aria-label="Go to next page"
         >

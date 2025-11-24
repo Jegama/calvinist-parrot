@@ -42,7 +42,7 @@ export default function PrayerTrackerPage() {
 	const { user, loading: authLoading } = useAuth();
 	const queryClient = useQueryClient();
 	const [spaceName, setSpaceName] = useState<string | null>(null);
-	const [spaceLoaded, setSpaceLoaded] = useState(false);
+	const [spaceLoadState, setSpaceLoadState] = useState<{ userId: string | null; ready: boolean }>({ userId: null, ready: false });
 	const [members, setMembers] = useState<Member[]>([]);
 	const [families, setFamilies] = useState<Family[]>([]);
 	const [requests, setRequests] = useState<UnifiedRequest[]>([]);
@@ -96,6 +96,14 @@ export default function PrayerTrackerPage() {
 	const [familyDetailDialogOpen, setFamilyDetailDialogOpen] = useState(false);
 	const [selectedFamilyForDetail, setSelectedFamilyForDetail] = useState<Family | null>(null);
 	const initializedForUser = useRef<string | null>(null);
+
+	const markSpaceLoading = useCallback((userId: string) => {
+		setSpaceLoadState({ userId, ready: false });
+	}, []);
+
+	const markSpaceReady = useCallback((userId: string) => {
+		setSpaceLoadState({ userId, ready: true });
+	}, []);
 
 	const categories = useMemo(() => {
 		const unique = new Set<string>();
@@ -196,25 +204,20 @@ export default function PrayerTrackerPage() {
 
 	const refreshAll = useCallback(
 		async (userId: string) => {
-			setSpaceLoaded(false);
-			await Promise.all([loadSpace(userId), refreshLists(userId)]);
-			setSpaceLoaded(true);
+			markSpaceLoading(userId);
+			try {
+				await Promise.all([loadSpace(userId), refreshLists(userId)]);
+			} finally {
+				markSpaceReady(userId);
+			}
 		},
-		[loadSpace, refreshLists]
+		[loadSpace, markSpaceLoading, markSpaceReady, refreshLists]
 	);
 
 	useEffect(() => {
 		if (authLoading) return;
 		if (!user) {
 			initializedForUser.current = null;
-			setSpaceLoaded(false);
-			setSpaceName(null);
-			setMembers([]);
-			setFamilies([]);
-			setRequests([]);
-			setRotation(null);
-			setFamilyAssignments({});
-			setPersonalSelections({});
 			return;
 		}
 		if (initializedForUser.current === user.$id) return;
@@ -224,7 +227,6 @@ export default function PrayerTrackerPage() {
 				await refreshAll(user.$id);
 			} catch (error) {
 				console.error("Failed to load prayer tracker data", error);
-				setSpaceLoaded(true);
 			}
 		})();
 	}, [authLoading, refreshAll, user]);
@@ -670,11 +672,17 @@ export default function PrayerTrackerPage() {
 		</Card>
 	);
 
+	const isCurrentUserSpaceLoaded = Boolean(
+		user &&
+		spaceLoadState.ready &&
+		spaceLoadState.userId === user.$id
+	);
+
 	if (!user) {
 		return <ProtectedView fallback={authFallback} />;
 	}
 
-	if (!spaceLoaded) {
+	if (!isCurrentUserSpaceLoaded) {
 		return (
 			<ProtectedView fallback={authFallback}>
 				<Card className="max-w-2xl mx-auto mt-8 mb-8">
