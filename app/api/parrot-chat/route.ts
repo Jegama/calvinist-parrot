@@ -178,6 +178,7 @@ export async function POST(request: Request) {
         let hasAnnouncedDrafting = false;
         const activeToolRuns = new Set<string>();
         const pendingWrites: Prisma.PrismaPromise<unknown>[] = [];
+        let reasoningAccumulator = "";
 
         const toolNameMap: Record<
           string,
@@ -305,7 +306,7 @@ export async function POST(request: Request) {
               { messages: parrotHistory },
               {
                 version: "v2",
-                streamMode: ["updates", "messages"],
+                streamMode: ["updates", "messages", "custom"],
                 configurable: {
                   thread_id: capturedChatId,
                   userId: capturedUserId,
@@ -315,11 +316,28 @@ export async function POST(request: Request) {
 
             for await (const { event, tags, data } of eventStream) {
               if (event === "on_chat_model_stream") {
-                // data.chunk is the partial token chunk for the LLM's AIMessage
-                if (data.chunk?.content) {
-                  parrotReply += data.chunk.content;
+                const chunk = data.chunk;
+                if (typeof chunk.content === "string") {
+                  parrotReply += chunk.content;
                   sendProgress(
-                    { type: "parrot", content: data.chunk.content },
+                    { type: "parrot", content: chunk.content },
+                    controller
+                  );
+                }
+              } else if (event === "on_custom") {
+                // Handle custom events from tool config.writer calls
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const customData = (data as any) as { toolName?: string; message?: string; content?: string };
+                if (customData?.toolName && customData.message) {
+                  // tool_progress event (ephemeral)
+                  sendProgress(
+                    { type: "tool_progress", toolName: customData.toolName, message: customData.message },
+                    controller
+                  );
+                } else if (customData?.toolName && customData.content) {
+                  // tool_summary event (persistent)
+                  sendProgress(
+                    { type: "tool_summary", toolName: customData.toolName, content: customData.content },
                     controller
                   );
                 }

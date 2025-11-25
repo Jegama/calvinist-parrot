@@ -2,6 +2,7 @@
 
 import { tool } from "langchain";
 import { z } from "zod";
+import type { LangGraphRunnableConfig } from "@langchain/langgraph";
 import {
   getMemoryStore,
   MemoryNamespaces,
@@ -9,15 +10,21 @@ import {
   type UserProfileMemory,
 } from "@/lib/langGraphStore";
 
-async function recallUserMemory(input: {
-  userId: string;
-  query?: string;
-  full?: boolean;
-}): Promise<string> {
+async function recallUserMemory(
+  input: {
+    userId: string;
+    query?: string;
+    full?: boolean;
+  },
+  config?: LangGraphRunnableConfig
+): Promise<string> {
   const { userId, query, full } = input;
   const store = getMemoryStore();
 
   try {
+    // Emit progress start
+    config?.writer?.({ toolName: "userMemoryRecall", message: query ? "Searching user memories..." : "Recalling user context..." });
+
     // Get JSON store profile (unstructured memories only)
     const profileNs = MemoryNamespaces.userProfile(userId);
     const profileDoc = await store.get(profileNs, MemoryKeys.USER_PROFILE);
@@ -87,8 +94,19 @@ async function recallUserMemory(input: {
       searchHits: hits,
       truncated: !full,
     };
+
+    // Emit completion
+    const interestCount = interests.length;
+    const hitCount = hits.length;
+    config?.writer?.({ toolName: "userMemoryRecall", message: `Recalled ${interestCount} interests${hitCount > 0 ? ` + ${hitCount} search results` : ""}` });
+
+    // Emit summary
+    const topInterests = interests.slice(0, 3).map(i => i.topic).join(", ") || "None";
+    config?.writer?.({ toolName: "userMemoryRecall", content: `### Context Recalled\n\n**Top Interests**: ${topInterests}\n**Search Hits**: ${hitCount}` });
+
     return JSON.stringify(payload);
   } catch (error) {
+    config?.writer?.({ toolName: "userMemoryRecall", message: "Memory recall failed" });
     return JSON.stringify({
       error: error instanceof Error ? error.message : String(error),
     });

@@ -4,6 +4,8 @@ type DataEvent =
   | { type: "info" | "done" }
   | { type: "error"; stage: string; message: string }
   | { type: "progress"; title: string; content: string }
+  | { type: "tool_progress"; toolName: string; message: string }
+  | { type: "tool_summary"; toolName: string; content: string }
   | { type: "parrot"; content: string }
   | { type: "calvin"; content: string }
   | { type: "gotQuestions"; content: string };

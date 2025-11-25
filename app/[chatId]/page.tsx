@@ -24,6 +24,7 @@ import { useChatList } from "@/hooks/use-chat-list";
 type Message = {
   sender: string;
   content: string;
+  toolName?: string;
 };
 
 type Chat = {
@@ -35,6 +36,9 @@ type Chat = {
 type DataEvent =
   | { type: "info" | "done" }
   | { type: "progress"; title: string; content: string }
+  | { type: "tool_progress"; toolName: string; message: string }
+  | { type: "reasoning"; content: string }
+  | { type: "tool_summary"; toolName: string; content: string }
   | { type: "parrot"; content: string }
   | { type: "calvin"; content: string }
   | { type: "gotQuestions"; content: string };
@@ -270,6 +274,14 @@ export default function ChatPage() {
             case "progress":
               setProgress({ title: data.title, content: data.content });
               break;
+            case "tool_progress":
+              // Ephemeral tool progress - show in progress indicator
+              setProgress({ title: data.toolName, content: data.message });
+              break;
+            case "tool_summary":
+              // Save tool summary as a collapsible message
+              setMessages((msgs) => [...msgs, { sender: "tool_summary", content: data.content, toolName: data.toolName }]);
+              break;
             case "parrot":
               appendToken("parrot", data.content);
               break;
@@ -494,12 +506,38 @@ export default function ChatPage() {
                           </Button>
                         </div>
                       );
-                    case "calvin":
+                    case "calvin": // for backward compatibility
                       return (
                         <div key={i} className="mr-auto mt-2 max-w-[80%]">
                           <Accordion type="single" collapsible>
                             <AccordionItem value={`calvin-${i}`}>
                               <AccordionTrigger>Calvin&apos;s Feedback</AccordionTrigger>
+                              <AccordionContent>
+                                <MarkdownWithBibleVerses content={msg.content} />
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+                        </div>
+                      );
+                    case "tool_summary":
+                      const toolIcons: Record<string, string> = {
+                        supplementalArticleSearch: "🔍",
+                        BibleCommentary: "📖",
+                        userMemoryRecall: "🧠",
+                      };
+                      const toolTitles: Record<string, string> = {
+                        supplementalArticleSearch: "Research Notes",
+                        BibleCommentary: "Commentary References",
+                        userMemoryRecall: "Context Recalled",
+                      };
+                      const toolName = msg.toolName || "unknown";
+                      const icon = toolIcons[toolName] || "🔧";
+                      const title = toolTitles[toolName] || toolName;
+                      return (
+                        <div key={i} className="mr-auto mt-2 max-w-[80%]">
+                          <Accordion type="single" collapsible>
+                            <AccordionItem value={`tool-${i}`}>
+                              <AccordionTrigger>{icon} {title}</AccordionTrigger>
                               <AccordionContent>
                                 <MarkdownWithBibleVerses content={msg.content} />
                               </AccordionContent>
