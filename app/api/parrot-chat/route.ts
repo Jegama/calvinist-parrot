@@ -128,6 +128,27 @@ export async function POST(request: Request) {
       | InstanceType<typeof HumanMessage>
       | InstanceType<typeof AIMessage>;
 
+    type ContentBlock = { text?: string };
+    interface TokenStreamEvent {
+      contentBlocks?: ContentBlock[];
+    }
+
+    interface TokenStreamMetadata {
+      langgraph_node?: string;
+    }
+
+    type MessageStreamChunk = [TokenStreamEvent, TokenStreamMetadata];
+
+    interface ToolUpdateMessage {
+      tool_name?: string;
+      name?: string;
+      content: string;
+    }
+
+    interface ToolUpdatePayload {
+      messages?: ToolUpdateMessage[];
+    }
+
     const buildParrotHistory: (
       messages: { sender: string; content: string }[],
       parrotSysPrompt: string
@@ -264,7 +285,7 @@ export async function POST(request: Request) {
 
               // Handle messages mode (LLM token streaming)
               if (streamMode === "messages") {
-                const [token, metadata] = chunk as [any, { langgraph_node?: string }];
+                const [token, metadata] = chunk as MessageStreamChunk;
 
                 // LLM streaming tokens
                 const nodeName = metadata.langgraph_node;
@@ -285,7 +306,7 @@ export async function POST(request: Request) {
 
               // Handle updates mode (agent progress)
               if (streamMode === "updates") {
-                const [step, content] = Object.entries(chunk)[0];
+                const [step, content] = Object.entries(chunk as Record<string, unknown>)[0];
 
                 // Track when model starts (for "Drafting response" message)
                 // Show this message both at the start and after tools complete
@@ -315,7 +336,7 @@ export async function POST(request: Request) {
 
                 // Track when tools node executes (for "Additional Sources")
                 if (step === "tools") {
-                  const messages = (content as any)?.messages || [];
+                  const messages = (content as ToolUpdatePayload)?.messages || [];
                   for (const msg of messages) {
                     if (msg.tool_name === "supplementalArticleSearch" || msg.name === "supplementalArticleSearch") {
                       try {
@@ -355,7 +376,7 @@ export async function POST(request: Request) {
                           }
                         }
                         // If it's the new format (not JSON or no results array), skip - it's for LLM only
-                      } catch (e) {
+                      } catch {
                         // Not JSON, which means it's the new human-readable format
                         // This is expected - the LLM will use it but we don't send to UI
                         // The tool_summary already has the bibliography for the UI

@@ -9,6 +9,7 @@ import {
   MemoryKeys,
   type UserProfileMemory,
 } from "@/lib/langGraphStore";
+import { getToolProgressWriter } from "@/utils/langChainAgents/tools/toolProgress";
 
 async function recallUserMemory(
   input: {
@@ -19,7 +20,7 @@ async function recallUserMemory(
   config?: LangGraphRunnableConfig
 ): Promise<string> {
   const { userId, query, full } = input;
-  const writer = (config as any)?.writer;
+  const writer = getToolProgressWriter(config);
   
   const store = getMemoryStore();
   let progressInterval: NodeJS.Timeout | null = null;

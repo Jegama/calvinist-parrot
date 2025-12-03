@@ -4,6 +4,7 @@ import { tool } from "langchain";
 import { tavily } from "@tavily/core";
 import { z } from "zod";
 import type { LangGraphRunnableConfig } from "@langchain/langgraph";
+import { getToolProgressWriter } from "@/utils/langChainAgents/tools/toolProgress";
 
 const client = tavily({ apiKey: process.env.TAVILY_API_KEY });
 
@@ -11,7 +12,7 @@ async function supplementalArticleSearch(
   query: { query: string },
   config?: LangGraphRunnableConfig
 ): Promise<string> {
-  const writer = (config as any)?.writer;
+  const writer = getToolProgressWriter(config);
   
   // Time-based progress updates for slow operations
   let progressInterval: NodeJS.Timeout | null = null;

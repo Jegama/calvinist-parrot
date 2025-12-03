@@ -4,12 +4,13 @@ import { tool } from "langchain";
 import { z } from "zod";
 import { getCommentariesForPassages } from "@/utils/commentaryService";
 import type { LangGraphRunnableConfig } from "@langchain/langgraph";
+import { getToolProgressWriter } from "@/utils/langChainAgents/tools/toolProgress";
 
 async function bibleCommentary(
   input: { passages: string },
   config?: LangGraphRunnableConfig
 ): Promise<string> {
-  const writer = (config as any)?.writer;
+  const writer = getToolProgressWriter(config);
   
   let progressInterval: NodeJS.Timeout | null = null;
   
