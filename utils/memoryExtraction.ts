@@ -584,11 +584,11 @@ async function syncToPrisma(
         update: updateData,
         create: createData,
       });
-      console.log(
-        `✅ Synced ${
-          Object.keys(updateData).length
-        } fields to Prisma for user ${userId}`
-      );
+      // console.log(
+      //   `✅ Synced ${
+      //     Object.keys(updateData).length
+      //   } fields to Prisma for user ${userId}`
+      // );
     }
   } catch (error) {
     console.error("Error syncing to Prisma:", error);
@@ -620,7 +620,7 @@ export async function updateUserMemoriesFromConversation(
       return;
     }
 
-    console.log(`🧠 Extracting memories for user ${userId}...`);
+    // console.log(`🧠 Extracting memories for user ${userId}...`);
 
     // Build compact, read-only profile context for extraction
     const existingForContext = await prisma.userProfile.findUnique({
@@ -667,7 +667,7 @@ export async function updateUserMemoriesFromConversation(
     // Step 4: Update JSON store
     await updateUserProfile(userId, mergedProfile);
 
-    console.log(`✅ Memories updated for user ${userId}`);
+    // console.log(`✅ Memories updated for user ${userId}`);
   } catch (error) {
     // Log but don't throw - memory extraction shouldn't break the app
     console.error("Error updating user memories:", error);
@@ -707,7 +707,7 @@ export async function updateUserMemoriesSimple(
       lastUpdated: new Date().toISOString(),
     });
 
-    console.log(`✅ Simple memory update for ${userId}: ${topic}`);
+    // console.log(`✅ Simple memory update for ${userId}: ${topic}`);
   } catch (error) {
     console.error("Error in simple memory update:", error);
   }

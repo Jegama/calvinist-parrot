@@ -232,6 +232,9 @@ export default function ChatPage() {
       let buffer = "";
 
       const appendToken = (sender: string, token: string) => {
+        // Skip empty tokens to prevent empty message bubbles
+        if (!token) return;
+        
         setMessages((msgs) => {
           if (msgs.length > 0 && msgs[msgs.length - 1].sender === sender) {
             return [
@@ -470,10 +473,12 @@ export default function ChatPage() {
                       return (
                         <div
                           key={i}
-                          className="group relative mr-auto max-w-[80%] rounded-md bg-parrot-message p-3 text-parrot-message-foreground shadow"
+                          className="group relative mr-auto max-w-[80%] rounded-md bg-parrot-message p-3 text-parrot-message-foreground shadow break-words overflow-wrap-anywhere"
                         >
                           <div className="mb-1 text-sm font-bold">Parrot</div>
-                          <MarkdownWithBibleVerses content={msg.content} />
+                          <div className="break-words overflow-wrap-anywhere">
+                            <MarkdownWithBibleVerses content={msg.content} />
+                          </div>
                           <Button
                             type="button"
                             variant="ghost"
@@ -521,14 +526,14 @@ export default function ChatPage() {
                       );
                     case "tool_summary":
                       const toolIcons: Record<string, string> = {
-                        supplementalArticleSearch: "🔍",
-                        BibleCommentary: "📖",
-                        userMemoryRecall: "🧠",
+                        "Theological Research": "🔍",
+                        "Bible Commentary": "📖",
+                        "Memory Recall": "🧠",
                       };
                       const toolTitles: Record<string, string> = {
-                        supplementalArticleSearch: "Research Notes",
-                        BibleCommentary: "Commentary References",
-                        userMemoryRecall: "Context Recalled",
+                        "Theological Research": "Research Notes",
+                        "Bible Commentary": "Commentary References",
+                        "Memory Recall": "Context Recalled",
                       };
                       const toolName = msg.toolName || "unknown";
                       const icon = toolIcons[toolName] || "🔧";

@@ -77,7 +77,7 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
     ...MarkdownComponents,
     p: ({ children }) => <p className="mb-4">{renderWithBibleVerses(children)}</p>,
     a: ({ href, children }) => (
-      <a href={href} className="underline hover:text-primary" target="_blank" rel="noopener noreferrer">
+      <a href={href} className="underline hover:text-primary break-all" target="_blank" rel="noopener noreferrer">
         {children}
       </a>
     ),

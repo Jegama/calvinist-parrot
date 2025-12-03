@@ -19,11 +19,20 @@ async function recallUserMemory(
   config?: LangGraphRunnableConfig
 ): Promise<string> {
   const { userId, query, full } = input;
+  const writer = (config as any)?.writer;
+  
   const store = getMemoryStore();
+  let progressInterval: NodeJS.Timeout | null = null;
 
   try {
     // Emit progress start
-    config?.writer?.({ toolName: "userMemoryRecall", message: query ? "Searching user memories..." : "Recalling user context..." });
+    writer?.({ toolName: "userMemoryRecall", message: query ? "Searching user memories..." : "Recalling user context..." });
+    
+    // Set up periodic progress for slow memory operations
+    progressInterval = setInterval(() => {
+      writer?.({ toolName: "userMemoryRecall", message: query ? "Still searching memories..." : "Still gathering context..." });
+      writer?.({ toolName: "userMemoryRecall", message: query ? "Still searching memories..." : "Still gathering context..." });
+    }, 3000);
 
     // Get JSON store profile (unstructured memories only)
     const profileNs = MemoryNamespaces.userProfile(userId);
@@ -33,10 +42,19 @@ async function recallUserMemory(
     // Semantic search across conversation-derived memories if query provided
     let hits: Array<{ key: string; snippet: string }> = [];
     if (query) {
+      writer?.({ toolName: "Memory Recall", message: "Performing semantic search..." });
+      
       const results = await store.search(["memories", userId], {
         query,
         limit: 5,
       });
+      
+      // Clear interval after search completes
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
+      
       hits = results.map((r) => {
         const val = r?.value as unknown;
         let snippet = "";
@@ -54,6 +72,12 @@ async function recallUserMemory(
         }
         return { key: r.key, snippet: snippet.slice(0, 300) };
       });
+    }
+    
+    // Clear interval if it wasn't cleared earlier (for non-query path)
+    if (progressInterval) {
+      clearInterval(progressInterval);
+      progressInterval = null;
     }
 
     // Sort interests and include truncated contexts
@@ -98,17 +122,26 @@ async function recallUserMemory(
     // Emit completion
     const interestCount = interests.length;
     const hitCount = hits.length;
-    config?.writer?.({ toolName: "userMemoryRecall", message: `Recalled ${interestCount} interests${hitCount > 0 ? ` + ${hitCount} search results` : ""}` });
+    writer?.({ toolName: "Memory Recall", message: `Recalled ${interestCount} interest${interestCount !== 1 ? 's' : ''}${hitCount > 0 ? ` + ${hitCount} search result${hitCount !== 1 ? 's' : ''}` : ""}` });
 
-    // Emit summary
-    const topInterests = interests.slice(0, 3).map(i => i.topic).join(", ") || "None";
-    config?.writer?.({ toolName: "userMemoryRecall", content: `### Context Recalled\n\n**Top Interests**: ${topInterests}\n**Search Hits**: ${hitCount}` });
-
+    // Clear interval if it wasn't cleared earlier (for non-query path)
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+    
     return JSON.stringify(payload);
   } catch (error) {
-    config?.writer?.({ toolName: "userMemoryRecall", message: "Memory recall failed" });
+    // Clear interval if still running
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+    
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    writer?.({ toolName: "Memory Recall", message: `⚠️ Memory recall failed: ${errorMsg.slice(0, 50)}${errorMsg.length > 50 ? '...' : ''}` });
+    writer?.({ toolName: "Memory Recall", content: `### Memory Recall Error\n\nUnable to access user memories at this time.\n\n**Error**: ${errorMsg}` });
+    
     return JSON.stringify({
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMsg,
     });
   }
 }

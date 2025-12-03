@@ -11,9 +11,19 @@ async function supplementalArticleSearch(
   query: { query: string },
   config?: LangGraphRunnableConfig
 ): Promise<string> {
+  const writer = (config as any)?.writer;
+  
+  // Time-based progress updates for slow operations
+  let progressInterval: NodeJS.Timeout | null = null;
+  
   try {
     // Emit progress start
-    config?.writer?.({ toolName: "supplementalArticleSearch", message: "Searching monergism.com and gotquestions.org..." });
+    writer?.({ toolName: "Theological Research", message: "Connecting to theological resources..." });
+
+    // Set up periodic progress updates for operations taking >2 seconds
+    progressInterval = setInterval(() => {
+      writer?.({ toolName: "Theological Research", message: "Still searching monergism.com and gotquestions.org..." });
+    }, 3000);
 
     const response = await client.search(query.query, {
       searchDepth: "advanced",
@@ -23,26 +33,37 @@ async function supplementalArticleSearch(
       ]
     });
 
+    // Clear the interval once search completes
+    if (progressInterval) {
+      clearInterval(progressInterval);
+      progressInterval = null;
+    }
+
+    // Emit intermediate progress
+    writer?.({ toolName: "Theological Research", message: "Processing search results..." });
+
     // Emit progress completion
     const resultCount = response.results?.length || 0;
-    config?.writer?.({ toolName: "supplementalArticleSearch", message: `Found ${resultCount} articles` });
+    writer?.({ toolName: "Theological Research", message: `Found ${resultCount} article${resultCount !== 1 ? 's' : ''}` });
 
-    // Format bibliography for tool summary
-    const summary = response.results?.slice(0, 3).map((r: { title?: string; url?: string }) => 
-      `- [${r.title || "Untitled"}](${r.url || "#"})`
-    ).join("\n") || "No results found.";
-
-    // Emit tool summary for persistence
-    config?.writer?.({ toolName: "supplementalArticleSearch", content: `### Research Sources\n\n${summary}` });
+    console.log("Supplemental Article Search Response:", response);
 
     // 'response' is already a JSON object.
     return JSON.stringify(response);
   } catch (error) {
-    config?.writer?.({ toolName: "supplementalArticleSearch", message: "Search failed" });
+    // Clear interval if it's still running
+    if (progressInterval) {
+      clearInterval(progressInterval);
+    }
+    
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    writer?.({ toolName: "Theological Research", message: `⚠️ Search failed: ${errorMsg.slice(0, 50)}${errorMsg.length > 50 ? '...' : ''}` });
+    writer?.({ toolName: "Theological Research", content: `### Research Error\n\nUnable to search theological resources at this time.\n\n**Error**: ${errorMsg}` });
+    
     // Return valid JSON even on error so parsing doesn't fail downstream
     return JSON.stringify({ 
       results: [], 
-      error: error instanceof Error ? error.message : String(error) 
+      error: errorMsg
     });
   }
 }
