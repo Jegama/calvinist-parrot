@@ -323,7 +323,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
         <div className="space-y-3">
           <h1 className="text-3xl md:text-4xl font-bold text-foreground">AI Model Performance Dashboard</h1>
           <p className="text-muted-foreground text-base md:text-lg max-w-2xl">
-            Which AI is best at answering theological questions? We tested Google, OpenAI, and xAI models to find out.
+            Which AI is most faithful and pastoral in answering theological questions? We evaluated Google, OpenAI, and
+            xAI models against a Reformed Baptist framework.
           </p>
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
             <span className="bg-muted px-3 py-1 rounded-full">📊 500+ Questions Tested</span>
@@ -350,15 +351,15 @@ export default function DashboardClient({ data }: DashboardClientProps) {
             <div className="grid md:grid-cols-3 gap-4 text-sm">
               <div>
                 <div className="font-semibold text-foreground mb-1">🥇 Winner</div>
-                <div className="text-muted-foreground">OpenAI GPT-5 Mini scored 4.79/5.0</div>
+                <div className="text-muted-foreground">OpenAI GPT-5 Mini averaged 4.79/5.0 across all categories</div>
               </div>
               <div>
                 <div className="font-semibold text-foreground mb-1">⚡ Biggest Impact</div>
-                <div className="text-muted-foreground">Custom instructions improved Gemini 2.5 by +12%</div>
+                <div className="text-muted-foreground">Custom instructions improved Gemini 2.5 Flash by about +12%</div>
               </div>
               <div>
                 <div className="font-semibold text-foreground mb-1">💪 Runner-Up</div>
-                <div className="text-muted-foreground">xAI Grok 4.1 scored 4.73/5.0</div>
+                <div className="text-muted-foreground">xAI Grok 4.1 Fast averaged 4.73/5.0 across all categories</div>
               </div>
             </div>
           </div>
@@ -398,7 +399,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">🏆 Top Performer by Provider</CardTitle>
                   <p className="text-sm text-muted-foreground mt-2">
-                    The best model from each AI company, scored on overall performance (out of 5.0)
+                    The best model from each AI company, averaged across doctrinal adherence, kindness and gentleness,
+                    and interfaith and worldview sensitivity (out of 5.0)
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -417,8 +419,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                                   .replace("-preview-09-2025", "")
                                   .replace("-reasoning", "")
                                   .replace("gpt-5-mini", "GPT-5 Mini")
-                                  .replace("gemini-2.5-flash", "Gemini 2.5")
-                                  .replace("grok-4-1-fast", "Grok 4.1")}`
+                                  .replace("gemini-2.5-flash", "Gemini 2.5 Flash")
+                                  .replace("grok-4-1-fast", "Grok 4.1 Fast")}`
                               : PROVIDER_LABELS[val];
                           }}
                           width={200}
@@ -454,9 +456,9 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                   </div>
                   <div className="mt-4 text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
                     <span className="font-semibold text-foreground">💡 What this means:</span> OpenAI&apos;s GPT-5 Mini
-                    comes out on top with 4.79, followed by xAI&apos;s Grok 4.1 at 4.73, and Google&apos;s Gemini 2.5 at
-                    4.70. All three are strong performers, with GPT-5 Mini having a slight edge in interfaith
-                    conversations.
+                    comes out on top with 4.79, followed by xAI&apos;s Grok 4.1 Fast at 4.73 and Google&apos;s Gemini 2.5 Flash at
+                    4.70. All three are strong performers within our Reformed Baptist framework, with GPT-5 Mini showing
+                    a slight edge in interfaith and evangelism-related conversations.
                   </div>
                 </CardContent>
               </Card>
@@ -465,8 +467,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">⚡ Does Our Custom Prompt Help?</CardTitle>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Comparing models with our special instructions (v1.0) versus using them &quot;out of the box&quot;
-                    (Baseline)
+                    Comparing models with our Reformed Baptist instructions (v1.0) versus using them &quot;out of the
+                    box&quot; (Baseline)
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -480,7 +482,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                           tick={{ fill: "hsl(var(--foreground))" }}
                         />
                         <YAxis
-                          domain={[4.5, 5.05]}
+                          domain={[4, 5]}
                           tick={{ fill: "hsl(var(--foreground))" }}
                           label={{
                             value: "Score (out of 5)",
@@ -518,17 +520,17 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                   <div className="mt-4 space-y-3">
                     <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
                       <span className="font-semibold text-foreground">💡 What this means:</span> Our custom instructions
-                      make a<span className="text-primary font-bold"> huge difference</span> for Gemini 2.5 (+12%
-                      improvement!). Without instructions, Gemini 2.5 struggled with evangelism questions. With our
-                      guidance, it catches up closer to the others.
+                      make a<span className="text-primary font-bold"> noticeable difference</span> for Gemini 2.5 Flash (about
+                      +12% improvement). Without those instructions, Gemini 2.5 Flash was less consistent, especially on
+                      interfaith and evangelism prompts. With our guidance, it comes much closer to the other models.
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <div className="bg-background border border-border rounded p-2 text-center">
-                        <div className="font-bold text-foreground">Gemini 2.5</div>
+                        <div className="font-bold text-foreground">Gemini 2.5 Flash</div>
                         <div className="text-primary text-lg font-bold">+12%</div>
                       </div>
                       <div className="bg-background border border-border rounded p-2 text-center">
-                        <div className="font-bold text-foreground">Grok 4.1</div>
+                        <div className="font-bold text-foreground">Grok 4.1 Fast</div>
                         <div className="text-primary text-lg font-bold">+4%</div>
                       </div>
                       <div className="bg-background border border-border rounded p-2 text-center">
@@ -546,7 +548,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">⚖️ Are AI Judges Fair?</CardTitle>
                   <p className="text-sm text-muted-foreground mt-2">
-                    We used two different AIs to grade the same answers. Do they agree?
+                    We used two different AIs to grade the same answers across our three categories. Do they generally
+                    agree?
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -602,17 +605,18 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                     <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border flex items-start gap-2">
                       <Info size={16} className="mt-0.5 flex-shrink-0 text-foreground" />
                       <div>
-                        <span className="font-semibold text-foreground">💡 What this means:</span> Gemini is an
-                        <span className="font-bold text-foreground"> easy grader</span>—it gives almost every model a
-                        perfect 5.0! GPT-5 is more critical and gives more useful feedback by showing actual differences
-                        between models.
+                        <span className="font-semibold text-foreground">💡 What this means:</span> In our tests, Gemini
+                        tends to be a very generous grader, often giving models scores near 5.0. GPT-5 Mini is more
+                        discerning and uses more of the 1–5 scale, which makes its feedback more helpful for seeing real
+                        differences between models.
                       </div>
                     </div>
                     <div className="bg-primary/10 border border-primary/20 p-3 rounded-lg text-sm">
                       <div className="font-semibold text-foreground mb-1">📌 Why this matters:</div>
                       <div className="text-muted-foreground">
-                        We use GPT-5 as our main judge because it provides more detailed, nuanced scores. This helps us
-                        see real differences between models instead of just getting all perfect scores.
+                        We use GPT-5 Mini as our main judge because it provides more detailed, nuanced scores in adherence,
+                        kindness, and interfaith and worldview sensitivity. This helps us see real differences instead
+                        of every model clustering at the top.
                       </div>
                     </div>
                   </div>
@@ -625,8 +629,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">📊 How Consistent is Each Company?</CardTitle>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Some companies have all great models. Others have one star and some duds. Here&apos;s the
-                    comparison.
+                    Some companies have several consistently strong models. Others have a wider gap between their best
+                    and weakest models. Here&apos;s the comparison.
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -679,14 +683,20 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                                       <span className="font-semibold">{data.max.toFixed(2)}</span>
                                     </p>
                                     <p className="text-xs text-muted-foreground mb-2">
-                                      {data.maxModel.replace("-preview-09-2025", "").replace("-reasoning", "").replace("-fast", "")}
+                                      {data.maxModel
+                                        .replace("-preview-09-2025", "")
+                                        .replace("-reasoning", "")
+                                        .replace("-fast", "")}
                                     </p>
                                     <p className="flex justify-between gap-4">
                                       <span className="text-muted-foreground">Worst Model:</span>
                                       <span className="font-semibold">{data.min.toFixed(2)}</span>
                                     </p>
                                     <p className="text-xs text-muted-foreground mb-2">
-                                      {data.minModel.replace("-preview-09-2025", "").replace("-reasoning", "").replace("-fast", "")}
+                                      {data.minModel
+                                        .replace("-preview-09-2025", "")
+                                        .replace("-reasoning", "")
+                                        .replace("-fast", "")}
                                     </p>
                                     <div className="pt-2 mt-2 border-t border-border">
                                       <p className="flex justify-between gap-4">
@@ -734,7 +744,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                           <span className="font-bold text-foreground">OpenAI (GPT):</span>
                           <span className="text-muted-foreground">
                             {" "}
-                            Most consistent. GPT-5 Mini (4.79) and GPT-4.1 Mini (4.59) both score high—only 0.20 difference.
+                            Most consistent. GPT-5 Mini (4.79) and GPT-4.1 Mini (4.59) both score high—only 0.20
+                            difference.
                           </span>
                         </div>
                       </div>
@@ -747,7 +758,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                           <span className="font-bold text-foreground">xAI (Grok):</span>
                           <span className="text-muted-foreground">
                             {" "}
-                            More variation. Grok 4.1 (4.73) is excellent, but Grok 3 Mini (4.59) lags behind—0.14 difference.
+                            More variation. Grok 4.1 Fast (4.73) is excellent, but Grok 3 Mini (4.59) lags behind—0.14
+                            difference.
                           </span>
                         </div>
                       </div>
@@ -760,7 +772,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                           <span className="font-bold text-foreground">Google (Gemini):</span>
                           <span className="text-muted-foreground">
                             {" "}
-                            Biggest gap. Gemini 2.5 (4.70) performs well, but Gemini 2.0 (4.25) struggles—0.45 difference.
+                            Biggest gap. Gemini 2.5 Flash (4.70) performs well, but Gemini 2.0 Flash (4.25) is noticeably weaker in
+                            our tests—0.45 difference.
                           </span>
                         </div>
                       </div>
@@ -775,7 +788,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">🎯 Deep Dive: Where Each Model Excels</CardTitle>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Breaking down performance across three key areas: accuracy, tone, and evangelism
+                    Breaking down performance across three key areas: doctrinal adherence, kindness and gentleness, and
+                    interfaith and evangelism
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -794,7 +808,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                           tickCount={6}
                         />
                         <Radar
-                          name="Google Gemini 2.5"
+                          name="Google Gemini 2.5 Flash"
                           dataKey="google"
                           stroke={COLORS.google}
                           fill={COLORS.google}
@@ -802,7 +816,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                           strokeWidth={2}
                         />
                         <Radar
-                          name="OpenAI GPT-5"
+                          name="OpenAI GPT-5 Mini"
                           dataKey="openai"
                           stroke={COLORS.openai}
                           fill={COLORS.openai}
@@ -810,7 +824,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                           strokeWidth={2}
                         />
                         <Radar
-                          name="xAI Grok 4.1"
+                          name="xAI Grok 4.1 Fast"
                           dataKey="xai"
                           stroke={COLORS.xai}
                           fill={COLORS.xai}
@@ -833,28 +847,35 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                   <div className="mt-4 space-y-3">
                     <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
                       <span className="font-semibold text-foreground">💡 What this means:</span> All three models
-                      perform nearly identically on theological accuracy (&quot;Adherence&quot;: 4.96-4.98) and pastoral tone
-                      (&quot;Kindness&quot;: 4.93-5.00). The <span className="font-bold text-foreground">key difference</span> is
-                      &quot;Interfaith Sensitivity&quot; (4.21-4.39)—how well they handle conversations with people from other
-                      faiths. GPT-5 Mini leads here with 4.39.
+                      perform nearly identically on theological accuracy (&quot;Adherence&quot;: 4.96-4.98) and pastoral
+                      tone (&quot;Kindness&quot;: 4.93-5.00). The{" "}
+                      <span className="font-bold text-foreground">key difference</span> is &quot;Interfaith and
+                      Worldview Sensitivity&quot; (4.21-4.39), which reflects how well they engage people from other
+                      religions or secular worldviews with respect, accurate summaries, and clear Gospel invitations.
+                      GPT-5 Mini leads here with 4.39.
                     </div>
                     <div className="grid gap-2 text-xs">
                       <div className="bg-background border border-border rounded p-3">
                         <div className="font-bold text-foreground mb-1">📖 Adherence (4.96-4.98)</div>
                         <div className="text-muted-foreground">
-                          How well the model sticks to Reformed theology and uses Scripture correctly. All models excel here.
+                          How well the model sticks to our Reformed Baptist doctrinal statement and uses Scripture
+                          carefully, especially on core doctrines like the Trinity, the person and work of Christ, the
+                          Gospel, and the authority of Scripture. All models excel here.
                         </div>
                       </div>
                       <div className="bg-background border border-border rounded p-3">
                         <div className="font-bold text-foreground mb-1">❤️ Kindness and Gentleness (4.93-5.00)</div>
                         <div className="text-muted-foreground">
-                          Whether responses are warm, pastoral, and respectful—even when correcting errors. GPT-5 Mini scores perfect 5.0.
+                          Whether responses are warm, pastoral, patient, and respectful—even when correcting errors or
+                          addressing sensitive topics. GPT-5 Mini scores a perfect 5.0.
                         </div>
                       </div>
                       <div className="bg-background border border-border rounded p-3">
                         <div className="font-bold text-foreground mb-1">🤝 Interfaith Sensitivity (4.21-4.39)</div>
                         <div className="text-muted-foreground">
-                          How well the model shares the Gospel with people from other religions while being respectful. This is the hardest category for all models.
+                          How well the model fairly summarizes other beliefs, engages people from other religions or
+                          secular backgrounds with charity, and still offers a clear, gracious call to repent and trust
+                          in Jesus Christ alone. This is the hardest category for all models.
                         </div>
                       </div>
                     </div>
@@ -884,8 +905,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                               .replace("-preview-09-2025", "")
                               .replace("-reasoning", "")
                               .replace("gpt-5-mini", "GPT-5 Mini")
-                              .replace("gemini-2.5-flash", "Gemini 2.5")
-                              .replace("grok-4-1-fast", "Grok 4.1");
+                              .replace("gemini-2.5-flash", "Gemini 2.5 Flash")
+                              .replace("grok-4-1-fast", "Grok 4.1 Fast");
                             return modelName;
                           })
                           .join(" & ")
@@ -901,7 +922,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                       bestImprovement
                         ? `${bestImprovement.model.replace(
                             "gemini-2.5-flash",
-                            "Gemini 2.5"
+                            "Gemini 2.5 Flash"
                           )} with our custom instructions`
                         : "Insufficient Data"
                     }
@@ -911,8 +932,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                 <div className="border-t border-primary-foreground/20 pt-4">
                   <Stat
                     label="🎯 Hardest Category"
-                    value="Evangelism"
-                    subtext="Average: 3.8 / 5.0 — Sharing the Gospel clearly is tough!"
+                    value="Interfaith & Evangelism"
+                    subtext="Average: 3.8 / 5.0 — Sharing the Gospel clearly and kindly across worldviews is tough!"
                     color="hsl(var(--destructive-foreground))"
                   />
                 </div>
@@ -959,21 +980,22 @@ export default function DashboardClient({ data }: DashboardClientProps) {
               </h4>
               <p className="text-xs text-muted-foreground leading-relaxed mb-3">
                 All models are tested against our &quot;Reformed Baptist&quot; theological framework. We&apos;re
-                measuring how well they understand and communicate Reformed theology.
+                measuring how well they understand and communicate Reformed theology, how gentle and pastoral their tone
+                is, and how they share the Gospel across different worldviews.
               </p>
               <div className="space-y-2 text-xs">
                 <div className="flex items-start gap-2">
                   <span className="text-primary font-bold mt-0.5">•</span>
                   <span className="text-muted-foreground">
-                    <span className="font-semibold text-foreground">5.0 = Perfect:</span> Theologically accurate,
-                    pastoral tone, clear Gospel presentation
+                    <span className="font-semibold text-foreground">5.0 = Perfect:</span> Strong doctrinal faithfulness,
+                    gentle pastoral tone, and clear, respectful Gospel presentation across worldviews
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-primary font-bold mt-0.5">•</span>
                   <span className="text-muted-foreground">
-                    <span className="font-semibold text-foreground">4.0-4.9 = Strong:</span> Minor issues but generally
-                    reliable
+                    <span className="font-semibold text-foreground">4.0-4.9 = Strong:</span> Minor issues in nuance,
+                    tone, or interfaith sensitivity but generally reliable
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
