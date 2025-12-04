@@ -1,48 +1,19 @@
 "use client";
 
-import React, { useMemo } from "react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  ScatterChart,
-  Scatter,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  LabelList,
-  Cell,
-} from "recharts";
+import React from "react";
 import { TrendingUp, Scale, Activity, Award, Info, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import type { EvaluationRecord } from "./lib";
-
-// --- Colors & Themes ---
-// Using CSS variables for theme support
-const COLORS: Record<string, string> = {
-  google: "hsl(var(--chart-1))", // Warm Gold
-  openai: "hsl(var(--chart-2))", // Deep Teal
-  xai: "hsl(var(--chart-3))", // Royal Purple
-  googleLight: "hsl(var(--chart-1) / 0.5)",
-  openaiLight: "hsl(var(--chart-2) / 0.5)",
-  xaiLight: "hsl(var(--chart-3) / 0.5)",
-};
-
-const PROVIDER_LABELS: Record<string, string> = {
-  google: "Google (Gemini)",
-  openai: "OpenAI (GPT)",
-  xai: "xAI (Grok)",
-};
+import { useDashboardMetrics } from "./hooks/use-dashboard-metrics";
+import { TopPerformerBar } from "./charts/TopPerformerBar";
+import { PromptDeltaBar } from "./charts/PromptDeltaBar";
+import { JudgeBiasBar } from "./charts/JudgeBiasBar";
+import { ProviderSpreadScatter } from "./charts/ProviderSpreadScatter";
+import { RadarDeepDive } from "./charts/RadarDeepDive";
+import { COLORS } from "./constants";
 
 const Stat = ({
   label,
@@ -66,255 +37,13 @@ const Stat = ({
   </div>
 );
 
-interface BestImprovementRecord {
-  model: string;
-  delta: string;
-  baselineLabel: string;
-  v1Label: string;
-}
-
 interface DashboardClientProps {
   data: EvaluationRecord[];
 }
 
 export default function DashboardClient({ data }: DashboardClientProps) {
-  // --- Derived Data Calculations ---
-
-  // 1. Best Model Per Provider (Strict Judge: GPT-5)
-  const bestPerProvider = useMemo(() => {
-    // Calculate True Overall Average per Model (Average of Adherence, Kindness, Interfaith)
-    const modelScores: Record<
-      string,
-      { Provider: string; Gen_Model: string; System_Prompt_Label: string; total: number; count: number }
-    > = {};
-
-    data
-      .filter((d) => d.Judge_Model === "gpt-5-mini" && d.subCriterion === "Overall")
-      .forEach((d) => {
-        const key = `${d.Gen_Model}-${d.System_Prompt_Label}`;
-        if (!modelScores[key]) {
-          modelScores[key] = {
-            Provider: d.Provider,
-            Gen_Model: d.Gen_Model,
-            System_Prompt_Label: d.System_Prompt_Label,
-            total: 0,
-            count: 0,
-          };
-        }
-        modelScores[key].total += d.value;
-        modelScores[key].count += 1;
-      });
-
-    const trueOveralls = Object.values(modelScores).map((m) => ({
-      ...m,
-      avgScore: (m.total / m.count).toFixed(2),
-    }));
-
-    // Find Max per provider
-    const maxes: Record<string, (typeof trueOveralls)[0]> = {};
-    trueOveralls.forEach((m) => {
-      if (!maxes[m.Provider] || parseFloat(m.avgScore) > parseFloat(maxes[m.Provider].avgScore)) {
-        maxes[m.Provider] = m;
-      }
-    });
-
-    const result = Object.values(maxes).map((m) => ({
-      provider: m.Provider,
-      model: m.Gen_Model,
-      promptLabel: m.System_Prompt_Label,
-      score: parseFloat(m.avgScore),
-      fill: COLORS[m.Provider],
-    }));
-
-    // Sort by score descending so the best model is at the top of the chart
-    return result.sort((a, b) => b.score - a.score);
-  }, [data]);
-
-  // 2. System Prompt Delta (Vanilla vs v1.0) - GPT-5 Judge
-  const promptDelta = useMemo(() => {
-    // Use the best/flagship model from each provider for comparison
-    const modelMapping = {
-      google: "gemini-2.5-flash-preview-09-2025",
-      xai: "grok-4-1-fast-reasoning",
-      openai: "gpt-5-mini",
-    };
-
-    return Object.entries(modelMapping).map(([provider, genModel]) => {
-      const calcAvg = (gm: string, prompt: string) => {
-        const scores = data.filter(
-          (d) =>
-            d.Judge_Model === "gpt-5-mini" &&
-            d.Gen_Model === gm &&
-            d.System_Prompt_Label === prompt &&
-            d.subCriterion === "Overall"
-        );
-        if (scores.length === 0) return 0;
-        const total = scores.reduce((sum, curr) => sum + curr.value, 0);
-        return (total / scores.length).toFixed(2);
-      };
-
-      return {
-        provider,
-        v1: parseFloat(calcAvg(genModel, "v1_0") as string),
-        baseline: parseFloat(calcAvg(genModel, "baseline") as string),
-      };
-    });
-  }, [data]);
-
-  // 2.5 Best Improvement Calculation
-  const bestImprovement = useMemo<BestImprovementRecord | null>(() => {
-    // Group by Gen_Model + System_Prompt_Label
-    const scoresByKey: Record<
-      string,
-      { Gen_Model: string; System_Prompt_Label: string; total: number; count: number }
-    > = {};
-
-    data
-      .filter((d) => d.Judge_Model === "gpt-5-mini" && d.subCriterion === "Overall")
-      .forEach((d) => {
-        const key = `${d.Gen_Model}-${d.System_Prompt_Label}`;
-        if (!scoresByKey[key]) {
-          scoresByKey[key] = { Gen_Model: d.Gen_Model, System_Prompt_Label: d.System_Prompt_Label, total: 0, count: 0 };
-        }
-        scoresByKey[key].total += d.value;
-        scoresByKey[key].count += 1;
-      });
-
-    const allScores = Object.values(scoresByKey).map((s) => ({
-      model: s.Gen_Model,
-      prompt: s.System_Prompt_Label,
-      score: s.total / s.count,
-    }));
-
-    // Now find models that have both 'baseline' and 'v1_0'
-    const models = Array.from(new Set(allScores.map((s) => s.model)));
-    let maxDelta = -1;
-    let bestRecord: BestImprovementRecord | null = null;
-
-    models.forEach((m) => {
-      const baseline = allScores.find((s) => s.model === m && s.prompt === "baseline");
-      const v1 = allScores.find((s) => s.model === m && s.prompt === "v1_0");
-
-      if (baseline && v1) {
-        const delta = ((v1.score - baseline.score) / baseline.score) * 100;
-        if (delta > maxDelta) {
-          maxDelta = delta;
-          bestRecord = {
-            model: m.replace("-preview-09-2025", "").replace("-reasoning", ""),
-            delta: delta.toFixed(0),
-            baselineLabel: "baseline",
-            v1Label: "v1_0",
-          };
-        }
-      }
-    });
-
-    return bestRecord;
-  }, [data]);
-
-  // 3. Judge Bias Data
-  const judgeComparison = useMemo(() => {
-    // Find models that were judged by BOTH
-    // We need to find models that appear with both judges
-    const models = Array.from(new Set(data.map((d) => d.Gen_Model)));
-
-    const comparisonData = models
-      .map((model) => {
-        const gptJudgeScores = data.filter(
-          (d) => d.Gen_Model === model && d.Judge_Model === "gpt-5-mini" && d.subCriterion === "Overall"
-        );
-        const geminiJudgeScores = data.filter(
-          (d) =>
-            d.Gen_Model === model &&
-            d.Judge_Model === "gemini-2.5-flash-preview-09-2025" &&
-            d.subCriterion === "Overall"
-        );
-
-        if (gptJudgeScores.length === 0 || geminiJudgeScores.length === 0) return null;
-
-        const gptAvg = gptJudgeScores.reduce((acc, curr) => acc + curr.value, 0) / gptJudgeScores.length;
-        const geminiAvg = geminiJudgeScores.reduce((acc, curr) => acc + curr.value, 0) / geminiJudgeScores.length;
-
-        return {
-          model: model.replace("-preview-09-2025", "").replace("-reasoning", ""),
-          gptJudge: parseFloat(gptAvg.toFixed(2)),
-          geminiJudge: parseFloat(geminiAvg.toFixed(2)),
-        };
-      })
-      .filter(Boolean);
-
-    return comparisonData;
-  }, [data]);
-
-  // 4. Provider Spread (Min vs Max)
-  const providerSpread = useMemo(() => {
-    // Get all true averages for all models (GPT Judge only, v1_0 prompt only)
-    const modelScores: Record<string, { Provider: string; Gen_Model: string; total: number; count: number }> = {};
-    data
-      .filter((d) => d.Judge_Model === "gpt-5-mini" && d.System_Prompt_Label === "v1_0" && d.subCriterion === "Overall")
-      .forEach((d) => {
-        if (!modelScores[d.id]) {
-          modelScores[d.id] = { Provider: d.Provider, Gen_Model: d.Gen_Model, total: 0, count: 0 };
-        }
-        modelScores[d.id].total += d.value;
-        modelScores[d.id].count += 1;
-      });
-
-    const scores = Object.values(modelScores).map((m) => ({
-      provider: m.Provider,
-      model: m.Gen_Model,
-      score: m.total / m.count,
-    }));
-
-    const result = ["google", "openai", "xai"]
-      .map((p) => {
-        const pScores = scores.filter((s) => s.provider === p);
-        if (pScores.length === 0) return null;
-
-        const minModel = pScores.reduce((prev, curr) => (prev.score < curr.score ? prev : curr));
-        const maxModel = pScores.reduce((prev, curr) => (prev.score > curr.score ? prev : curr));
-
-        return {
-          provider: p,
-          min: minModel.score,
-          max: maxModel.score,
-          minModel: minModel.model,
-          maxModel: maxModel.model,
-          avg: (pScores.reduce((a, b) => a + b.score, 0) / pScores.length).toFixed(2),
-          fill: COLORS[p],
-          label: PROVIDER_LABELS[p],
-        };
-      })
-      .filter((item): item is NonNullable<typeof item> => item !== null);
-    return result;
-  }, [data]);
-
-  // 5. Radar Data (Top 3 Models)
-  const radarData = useMemo(() => {
-    const criteria = ["Adherence", "Kindness_and_Gentleness", "Interfaith_Sensitivity"];
-    // Select best model ID for each provider
-    const bestIds = bestPerProvider
-      .map((b) => {
-        // Find the ID corresponding to the best model
-        const match = data.find(
-          (d) => d.Gen_Model === b.model && d.System_Prompt_Label === "v1_0" && d.Judge_Model === "gpt-5-mini"
-        );
-        return match ? match.id : null;
-      })
-      .filter(Boolean);
-
-    return criteria.map((crit) => {
-      const entry: Record<string, string | number> = { subject: crit.replace(/_/g, " ") };
-      bestIds.forEach((id) => {
-        if (!id) return;
-        const val = data.find((d) => d.id === id && d.criterion === crit && d.subCriterion === "Overall");
-        if (val) {
-          entry[val.Provider] = val.value;
-        }
-      });
-      return entry;
-    });
-  }, [bestPerProvider, data]);
+  const { bestPerProvider, promptDelta, bestImprovement, judgeComparison, providerSpread, radarData } =
+    useDashboardMetrics(data);
 
   return (
     <div className="bg-background min-h-screen p-4 md:p-8 font-sans text-foreground">
@@ -404,61 +133,12 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-72 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={bestPerProvider} layout="vertical" margin={{ left: 20, right: 30, bottom: 10 }}>
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
-                        <XAxis type="number" domain={[4.6, 5]} />
-                        <YAxis
-                          type="category"
-                          dataKey="provider"
-                          tickFormatter={(val, index) => {
-                            const item = bestPerProvider[index];
-                            return item
-                              ? `${PROVIDER_LABELS[val]}\n${item.model
-                                  .replace("-preview-09-2025", "")
-                                  .replace("-reasoning", "")
-                                  .replace("gpt-5-mini", "GPT-5 Mini")
-                                  .replace("gemini-2.5-flash", "Gemini 2.5 Flash")
-                                  .replace("grok-4-1-fast", "Grok 4.1 Fast")}`
-                              : PROVIDER_LABELS[val];
-                          }}
-                          width={200}
-                          tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--popover))",
-                            borderColor: "hsl(var(--border))",
-                            color: "hsl(var(--popover-foreground))",
-                            borderRadius: "var(--radius)",
-                          }}
-                          cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
-                          formatter={(value: number) => [`${value.toFixed(2)} / 5.0`, "Score"]}
-                          labelStyle={{ fontWeight: "bold" }}
-                        />
-                        <Bar dataKey="score" radius={[0, 4, 4, 0]} barSize={40}>
-                          {bestPerProvider.map((entry, index) => (
-                            <React.Fragment key={`cell-${index}`}>
-                              <LabelList
-                                dataKey="score"
-                                position="right"
-                                fill="hsl(var(--foreground))"
-                                fontWeight="bold"
-                                formatter={(value) => (typeof value === "number" ? value.toFixed(2) : value)}
-                              />
-                              <Cell fill={entry.fill} />
-                            </React.Fragment>
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <TopPerformerBar data={bestPerProvider} />
                   <div className="mt-4 text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
                     <span className="font-semibold text-foreground">💡 What this means:</span> OpenAI&apos;s GPT-5 Mini
-                    comes out on top with 4.79, followed by xAI&apos;s Grok 4.1 Fast at 4.73 and Google&apos;s Gemini 2.5 Flash at
-                    4.70. All three are strong performers within our Reformed Baptist framework, with GPT-5 Mini showing
-                    a slight edge in interfaith and evangelism-related conversations.
+                    comes out on top with 4.79, followed by xAI&apos;s Grok 4.1 Fast at 4.73 and Google&apos;s Gemini
+                    2.5 Flash at 4.70. All three are strong performers within our Reformed Baptist framework, with GPT-5
+                    Mini showing a slight edge in interfaith and evangelism-related conversations.
                   </div>
                 </CardContent>
               </Card>
@@ -472,57 +152,14 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-72 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={promptDelta} barGap={8}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                        <XAxis
-                          dataKey="provider"
-                          tickFormatter={(val) => PROVIDER_LABELS[val]}
-                          tick={{ fill: "hsl(var(--foreground))" }}
-                        />
-                        <YAxis
-                          domain={[4, 5]}
-                          tick={{ fill: "hsl(var(--foreground))" }}
-                          label={{
-                            value: "Score (out of 5)",
-                            angle: -90,
-                            position: "insideLeft",
-                            style: { fill: "hsl(var(--foreground))", textAnchor: "middle" },
-                            offset: 5,
-                          }}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--popover))",
-                            borderColor: "hsl(var(--border))",
-                            color: "hsl(var(--popover-foreground))",
-                            borderRadius: "var(--radius)",
-                          }}
-                          formatter={(value: number) => value.toFixed(2)}
-                        />
-                        <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="circle" />
-                        <Bar
-                          name="Without Instructions (Baseline)"
-                          dataKey="baseline"
-                          fill="hsl(var(--muted-foreground))"
-                          radius={[4, 4, 0, 0]}
-                        />
-                        <Bar
-                          name="With Our Instructions (v1.0)"
-                          dataKey="v1"
-                          fill="hsl(var(--primary))"
-                          radius={[4, 4, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <PromptDeltaBar data={promptDelta} />
                   <div className="mt-4 space-y-3">
                     <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
                       <span className="font-semibold text-foreground">💡 What this means:</span> Our custom instructions
-                      make a<span className="text-primary font-bold"> noticeable difference</span> for Gemini 2.5 Flash (about
-                      +12% improvement). Without those instructions, Gemini 2.5 Flash was less consistent, especially on
-                      interfaith and evangelism prompts. With our guidance, it comes much closer to the other models.
+                      make a<span className="text-primary font-bold"> noticeable difference</span> for Gemini 2.5 Flash
+                      (about +12% improvement). Without those instructions, Gemini 2.5 Flash was less consistent,
+                      especially on interfaith and evangelism prompts. With our guidance, it comes much closer to the
+                      other models.
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <div className="bg-background border border-border rounded p-2 text-center">
@@ -553,54 +190,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-80 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={judgeComparison} barGap={8}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                        <XAxis
-                          dataKey="model"
-                          tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
-                          angle={-45}
-                          textAnchor="end"
-                          height={80}
-                        />
-                        <YAxis
-                          domain={[4, 5]}
-                          tick={{ fill: "hsl(var(--foreground))" }}
-                          label={{
-                            value: "Score (out of 5)",
-                            angle: -90,
-                            position: "insideLeft",
-                            style: { fill: "hsl(var(--foreground))", textAnchor: "middle" },
-                            offset: 5,
-                          }}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--popover))",
-                            borderColor: "hsl(var(--border))",
-                            color: "hsl(var(--popover-foreground))",
-                            borderRadius: "var(--radius)",
-                          }}
-                          cursor={{ fill: "transparent", stroke: "hsl(var(--border))", strokeWidth: 2 }}
-                          formatter={(value: number) => [value.toFixed(2), ""]}
-                        />
-                        <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="circle" />
-                        <Bar
-                          name="Graded by GPT-5 (OpenAI)"
-                          dataKey="gptJudge"
-                          fill="hsl(var(--chart-2))"
-                          radius={[4, 4, 0, 0]}
-                        />
-                        <Bar
-                          name="Graded by Gemini (Google)"
-                          dataKey="geminiJudge"
-                          fill="hsl(var(--chart-1))"
-                          radius={[4, 4, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <JudgeBiasBar data={judgeComparison} />
                   <div className="mt-4 space-y-3">
                     <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border flex items-start gap-2">
                       <Info size={16} className="mt-0.5 flex-shrink-0 text-foreground" />
@@ -614,9 +204,9 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                     <div className="bg-primary/10 border border-primary/20 p-3 rounded-lg text-sm">
                       <div className="font-semibold text-foreground mb-1">📌 Why this matters:</div>
                       <div className="text-muted-foreground">
-                        We use GPT-5 Mini as our main judge because it provides more detailed, nuanced scores in adherence,
-                        kindness, and interfaith and worldview sensitivity. This helps us see real differences instead
-                        of every model clustering at the top.
+                        We use GPT-5 Mini as our main judge because it provides more detailed, nuanced scores in
+                        adherence, kindness, and interfaith and worldview sensitivity. This helps us see real
+                        differences instead of every model clustering at the top.
                       </div>
                     </div>
                   </div>
@@ -634,100 +224,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="aspect-square w-full max-h-[500px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 60 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis
-                          type="number"
-                          dataKey="max"
-                          name="Best Model Score"
-                          domain={[4.5, 4.9]}
-                          tick={{ fill: "hsl(var(--foreground))" }}
-                          label={{
-                            value: "→ Best Model Score (Higher = Better)",
-                            position: "bottom",
-                            offset: 10,
-                            fill: "hsl(var(--foreground))",
-                            fontSize: 12,
-                          }}
-                        />
-                        <YAxis
-                          type="number"
-                          dataKey="min"
-                          name="Worst Model Score"
-                          domain={[4.5, 4.9]}
-                          tick={{ fill: "hsl(var(--foreground))" }}
-                          tickFormatter={(val) => val.toFixed(2)}
-                          label={{
-                            value: "↑ Worst Model Score (Higher = Better)",
-                            angle: -90,
-                            position: "insideLeft",
-                            fill: "hsl(var(--foreground))",
-                            textAnchor: "middle",
-                            offset: -5,
-                            fontSize: 12,
-                          }}
-                        />
-                        <Tooltip
-                          cursor={{ strokeDasharray: "3 3" }}
-                          content={({ payload }) => {
-                            if (payload && payload.length) {
-                              const data = payload[0].payload;
-                              return (
-                                <div className="bg-popover p-3 border border-border shadow-md rounded-lg text-popover-foreground">
-                                  <p className="font-bold text-base mb-2">{data.label}</p>
-                                  <div className="text-sm space-y-1">
-                                    <p className="flex justify-between gap-4">
-                                      <span className="text-muted-foreground">Best Model:</span>
-                                      <span className="font-semibold">{data.max.toFixed(2)}</span>
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mb-2">
-                                      {data.maxModel
-                                        .replace("-preview-09-2025", "")
-                                        .replace("-reasoning", "")
-                                        .replace("-fast", "")}
-                                    </p>
-                                    <p className="flex justify-between gap-4">
-                                      <span className="text-muted-foreground">Worst Model:</span>
-                                      <span className="font-semibold">{data.min.toFixed(2)}</span>
-                                    </p>
-                                    <p className="text-xs text-muted-foreground mb-2">
-                                      {data.minModel
-                                        .replace("-preview-09-2025", "")
-                                        .replace("-reasoning", "")
-                                        .replace("-fast", "")}
-                                    </p>
-                                    <div className="pt-2 mt-2 border-t border-border">
-                                      <p className="flex justify-between gap-4">
-                                        <span className="text-muted-foreground">Range:</span>
-                                        <span className="font-bold text-primary">
-                                          {(data.max - data.min).toFixed(2)}
-                                        </span>
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            }
-                            return null;
-                          }}
-                        />
-                        <Scatter name="Providers" data={providerSpread} fill="hsl(var(--chart-3))" shape="circle">
-                          {providerSpread.map((entry: { fill: string }, index: number) => (
-                            <Cell key={`cell-${index}`} fill={entry.fill} />
-                          ))}
-                          <LabelList
-                            dataKey="label"
-                            position="top"
-                            fill="hsl(var(--foreground))"
-                            fontSize={12}
-                            fontWeight="bold"
-                          />
-                        </Scatter>
-                      </ScatterChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <ProviderSpreadScatter data={providerSpread} />
                   <div className="mt-4 space-y-3">
                     <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
                       <span className="font-semibold text-foreground">💡 How to read this chart:</span> The top-right
@@ -772,8 +269,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                           <span className="font-bold text-foreground">Google (Gemini):</span>
                           <span className="text-muted-foreground">
                             {" "}
-                            Biggest gap. Gemini 2.5 Flash (4.70) performs well, but Gemini 2.0 Flash (4.25) is noticeably weaker in
-                            our tests—0.45 difference.
+                            Biggest gap. Gemini 2.5 Flash (4.70) performs well, but Gemini 2.0 Flash (4.25) is
+                            noticeably weaker in our tests—0.45 difference.
                           </span>
                         </div>
                       </div>
@@ -793,57 +290,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-96 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                        <PolarGrid stroke="hsl(var(--border))" strokeWidth={1} />
-                        <PolarAngleAxis
-                          dataKey="subject"
-                          tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontWeight: 500 }}
-                        />
-                        <PolarRadiusAxis
-                          angle={30}
-                          domain={[4.5, 5]}
-                          tick={{ fill: "hsl(var(--foreground))", fontSize: 10 }}
-                          tickCount={6}
-                        />
-                        <Radar
-                          name="Google Gemini 2.5 Flash"
-                          dataKey="google"
-                          stroke={COLORS.google}
-                          fill={COLORS.google}
-                          fillOpacity={0.2}
-                          strokeWidth={2}
-                        />
-                        <Radar
-                          name="OpenAI GPT-5 Mini"
-                          dataKey="openai"
-                          stroke={COLORS.openai}
-                          fill={COLORS.openai}
-                          fillOpacity={0.2}
-                          strokeWidth={2}
-                        />
-                        <Radar
-                          name="xAI Grok 4.1 Fast"
-                          dataKey="xai"
-                          stroke={COLORS.xai}
-                          fill={COLORS.xai}
-                          fillOpacity={0.2}
-                          strokeWidth={2}
-                        />
-                        <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="circle" />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(var(--popover))",
-                            borderColor: "hsl(var(--border))",
-                            color: "hsl(var(--popover-foreground))",
-                            borderRadius: "var(--radius)",
-                          }}
-                          formatter={(value: number) => value.toFixed(2)}
-                        />
-                      </RadarChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <RadarDeepDive data={radarData} />
                   <div className="mt-4 space-y-3">
                     <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
                       <span className="font-semibold text-foreground">💡 What this means:</span> All three models
