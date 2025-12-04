@@ -54,6 +54,7 @@ npm install
 
 * Copy `.env.template` to `.env`
 * Fill in required credentials and API keys
+  * `CCEL_URL` should point to the Neon (or other Postgres) database that holds the `data_ccel_vector_store` PGVector table used for CCEL retrieval
 
 5. **Run the development server**
 

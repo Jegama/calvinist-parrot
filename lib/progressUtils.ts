@@ -8,13 +8,11 @@ type DataEvent =
   | { type: "tool_summary"; toolName: string; content: string }
   | { type: "parrot"; content: string }
   | { type: "calvin"; content: string }
-  | { type: "gotQuestions"; content: string };
+  | { type: "gotQuestions"; content: string }
+  | { type: "CCEL"; content: string };
 
 // Shared function for streaming progress messages.
-export function sendProgress(
-  data: DataEvent,
-  controller?: ReadableStreamDefaultController<Uint8Array>
-) {
+export function sendProgress(data: DataEvent, controller?: ReadableStreamDefaultController<Uint8Array>) {
   if (controller) {
     // If we have a stream controller, we can enqueue progress to the client:
     const encoder = new TextEncoder();
@@ -31,9 +29,12 @@ export function sendError(
   controller: ReadableStreamDefaultController<Uint8Array>
 ) {
   console.error(`Error during ${stage}:`, error);
-  sendProgress({
-    type: 'error',
-    stage,
-    message: 'An error occurred, but continuing conversation...'
-  }, controller);
+  sendProgress(
+    {
+      type: "error",
+      stage,
+      message: "An error occurred, but continuing conversation...",
+    },
+    controller
+  );
 }

@@ -338,15 +338,22 @@ export async function POST(request: Request) {
                 if (step === "tools") {
                   const messages = (content as ToolUpdatePayload)?.messages || [];
                   for (const msg of messages) {
-                    if (msg.tool_name === "supplementalArticleSearch" || msg.name === "supplementalArticleSearch") {
-                      try {
-                        // Only parse if it's JSON (for backward compatibility with old format)
-                        // New format returns human-readable text that shouldn't be sent to UI
-                        const result = JSON.parse(msg.content);
-                        
-                        // Check if it's the old JSON format with results array
-                        if (result.results && Array.isArray(result.results) && result.results.length > 0) {
-                          const articleLinks = result.results
+                    const toolName = msg.tool_name || msg.name;
+                    if (!toolName) continue;
+
+                    const isSupplemental = toolName === "supplementalArticleSearch";
+                    const isCcel = toolName === "ccelRetrieval";
+                    if (!isSupplemental && !isCcel) {
+                      continue;
+                    }
+
+                    try {
+                      const parsed = JSON.parse(msg.content);
+
+                      if (isSupplemental) {
+                        const results = parsed?.results;
+                        if (Array.isArray(results) && results.length > 0) {
+                          const articleLinks = results
                             .filter((r: { url?: string }) => r.url)
                             .map((article: { title?: string; url?: string }) => {
                               const title = article.title || "Untitled Article";
@@ -359,7 +366,6 @@ export async function POST(request: Request) {
                           if (articleLinks) {
                             const content = `${articleLinks}`;
                             sendProgress({ type: "gotQuestions", content }, controller);
-                            // Save gotQuestions to database for persistence
                             pendingWrites.push(
                               prisma.chatMessage.create({
                                 data: {
@@ -375,12 +381,29 @@ export async function POST(request: Request) {
                             });
                           }
                         }
-                        // If it's the new format (not JSON or no results array), skip - it's for LLM only
-                      } catch {
-                        // Not JSON, which means it's the new human-readable format
-                        // This is expected - the LLM will use it but we don't send to UI
-                        // The tool_summary already has the bibliography for the UI
+                      } else if (isCcel) {
+                        const consultedMarkdown: unknown = parsed?.consultedSourcesMarkdown;
+                        if (typeof consultedMarkdown === "string" && consultedMarkdown.trim().length > 0) {
+                          const content = consultedMarkdown.trim();
+                          sendProgress({ type: "CCEL", content }, controller);
+                          pendingWrites.push(
+                            prisma.chatMessage.create({
+                              data: {
+                                chatId: capturedChatId,
+                                sender: "CCEL",
+                                content,
+                              },
+                            })
+                          );
+                          conversationMessages.push({
+                            sender: "CCEL",
+                            content,
+                          });
+                        }
                       }
+                    } catch {
+                      // Not JSON, which means it's the new human-readable format for supplemental tool
+                      // The tool_summary already contains the UI-ready content
                     }
                   }
                 }

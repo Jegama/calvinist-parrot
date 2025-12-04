@@ -24,7 +24,7 @@ async function bibleCommentary(
     // Set up periodic progress for slow commentary fetches
     progressInterval = setInterval(() => {
       writer?.({ toolName: "Bible Commentary", message: "Still gathering commentaries..." });
-    }, 3000);
+    }, 5000);
 
     const commentaries = await getCommentariesForPassages(passages);
     
