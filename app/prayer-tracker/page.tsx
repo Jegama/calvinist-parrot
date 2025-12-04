@@ -99,7 +99,7 @@ export default function PrayerTrackerPage() {
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <Button asChild variant="outline">
-              <Link href="/family-worship">Why Family Worship?</Link>
+              <Link href="/prayer-tracker/family-worship">Why Family Worship?</Link>
             </Button>
             <Button onClick={rotationWorkflow.computeRotation} disabled={rotationWorkflow.isComputing}>
               {rotationWorkflow.isComputing ? "Computing..." : "Compute Tonight's Rotation"}
