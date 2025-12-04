@@ -22,10 +22,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { user, logout } = useAuth();
 
-  const profileQueryKey = useMemo(
-    () => ["profile-overview", user?.$id ?? "guest"],
-    [user?.$id]
-  );
+  const profileQueryKey = useMemo(() => ["profile-overview", user?.$id ?? "guest"], [user?.$id]);
   const profileOverview = useQuery({
     queryKey: profileQueryKey,
     enabled: Boolean(user?.$id),
@@ -75,9 +72,7 @@ export default function ProfilePage() {
         <CardTitle>Profile</CardTitle>
       </CardHeader>
       <CardContent>
-        <p>
-          Checking your session… you&apos;ll be redirected to login if needed.
-        </p>
+        <p>Checking your session… you&apos;ll be redirected to login if needed.</p>
       </CardContent>
     </Card>
   );
@@ -88,20 +83,12 @@ export default function ProfilePage() {
 
   return (
     <ProtectedView fallback={fallback}>
-      <ProfileCard
-        name={user.name || ""}
-        email={user.email || ""}
-        onLogout={handleLogout}
-      />
+      <ProfileCard name={user.name || ""} email={user.email || ""} onLogout={handleLogout} />
 
       {profileStats && <PrayerJourneyCard stats={profileStats} />}
 
       {profileStats && (
-        <TheologicalPreferencesCard
-          stats={profileStats}
-          userId={user.$id}
-          onUpdate={() => profileOverview.refetch()}
-        />
+        <TheologicalPreferencesCard stats={profileStats} userId={user.$id} onUpdate={() => profileOverview.refetch()} />
       )}
 
       <FamilySpaceCard

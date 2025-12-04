@@ -1,25 +1,14 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Family, NewFamilyFormState } from "../types";
 import { useCallback, useMemo, useState } from "react";
 import { formatRelative } from "../utils";
-import {
-  ChevronFirst,
-  ChevronLast,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
 import { ARCHIVED_CATEGORY } from "../constants";
 
 const joinClassNames = (base: string, extra?: string) => {
@@ -99,10 +88,9 @@ export function FamilySection({
   const showArchiveMetadata = categoryFilter === ARCHIVED_CATEGORY;
 
   const paginationControls = (
-    <div className="flex items-center justify-between text-xs text-muted-foreground">
+    <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
       <span>
-        {Math.min((currentPage - 1) * PAGE_SIZE + 1, total)}-
-        {Math.min(currentPage * PAGE_SIZE, total)} of {total}
+        {Math.min((currentPage - 1) * PAGE_SIZE + 1, total)}-{Math.min(currentPage * PAGE_SIZE, total)} of {total}
         {categoryFilter !== "all" ? ` in ${categoryFilter}` : ""}
       </span>
       <div className="flex items-center gap-1.5">
@@ -151,35 +139,36 @@ export function FamilySection({
 
   return (
     <Card className={joinClassNames("", className)}>
-      <CardHeader>
-        <CardTitle>Family Cards</CardTitle>
+      <CardHeader className="space-y-2">
+        <CardTitle className="text-2xl font-serif">Family Cards</CardTitle>
+        <CardDescription>
+          Shepherd household relationships, surface recent prayer touches, and keep archived families close at hand.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground">
-            Add a new family
-          </h3>
+        <div className="space-y-4 rounded-2xl border border-primary/10 bg-muted/30 p-4">
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Create</p>
+            <h3 className="text-base font-serif text-foreground">Add a new family</h3>
+            <p className="text-sm text-muted-foreground">
+              Capture the parents, children, and category that anchor this family in your rotation.
+            </p>
+          </div>
           <div className="grid gap-3 md:grid-cols-2">
             <Input
               placeholder="Family name"
               value={newFamily.familyName}
-              onChange={(event) =>
-                onNewFamilyChange({ familyName: event.target.value })
-              }
+              onChange={(event) => onNewFamilyChange({ familyName: event.target.value })}
             />
             <Input
               placeholder="Parents"
               value={newFamily.parents}
-              onChange={(event) =>
-                onNewFamilyChange({ parents: event.target.value })
-              }
+              onChange={(event) => onNewFamilyChange({ parents: event.target.value })}
             />
             <Input
               placeholder="Children (comma-separated)"
               value={newFamily.children}
-              onChange={(event) =>
-                onNewFamilyChange({ children: event.target.value })
-              }
+              onChange={(event) => onNewFamilyChange({ children: event.target.value })}
             />
             <div className="space-y-2">
               <Select
@@ -187,8 +176,7 @@ export function FamilySection({
                 onValueChange={(value) =>
                   onNewFamilyChange({
                     categorySelect: value,
-                    customCategory:
-                      value === "__custom" ? newFamily.customCategory : "",
+                    customCategory: value === "__custom" ? newFamily.customCategory : "",
                   })
                 }
               >
@@ -209,16 +197,12 @@ export function FamilySection({
                 <Input
                   placeholder="New category name"
                   value={newFamily.customCategory}
-                  onChange={(event) =>
-                    onNewFamilyChange({ customCategory: event.target.value })
-                  }
+                  onChange={(event) => onNewFamilyChange({ customCategory: event.target.value })}
                 />
               )}
             </div>
           </div>
-          {familyFormError && (
-            <p className="text-xs text-destructive">{familyFormError}</p>
-          )}
+          {familyFormError && <p className="text-xs text-destructive">{familyFormError}</p>}
           <Button onClick={onCreateFamily} className="w-full md:w-auto">
             Add Family
           </Button>
@@ -226,10 +210,14 @@ export function FamilySection({
 
         <Separator />
 
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <h3 className="text-sm font-semibold text-muted-foreground">
-            Current families
-          </h3>
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Overview</p>
+            <h3 className="text-base font-serif text-foreground">Current families</h3>
+            <p className="text-sm text-muted-foreground">
+              Tap a card for details or use the menu to filter by category.
+            </p>
+          </div>
           <Select value={categoryFilter} onValueChange={handleCategoryFilterChange}>
             <SelectTrigger className="w-full md:w-[220px]">
               <SelectValue placeholder="Filter by category" />
@@ -246,60 +234,64 @@ export function FamilySection({
         </div>
 
         {filteredFamilies.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Add a family card to get started.
-          </p>
+          <p className="text-sm text-muted-foreground">Add a family card to get started.</p>
         ) : (
           <div className="space-y-4">
             {paginationControls}
 
             <div className="grid gap-4 md:grid-cols-2">
-              {pagedFamilies.map((family) => (
-                <div
-                  key={family.id}
-                  className="rounded-lg border bg-card p-4 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div
-                      className="flex-1 cursor-pointer"
-                      onClick={() => onViewFamilyDetail(family)}
-                    >
-                      <h4 className="text-base font-semibold hover:text-primary transition-colors">
-                        {family.familyName}
-                      </h4>
-                      {family.categoryTag && (
-                        <span className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium">
-                          {family.categoryTag}
-                        </span>
-                      )}
+              {pagedFamilies.map((family) => {
+                const isArchived = Boolean(family.archivedAt);
+                return (
+                  <div
+                    key={family.id}
+                    className={joinClassNames(
+                      "rounded-xl border border-border/60 bg-card p-4 shadow-sm transition-colors hover:border-primary/40",
+                      isArchived ? "opacity-75" : ""
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 cursor-pointer space-y-2" onClick={() => onViewFamilyDetail(family)}>
+                        <div className="flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-full bg-primary/70" aria-hidden="true" />
+                          <h4 className="text-base font-serif font-semibold transition-colors hover:text-primary">
+                            {family.familyName}
+                          </h4>
+                        </div>
+                        <div className="flex flex-wrap gap-2 text-[11px] font-medium">
+                          {family.categoryTag && (
+                            <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-2 py-0.5">
+                              {family.categoryTag}
+                            </span>
+                          )}
+                          {isArchived && (
+                            <span className="inline-flex items-center rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-destructive">
+                              Archived
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => onEditFamily(family)}>
+                        Edit
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onEditFamily(family)}
-                    >
-                      Edit
-                    </Button>
-                  </div>
-                  <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                    {family.parents && <p>Parents: {family.parents}</p>}
-                    {Array.isArray(family.children) &&
-                      family.children.length > 0 && (
+                    <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                      {family.parents && <p>Parents: {family.parents}</p>}
+                      {Array.isArray(family.children) && family.children.length > 0 && (
                         <p>Children: {family.children.join(", ")}</p>
                       )}
-                    {showArchiveMetadata && family.archivedAt ? (
-                      <p>Archived: {formatRelative(family.archivedAt)}</p>
-                    ) : (
-                      <p>
-                        Last prayed: {formatRelative(family.lastPrayedAt)}
-                        {family.lastPrayedBy?.displayName
-                          ? ` - by ${family.lastPrayedBy.displayName}`
-                          : ""}
-                      </p>
-                    )}
+                      {showArchiveMetadata && family.archivedAt ? (
+                        <p>Archived: {formatRelative(family.archivedAt)}</p>
+                      ) : (
+                        <p>
+                          Last prayed: {formatRelative(family.lastPrayedAt)}
+                          {family.lastPrayedBy?.displayName ? ` - by ${family.lastPrayedBy.displayName}` : ""}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {paginationControls}

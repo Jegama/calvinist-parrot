@@ -3,13 +3,7 @@
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Sheet,
   SheetClose,
@@ -139,20 +133,13 @@ export function FamilySheet({
             </div>
           </div>
           {sheetState.archivedAt && (
-            <p className="text-xs text-muted-foreground">
-              Archived on {formatRelative(sheetState.archivedAt)}
-            </p>
+            <p className="text-xs text-muted-foreground">Archived on {formatRelative(sheetState.archivedAt)}</p>
           )}
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
         <SheetFooter className="mt-6 gap-2">
           <div className="flex flex-1 flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onArchive}
-              disabled={isLoading || showRestore}
-            >
+            <Button type="button" variant="secondary" onClick={onArchive} disabled={isLoading || showRestore}>
               Archive
             </Button>
             {showRestore && (
