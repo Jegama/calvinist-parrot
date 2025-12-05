@@ -11,6 +11,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
@@ -139,7 +140,7 @@ export function Header() {
               <DropdownMenuContent align="end" className="bg-card border-border shadow-lg min-w-[8rem]">
                 <DropdownMenuItem asChild>
                   <Link href="/" prefetch={false} className="w-full">
-                    Chat (Home)
+                    Chat
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
@@ -157,6 +158,7 @@ export function Header() {
                     Church Finder
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/parrot-qa" prefetch={false} className="w-full">
                     Parrot QA (Labs)
@@ -164,9 +166,10 @@ export function Header() {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/llm-evaluation-dashboard" prefetch={false} className="w-full">
-                    AI Eval Dashboard (Labs)
+                    AI Eval (Labs)
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/about" prefetch={false} className="w-full">
                     About
