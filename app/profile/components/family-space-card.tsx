@@ -46,8 +46,8 @@ export function FamilySpaceCard({
   userId,
   onUpdate,
 }: FamilySpaceCardProps) {
-  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const regenerateTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const regenerateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     pendingCode,

@@ -17,8 +17,8 @@ interface RadarDeepDiveProps {
 
 export function RadarDeepDive({ data }: RadarDeepDiveProps) {
   return (
-    <div className="h-96 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-96 w-full min-w-0">
+      <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
         <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
           <PolarGrid stroke="hsl(var(--border))" strokeWidth={1} />
           <PolarAngleAxis dataKey="subject" tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontWeight: 500 }} />

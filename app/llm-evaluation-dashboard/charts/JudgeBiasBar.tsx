@@ -7,8 +7,8 @@ interface JudgeBiasBarProps {
 
 export function JudgeBiasBar({ data }: JudgeBiasBarProps) {
   return (
-    <div className="h-80 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-80 w-full min-w-0">
+      <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
         <BarChart data={data} barGap={8}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
           <XAxis

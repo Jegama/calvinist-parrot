@@ -1,6 +1,6 @@
 "use client";
 
-import { LeafletProvider, createLeafletContext } from "@react-leaflet/core";
+import { LeafletContext, createLeafletContext } from "@react-leaflet/core";
 import { Map as LeafletMap } from "leaflet";
 import type { MapContainerProps } from "react-leaflet";
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
@@ -82,7 +82,11 @@ function SafeMapContainerComponent(
     };
   }, [context]);
 
-  const contents = context ? <LeafletProvider value={context}>{children}</LeafletProvider> : placeholder ?? null;
+  const contents = context ? (
+    <LeafletContext.Provider value={context}>{children}</LeafletContext.Provider>
+  ) : (
+    placeholder ?? null
+  );
 
   return (
     <div {...containerProps} ref={mapRef}>

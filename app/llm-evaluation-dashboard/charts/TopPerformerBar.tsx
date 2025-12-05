@@ -8,8 +8,8 @@ interface TopPerformerBarProps {
 
 export function TopPerformerBar({ data }: TopPerformerBarProps) {
   return (
-    <div className="h-72 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-72 w-full min-w-0">
+      <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
         <BarChart data={data} layout="vertical" margin={{ left: 20, right: 30, bottom: 10 }}>
           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
           <XAxis type="number" domain={[4.6, 5]} />
