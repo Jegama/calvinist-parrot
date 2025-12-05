@@ -58,3 +58,7 @@ In stewarding Gospel faithfulness and unity, we partner with and recommend minis
 - Do not deny any essential doctrine and are free of disqualifying concerns as described in our Ministry Partnership and Recommendation Policy (Romans 16:17; Ephesians 4:15).
 
 For full criteria and examples of disqualifying concerns, see our Ministry Partnership and Recommendation Policy.
+
+# Soli Deo Gloria
+
+- Romans 11:36

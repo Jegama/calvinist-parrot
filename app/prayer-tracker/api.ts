@@ -254,6 +254,7 @@ export async function updateUnifiedRequest(
     requestText?: string;
     notes?: string | null;
     lastPrayedAt?: string | null;
+    status?: "ACTIVE" | "ANSWERED" | "ARCHIVED";
     markAnswered?: boolean;
     isHouseholdRequest: boolean;
     linkedToFamily?: string;

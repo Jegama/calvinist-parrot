@@ -2,20 +2,10 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -69,7 +59,8 @@ const STATUS_CONFIG = {
     textColor: "status-text--recommended",
     iconColor: "status-text--recommended",
     title: "Recommended",
-    description: "Based on what is published, the church affirms a majority of essential Christian doctrines and holds to Reformed or compatible theology. We can commend this church.",
+    description:
+      "Based on what is published, the church affirms a majority of essential Christian doctrines and holds to Reformed or compatible theology. We can commend this church.",
   },
   biblically_sound_with_differences: {
     icon: Info,
@@ -142,16 +133,17 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
 
   // Find false doctrines
   const falseDoctrine = evaluation?.coreDoctrines
-    ? (Object.entries(evaluation.coreDoctrines)
-      .filter(([, value]) => value === "false")
-      .map(([key]) => key as CoreDoctrineKey))
+    ? Object.entries(evaluation.coreDoctrines)
+        .filter(([, value]) => value === "false")
+        .map(([key]) => key as CoreDoctrineKey)
     : [];
 
   // Find red flag badges (excluding false doctrine issues)
-  const redFlagBadges = evaluation?.badges.filter(badge => {
-    const badgeInfo = badgesJson[badge as keyof typeof badgesJson];
-    return badgeInfo?.category === "red_flag";
-  }) ?? [];
+  const redFlagBadges =
+    evaluation?.badges.filter((badge) => {
+      const badgeInfo = badgesJson[badge as keyof typeof badgesJson];
+      return badgeInfo?.category === "red_flag";
+    }) ?? [];
 
   // Generate dynamic Not Endorsed description based on evaluation reasons
   const getNotEndorsedDescription = () => {
@@ -194,9 +186,10 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
   // Check if denomination is in the non-endorsement list
   const denominationLabel = church?.denomination?.label?.trim();
   const canonicalName = denominationLabel ? normalizeDenomination(denominationLabel) : null;
-  const denominationNote = canonicalName && canonicalName in canNotEndorseJson
-    ? canNotEndorseJson[canonicalName as keyof typeof canNotEndorseJson]
-    : null;
+  const denominationNote =
+    canonicalName && canonicalName in canNotEndorseJson
+      ? canNotEndorseJson[canonicalName as keyof typeof canNotEndorseJson]
+      : null;
 
   // Create a map of core doctrine keys to their notes
   const coreDoctrineNotes = new Map<string, { text: string; sourceUrl: string | null }>();
@@ -211,10 +204,11 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
   }
 
   // Filter notes to exclude those already shown in core doctrines
-  const remainingNotes = evaluation?.raw?.church?.notes?.filter((note) => {
-    const normalizedLabel = note.label.toLowerCase().replace(/\s+/g, "_");
-    return !Object.keys(evaluation.coreDoctrines).includes(normalizedLabel);
-  }) ?? [];
+  const remainingNotes =
+    evaluation?.raw?.church?.notes?.filter((note) => {
+      const normalizedLabel = note.label.toLowerCase().replace(/\s+/g, "_");
+      return !Object.keys(evaluation.coreDoctrines).includes(normalizedLabel);
+    }) ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -230,9 +224,13 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                 )}
               >
                 <DialogHeader className={cn("flex-1 text-left", !church.confessionAdopted && "pr-12 sm:pr-0")}>
-                  <DialogTitle className="text-xl font-semibold text-foreground sm:text-2xl break-words leading-tight">{church.name}</DialogTitle>
+                  <DialogTitle className="text-xl font-semibold text-foreground sm:text-2xl break-words leading-tight">
+                    {church.name}
+                  </DialogTitle>
                   <DialogDescription className="text-sm">
-                    {church.city && church.state ? `${church.city}, ${church.state}` : church.city ?? church.state ?? "Location unknown"}
+                    {church.city && church.state
+                      ? `${church.city}, ${church.state}`
+                      : church.city ?? church.state ?? "Location unknown"}
                   </DialogDescription>
                   <div className="mt-3">
                     <Button
@@ -267,7 +265,6 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                           window.setTimeout(() => setCopied(false), 2000);
                         } catch {
                           // Very old browsers: show prompt as last resort
-                          // eslint-disable-next-line no-alert
                           window.prompt("Copy this link", url);
                         }
                       }}
@@ -302,7 +299,13 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
 
               {/* Endorsement Status Alert */}
               {displayStatus && STATUS_CONFIG[displayStatus] && (
-                <Alert className={cn(STATUS_CONFIG[displayStatus].bgColor, STATUS_CONFIG[displayStatus].borderColor, "shadow-sm")}>
+                <Alert
+                  className={cn(
+                    STATUS_CONFIG[displayStatus].bgColor,
+                    STATUS_CONFIG[displayStatus].borderColor,
+                    "shadow-sm"
+                  )}
+                >
                   {(() => {
                     const Icon = STATUS_CONFIG[displayStatus].icon;
                     return <Icon className={cn("h-4 w-4", STATUS_CONFIG[displayStatus].iconColor)} />;
@@ -311,7 +314,9 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                     {STATUS_CONFIG[displayStatus].title}
                   </AlertTitle>
                   <AlertDescription className={STATUS_CONFIG[displayStatus].textColor}>
-                    {displayStatus === "not_endorsed" ? getNotEndorsedDescription() : STATUS_CONFIG[displayStatus].description}
+                    {displayStatus === "not_endorsed"
+                      ? getNotEndorsedDescription()
+                      : STATUS_CONFIG[displayStatus].description}
                   </AlertDescription>
                 </Alert>
               )}
@@ -328,16 +333,12 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                   <div className="space-y-4">
                     {falseDoctrine.map((key) => (
                       <div key={key} className="rounded-md border border-destructive/30 bg-background p-3 shadow-sm">
-                        <p className="mb-2 font-semibold text-destructive">
-                          ❌ {CORE_LABELS[key]}
-                        </p>
+                        <p className="mb-2 font-semibold text-destructive">❌ {CORE_LABELS[key]}</p>
                         <div className="space-y-2 text-sm">
                           <p className="text-foreground">
                             <span className="font-medium">What we believe:</span>
                           </p>
-                          <p className="italic text-foreground/80">
-                            &ldquo;{coreDoctrinesJson[key]}&rdquo;
-                          </p>
+                          <p className="italic text-foreground/80">&ldquo;{coreDoctrinesJson[key]}&rdquo;</p>
                         </div>
                       </div>
                     ))}
@@ -352,16 +353,18 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                     ⚠️ Serious Concerns (Positions We Cannot Endorse)
                   </h3>
                   <p className="text-sm font-medium status-text--danger">
-                    Based on the church’s published statements, we identified the following position(s) we cannot endorse:
+                    Based on the church’s published statements, we identified the following position(s) we cannot
+                    endorse:
                   </p>
                   <div className="space-y-3">
                     {redFlagBadges.map((badge) => {
                       const badgeInfo = badgesJson[badge as keyof typeof badgesJson];
                       return (
-                        <div key={badge} className="rounded-md border border-destructive/30 bg-background p-3 shadow-sm">
-                          <p className="mb-2 font-semibold text-destructive">
-                            {badge}
-                          </p>
+                        <div
+                          key={badge}
+                          className="rounded-md border border-destructive/30 bg-background p-3 shadow-sm"
+                        >
+                          <p className="mb-2 font-semibold text-destructive">{badge}</p>
                           <p className="text-sm text-foreground/80">
                             {badgeInfo?.description ?? "No description available"}
                           </p>
@@ -373,42 +376,44 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
               )}
 
               {/* Low Essentials Coverage Warning */}
-              {evaluation && evaluation.coverageRatio < 0.5 && falseDoctrine.length === 0 && redFlagBadges.length === 0 && (
-                <div className="space-y-4 rounded-lg p-4 shadow-md status--warning">
-                  <h3 className="text-lg font-semibold status-text--warning flex items-center gap-2">
-                    ⚠️ Limited Doctrinal Information
-                  </h3>
-                  <p className="text-sm font-medium status-text--warning">
-                    The church&apos;s website does not clearly state several essential Christian doctrines.
-                  </p>
-                  <div className="rounded-md border border-destructive/30 bg-background p-4 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="font-semibold text-foreground">
-                        Essentials clearly stated on website:
-                      </p>
-                      <p className="text-2xl font-bold status-text--warning">
-                        {Math.round(evaluation.coverageRatio * 100)}%
-                      </p>
-                    </div>
-                    <p className="text-sm text-foreground/80 mb-3">
-                      Only {evaluation.coreOnSiteCount} out of {evaluation.coreTotalCount} essential doctrines are clearly affirmed on their website.
+              {evaluation &&
+                evaluation.coverageRatio < 0.5 &&
+                falseDoctrine.length === 0 &&
+                redFlagBadges.length === 0 && (
+                  <div className="space-y-4 rounded-lg p-4 shadow-md status--warning">
+                    <h3 className="text-lg font-semibold status-text--warning flex items-center gap-2">
+                      ⚠️ Limited Doctrinal Information
+                    </h3>
+                    <p className="text-sm font-medium status-text--warning">
+                      The church&apos;s website does not clearly state several essential Christian doctrines.
                     </p>
-                    <div className="rounded bg-muted/50 p-3">
-                      <p className="text-sm text-foreground/90">
-                        <span className="font-medium">What this means:</span> This does not mean the church denies these doctrines—it may simply not be stated clearly online. We encourage you to reach out to the church directly for clarification before making a decision.
+                    <div className="rounded-md border border-destructive/30 bg-background p-4 shadow-sm">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="font-semibold text-foreground">Essentials clearly stated on website:</p>
+                        <p className="text-2xl font-bold status-text--warning">
+                          {Math.round(evaluation.coverageRatio * 100)}%
+                        </p>
+                      </div>
+                      <p className="text-sm text-foreground/80 mb-3">
+                        Only {evaluation.coreOnSiteCount} out of {evaluation.coreTotalCount} essential doctrines are
+                        clearly affirmed on their website.
                       </p>
+                      <div className="rounded bg-muted/50 p-3">
+                        <p className="text-sm text-foreground/90">
+                          <span className="font-medium">What this means:</span> This does not mean the church denies
+                          these doctrines—it may simply not be stated clearly online. We encourage you to reach out to
+                          the church directly for clarification before making a decision.
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Denomination-Specific Note */}
               {denominationNote && (
                 <Alert className="status--warning">
                   <AlertTriangle className="h-4 w-4 status-text--warning" />
-                  <AlertTitle className="status-text--warning">
-                    About {denominationLabel}
-                  </AlertTitle>
+                  <AlertTitle className="status-text--warning">About {denominationLabel}</AlertTitle>
                   <AlertDescription className="status-text--warning">
                     <p className="mb-2">{denominationNote.note}</p>
                     {denominationNote.denies && denominationNote.denies.length > 0 && (
@@ -437,15 +442,13 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                       const badgeClasses = isRedFlag
                         ? "badge--red-flag px-3 py-1.5 text-sm font-medium"
                         : isSecondaryDifference
-                          ? "badge--info px-3 py-1.5 text-sm font-medium"
-                          : "badge--neutral px-3 py-1.5 text-sm font-medium";
+                        ? "badge--info px-3 py-1.5 text-sm font-medium"
+                        : "badge--neutral px-3 py-1.5 text-sm font-medium";
 
                       return (
                         <Tooltip key={badge}>
                           <TooltipTrigger asChild>
-                            <span className={badgeClasses}>
-                              {badge}
-                            </span>
+                            <span className={badgeClasses}>{badge}</span>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="max-w-sm">
                             <p>{badgeInfo?.description ?? "No description available"}</p>
@@ -479,8 +482,7 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                       <span>{church.email ?? "Unavailable"}</span>
                     </p>
                     <p>
-                      <span className="font-medium text-muted-foreground">Phone:</span>{" "}
-                      {church.phone ?? "Unavailable"}
+                      <span className="font-medium text-muted-foreground">Phone:</span> {church.phone ?? "Unavailable"}
                     </p>
                   </div>
                   <div className="min-w-0 space-y-3 text-sm">
@@ -542,7 +544,10 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                     <h4 className="text-base font-semibold text-foreground">Service Times</h4>
                     <div className="flex flex-wrap gap-2 text-sm">
                       {church.serviceTimes.map((service) => (
-                        <span key={service.id} className="rounded-md bg-muted/70 border border-border px-3 py-1.5 text-foreground/80">
+                        <span
+                          key={service.id}
+                          className="rounded-md bg-muted/70 border border-border px-3 py-1.5 text-foreground/80"
+                        >
                           {service.label}
                         </span>
                       ))}
@@ -580,8 +585,8 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                               value === "true"
                                 ? "border-emerald-300 bg-emerald-100/70 dark:border-emerald-800 dark:bg-emerald-950/20"
                                 : value === "false"
-                                  ? "border-red-300 bg-red-100/70 dark:border-red-800 dark:bg-red-950/20"
-                                  : "border-border bg-card shadow-sm"
+                                ? "border-red-300 bg-red-100/70 dark:border-red-800 dark:bg-red-950/20"
+                                : "border-border bg-card shadow-sm"
                             )}
                           >
                             <div className="mb-2 flex items-start justify-between">
@@ -592,8 +597,8 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                                   value === "true"
                                     ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
                                     : value === "false"
-                                      ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-                                      : "bg-muted text-muted-foreground"
+                                    ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                                    : "bg-muted text-muted-foreground"
                                 )}
                               >
                                 {value === "true" ? "✓ Affirmed" : value === "false" ? "✗ Denied" : "Unknown"}
@@ -618,8 +623,8 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                                 {value === "true"
                                   ? "Affirmed through church's adopted confession or denomination."
                                   : value === "false"
-                                    ? "This church explicitly denies this essential Christian doctrine."
-                                    : "Position unclear from available church statements."}
+                                  ? "This church explicitly denies this essential Christian doctrine."
+                                  : "Position unclear from available church statements."}
                               </p>
                             )}
                           </div>
@@ -631,53 +636,53 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                   {/* Other Doctrines - Collapsible */}
                   {(Object.keys(evaluation.secondary ?? {}).length > 0 ||
                     Object.keys(evaluation.tertiary ?? {}).length > 0) && (
-                      <Collapsible open={otherDoctrinesOpen} onOpenChange={setOtherDoctrinesOpen}>
-                        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-card p-4 hover:bg-muted/20 shadow-sm">
-                          <div className="text-left">
-                            <h3 className="text-lg font-semibold text-foreground">Other Doctrines</h3>
-                            <p className="text-sm text-muted-foreground">
-                              Additional theological positions and practices
-                            </p>
-                          </div>
-                          <ChevronDown
-                            className={cn(
-                              "h-5 w-5 text-muted-foreground transition-transform",
-                              otherDoctrinesOpen && "rotate-180"
-                            )}
-                          />
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="mt-4">
-                          <div className="grid gap-4 md:grid-cols-2">
-                            {Object.keys(evaluation.secondary ?? {}).length > 0 && (
-                              <div className="space-y-2 rounded-md border border-border bg-card shadow-sm p-4">
-                                <h4 className="text-base font-semibold text-foreground">Doctrines</h4>
-                                <ul className="space-y-2 text-sm">
-                                  {Object.entries(evaluation.secondary ?? {}).map(([key, value]) => (
-                                    <li key={key} className="flex flex-col">
-                                      <span className="font-medium text-foreground">{formatDoctrineKey(key)}</span>
-                                      <span className="text-muted-foreground">{value ?? "Not specified"}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            {Object.keys(evaluation.tertiary ?? {}).length > 0 && (
-                              <div className="space-y-2 rounded-md border border-border bg-card shadow-sm p-4">
-                                <h4 className="text-base font-semibold text-foreground">Additional Positions</h4>
-                                <ul className="space-y-2 text-sm">
-                                  {Object.entries(evaluation.tertiary ?? {}).map(([key, value]) => (
-                                    <li key={key} className="flex flex-col">
-                                      <span className="font-medium text-foreground">{formatDoctrineKey(key)}</span>
-                                      <span className="text-muted-foreground">{value ?? "Not specified"}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    )}
+                    <Collapsible open={otherDoctrinesOpen} onOpenChange={setOtherDoctrinesOpen}>
+                      <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-card p-4 hover:bg-muted/20 shadow-sm">
+                        <div className="text-left">
+                          <h3 className="text-lg font-semibold text-foreground">Other Doctrines</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Additional theological positions and practices
+                          </p>
+                        </div>
+                        <ChevronDown
+                          className={cn(
+                            "h-5 w-5 text-muted-foreground transition-transform",
+                            otherDoctrinesOpen && "rotate-180"
+                          )}
+                        />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {Object.keys(evaluation.secondary ?? {}).length > 0 && (
+                            <div className="space-y-2 rounded-md border border-border bg-card shadow-sm p-4">
+                              <h4 className="text-base font-semibold text-foreground">Doctrines</h4>
+                              <ul className="space-y-2 text-sm">
+                                {Object.entries(evaluation.secondary ?? {}).map(([key, value]) => (
+                                  <li key={key} className="flex flex-col">
+                                    <span className="font-medium text-foreground">{formatDoctrineKey(key)}</span>
+                                    <span className="text-muted-foreground">{value ?? "Not specified"}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {Object.keys(evaluation.tertiary ?? {}).length > 0 && (
+                            <div className="space-y-2 rounded-md border border-border bg-card shadow-sm p-4">
+                              <h4 className="text-base font-semibold text-foreground">Additional Positions</h4>
+                              <ul className="space-y-2 text-sm">
+                                {Object.entries(evaluation.tertiary ?? {}).map(([key, value]) => (
+                                  <li key={key} className="flex flex-col">
+                                    <span className="font-medium text-foreground">{formatDoctrineKey(key)}</span>
+                                    <span className="text-muted-foreground">{value ?? "Not specified"}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
 
                   {/* Remaining Notes - Only show notes not already in core doctrines */}
                   {remainingNotes.length > 0 && (
@@ -685,7 +690,10 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                       <h4 className="text-base font-semibold text-foreground">Additional Notes & Sources</h4>
                       <ul className="space-y-2 text-sm">
                         {remainingNotes.map((note, idx) => (
-                          <li key={`${note.label}-${note.source_url}-${idx}`} className="rounded-md border border-border bg-card shadow-sm p-3">
+                          <li
+                            key={`${note.label}-${note.source_url}-${idx}`}
+                            className="rounded-md border border-border bg-card shadow-sm p-3"
+                          >
                             <p className="font-medium text-foreground">{note.label}</p>
                             <p className="text-muted-foreground">{note.text}</p>
                             {note.source_url && (
@@ -723,8 +731,15 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                 <Info className="h-4 w-4 text-primary" />
                 <AlertTitle className="text-foreground font-semibold">About these evaluations</AlertTitle>
                 <AlertDescription className="text-foreground/80">
-                  Our summaries rely on what a church publishes on its website. If something is not explicitly stated online,
-                  we cannot infer their position. If you spot an error, please <a href="mailto:contact@calvinistparrotministries.org" className="text-primary underline underline-offset-2 hover:no-underline">email us</a> with the page link and what needs correction.
+                  Our summaries rely on what a church publishes on its website. If something is not explicitly stated
+                  online, we cannot infer their position. If you spot an error, please{" "}
+                  <a
+                    href="mailto:contact@calvinistparrotministries.org"
+                    className="text-primary underline underline-offset-2 hover:no-underline"
+                  >
+                    email us
+                  </a>{" "}
+                  with the page link and what needs correction.
                 </AlertDescription>
               </Alert>
 
@@ -792,7 +807,12 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
 }
 
 function renderBestPage(label: string, url: string | null) {
-  if (!url) return <p>{label}: <span className="text-muted-foreground">Not provided</span></p>;
+  if (!url)
+    return (
+      <p>
+        {label}: <span className="text-muted-foreground">Not provided</span>
+      </p>
+    );
   return (
     <p className="flex flex-col gap-1 sm:flex-row sm:gap-2">
       <span className="font-medium text-foreground">{label}:</span>{" "}
@@ -809,7 +829,5 @@ function renderBestPage(label: string, url: string | null) {
 }
 
 function formatDoctrineKey(key: string): string {
-  return key
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  return key.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }

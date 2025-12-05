@@ -1,16 +1,9 @@
 "use client";
 
-import { LeafletProvider, createLeafletContext } from "@react-leaflet/core";
+import { LeafletContext, createLeafletContext } from "@react-leaflet/core";
 import { Map as LeafletMap } from "leaflet";
 import type { MapContainerProps } from "react-leaflet";
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useState,
-} from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import type { ForwardedRef } from "react";
 
 type LeafletContainer = HTMLDivElement & {
@@ -36,9 +29,7 @@ function SafeMapContainerComponent(
 ) {
   const containerProps = useMemo(() => ({ className, id, style }), [className, id, style]);
   const [mapOptions] = useState(() => options);
-  const [context, setContext] = useState<ReturnType<typeof createLeafletContext> | null>(
-    null
-  );
+  const [context, setContext] = useState<ReturnType<typeof createLeafletContext> | null>(null);
 
   useImperativeHandle(forwardedRef, () => context?.map as LeafletMap, [context]);
 
@@ -92,7 +83,7 @@ function SafeMapContainerComponent(
   }, [context]);
 
   const contents = context ? (
-    <LeafletProvider value={context}>{children}</LeafletProvider>
+    <LeafletContext.Provider value={context}>{children}</LeafletContext.Provider>
   ) : (
     placeholder ?? null
   );

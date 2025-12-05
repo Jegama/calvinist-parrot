@@ -35,7 +35,7 @@ export function FamilyDetailDialog({
         <DialogHeader>
           <DialogTitle className="text-xl">{family.familyName}</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-6 py-4">
           {/* Family Details */}
           <div className="space-y-2">
@@ -89,9 +89,7 @@ export function FamilyDetailDialog({
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 space-y-1">
                           <p className="text-sm font-semibold">{request.requestText}</p>
-                          {request.notes && (
-                            <p className="text-xs text-muted-foreground">{request.notes}</p>
-                          )}
+                          {request.notes && <p className="text-xs text-muted-foreground">{request.notes}</p>}
                           <p className="text-xs text-muted-foreground">
                             Last prayed: {formatTimeSince(request.lastPrayedAt)} - Added{" "}
                             {formatRelative(request.dateAdded)}
@@ -103,11 +101,7 @@ export function FamilyDetailDialog({
                           )}
                         </div>
                         <div className="flex flex-col gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => onEditRequest(request)}
-                          >
+                          <Button size="sm" variant="outline" onClick={() => onEditRequest(request)}>
                             Edit
                           </Button>
                           {!isAnswered && (

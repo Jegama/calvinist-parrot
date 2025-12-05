@@ -17,11 +17,12 @@ Calvinist Parrot delivers Biblical insights and deep theological responses by co
 ## What the Parrot Can Do
 
 - **Real-Time Chat:** Engage in interactive sessions with streamed responses.
-<!-- - **Theological Q&A:** Answers complex theological questions with layered reasoning. -->
+- **Theological Q&A:** Answers complex theological questions with layered reasoning.
 - **Multi-Perspective Insights:** Choose from Reformed Baptist, Presbyterian, Wesleyan, Lutheran, Anglican, Pentecostal/Charismatic, or Non-Denominational Evangelical modes.
 - **Daily Devotionals:** Get devotionals generated from current news and Scripture.
 - **Prayer Tracker:** Organize your prayer life with rotating prayer assignments, personal and family prayer requests, and prayer journals—designed to help you pray consistently for your household and broader faith community.
 - **Church Finder:** Discover biblically sound churches with AI-powered doctrinal evaluations. Each church is analyzed for adherence to essential Christian doctrines, historic Reformed confessions, and theological soundness to help you find a faithful congregation.
+ - **AI Model Evaluation Dashboard:** See how different AI models perform on doctrinal fidelity, kindness and gentleness, and interfaith sensitivity using the built-in evaluation dashboard at `/llm-evaluation-dashboard`.
 
 ## Getting Started
 
@@ -54,6 +55,7 @@ npm install
 
 * Copy `.env.template` to `.env`
 * Fill in required credentials and API keys
+  * `CCEL_URL` should point to the Neon (or other Postgres) database that holds the `data_ccel_vector_store` PGVector table used for CCEL retrieval
 
 5. **Run the development server**
 
@@ -66,16 +68,10 @@ npm run dev
 ### Core Features
 
 - **/api/parrot-qa**  
-  Processes user questions through categorization, multiple agent responses, and synthesizes a final answer.
+  Classic Calvinist Parrot Q&A pipeline that categorizes the question, gathers three model answers, runs a Calvin style review, and then streams back a brief synthesized answer using the original legacy guardrails.
 
 - **/api/parrot-chat**  
-  Handles real-time chat sessions, streaming responses and saving conversation history.
-
-<!-- - **/api/elaborate**  
-  Provides follow-up detailed responses (elaboration) based on initial answers and commentary.
-
-- **/api/devotional-generation**  
-  Generates daily devotionals by combining news snippets with Scripture in a structured JSON format. -->
+  Recommended default chat endpoint that powers the main site experience, using the newer LangGraph agent to stream responses and save conversation history while enforcing the current doctrinal and tone guardrails.
 
 ### Church Finder
 

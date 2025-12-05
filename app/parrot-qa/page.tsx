@@ -3,13 +3,13 @@
 "use client"
 
 import React, { useState, useCallback, useEffect } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -287,16 +287,20 @@ export default function Home() {
             />
             <CardTitle className="text-3xl font-bold">Calvinist Parrot</CardTitle>
           </div>
-          <CardDescription>
-            What theological question do you have?
-          </CardDescription>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Looking for the main chat? Use the parrot logo or go to the{" "}
+            <Link href="/" className="underline underline-offset-2">
+              Chat page
+            </Link>
+            . This page runs the classic Parrot QA workflow with categorization, counsel of three, and Calvin&apos;s review.
+          </p>
         </CardHeader>
 
         {!result && (
           <CardContent>
             <form onSubmit={handleHomepageSubmit} className="space-y-4">
               <Input
-                placeholder="Enter your question here..."
+                placeholder="What theological question do you have?"
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
               />

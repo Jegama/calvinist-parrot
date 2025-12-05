@@ -1,22 +1,26 @@
-import type {
-  ChurchDetail,
-  ChurchListResponse,
-  ChurchMetaResponse,
-  ChurchSearchResult,
-} from "@/types/church";
+import type { ChurchDetail, ChurchListResponse, ChurchMetaResponse, ChurchSearchResult } from "@/types/church";
 
 export type ChurchFilters = {
   page?: number;
+  pageSize?: number;
   state?: string | null;
   city?: string | null;
   denomination?: string | null;
   confessional?: "true" | "false" | null;
-  status?: "historic_reformed" | "recommended" | "biblically_sound_with_differences" | "limited_information" | "not_endorsed" | "exclude_red_flag_and_limited" | null;
+  status?:
+    | "historic_reformed"
+    | "recommended"
+    | "biblically_sound_with_differences"
+    | "limited_information"
+    | "not_endorsed"
+    | "exclude_red_flag_and_limited"
+    | null;
 };
 
 function buildQuery(params: ChurchFilters): string {
   const searchParams = new URLSearchParams();
   if (params.page && params.page > 1) searchParams.set("page", String(params.page));
+  if (params.pageSize && params.pageSize > 0) searchParams.set("pageSize", String(params.pageSize));
   if (params.state) searchParams.set("state", params.state);
   if (params.city) searchParams.set("city", params.city);
   if (params.denomination) searchParams.set("denomination", params.denomination);
@@ -26,14 +30,52 @@ function buildQuery(params: ChurchFilters): string {
   return query ? `?${query}` : "";
 }
 
-export async function fetchChurches(filters: ChurchFilters = {}): Promise<ChurchListResponse> {
-  const response = await fetch(`/api/churches${buildQuery(filters)}`, { cache: "no-store" });
+async function fetchChurchPage(filters: ChurchFilters, page: number): Promise<ChurchListResponse> {
+  const response = await fetch(`/api/churches${buildQuery({ ...filters, page })}`, { cache: "no-store" });
 
   if (!response.ok) {
     throw new Error("Failed to load churches");
   }
 
   return (await response.json()) as ChurchListResponse;
+}
+
+export async function fetchChurches(
+  filters: ChurchFilters = {},
+  options: { fetchAll?: boolean } = {}
+): Promise<ChurchListResponse> {
+  const { fetchAll = false } = options;
+  const firstPageNumber = filters.page ?? 1;
+  const baseFilters = { ...filters };
+
+  const first = await fetchChurchPage(baseFilters, firstPageNumber);
+
+  if (!fetchAll || first.total <= first.items.length) {
+    return first;
+  }
+
+  const totalPages = Math.ceil(first.total / first.pageSize);
+  if (totalPages <= firstPageNumber) {
+    return first;
+  }
+
+  const remaining = await Promise.all(
+    Array.from({ length: totalPages - firstPageNumber }, (_, index) =>
+      fetchChurchPage(baseFilters, firstPageNumber + index + 1)
+    )
+  );
+
+  const combinedItems = remaining.reduce<ChurchListResponse["items"]>(
+    (acc, pageResult) => acc.concat(pageResult.items),
+    [...first.items]
+  );
+
+  return {
+    ...first,
+    page: 1,
+    pageSize: combinedItems.length,
+    items: combinedItems,
+  };
 }
 
 export async function fetchChurchDetail(id: string): Promise<ChurchDetail> {

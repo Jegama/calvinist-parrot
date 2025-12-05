@@ -6,13 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import type { ChurchFilters } from "@/app/church-finder/api";
 
@@ -90,9 +84,7 @@ export function ChurchFiltersBar({
     <Card className="sticky top-4 bg-card shadow-sm border-border">
       <CardHeader>
         <CardTitle>Filter churches</CardTitle>
-        <CardDescription>
-          Refine results by location and denominational distinctives
-        </CardDescription>
+        <CardDescription>Refine results by location and denominational distinctives</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* View Mode Toggle */}
@@ -142,12 +134,7 @@ export function ChurchFiltersBar({
         {/* City Filter */}
         <div className="space-y-2">
           <Label htmlFor="city-filter">City</Label>
-          <Input
-            id="city-filter"
-            value={cityValue}
-            onChange={handleCityChange}
-            placeholder="e.g., Houston"
-          />
+          <Input id="city-filter" value={cityValue} onChange={handleCityChange} placeholder="e.g., Houston" />
         </div>
 
         {/* Denomination Filter */}

@@ -1,11 +1,4 @@
-// app/family-worship/page.tsx
-
-"use client";
-
-import { Card, CardContent } from "@/components/ui/card";
-import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
-
-const testimonyContent = `### Why Family Worship?
+### Why Family Worship?
 
 Family worship matters because it helps households honor God together, pass biblical faith to the next generation, and shape hearts and habits toward Christ. It is the practice of gathering your family to read Scripture, pray, and sing praise to God.
 
@@ -73,14 +66,4 @@ Turn from self-reliance, trust Jesus Christ who died and rose for sinners, and j
 
 # Soli Deo Gloria
 
-- Romans 11:36`;
-
-export default function FamilyWorshipPage() {
-  return (
-    <Card className="max-w-3xl mx-auto mt-8 mb-8">
-      <CardContent>
-        <MarkdownWithBibleVerses content={testimonyContent} />
-      </CardContent>
-    </Card>
-  );
-}
+- Romans 11:36

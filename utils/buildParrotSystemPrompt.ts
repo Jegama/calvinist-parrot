@@ -47,10 +47,7 @@ function mapFollowUpTendency(val?: string): string | null {
   return map[val] ?? "Moderate follow-up engagement";
 }
 
-function buildPastoralContext(
-  userProfile: PastoralUserProfile | null,
-  effectiveUserId?: string
-): string {
+function buildPastoralContext(userProfile: PastoralUserProfile | null, effectiveUserId?: string): string {
   if (!userProfile) {
     return "# Pastoral Context\n(No user profile data available yet. User preferences will be learned over time.)";
   }
@@ -73,23 +70,16 @@ function buildPastoralContext(
     const statusMap: Record<string, string> = {
       seeker: "Exploring faith (emphasize Gospel clarity, avoid jargon)",
       new_believer: "Recently saved (gentle discipleship, foundational truths)",
-      growing_believer:
-        "Established in faith (balanced teaching, application focus)",
-      mature_believer:
-        "Spiritually mature (deeper doctrine, ministry application)",
+      growing_believer: "Established in faith (balanced teaching, application focus)",
+      mature_believer: "Spiritually mature (deeper doctrine, ministry application)",
     };
     lines.push(
-      `- **Spiritual Maturity** (PRIVATE): ${
-        statusMap[userProfile.spiritualStatus] || userProfile.spiritualStatus
-      }`
+      `- **Spiritual Maturity** (PRIVATE): ${statusMap[userProfile.spiritualStatus] || userProfile.spiritualStatus}`
     );
   }
 
   // Gospel Engagement
-  if (
-    userProfile.gospelPresentationCount !== null &&
-    (userProfile.gospelPresentationCount ?? 0) > 0
-  ) {
+  if (userProfile.gospelPresentationCount !== null && (userProfile.gospelPresentationCount ?? 0) > 0) {
     lines.push(
       `- **Gospel Presentations Received**: ${userProfile.gospelPresentationCount} time(s) — avoid redundant Gospel explanations unless specifically asked`
     );
@@ -116,29 +106,17 @@ function buildPastoralContext(
       moderate: "Comfortable with moderate detail (3-5 paragraphs)",
       detailed: "Appreciates thorough explanations and outlines",
     };
-    lines.push(
-      `- **Preferred Answer Depth**: ${
-        depthMap[userProfile.preferredDepth] || userProfile.preferredDepth
-      }`
-    );
+    lines.push(`- **Preferred Answer Depth**: ${depthMap[userProfile.preferredDepth] || userProfile.preferredDepth}`);
   } else if (effectiveUserId) {
     // keep debug parity with original implementation
-    console.debug(
-      "PastoralContext: preferredDepth missing for user",
-      effectiveUserId
-    );
+    console.debug("PastoralContext: preferredDepth missing for user", effectiveUserId);
   }
 
-  const followUp = mapFollowUpTendency(
-    userProfile.followUpTendency || undefined
-  );
+  const followUp = mapFollowUpTendency(userProfile.followUpTendency || undefined);
   if (followUp) {
     lines.push(`- **Follow-Up Style**: ${followUp}`);
   } else if (effectiveUserId) {
-    console.debug(
-      "PastoralContext: followUpTendency missing for user",
-      effectiveUserId
-    );
+    console.debug("PastoralContext: followUpTendency missing for user", effectiveUserId);
   }
 
   // Doctrinal Question History
@@ -148,9 +126,7 @@ function buildPastoralContext(
   if (coreQ + secondaryQ + tertiaryQ > 0) {
     lines.push(
       `- **Doctrinal Question History**: ${coreQ} core, ${secondaryQ} secondary, ${tertiaryQ} tertiary — ${
-        coreQ > 3
-          ? "needs clarity on essentials"
-          : "solid foundation in essentials"
+        coreQ > 3 ? "needs clarity on essentials" : "solid foundation in essentials"
       }; ${secondaryQ > 5 ? "exploring denominational distinctives" : ""}; ${
         tertiaryQ > 5 ? "interested in disputable matters" : ""
       }`
@@ -174,28 +150,15 @@ export function buildParrotSystemPrompt(params: {
 
   const pastoralContext = buildPastoralContext(userProfile, effectiveUserId);
 
-  const effectiveDenomination =
-    userProfile?.denomination || denominationFallback || "reformed-baptist";
+  const effectiveDenomination = userProfile?.denomination || denominationFallback || "reformed-baptist";
   const secondaryPromptText = mapDenominationPrompt(effectiveDenomination);
-  const coreSysPromptWithDenomination = prompts.CORE_SYS_PROMPT.replace(
-    "{denomination}",
-    secondaryPromptText
-  );
-  let newParrotSysPrompt = prompts.PARROT_SYS_PROMPT_MAIN.replace(
-    "{CORE}",
-    coreSysPromptWithDenomination
-  );
-  newParrotSysPrompt = newParrotSysPrompt.replace(
-    "{PASTORAL_CONTEXT}",
-    pastoralContext
-  );
+  const coreSysPromptWithDenomination = prompts.CORE_SYS_PROMPT.replace("{denomination}", secondaryPromptText);
+  let newParrotSysPrompt = prompts.PARROT_SYS_PROMPT_MAIN.replace("{CORE}", coreSysPromptWithDenomination);
+  newParrotSysPrompt = newParrotSysPrompt.replace("{PASTORAL_CONTEXT}", pastoralContext);
 
   // Inject effective user id literal for tools that require it (do not expose to user)
   const effectiveUserIdLiteral = effectiveUserId || "unknown_user";
-  newParrotSysPrompt = newParrotSysPrompt.replace(
-    /\{EFFECTIVE_USER_ID\}/g,
-    effectiveUserIdLiteral
-  );
+  newParrotSysPrompt = newParrotSysPrompt.replace(/\{EFFECTIVE_USER_ID\}/g, effectiveUserIdLiteral);
 
   return newParrotSysPrompt;
 }

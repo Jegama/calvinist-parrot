@@ -12,18 +12,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
-import {
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent,
-} from "@/components/ui/accordion";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { useUserIdentifier } from "@/hooks/use-user-identifier";
 import { useChatList } from "@/hooks/use-chat-list";
 
 type Message = {
   sender: string;
   content: string;
+  toolName?: string;
 };
 
 type Chat = {
@@ -35,6 +31,9 @@ type Chat = {
 type DataEvent =
   | { type: "info" | "done" }
   | { type: "progress"; title: string; content: string }
+  | { type: "tool_progress"; toolName: string; message: string }
+  | { type: "reasoning"; content: string }
+  | { type: "tool_summary"; toolName: string; content: string }
   | { type: "parrot"; content: string }
   | { type: "calvin"; content: string }
   | { type: "gotQuestions"; content: string };
@@ -67,65 +66,68 @@ export default function ChatPage() {
   const initialQuestionParam = searchParams.get("initialQuestion");
   const MAX_CHAT_FETCH_RETRIES = 5;
   const RETRY_DELAY_BASE_MS = 200;
-  const COPY_FEEDBACK_DURATION = 2000
+  const COPY_FEEDBACK_DURATION = 2000;
 
   // --- 1) Fetch Chat, User, and Chat List ---
 
-  const fetchChat = useCallback(async (attempt = 0) => {
-    if (!userId) return;
-    // Prevent duplicate fetch requests
-    if (isFetchingChatRef.current) return;
+  const fetchChat = useCallback(
+    async (attempt = 0) => {
+      if (!userId) return;
+      // Prevent duplicate fetch requests
+      if (isFetchingChatRef.current) return;
 
-    try {
-      isFetchingChatRef.current = true;
-      const response = await fetch(`/api/parrot-chat?chatId=${params.chatId}&userId=${encodeURIComponent(userId)}`);
-      if (!response.ok) {
-        if (response.status === 401) {
-          setErrorMessage("Please sign in to view this chat.");
+      try {
+        isFetchingChatRef.current = true;
+        const response = await fetch(`/api/parrot-chat?chatId=${params.chatId}&userId=${encodeURIComponent(userId)}`);
+        if (!response.ok) {
+          if (response.status === 401) {
+            setErrorMessage("Please sign in to view this chat.");
+            return;
+          }
+          if (response.status === 403) {
+            setErrorMessage("You do not have access to this chat.");
+            return;
+          }
+          if (response.status === 404 && attempt < MAX_CHAT_FETCH_RETRIES) {
+            const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt);
+            setTimeout(() => fetchChat(attempt + 1), delay);
+            return;
+          }
+          throw new Error("Failed to fetch chat");
+        }
+        const data = await response.json();
+        if (!data.chat) {
+          if (attempt < MAX_CHAT_FETCH_RETRIES) {
+            const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt);
+            setTimeout(() => fetchChat(attempt + 1), delay);
+          } else {
+            setErrorMessage("An error occurred while fetching the chat.");
+          }
           return;
         }
-        if (response.status === 403) {
-          setErrorMessage("You do not have access to this chat.");
-          return;
+        setChat(data.chat);
+        setMessages(data.messages);
+        upsertChat({
+          id: data.chat.id,
+          conversationName: data.chat.conversationName ?? "New Conversation",
+        });
+        chatFetchedRef.current = true;
+        setErrorMessage("");
+        if (initialQuestionParam && !urlNormalizedRef.current) {
+          router.replace(`/${params.chatId}`);
+          urlNormalizedRef.current = true;
         }
-        if (response.status === 404 && attempt < MAX_CHAT_FETCH_RETRIES) {
-          const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt);
-          setTimeout(() => fetchChat(attempt + 1), delay);
-          return;
-        }
-        throw new Error("Failed to fetch chat");
-      }
-      const data = await response.json();
-      if (!data.chat) {
-        if (attempt < MAX_CHAT_FETCH_RETRIES) {
-          const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt);
-          setTimeout(() => fetchChat(attempt + 1), delay);
-        } else {
+      } catch (error) {
+        console.error("Error fetching chat:", error);
+        if (attempt >= MAX_CHAT_FETCH_RETRIES) {
           setErrorMessage("An error occurred while fetching the chat.");
         }
-        return;
+      } finally {
+        isFetchingChatRef.current = false;
       }
-      setChat(data.chat);
-      setMessages(data.messages);
-      upsertChat({
-        id: data.chat.id,
-        conversationName: data.chat.conversationName ?? "New Conversation",
-      });
-      chatFetchedRef.current = true;
-      setErrorMessage("");
-      if (initialQuestionParam && !urlNormalizedRef.current) {
-        router.replace(`/${params.chatId}`);
-        urlNormalizedRef.current = true;
-      }
-    } catch (error) {
-      console.error("Error fetching chat:", error);
-      if (attempt >= MAX_CHAT_FETCH_RETRIES) {
-        setErrorMessage("An error occurred while fetching the chat.");
-      }
-    } finally {
-      isFetchingChatRef.current = false;
-    }
-  }, [params.chatId, initialQuestionParam, router, upsertChat, userId]);
+    },
+    [params.chatId, initialQuestionParam, router, upsertChat, userId]
+  );
 
   useEffect(() => {
     urlNormalizedRef.current = false;
@@ -178,12 +180,7 @@ export default function ChatPage() {
 
   // Seed the initial user message immediately when navigating from the landing page.
   useEffect(() => {
-    if (
-      !seededInitialMessageRef.current &&
-      initialQuestionParam &&
-      messages.length === 0 &&
-      !chatFetchedRef.current
-    ) {
+    if (!seededInitialMessageRef.current && initialQuestionParam && messages.length === 0 && !chatFetchedRef.current) {
       seededInitialMessageRef.current = true;
       setMessages([{ sender: "user", content: initialQuestionParam }]);
     }
@@ -228,12 +225,12 @@ export default function ChatPage() {
       let buffer = "";
 
       const appendToken = (sender: string, token: string) => {
+        // Skip empty tokens to prevent empty message bubbles
+        if (!token) return;
+
         setMessages((msgs) => {
           if (msgs.length > 0 && msgs[msgs.length - 1].sender === sender) {
-            return [
-              ...msgs.slice(0, -1),
-              { sender, content: msgs[msgs.length - 1].content + token },
-            ];
+            return [...msgs.slice(0, -1), { sender, content: msgs[msgs.length - 1].content + token }];
           } else {
             return [...msgs, { sender, content: token }];
           }
@@ -269,6 +266,17 @@ export default function ChatPage() {
           switch (data.type) {
             case "progress":
               setProgress({ title: data.title, content: data.content });
+              break;
+            case "tool_progress":
+              // Ephemeral tool progress - show in progress indicator
+              setProgress({ title: data.toolName, content: data.message });
+              break;
+            case "tool_summary":
+              // Save tool summary as a collapsible message
+              setMessages((msgs) => [
+                ...msgs,
+                { sender: "tool_summary", content: data.content, toolName: data.toolName },
+              ]);
               break;
             case "parrot":
               appendToken("parrot", data.content);
@@ -328,12 +336,16 @@ export default function ChatPage() {
   if (!chat) {
     return (
       <SidebarProvider>
-        <AppSidebar chats={chats} currentChatId={params.chatId} onDeleted={(id) => {
-          removeChat(id);
-          if (id === params.chatId) {
-            router.push('/');
-          }
-        }} />
+        <AppSidebar
+          chats={chats}
+          currentChatId={params.chatId}
+          onDeleted={(id) => {
+            removeChat(id);
+            if (id === params.chatId) {
+              router.push("/");
+            }
+          }}
+        />
         <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))] !bg-transparent">
           <div className="flex min-h-full flex-col">
             <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -367,26 +379,37 @@ export default function ChatPage() {
 
   return (
     <SidebarProvider>
-      <AppSidebar chats={chats} currentChatId={params.chatId} onDeleted={(id) => {
-        removeChat(id);
-        if (id === params.chatId) {
-          router.push('/');
-        }
-      }} />
+      <AppSidebar
+        chats={chats}
+        currentChatId={params.chatId}
+        onDeleted={(id) => {
+          removeChat(id);
+          if (id === params.chatId) {
+            router.push("/");
+          }
+        }}
+      />
       <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))] !bg-transparent">
         <div className="flex min-h-full flex-col">
           <header
-            className={`sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center transition-all duration-200 ease-in-out ${isMobile && isScrolled ? "!bg-transparent" : isScrolled ? "!bg-transparent" : "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-              } ${isMobile && !isScrolled ? "!bg-transparent !backdrop-blur-none" : ""}`}
+            className={`sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center transition-all duration-200 ease-in-out ${
+              isMobile && isScrolled
+                ? "!bg-transparent"
+                : isScrolled
+                ? "!bg-transparent"
+                : "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+            } ${isMobile && !isScrolled ? "!bg-transparent !backdrop-blur-none" : ""}`}
             style={{
-              height: isMobile ? (isScrolled ? "2.5rem" : "3.5rem") : (isScrolled ? "3rem" : "4rem"),
+              height: isMobile ? (isScrolled ? "2.5rem" : "3.5rem") : isScrolled ? "3rem" : "4rem",
               justifyContent: isMobile && isScrolled ? "center" : "flex-start",
               paddingLeft: isMobile && isScrolled ? 0 : "1rem",
               paddingRight: isMobile && isScrolled ? 0 : "1rem",
             }}
           >
             <div
-              className={`flex items-center transition-all duration-700 ease-in-out ${isMobile && isScrolled ? "liquid-glass-pill" : ""}`}
+              className={`flex items-center transition-all duration-700 ease-in-out ${
+                isMobile && isScrolled ? "liquid-glass-pill" : ""
+              }`}
               style={{
                 justifyContent: isMobile && isScrolled ? "center" : "flex-start",
                 background: isMobile && isScrolled ? "transparent" : "transparent",
@@ -429,7 +452,7 @@ export default function ChatPage() {
               <h2
                 className="leading-tight transition-all duration-700 ease-in-out truncate"
                 style={{
-                  fontSize: isMobile ? (isScrolled ? "0.75rem" : "1rem") : (isScrolled ? "0.875rem" : "1.125rem"),
+                  fontSize: isMobile ? (isScrolled ? "0.75rem" : "1rem") : isScrolled ? "0.875rem" : "1.125rem",
                   fontWeight: isMobile && isScrolled ? 500 : 600,
                   textAlign: isMobile && isScrolled ? "center" : "left",
                   flex: isMobile && isScrolled ? "1" : "0 1 auto",
@@ -441,15 +464,15 @@ export default function ChatPage() {
           </header>
           <div className="flex-1 overflow-hidden px-4 pb-6 pt-4">
             <Card className="mx-auto flex h-full w-full max-w-2xl flex-col">
-              <CardContent
-                ref={messagesContainerRef}
-                className="flex-1 space-y-4 overflow-y-auto p-6"
-              >
+              <CardContent ref={messagesContainerRef} className="flex-1 space-y-4 overflow-y-auto p-6">
                 {messages.map((msg, i) => {
                   switch (msg.sender) {
                     case "user":
                       return (
-                        <div key={i} className="ml-auto max-w-[80%] rounded-md bg-user-message p-3 text-user-message-foreground shadow">
+                        <div
+                          key={i}
+                          className="ml-auto max-w-[80%] rounded-md bg-user-message p-3 text-user-message-foreground shadow"
+                        >
                           <div className="mb-1 text-sm font-bold">You</div>
                           <MarkdownWithBibleVerses content={msg.content} />
                         </div>
@@ -458,17 +481,17 @@ export default function ChatPage() {
                       return (
                         <div
                           key={i}
-                          className="group relative mr-auto max-w-[80%] rounded-md bg-parrot-message p-3 text-parrot-message-foreground shadow"
+                          className="group relative mr-auto max-w-[80%] rounded-md bg-parrot-message p-3 text-parrot-message-foreground shadow break-words overflow-wrap-anywhere"
                         >
                           <div className="mb-1 text-sm font-bold">Parrot</div>
-                          <MarkdownWithBibleVerses content={msg.content} />
+                          <div className="break-words overflow-wrap-anywhere">
+                            <MarkdownWithBibleVerses content={msg.content} />
+                          </div>
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            aria-label={
-                              copiedMessageIndex === i ? "Markdown copied" : "Copy markdown"
-                            }
+                            aria-label={copiedMessageIndex === i ? "Markdown copied" : "Copy markdown"}
                             className="absolute right-3 top-3 h-7 w-7 rounded-full bg-muted/30 text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-muted/40"
                             onClick={async () => {
                               try {
@@ -486,20 +509,46 @@ export default function ChatPage() {
                               }
                             }}
                           >
-                            {copiedMessageIndex === i ? (
-                              <Check className="h-4 w-4" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
+                            {copiedMessageIndex === i ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                           </Button>
                         </div>
                       );
-                    case "calvin":
+                    case "calvin": // for backward compatibility
                       return (
                         <div key={i} className="mr-auto mt-2 max-w-[80%]">
                           <Accordion type="single" collapsible>
                             <AccordionItem value={`calvin-${i}`}>
                               <AccordionTrigger>Calvin&apos;s Feedback</AccordionTrigger>
+                              <AccordionContent>
+                                <MarkdownWithBibleVerses content={msg.content} />
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+                        </div>
+                      );
+                    case "tool_summary":
+                      const toolIcons: Record<string, string> = {
+                        "Theological Research": "🔍",
+                        "Bible Commentary": "📖",
+                        "Memory Recall": "🧠",
+                        "CCEL Retrieval": "📚",
+                      };
+                      const toolTitles: Record<string, string> = {
+                        "Theological Research": "Research Notes",
+                        "Bible Commentary": "Commentary References",
+                        "Memory Recall": "Context Recalled",
+                        "CCEL Retrieval": "CCEL Sources",
+                      };
+                      const toolName = msg.toolName || "unknown";
+                      const icon = toolIcons[toolName] || "🔧";
+                      const title = toolTitles[toolName] || toolName;
+                      return (
+                        <div key={i} className="mr-auto mt-2 max-w-[80%]">
+                          <Accordion type="single" collapsible>
+                            <AccordionItem value={`tool-${i}`}>
+                              <AccordionTrigger>
+                                {icon} {title}
+                              </AccordionTrigger>
                               <AccordionContent>
                                 <MarkdownWithBibleVerses content={msg.content} />
                               </AccordionContent>
@@ -513,6 +562,19 @@ export default function ChatPage() {
                           <Accordion type="single" collapsible>
                             <AccordionItem value={`gotQuestions-${i}`}>
                               <AccordionTrigger>Additional Sources/Materials</AccordionTrigger>
+                              <AccordionContent>
+                                <MarkdownWithBibleVerses content={msg.content} />
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+                        </div>
+                      );
+                    case "CCEL":
+                      return (
+                        <div key={i} className="mr-auto mt-2 max-w-[80%]">
+                          <Accordion type="single" collapsible>
+                            <AccordionItem value={`ccel-${i}`}>
+                              <AccordionTrigger>CCEL Sources</AccordionTrigger>
                               <AccordionContent>
                                 <MarkdownWithBibleVerses content={msg.content} />
                               </AccordionContent>

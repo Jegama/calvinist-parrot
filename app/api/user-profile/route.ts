@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 
 export async function GET(request: Request) {
@@ -42,14 +43,24 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { userId, denomination } = body;
+    const { userId: userIdFromBody, denomination } = body as {
+      userId?: string;
+      denomination?: string;
+    };
 
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    const cookieStore = await cookies();
+    const authenticatedUserId = cookieStore.get("userId")?.value;
+
+    if (!authenticatedUserId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (!denomination) {
       return NextResponse.json({ error: "Missing denomination" }, { status: 400 });
+    }
+
+    if (userIdFromBody && userIdFromBody !== authenticatedUserId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Valid denominations
@@ -69,10 +80,10 @@ export async function PATCH(request: Request) {
 
     // Update or create userProfile
     await prisma.userProfile.upsert({
-      where: { appwriteUserId: userId },
+      where: { appwriteUserId: authenticatedUserId },
       update: { denomination },
       create: {
-        appwriteUserId: userId,
+        appwriteUserId: authenticatedUserId,
         displayName: "User", // Will be updated by auth flow
         denomination,
       },
@@ -81,10 +92,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error updating user profile:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
-

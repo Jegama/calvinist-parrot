@@ -32,6 +32,7 @@ type RequestSheetProps = {
   isLoading: boolean;
   error: string | null;
   answeringRequestId: string | null;
+  onToggleStatus: (status: "ACTIVE" | "ANSWERED") => void | Promise<void>;
   onOpenChange: (open: boolean) => void;
   onUpdate: (changes: Partial<PersonalSheetState>) => void;
   onSave: () => void;
@@ -46,6 +47,7 @@ export function RequestSheet({
   isLoading,
   error,
   answeringRequestId,
+  onToggleStatus,
   onOpenChange,
   onUpdate,
   onSave,
@@ -86,10 +88,7 @@ export function RequestSheet({
             value={sheetState.notes}
             onChange={(event) => onUpdate({ notes: event.target.value })}
           />
-          <Select
-            value={sheetState.linkedToFamily}
-            onValueChange={(value) => onUpdate({ linkedToFamily: value })}
-          >
+          <Select value={sheetState.linkedToFamily} onValueChange={(value) => onUpdate({ linkedToFamily: value })}>
             <SelectTrigger>
               <SelectValue placeholder="Link to..." />
             </SelectTrigger>
@@ -137,20 +136,26 @@ export function RequestSheet({
               )}
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Status: {isAnswered ? "Answered" : "Active"}
-          </p>
+          <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>Status: {isAnswered ? "Answered" : "Active"}</span>
+            {isAnswered && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => onToggleStatus("ACTIVE")}
+                disabled={isLoading || isMarking}
+              >
+                Reopen request
+              </Button>
+            )}
+          </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
         <SheetFooter className="mt-6 gap-2">
           <div className="flex flex-1 flex-wrap gap-2">
             {!isAnswered && (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={onMarkAnswered}
-                disabled={isLoading || isMarking}
-              >
+              <Button type="button" variant="secondary" onClick={onMarkAnswered} disabled={isLoading || isMarking}>
                 {isMarking ? "Saving..." : "Mark Answered"}
               </Button>
             )}
