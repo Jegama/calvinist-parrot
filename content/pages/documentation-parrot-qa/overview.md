@@ -6,7 +6,7 @@ https://calvinistparrot.com/api/parrot-qa
 ```
 
 ## Overview
-This API endpoint provides a structured question-and-answer service based on Christian theological perspectives. The endpoint processes user questions through categorization, reasoning, and review phases, synthesizing responses to theological and doctrinal queries. It supports multiple denominational modes to cater to various theological traditions. However, we will not compromise on the following essential doctrines:
+This API endpoint provides a structured question-and-answer service based on Christian theological perspectives. The endpoint processes user questions through categorization, reasoning, and review phases, synthesizing concise responses to theological and doctrinal queries. It supports multiple denominational modes to cater to various theological traditions. However, we will not compromise on the following essential doctrines:
 
 - **The Trinity:** One God, eternally existing in three persons—Father, Son, and Holy Spirit.
 - **The Character of God:** God is holy, supreme, sovereign, immutable, faithful, good, patient, gracious, merciful, loving, and just; His wrath against sin is real.
@@ -21,7 +21,7 @@ This API endpoint provides a structured question-and-answer service based on Chr
 
 ### Chat Endpoint
 
-If you would like to use the Calvinist Parrot for your chat app. Please read the [Parrot Chat API documentation](/documentation-parrot-chat).
+If you would like to use the Calvinist Parrot for your chat app, we now recommend using the main chat endpoint described in the [Parrot Chat API documentation](/documentation-parrot-chat). The Parrot QA endpoint keeps the classic counsel of three workflow and legacy guardrails, while the chat endpoint powers the primary site experience with the newer LangGraph agent.
 
 ---
 
@@ -77,7 +77,7 @@ So far, the API has one reviewer agent named Calvin. (Not for nothing this websi
 
 ## Example Usage
 
-This is the exact same way the API is used in the [homepage](/) of this website.
+This example shows how you can call the Parrot QA endpoint directly. The main homepage chat now uses the `/api/parrot-chat` endpoint, while `/api/parrot-qa` is available when you want the classic OG behavior and evaluation traces.
 
 ### Request
 ```json

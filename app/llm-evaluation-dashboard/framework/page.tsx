@@ -14,7 +14,6 @@ export default async function FrameworkPage() {
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6 text-center">Evaluation Framework</h1>
       <Card className="max-w-4xl mx-auto">
         <CardContent className="pt-6">
           <MarkdownWithBibleVerses content={content} />

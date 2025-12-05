@@ -51,7 +51,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
       <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
         <div className="space-y-3">
           <h1 className="text-3xl md:text-4xl font-bold text-foreground">AI Model Performance Dashboard</h1>
-          <p className="text-muted-foreground text-base md:text-lg max-w-2xl">
+          <p className="text-muted-foreground text-base md:text-lg max-w-8xl">
             Which AI is most faithful and pastoral in answering theological questions? We evaluated Google, OpenAI, and
             xAI models against a Reformed Baptist framework.
           </p>
@@ -61,12 +61,19 @@ export default function DashboardClient({ data }: DashboardClientProps) {
             <span className="bg-muted px-3 py-1 rounded-full">🤖 6 Models Compared</span>
           </div>
         </div>
-        <Link href="/llm-evaluation-dashboard/framework">
-          <Button variant="outline" className="gap-2 whitespace-nowrap">
-            <BookOpen size={16} />
-            View Framework
-          </Button>
-        </Link>
+        <div className="flex flex-col items-stretch sm:flex-row sm:items-center gap-2">
+          <Link href="/doctrinal-statement">
+            <Button variant="outline" className="w-full sm:w-auto whitespace-nowrap">
+              View Doctrinal Statement
+            </Button>
+          </Link>
+          <Link href="/llm-evaluation-dashboard/framework">
+            <Button variant="outline" className="gap-2 whitespace-nowrap w-full sm:w-auto">
+              <BookOpen size={16} />
+              View Framework
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Quick Overview Banner */}

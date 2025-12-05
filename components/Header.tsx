@@ -101,9 +101,27 @@ export function Header() {
             aria-hidden={isScrolled}
           >
             <nav className="flex items-center space-x-6 text-sm font-medium">
+              <Link href="/" prefetch={false} className="hover:opacity-70 transition-opacity">Chat</Link>
               <Link href="/devotional" prefetch={false} className="hover:opacity-70 transition-opacity">Devotional</Link>
               <Link href="/prayer-tracker" prefetch={false} className="hover:opacity-70 transition-opacity">Prayer Tracker</Link>
               <Link href="/church-finder" prefetch={false} className="hover:opacity-70 transition-opacity">Church Finder</Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="hover:opacity-70 transition-opacity">Labs</button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="bg-card border-border shadow-lg min-w-[12rem]">
+                  <DropdownMenuItem asChild>
+                    <Link href="/parrot-qa" prefetch={false} className="w-full">
+                      Parrot QA (Classic)
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/llm-evaluation-dashboard" prefetch={false} className="w-full">
+                      AI Evaluation Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Link href="/about" prefetch={false} className="hover:opacity-70 transition-opacity">About</Link>
             </nav>
           </div>
@@ -120,6 +138,11 @@ export function Header() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-card border-border shadow-lg min-w-[8rem]">
                 <DropdownMenuItem asChild>
+                  <Link href="/" prefetch={false} className="w-full">
+                    Chat (Home)
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link href="/devotional" prefetch={false} className="w-full">
                     Devotional
                   </Link>
@@ -132,6 +155,16 @@ export function Header() {
                 <DropdownMenuItem asChild>
                   <Link href="/church-finder" prefetch={false} className="w-full">
                     Church Finder
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/parrot-qa" prefetch={false} className="w-full">
+                    Parrot QA (Labs)
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/llm-evaluation-dashboard" prefetch={false} className="w-full">
+                    AI Eval Dashboard (Labs)
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
