@@ -26,8 +26,9 @@ interface ProviderSpreadScatterProps {
 
 export function ProviderSpreadScatter({ data }: ProviderSpreadScatterProps) {
   return (
-    <div className="aspect-square w-full max-h-[500px] min-w-0">
-      <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
+    <div className="w-full min-w-0">
+      <div className="h-[320px] sm:h-[380px] md:h-[440px] lg:h-[500px]">
+        <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
         <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 60 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
           <XAxis
@@ -105,6 +106,7 @@ export function ProviderSpreadScatter({ data }: ProviderSpreadScatterProps) {
           </Scatter>
         </ScatterChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }
