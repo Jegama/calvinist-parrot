@@ -6,17 +6,17 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0d1b2a",
-  "theme_color": "#0d1b2a",
+  "background_color": "#F5EEDC",
+  "theme_color": "#004D70",
   "icons": [
     {
-      "src": "/LogoWithTextSquare.png",
+      "src": "/ios_dark_icon.png",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/LogoWithTextSquare.png",
+      "src": "/ios_dark_icon.png",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "maskable"

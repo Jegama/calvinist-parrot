@@ -69,6 +69,13 @@ In dark mode, brand colors are adjusted for better contrast and readability:
 
 ## Special Component Classes
 
+### PWA / Browser Chrome
+
+- Light chrome (viewport `themeColor`): Deep Blue `#004D70` (brand primary) for strong status bar contrast on mobile browsers.
+- Dark chrome (viewport `themeColor`): Dark neutral `#1A1A1A` to match the dark `--background` token.
+- Manifest `theme_color`: Deep Blue `#004D70` (single value, applied to install/splash chrome on Android/Chrome).
+- Manifest `background_color`: Cream `#F5EEDC` to align splash with the light background token.
+
 ### Header Components
 
 | Class | Purpose | Light Mode | Dark Mode |

@@ -1,7 +1,7 @@
 // app/layout.tsx
 
 import type { CSSProperties } from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter, Source_Serif_4, Lora, Spectral } from "next/font/google"
 import "./globals.css"
 import { Header } from "@/components/Header"
@@ -16,7 +16,17 @@ const sourceSerif = Source_Serif_4({ subsets: ["latin"], variable: "--font-serif
 const lora = Lora({ subsets: ["latin"], weight: ["600"], variable: "--font-serif-lora" })
 const spectral = Spectral({ subsets: ["latin"], weight: ["600"], variable: "--font-serif-spectral" })
 
+// Use brand primary for light chrome and a dark neutral that matches the dark background token
+const themeColor: Viewport["themeColor"] = [
+  { media: "(prefers-color-scheme: light)", color: "#004D70" }, // Deep Blue (primary)
+  { media: "(prefers-color-scheme: dark)", color: "#1a1a1a" }, // hsl(0 0% 10%) from dark --background
+]
+
 export const metadata: Metadata = siteMetadata;
+
+export const viewport: Viewport = {
+  themeColor,
+};
 
 export default function RootLayout({
   children,

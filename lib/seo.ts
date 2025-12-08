@@ -37,7 +37,7 @@ export const siteMetadata: Metadata = {
   icons: {
     icon: [{ url: "/favicon.ico" }],
     apple: [
-      { url: "/LogoWithTextSquare.png", sizes: "1024x1024", type: "image/png" },
+      { url: "/ios_dark_icon.png", sizes: "1024x1024", type: "image/png" },
     ],
     shortcut: [{ url: "/favicon.ico" }],
   },
@@ -61,7 +61,6 @@ export const siteMetadata: Metadata = {
     statusBarStyle: "black",
     title: "Calvinist Parrot",
   },
-  themeColor: "#0d1b2a",
   robots: { index: true, follow: true },
 };
 
