@@ -119,12 +119,14 @@ export async function POST(request: Request) {
 
     memberIdsInSpace.forEach(({ id }) => {
       const count = assignmentCounts[id] ?? 0;
-      transactions.push(
-        prisma.prayerMember.update({
-          where: { id },
-          data: { assignmentCount: count },
-        })
-      );
+      if (count > 0) {
+        transactions.push(
+          prisma.prayerMember.update({
+            where: { id },
+            data: { assignmentCount: { increment: count } },
+          })
+        );
+      }
     });
   }
 

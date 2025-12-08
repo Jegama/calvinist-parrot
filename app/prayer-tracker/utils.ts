@@ -1,4 +1,5 @@
 import { Family, Member, NewFamilyFormState, NewPersonalFormState } from "./types";
+import { DEFAULT_ADULT_CAPACITY, DEFAULT_CHILD_CAPACITY } from "./constants";
 
 export const defaultCategories = ["Church Friends", "Neighbors", "Extended Family", "Missionaries", "Coworkers"];
 
@@ -32,7 +33,10 @@ export function formatTimeSince(dateString?: string | null) {
 }
 
 export function determineNextMemberId(family: Family, members: Member[]): string | undefined {
-  const eligible = members.filter((member) => (member.assignmentCapacity ?? 1) > 0);
+  const eligible = members.filter((member) => {
+    const capacity = member.assignmentCapacity ?? (member.isChild ? DEFAULT_CHILD_CAPACITY : DEFAULT_ADULT_CAPACITY);
+    return capacity > 0;
+  });
   if (!eligible.length) return undefined;
   if (eligible.length === 1) return eligible[0].id;
   const lastId = family.lastPrayedByMemberId;

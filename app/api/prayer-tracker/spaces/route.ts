@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { DEFAULT_ADULT_CAPACITY } from "@/app/prayer-tracker/constants";
 
 function generateShareCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxy123456789-*";
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
       appwriteUserId: userId,
       displayName: displayName || "You",
       role: "OWNER",
-      assignmentCapacity: 2,
+      assignmentCapacity: DEFAULT_ADULT_CAPACITY,
       assignmentCount: 0,
     },
   });

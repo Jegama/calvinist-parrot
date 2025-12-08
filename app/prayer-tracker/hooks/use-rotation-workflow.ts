@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import * as api from "../api";
 import { determineNextMemberId } from "../utils";
-import type { AppwriteUser, Member, Rotation } from "../types";
+import type { AppwriteUser, Member, Rotation, Family } from "../types";
 
 type UseRotationWorkflowOptions = {
   user: AppwriteUser | null;
@@ -9,6 +9,43 @@ type UseRotationWorkflowOptions = {
   onMembersUpdate: (nextMembers: Member[]) => void;
   refreshAll: (userId: string) => Promise<void>;
 };
+
+type FamilyWithAssignment = {
+  family: Family;
+  index: number;
+  assignedTo: string;
+};
+
+/**
+ * Sorts families for optimal rotation display:
+ * 1. Current user's assignments appear first (to show user their responsibilities)
+ * 2. Within priority groups, families are grouped by assigned member (visual organization)
+ * 3. Within each member's group, original order is preserved (maintains priority/date sorting)
+ *
+ * This creates a hierarchical sort that balances user focus with organizational clarity.
+ */
+function sortFamiliesByAssignment(
+  families: FamilyWithAssignment[],
+  currentMemberId: string | undefined,
+  memberOrder: string[]
+): Family[] {
+  return families
+    .sort((a, b) => {
+      // Priority 1: Current user's assignments first
+      const aPriority = a.assignedTo === currentMemberId ? 0 : 1;
+      const bPriority = b.assignedTo === currentMemberId ? 0 : 1;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+
+      // Priority 2: Group by assigned member for visual clarity
+      const aIndex = memberOrder.indexOf(a.assignedTo || "");
+      const bIndex = memberOrder.indexOf(b.assignedTo || "");
+      if (aIndex !== bIndex) return aIndex - bIndex;
+
+      // Priority 3: Preserve original order within same assignment
+      return a.index - b.index;
+    })
+    .map((entry) => entry.family);
+}
 
 export function useRotationWorkflow({ user, members, onMembersUpdate, refreshAll }: UseRotationWorkflowOptions) {
   const [rotation, setRotation] = useState<Rotation | null>(null);
@@ -80,23 +117,12 @@ export function useRotationWorkflow({ user, members, onMembersUpdate, refreshAll
 
     // Sort families by assigned member to group them visually
     const memberOrder = effectiveMembers.map((m) => m.id);
-    const prioritizedFamilies = fetchedFamilies
-      .map((family, index) => ({ family, index, assignedTo: defaults[family.id] }))
-      .sort((a, b) => {
-        // First: current user's assignments
-        const aPriority = a.assignedTo === currentMemberId ? 0 : 1;
-        const bPriority = b.assignedTo === currentMemberId ? 0 : 1;
-        if (aPriority !== bPriority) return aPriority - bPriority;
-
-        // Then: group by assigned member
-        const aIndex = memberOrder.indexOf(a.assignedTo || "");
-        const bIndex = memberOrder.indexOf(b.assignedTo || "");
-        if (aIndex !== bIndex) return aIndex - bIndex;
-
-        // Finally: preserve original order within same member
-        return a.index - b.index;
-      })
-      .map((entry) => entry.family);
+    const familiesWithAssignments = fetchedFamilies.map((family, index) => ({
+      family,
+      index,
+      assignedTo: defaults[family.id],
+    }));
+    const prioritizedFamilies = sortFamiliesByAssignment(familiesWithAssignments, currentMemberId, memberOrder);
 
     setRotation({ families: prioritizedFamilies, personal: fetchedPersonal, assignments: defaults });
     setFamilyAssignments(defaults);

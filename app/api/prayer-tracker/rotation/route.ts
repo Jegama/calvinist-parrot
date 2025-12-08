@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import {
+  DEFAULT_ADULT_CAPACITY,
+  MIN_FAMILY_LIMIT,
+  MAX_PERSONAL_REQUESTS_PER_ROTATION,
+} from "@/app/prayer-tracker/constants";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -22,8 +27,11 @@ export async function GET(request: Request) {
       isChild: true,
     },
   });
-  const totalCapacity = members.reduce((sum, member) => sum + Math.max(0, member.assignmentCapacity ?? 0), 0);
-  const familyLimit = Math.max(2, totalCapacity || members.length * 2);
+  const totalCapacity = members.reduce((sum, member) => {
+    const capacity = member.assignmentCapacity ?? (member.isChild ? 1 : DEFAULT_ADULT_CAPACITY);
+    return sum + Math.max(0, capacity);
+  }, 0);
+  const familyLimit = Math.max(MIN_FAMILY_LIMIT, totalCapacity || members.length * DEFAULT_ADULT_CAPACITY);
 
   const families = await prisma.prayerFamily.findMany({
     where: { spaceId: membership.spaceId, archivedAt: null },
@@ -65,7 +73,7 @@ export async function GET(request: Request) {
       NOT: excludeIds.length ? { id: { in: excludeIds } } : undefined,
     },
     orderBy: [{ lastPrayedAt: { sort: "asc", nulls: "first" } }, { dateUpdated: "asc" }],
-    take: 5,
+    take: MAX_PERSONAL_REQUESTS_PER_ROTATION,
   });
 
   type PersonalItem = Awaited<ReturnType<typeof prisma.prayerPersonalRequest.findMany>>[number];
@@ -75,8 +83,8 @@ export async function GET(request: Request) {
     if (!combinedPersonalMap.has(item.id)) combinedPersonalMap.set(item.id, item);
   });
   let personal = Array.from(combinedPersonalMap.values());
-  if (personal.length > 5) {
-    personal = personal.slice(0, 5);
+  if (personal.length > MAX_PERSONAL_REQUESTS_PER_ROTATION) {
+    personal = personal.slice(0, MAX_PERSONAL_REQUESTS_PER_ROTATION);
   }
 
   const memberOrder = members.map((member) => member.id);
@@ -90,7 +98,7 @@ export async function GET(request: Request) {
   families.forEach((family) => {
     const capacityAwareMembers = members.map((member) => ({
       ...member,
-      capacity: Math.max(0, member.assignmentCapacity ?? 0),
+      capacity: Math.max(0, member.assignmentCapacity ?? (member.isChild ? 1 : DEFAULT_ADULT_CAPACITY)),
       load: currentLoads[member.id] ?? 0,
     }));
 

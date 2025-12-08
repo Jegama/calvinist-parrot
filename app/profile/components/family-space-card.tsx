@@ -2,10 +2,12 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +19,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { PrayerSpace, MembershipInfo } from "../types";
 import { useProfileUiStore } from "../ui-store";
+import { DEFAULT_ADULT_CAPACITY, DEFAULT_CHILD_CAPACITY } from "@/app/prayer-tracker/constants";
 import {
   createPrayerSpace,
   joinPrayerSpace,
@@ -78,13 +81,34 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
     setJoinError,
   } = useProfileUiStore();
 
+  // Create stable member IDs string for effect dependency
+  const memberIds =
+    space?.members
+      .map((m) => m.id)
+      .sort()
+      .join(",") ?? "";
+
   useEffect(() => {
     const drafts: Record<string, number> = {};
     space?.members.forEach((member) => {
-      drafts[member.id] = member.assignmentCapacity ?? (member.role === "OWNER" ? 2 : 2);
+      const defaultCapacity = member.isChild ? DEFAULT_CHILD_CAPACITY : DEFAULT_ADULT_CAPACITY;
+      drafts[member.id] = member.assignmentCapacity ?? defaultCapacity;
     });
     setCapacityDrafts(drafts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memberIds]); // Only re-run when member IDs change, not on every render
+
+  // Calculate total capacity and detect zero capacity warning
+  const totalCapacity = useMemo(() => {
+    if (!space?.members) return 0;
+    return space.members.reduce((sum, member) => {
+      // Use the actual saved capacity from the member object, not the draft
+      const capacity = member.assignmentCapacity ?? (member.isChild ? DEFAULT_CHILD_CAPACITY : DEFAULT_ADULT_CAPACITY);
+      return sum + Math.max(0, capacity);
+    }, 0);
   }, [space?.members]);
+
+  const showZeroCapacityWarning = space && space.members.length > 0 && totalCapacity === 0;
 
   const handleCopyCode = async () => {
     if (!space) return;
@@ -271,6 +295,15 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-semibold">Members</p>
+                {showZeroCapacityWarning && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      All members have zero capacity. Prayer rotations will not assign any families until at least one
+                      member has capacity greater than zero.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <div className="space-y-2">
                   {space.members.map((member) => (
                     <div key={member.id} className="flex flex-col gap-3 rounded-md border p-3">
@@ -304,6 +337,18 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                                 [member.id]: Number.parseInt(e.target.value || "0", 10),
                               }))
                             }
+                            onBlur={() => {
+                              // Auto-save on blur if value changed
+                              const currentDraft = capacityDrafts[member.id];
+                              const original = member.assignmentCapacity ?? 0;
+                              if (
+                                currentDraft !== undefined &&
+                                currentDraft !== original &&
+                                membership?.role === "OWNER"
+                              ) {
+                                handleUpdateCapacity(member.id);
+                              }
+                            }}
                           />
                           {membership?.role === "OWNER" && (
                             <Button

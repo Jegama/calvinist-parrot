@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { DEFAULT_ADULT_CAPACITY, DEFAULT_CHILD_CAPACITY } from "@/app/prayer-tracker/constants";
 
 function parseIntOrFallback(value: unknown, fallback: number) {
   const parsed = typeof value === "string" ? Number.parseInt(value, 10) : typeof value === "number" ? value : fallback;
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
   if (actingMember.role !== "OWNER")
     return NextResponse.json({ error: "Only the owner can add members" }, { status: 403 });
 
-  const capacity = parseIntOrFallback(assignmentCapacity, isChild ? 1 : 2);
+  const capacity = parseIntOrFallback(assignmentCapacity, isChild ? DEFAULT_CHILD_CAPACITY : DEFAULT_ADULT_CAPACITY);
 
   const member = await prisma.prayerMember.create({
     data: {
