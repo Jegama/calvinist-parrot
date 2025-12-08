@@ -194,6 +194,7 @@ Patterns below reference tokens and Tailwind utilities already configured.
   - Headings use Source Serif 4 (variable) with Lora and Spectral fallbacks via `--font-serif`, `--font-serif-lora`, `--font-serif-spectral`.
   - Use Tailwind `font-sans` and `font-serif` utilities for local overrides.
 - Avoid hardcoded colors; prefer semantic utilities for theme safety.
+- PWA/browser chrome colors: viewport `themeColor` uses Deep Blue `#004D70` in light mode and dark neutral `#1A1A1A` in dark mode; manifest uses `theme_color: #004D70` and `background_color: #F5EEDC`.
 
 ---
 

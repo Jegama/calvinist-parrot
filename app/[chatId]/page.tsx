@@ -16,6 +16,12 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 import { useUserIdentifier } from "@/hooks/use-user-identifier";
 import { useChatList } from "@/hooks/use-chat-list";
 
+const TOOL_PROGRESS_TITLES: Record<string, string> = {
+  supplementalArticleSearch: "Gathering supporting sources",
+  ccelRetrieval: "Consulting classic works",
+  userMemoryRecall: "Recalling past context",
+};
+
 type Message = {
   sender: string;
   content: string;
@@ -196,7 +202,7 @@ export default function ChatPage() {
     async (opts?: { message?: string; isAutoTrigger?: boolean }) => {
       const userInput = opts?.message || input.trim();
       if (!userInput) return;
-      setProgress({ title: "Reasoning", content: "Deciding what tools to use" });
+      setProgress({ title: "Preparing your answer", content: "Thinking through your question to give a clear reply." });
 
       // Only add user message if not auto-triggered
       if (!opts?.isAutoTrigger) {
@@ -269,7 +275,10 @@ export default function ChatPage() {
               break;
             case "tool_progress":
               // Ephemeral tool progress - show in progress indicator
-              setProgress({ title: data.toolName, content: data.message });
+              setProgress({
+                title: TOOL_PROGRESS_TITLES[data.toolName] || "Working on your answer",
+                content: data.message,
+              });
               break;
             case "tool_summary":
               // Save tool summary as a collapsible message
@@ -335,7 +344,7 @@ export default function ChatPage() {
 
   if (!chat) {
     return (
-      <SidebarProvider>
+      <SidebarProvider style={{ minHeight: "calc(100vh - var(--app-header-height))" }}>
         <AppSidebar
           chats={chats}
           currentChatId={params.chatId}
@@ -378,7 +387,7 @@ export default function ChatPage() {
   }
 
   return (
-    <SidebarProvider>
+    <SidebarProvider style={{ minHeight: "calc(100vh - var(--app-header-height))" }}>
       <AppSidebar
         chats={chats}
         currentChatId={params.chatId}
@@ -420,7 +429,6 @@ export default function ChatPage() {
                 paddingRight: isMobile && isScrolled ? "0.625rem" : "0",
                 paddingTop: isMobile && isScrolled ? "0.01rem" : "0",
                 paddingBottom: isMobile && isScrolled ? "0.01rem" : "0",
-                marginTop: isMobile && isScrolled ? "0.5rem" : "0",
                 width: isMobile && isScrolled ? "50%" : "100%",
                 maxWidth: isMobile && isScrolled ? "20rem" : "none",
                 boxShadow: "none",

@@ -6,7 +6,10 @@ export type Member = {
   id: string;
   displayName: string;
   role: string;
-  appwriteUserId: string;
+  appwriteUserId?: string | null;
+  assignmentCapacity?: number;
+  assignmentCount?: number;
+  isChild?: boolean;
 };
 
 export type Family = {
@@ -65,6 +68,7 @@ export type UnifiedRequest = {
 export type Rotation = {
   families: Family[];
   personal: PersonalRequest[];
+  assignments?: Record<string, string>;
 };
 
 export type NewFamilyFormState = {

@@ -47,8 +47,6 @@ async function supplementalArticleSearch(
     const resultCount = response.results?.length || 0;
     writer?.({ toolName: "Theological Research", message: `Found ${resultCount} article${resultCount !== 1 ? 's' : ''}` });
 
-    console.log("Supplemental Article Search Response:", response);
-
     // 'response' is already a JSON object.
     return JSON.stringify(response);
   } catch (error) {

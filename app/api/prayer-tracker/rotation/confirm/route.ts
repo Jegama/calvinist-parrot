@@ -25,12 +25,12 @@ export async function POST(request: Request) {
     where: { appwriteUserId: userId },
     select: { id: true, spaceId: true },
   });
-  if (!membership)
-    return NextResponse.json({ error: "No family space found" }, { status: 404 });
+  if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
 
   const now = new Date();
   const transactions: Prisma.PrismaPromise<unknown>[] = [];
   const assignedUserIds = new Set<string>();
+  const assignmentCounts: Record<string, number> = {};
 
   const assignments = Array.isArray(body.familyAssignments)
     ? body.familyAssignments.filter((item): item is FamilyAssignment => Boolean(item?.familyId))
@@ -48,9 +48,7 @@ export async function POST(request: Request) {
       new Set(
         assignments
           .map((item) => item.prayedByMemberId)
-          .filter(
-            (value): value is string => typeof value === "string" && value.trim().length > 0
-          )
+          .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
       )
     );
     if (prayedByIds.length) {
@@ -68,6 +66,9 @@ export async function POST(request: Request) {
     }
 
     assignments.forEach(({ familyId, prayedByMemberId }) => {
+      if (prayedByMemberId) {
+        assignmentCounts[prayedByMemberId] = (assignmentCounts[prayedByMemberId] ?? 0) + 1;
+      }
       transactions.push(
         prisma.prayerFamily.update({
           where: { id: familyId },
@@ -90,9 +91,7 @@ export async function POST(request: Request) {
   const personalIds = Array.isArray(body.personalIds)
     ? Array.from(
         new Set(
-          body.personalIds.filter(
-            (value): value is string => typeof value === "string" && value.trim().length > 0
-          )
+          body.personalIds.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
         )
       )
     : [];
@@ -110,6 +109,25 @@ export async function POST(request: Request) {
         data: { lastPrayedAt: now },
       })
     );
+  }
+
+  if (transactions.length || Object.keys(assignmentCounts).length) {
+    const memberIdsInSpace = await prisma.prayerMember.findMany({
+      where: { spaceId: membership.spaceId },
+      select: { id: true },
+    });
+
+    memberIdsInSpace.forEach(({ id }) => {
+      const count = assignmentCounts[id] ?? 0;
+      if (count > 0) {
+        transactions.push(
+          prisma.prayerMember.update({
+            where: { id },
+            data: { assignmentCount: { increment: count } },
+          })
+        );
+      }
+    });
   }
 
   if (transactions.length) {

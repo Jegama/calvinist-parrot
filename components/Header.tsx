@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import Image from 'next/image';
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -30,8 +30,10 @@ export function Header() {
         lastScrolledRef.current = scrolled;
         setIsScrolled(scrolled);
         // Update CSS variable for header height so other components can adapt
-        const newHeight = scrolled ? "3rem" : "3.5rem";
-        document.documentElement.style.setProperty("--app-header-height", newHeight);
+        // Unscrolled: 3.6rem (inner) + 1rem (padding) = 4.6rem
+        // Scrolled: 1.7rem (inner) + 0.5rem (padding) = 2.2rem
+        const newHeight = scrolled ? "2.2rem" : "4.6rem";
+        document.body.style.setProperty("--app-header-height", newHeight);
       }
     };
 
@@ -42,7 +44,7 @@ export function Header() {
   }, []);
 
   return (
-    <header 
+    <header
       className={`app-header sticky top-0 z-50 w-full px-4 transition-all duration-700 ease-in-out ${
         isScrolled ? "liquid-glass-header" : ""
       }`}
@@ -51,7 +53,7 @@ export function Header() {
         paddingBottom: isScrolled ? "0.25rem" : "0.5rem",
       }}
     >
-      <div 
+      <div
         className="container mx-auto flex items-center transition-all duration-700 ease-in-out"
         style={{
           height: isScrolled ? "1.7rem" : "3.5rem",
@@ -71,16 +73,18 @@ export function Header() {
               width={50}
               height={50}
             />
-            <span 
+            <span
               className="app-logo overflow-hidden transition-opacity duration-700 ease-in-out"
-              style={{
-                // Keep width stable and only fade to avoid layout glitches
-                maxWidth: "200px",
-                opacity: isScrolled ? 0 : 1,
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-              } as React.CSSProperties}
+              style={
+                {
+                  // Keep width stable and only fade to avoid layout glitches
+                  maxWidth: "200px",
+                  opacity: isScrolled ? 0 : 1,
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                } as React.CSSProperties
+              }
             >
               Calvinist Parrot
             </span>
@@ -102,10 +106,18 @@ export function Header() {
             aria-hidden={isScrolled}
           >
             <nav className="flex items-center space-x-6 text-sm font-medium">
-              <Link href="/" prefetch={false} className="hover:opacity-70 transition-opacity">Chat</Link>
-              <Link href="/devotional" prefetch={false} className="hover:opacity-70 transition-opacity">Devotional</Link>
-              <Link href="/prayer-tracker" prefetch={false} className="hover:opacity-70 transition-opacity">Prayer Tracker</Link>
-              <Link href="/church-finder" prefetch={false} className="hover:opacity-70 transition-opacity">Church Finder</Link>
+              <Link href="/" prefetch={false} className="hover:opacity-70 transition-opacity">
+                Chat
+              </Link>
+              <Link href="/devotional" prefetch={false} className="hover:opacity-70 transition-opacity">
+                Devotional
+              </Link>
+              <Link href="/prayer-tracker" prefetch={false} className="hover:opacity-70 transition-opacity">
+                Prayer Tracker
+              </Link>
+              <Link href="/church-finder" prefetch={false} className="hover:opacity-70 transition-opacity">
+                Church Finder
+              </Link>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="hover:opacity-70 transition-opacity">Labs</button>
@@ -123,7 +135,9 @@ export function Header() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Link href="/about" prefetch={false} className="hover:opacity-70 transition-opacity">About</Link>
+              <Link href="/about" prefetch={false} className="hover:opacity-70 transition-opacity">
+                About
+              </Link>
             </nav>
           </div>
 
@@ -135,7 +149,9 @@ export function Header() {
           >
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="hover:bg-muted/50">More</Button>
+                <Button variant="ghost" size="sm" className="hover:bg-muted/50">
+                  More
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-card border-border shadow-lg min-w-[8rem]">
                 <DropdownMenuItem asChild>
@@ -190,11 +206,7 @@ export function Header() {
           {loading ? null : user ? (
             // If logged in, show the user's name linking to profile
             <Link href="/profile" prefetch={false}>
-              <Button 
-                variant="outline" 
-                className="hover:bg-muted/50"
-                size={isScrolled ? "xsm" : "default"}
-              >
+              <Button variant="outline" className="hover:bg-muted/50" size={isScrolled ? "xsm" : "default"}>
                 {user.name}
               </Button>
             </Link>
@@ -202,16 +214,12 @@ export function Header() {
             <>
               {/* If not logged in, show Login and Register */}
               <Link href="/login" prefetch={false}>
-                <Button 
-                  variant="outline" 
-                  className="hover:bg-muted/50"
-                  size={isScrolled ? "sm" : "default"}
-                >
+                <Button variant="outline" className="hover:bg-muted/50" size={isScrolled ? "sm" : "default"}>
                   Login
                 </Button>
               </Link>
               <Link href="/register" prefetch={false}>
-                <Button 
+                <Button
                   className="bg-accent text-accent-foreground hover:bg-accent/90"
                   size={isScrolled ? "sm" : "default"}
                 >

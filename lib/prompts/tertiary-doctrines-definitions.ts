@@ -217,7 +217,7 @@ These doctrines are less central and do not significantly impact unity or fellow
 **Common positions:**
 - **Complementarian**: Men and women are equal in dignity and worth but have distinct, complementary roles in marriage; typically teaches husband headship/sacrificial leadership and wife respectful submission (Ephesians 5), with mutual love and service
 - **Egalitarian**: Men and women are equal in role and function within marriage; leadership and responsibilities are shared, with emphasis on mutual submission and equal partnership
-- **Patriarchal**: Emphasizes strong male headship and hierarchical family structure; husband/father exercises governing authority in the household; sometimes described as "biblical patriarchy"
+- **Patriarchal**: Emphasizes strong male headship and hierarchical family structure; husband/father exercises governing authority in the household and church; sometimes described as "biblical patriarchy"
 
 **What to look for:**
 - Check for: "complementarian", "egalitarian", "patriarchal", "biblical patriarchy", "husband is head of the wife", "wives submit", "mutual submission", "equal partnership", references to Ephesians 5, Genesis 1–2 applied to marriage roles

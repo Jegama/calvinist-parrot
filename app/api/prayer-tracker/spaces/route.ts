@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { DEFAULT_ADULT_CAPACITY } from "@/app/prayer-tracker/constants";
 
 function generateShareCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxy123456789-*";
@@ -25,6 +26,9 @@ export async function GET(request: Request) {
               appwriteUserId: true,
               role: true,
               joinedAt: true,
+              assignmentCapacity: true,
+              assignmentCount: true,
+              isChild: true,
             },
             orderBy: { joinedAt: "asc" },
           },
@@ -53,9 +57,7 @@ export async function POST(request: Request) {
   if (existing) return NextResponse.json({ space: existing.space, membership: existing });
 
   const shareCode = generateShareCode();
-  const resolvedSpaceName = spaceName?.trim()
-    ? spaceName.trim()
-    : `${displayName || "Family"}'s Prayer Space`;
+  const resolvedSpaceName = spaceName?.trim() ? spaceName.trim() : `${displayName || "Family"}'s Prayer Space`;
 
   const space = await prisma.prayerFamilySpace.create({
     data: {
@@ -71,6 +73,8 @@ export async function POST(request: Request) {
       appwriteUserId: userId,
       displayName: displayName || "You",
       role: "OWNER",
+      assignmentCapacity: DEFAULT_ADULT_CAPACITY,
+      assignmentCount: 0,
     },
   });
 
@@ -88,13 +92,17 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const body = await request.json().catch(() => ({}));
   const { userId, spaceId, spaceName } = body as { userId?: string; spaceId?: string; spaceName?: string };
-  if (!userId || !spaceId || !spaceName) return NextResponse.json({ error: "Missing userId, spaceId, or spaceName" }, { status: 400 });
+  if (!userId || !spaceId || !spaceName)
+    return NextResponse.json({ error: "Missing userId, spaceId, or spaceName" }, { status: 400 });
 
   // Only owner can rename
   const member = await prisma.prayerMember.findFirst({ where: { appwriteUserId: userId, spaceId } });
   if (!member || member.role !== "OWNER") return NextResponse.json({ error: "Only owner can rename" }, { status: 403 });
 
-  const updated = await prisma.prayerFamilySpace.update({ where: { id: spaceId }, data: { spaceName: spaceName.trim() } });
+  const updated = await prisma.prayerFamilySpace.update({
+    where: { id: spaceId },
+    data: { spaceName: spaceName.trim() },
+  });
   return NextResponse.json({ space: updated });
 }
 
@@ -114,7 +122,8 @@ export async function DELETE(request: Request) {
 
   // Owner removing another member
   if (removeMemberId && member.role === "OWNER") {
-    if (removeMemberId === member.id) return NextResponse.json({ error: "Owner cannot remove self this way" }, { status: 400 });
+    if (removeMemberId === member.id)
+      return NextResponse.json({ error: "Owner cannot remove self this way" }, { status: 400 });
 
     const targetMember = await prisma.prayerMember.findFirst({ where: { id: removeMemberId, spaceId } });
     if (!targetMember) return NextResponse.json({ error: "Member not found in this space" }, { status: 404 });
@@ -125,7 +134,8 @@ export async function DELETE(request: Request) {
 
   // Owner leaving: must transfer ownership
   if (member.role === "OWNER") {
-    if (!transferToMemberId) return NextResponse.json({ error: "Must transfer ownership before leaving" }, { status: 400 });
+    if (!transferToMemberId)
+      return NextResponse.json({ error: "Must transfer ownership before leaving" }, { status: 400 });
     const targetMember = await prisma.prayerMember.findFirst({ where: { id: transferToMemberId, spaceId } });
     if (!targetMember) return NextResponse.json({ error: "Transfer target must be in this space" }, { status: 404 });
 

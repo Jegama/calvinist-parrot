@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 // Centralized site-wide SEO / social metadata for the Calvinist Parrot application.
 export const siteMetadata: Metadata = {
   metadataBase: new URL("https://www.calvinistparrot.com/"),
+  applicationName: "Calvinist Parrot",
   title: {
     default: "Calvinist Parrot - Your AI Theological Assistant",
     template: "%s | Calvinist Parrot",
@@ -34,7 +35,9 @@ export const siteMetadata: Metadata = {
     images: ["/calvinist-parrot.png"],
   },
   icons: {
-    icon: "/favicon.ico",
+    icon: [{ url: "/favicon.ico" }],
+    apple: [{ url: "/ios_dark_icon.png", sizes: "1024x1024", type: "image/png" }],
+    shortcut: [{ url: "/favicon.ico" }],
   },
   keywords: [
     "Calvinist Parrot",
@@ -50,6 +53,12 @@ export const siteMetadata: Metadata = {
     "Christian Chat",
     "Find a Reformed Church",
   ],
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black",
+    title: "Calvinist Parrot",
+  },
   robots: { index: true, follow: true },
 };
 
