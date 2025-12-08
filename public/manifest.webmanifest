@@ -1,0 +1,25 @@
+{
+  "name": "Calvinist Parrot",
+  "short_name": "Parrot",
+  "description": "An AI-powered theological assistant for chat, prayer tracking, and finding biblically sound churches.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1b2a",
+  "theme_color": "#0d1b2a",
+  "icons": [
+    {
+      "src": "/LogoWithTextSquare.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/LogoWithTextSquare.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
