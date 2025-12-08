@@ -1,12 +1,6 @@
 import { Family, Member, NewFamilyFormState, NewPersonalFormState } from "./types";
 
-export const defaultCategories = [
-  "Church Friends",
-  "Neighbors",
-  "Extended Family",
-  "Missionaries",
-  "Coworkers",
-];
+export const defaultCategories = ["Church Friends", "Neighbors", "Extended Family", "Missionaries", "Coworkers"];
 
 export function formatRelative(dateString?: string | null) {
   if (!dateString) return "Never";
@@ -23,7 +17,7 @@ export function formatTimeSince(dateString?: string | null) {
   if (!dateString) return "Not yet";
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) return "Not yet";
-  
+
   // Compare calendar dates, not just time difference
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -31,19 +25,20 @@ export function formatTimeSince(dateString?: string | null) {
   const diffMs = today.getTime() - prayerDate.getTime();
   const dayMs = 1000 * 60 * 60 * 24;
   const days = Math.round(diffMs / dayMs);
-  
+
   if (days === 0) return "Today";
   if (days === 1) return "Yesterday";
   return `${days} days ago`;
 }
 
 export function determineNextMemberId(family: Family, members: Member[]): string | undefined {
-  if (!members.length) return undefined;
-  if (members.length === 1) return members[0].id;
+  const eligible = members.filter((member) => (member.assignmentCapacity ?? 1) > 0);
+  if (!eligible.length) return undefined;
+  if (eligible.length === 1) return eligible[0].id;
   const lastId = family.lastPrayedByMemberId;
-  if (!lastId) return members[0].id;
-  const next = members.find((member) => member.id !== lastId);
-  return next?.id ?? members[0].id;
+  if (!lastId) return eligible[0].id;
+  const next = eligible.find((member) => member.id !== lastId);
+  return next?.id ?? eligible[0].id;
 }
 
 export function normalizeChildren(input: string) {
@@ -123,10 +118,10 @@ export function validatePersonalForm(form: NewPersonalFormState): string | null 
 export function dateInputToIso(dateValue: string): string | null {
   const trimmed = dateValue.trim();
   if (!trimmed) return null;
-  
+
   const parsed = new Date(trimmed);
   if (Number.isNaN(parsed.getTime())) return null;
-  
+
   return parsed.toISOString();
 }
 
@@ -136,20 +131,17 @@ export function dateInputToIso(dateValue: string): string | null {
  */
 export function isoToDateInput(isoString?: string | null): string {
   if (!isoString) return "";
-  
+
   const parsed = new Date(isoString);
   if (Number.isNaN(parsed.getTime())) return "";
-  
+
   return parsed.toISOString().slice(0, 10);
 }
 
 /**
  * Generic API error handler that extracts error messages and provides fallback.
  */
-export async function handleApiError(
-  response: Response,
-  fallbackMessage: string
-): Promise<string> {
+export async function handleApiError(response: Response, fallbackMessage: string): Promise<string> {
   const message = await readErrorMessage(response);
   return message || fallbackMessage;
 }
@@ -168,7 +160,7 @@ export function buildFamilyPayload(
   categoryTag?: string;
 } {
   const resolvedCategory = resolveCategoryTag(form.categorySelect, form.customCategory);
-  
+
   return {
     userId,
     familyName: form.familyName.trim(),
@@ -201,9 +193,7 @@ export function buildPersonalRequestPayload(
 /**
  * Resets family form state, optionally preserving the category.
  */
-export function resetFamilyForm(
-  preserveCategory?: string
-): NewFamilyFormState {
+export function resetFamilyForm(preserveCategory?: string): NewFamilyFormState {
   return {
     familyName: "",
     parents: "",

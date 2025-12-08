@@ -21,9 +21,12 @@ export type ProfileOverviewResponse = {
 export type SpaceMember = {
   id: string;
   displayName: string;
-  appwriteUserId: string;
+  appwriteUserId: string | null;
   role: "OWNER" | "MEMBER";
   joinedAt: string;
+  assignmentCapacity?: number;
+  assignmentCount?: number;
+  isChild?: boolean;
 };
 
 export type MembershipInfo = SpaceMember & {
@@ -44,6 +47,9 @@ export type RawSpaceMember =
       appwriteUserId: string;
       role: string;
       joinedAt: string | Date;
+      assignmentCapacity?: number;
+      assignmentCount?: number;
+      isChild?: boolean;
     }>
   | null
   | undefined;
@@ -63,9 +69,12 @@ export type RawMembershipInfo = RawSpaceMember & { spaceId?: string | number };
 export const toSpaceMember = (raw: RawSpaceMember): SpaceMember => ({
   id: String(raw?.id ?? ""),
   displayName: String(raw?.displayName ?? "Member"),
-  appwriteUserId: String(raw?.appwriteUserId ?? ""),
+  appwriteUserId: raw?.appwriteUserId ? String(raw.appwriteUserId) : null,
   role: raw?.role === "OWNER" ? "OWNER" : "MEMBER",
   joinedAt: String(raw?.joinedAt ?? new Date().toISOString()),
+  assignmentCapacity: typeof raw?.assignmentCapacity === "number" ? raw.assignmentCapacity : undefined,
+  assignmentCount: typeof raw?.assignmentCount === "number" ? raw.assignmentCount : undefined,
+  isChild: typeof raw?.isChild === "boolean" ? raw.isChild : undefined,
 });
 
 export const toPrayerSpace = (raw: RawPrayerSpace): PrayerSpace => ({

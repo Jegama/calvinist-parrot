@@ -35,7 +35,16 @@ export async function PATCH(request: Request, context: RouteContext) {
     originalLinkedToFamily?: string; // Original family assignment
   };
   const userId = resolveUserId(request, body.userId);
-  const { requestText, notes, lastPrayedAt, status, markAnswered, isHouseholdRequest, linkedToFamily, originalLinkedToFamily } = body;
+  const {
+    requestText,
+    notes,
+    lastPrayedAt,
+    status,
+    markAnswered,
+    isHouseholdRequest,
+    linkedToFamily,
+    originalLinkedToFamily,
+  } = body;
 
   if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 
@@ -45,7 +54,8 @@ export async function PATCH(request: Request, context: RouteContext) {
   const now = new Date();
 
   // Check if family assignment changed - if so, need to move between tables
-  const familyChanged = linkedToFamily !== undefined && originalLinkedToFamily !== undefined && linkedToFamily !== originalLinkedToFamily;
+  const familyChanged =
+    linkedToFamily !== undefined && originalLinkedToFamily !== undefined && linkedToFamily !== originalLinkedToFamily;
 
   if (familyChanged) {
     // DELETE from old table and CREATE in new table
@@ -81,7 +91,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     // Prepare new data
-    const newRequestText = typeof requestText === "string" && requestText.trim().length ? requestText.trim() : existingRequest.requestText;
+    const newRequestText =
+      typeof requestText === "string" && requestText.trim().length ? requestText.trim() : existingRequest.requestText;
     const newNotes = notes !== undefined ? (notes ? notes.trim() : null) : existingRequest.notes;
 
     // Delete from old table and create in new table
@@ -266,27 +277,29 @@ export async function PATCH(request: Request, context: RouteContext) {
   // Update profiles for all other members in the space when marking as answered
   if (markAnswered && spaceMembers.length > 0) {
     spaceMembers.forEach((member) => {
-      if (member.appwriteUserId !== userId) {
-        transactions.push(
-          prisma.userProfile.upsert({
-            where: { appwriteUserId: member.appwriteUserId },
-            update: {
-              // Increment answeredPersonalCount for household requests, answeredFamilyCount for family-specific requests
-              ...(isHouseholdRequest
-                ? { answeredPersonalCount: { increment: 1 } }
-                : { answeredFamilyCount: { increment: 1 } }),
-            },
-            create: {
-              appwriteUserId: member.appwriteUserId,
-              displayName: member.displayName,
-              email: null,
-              answeredFamilyCount: isHouseholdRequest ? 0 : 1,
-              answeredPersonalCount: isHouseholdRequest ? 1 : 0,
-              lastSeenAt: now,
-            },
-          })
-        );
+      if (!member.appwriteUserId || member.appwriteUserId === userId) {
+        return;
       }
+
+      transactions.push(
+        prisma.userProfile.upsert({
+          where: { appwriteUserId: member.appwriteUserId },
+          update: {
+            // Increment answeredPersonalCount for household requests, answeredFamilyCount for family-specific requests
+            ...(isHouseholdRequest
+              ? { answeredPersonalCount: { increment: 1 } }
+              : { answeredFamilyCount: { increment: 1 } }),
+          },
+          create: {
+            appwriteUserId: member.appwriteUserId,
+            displayName: member.displayName,
+            email: null,
+            answeredFamilyCount: isHouseholdRequest ? 0 : 1,
+            answeredPersonalCount: isHouseholdRequest ? 1 : 0,
+            lastSeenAt: now,
+          },
+        })
+      );
     });
   }
 

@@ -27,6 +27,9 @@ export async function GET(request: Request) {
                 appwriteUserId: true,
                 role: true,
                 joinedAt: true,
+                assignmentCapacity: true,
+                assignmentCount: true,
+                isChild: true,
               },
               orderBy: { joinedAt: "asc" },
             },
@@ -43,6 +46,9 @@ export async function GET(request: Request) {
         appwriteUserId: membership.appwriteUserId,
         role: membership.role,
         joinedAt: membership.joinedAt,
+        assignmentCapacity: membership.assignmentCapacity,
+        assignmentCount: membership.assignmentCount,
+        isChild: membership.isChild,
         spaceId: membership.spaceId,
       }
     : null;

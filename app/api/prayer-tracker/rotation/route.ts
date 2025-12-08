@@ -17,10 +17,13 @@ export async function GET(request: Request) {
       displayName: true,
       appwriteUserId: true,
       role: true,
+      assignmentCapacity: true,
+      assignmentCount: true,
+      isChild: true,
     },
   });
-
-  const familyLimit = Math.max(2, members.length * 2);
+  const totalCapacity = members.reduce((sum, member) => sum + Math.max(0, member.assignmentCapacity ?? 0), 0);
+  const familyLimit = Math.max(2, totalCapacity || members.length * 2);
 
   const families = await prisma.prayerFamily.findMany({
     where: { spaceId: membership.spaceId, archivedAt: null },
@@ -30,16 +33,10 @@ export async function GET(request: Request) {
       },
       requests: {
         where: { status: "ACTIVE" },
-        orderBy: [
-          { lastPrayedAt: { sort: "asc", nulls: "first" } },
-          { dateAdded: "asc" },
-        ],
+        orderBy: [{ lastPrayedAt: { sort: "asc", nulls: "first" } }, { dateAdded: "asc" }],
       },
     },
-    orderBy: [
-      { lastPrayedAt: { sort: "asc", nulls: "first" } },
-      { createdAt: "asc" },
-    ],
+    orderBy: [{ lastPrayedAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }],
     take: familyLimit,
   });
 
@@ -67,10 +64,7 @@ export async function GET(request: Request) {
       status: "ACTIVE",
       NOT: excludeIds.length ? { id: { in: excludeIds } } : undefined,
     },
-    orderBy: [
-      { lastPrayedAt: { sort: "asc", nulls: "first" } },
-      { dateUpdated: "asc" },
-    ],
+    orderBy: [{ lastPrayedAt: { sort: "asc", nulls: "first" } }, { dateUpdated: "asc" }],
     take: 5,
   });
 
@@ -85,5 +79,54 @@ export async function GET(request: Request) {
     personal = personal.slice(0, 5);
   }
 
-  return NextResponse.json({ families, personal, members });
+  const memberOrder = members.map((member) => member.id);
+  const currentLoads = members.reduce<Record<string, number>>((acc, member) => {
+    acc[member.id] = 0;
+    return acc;
+  }, {});
+
+  const assignments: Record<string, string> = {};
+
+  families.forEach((family) => {
+    const capacityAwareMembers = members.map((member) => ({
+      ...member,
+      capacity: Math.max(0, member.assignmentCapacity ?? 0),
+      load: currentLoads[member.id] ?? 0,
+    }));
+
+    const eligible = capacityAwareMembers.filter((member) => member.capacity > 0);
+    if (!eligible.length) {
+      assignments[family.id] = "skip";
+      return;
+    }
+
+    // Filter to those under capacity first
+    const underCapacity = eligible.filter((member) => member.load < member.capacity);
+    const selectionPool = underCapacity.length ? underCapacity : eligible;
+
+    // Sort by load (lowest first), then by non-repeating preference, then by member order
+    selectionPool.sort((a, b) => {
+      const loadDiff = a.load - b.load;
+      if (loadDiff !== 0) return loadDiff;
+
+      // Prefer not repeating if loads are equal
+      const aRepeats = a.id === family.lastPrayedByMemberId ? 1 : 0;
+      const bRepeats = b.id === family.lastPrayedByMemberId ? 1 : 0;
+      if (aRepeats !== bRepeats) return aRepeats - bRepeats;
+
+      const remainingA = a.capacity - a.load;
+      const remainingB = b.capacity - b.load;
+      if (remainingA !== remainingB) return remainingB - remainingA;
+
+      return memberOrder.indexOf(a.id) - memberOrder.indexOf(b.id);
+    });
+
+    const chosen = selectionPool[0];
+    if (chosen) {
+      assignments[family.id] = chosen.id;
+      currentLoads[chosen.id] = (currentLoads[chosen.id] ?? 0) + 1;
+    }
+  });
+
+  return NextResponse.json({ families, personal, members, assignments });
 }

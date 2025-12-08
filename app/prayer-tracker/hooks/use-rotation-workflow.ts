@@ -56,7 +56,7 @@ export function useRotationWorkflow({ user, members, onMembersUpdate, refreshAll
       return;
     }
 
-    const { families: fetchedFamilies, personal: fetchedPersonal, members: fetchedMembers } = result.data;
+    const { families: fetchedFamilies, personal: fetchedPersonal, members: fetchedMembers, assignments } = result.data;
 
     if (fetchedMembers && fetchedMembers.length) {
       onMembersUpdate(fetchedMembers);
@@ -66,24 +66,39 @@ export function useRotationWorkflow({ user, members, onMembersUpdate, refreshAll
 
     const defaults: Record<string, string> = {};
     fetchedFamilies.forEach((family) => {
+      const suggested = assignments?.[family.id];
+      if (suggested) {
+        defaults[family.id] = suggested;
+        return;
+      }
+
       const nextMember = determineNextMemberId(family, effectiveMembers);
       defaults[family.id] = nextMember ?? "skip";
     });
 
     const currentMemberId = effectiveMembers.find((member) => member.appwriteUserId === user.$id)?.id;
-    const prioritizedFamilies = currentMemberId
-      ? fetchedFamilies
-          .map((family, index) => ({ family, index }))
-          .sort((a, b) => {
-            const aPriority = defaults[a.family.id] === currentMemberId ? 0 : 1;
-            const bPriority = defaults[b.family.id] === currentMemberId ? 0 : 1;
-            if (aPriority !== bPriority) return aPriority - bPriority;
-            return a.index - b.index;
-          })
-          .map((entry) => entry.family)
-      : fetchedFamilies;
 
-    setRotation({ families: prioritizedFamilies, personal: fetchedPersonal });
+    // Sort families by assigned member to group them visually
+    const memberOrder = effectiveMembers.map((m) => m.id);
+    const prioritizedFamilies = fetchedFamilies
+      .map((family, index) => ({ family, index, assignedTo: defaults[family.id] }))
+      .sort((a, b) => {
+        // First: current user's assignments
+        const aPriority = a.assignedTo === currentMemberId ? 0 : 1;
+        const bPriority = b.assignedTo === currentMemberId ? 0 : 1;
+        if (aPriority !== bPriority) return aPriority - bPriority;
+
+        // Then: group by assigned member
+        const aIndex = memberOrder.indexOf(a.assignedTo || "");
+        const bIndex = memberOrder.indexOf(b.assignedTo || "");
+        if (aIndex !== bIndex) return aIndex - bIndex;
+
+        // Finally: preserve original order within same member
+        return a.index - b.index;
+      })
+      .map((entry) => entry.family);
+
+    setRotation({ families: prioritizedFamilies, personal: fetchedPersonal, assignments: defaults });
     setFamilyAssignments(defaults);
 
     const personalDefaults: Record<string, boolean> = {};
