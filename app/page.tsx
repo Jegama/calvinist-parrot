@@ -53,7 +53,7 @@ export default function MainChatPage() {
         // Optimistically remove from cache
         removeChat(id);
       }} />
-      <SidebarInset className="flex min-h-[calc(100vh-var(--app-header-height))] flex-col overflow-hidden">
+      <SidebarInset className="flex h-[calc(100vh-var(--app-header-height))] flex-col overflow-hidden">
         <header className="sticky top-[var(--app-header-height)] z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <SidebarTrigger className="-ml-1" />
         </header>

@@ -346,7 +346,7 @@ export default function ChatPage() {
             }
           }}
         />
-        <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))] !bg-transparent">
+        <SidebarInset className="h-[calc(100vh-var(--app-header-height))] !bg-transparent">
           <div className="flex min-h-full flex-col">
             <header className="sticky top-[var(--app-header-height)] z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
               <SidebarTrigger className="-ml-1" />
@@ -389,7 +389,7 @@ export default function ChatPage() {
           }
         }}
       />
-      <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))] !bg-transparent">
+      <SidebarInset className="h-[calc(100vh-var(--app-header-height))] !bg-transparent">
         <div className="flex min-h-full flex-col">
           <header
             className={`sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center transition-all duration-200 ease-in-out ${

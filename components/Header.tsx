@@ -38,25 +38,31 @@ export function Header() {
         lastScrolledRef.current = scrolled;
         setIsScrolled(scrolled);
       }
-
-      updateHeaderHeight();
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     // Initialize once on mount
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [updateHeaderHeight]);
+  }, []);
 
   useLayoutEffect(() => {
     updateHeaderHeight();
   }, [isScrolled, loading, updateHeaderHeight, user]);
 
   useEffect(() => {
+    const resizeObserver = new ResizeObserver(() => updateHeaderHeight());
+    if (headerRef.current) {
+      resizeObserver.observe(headerRef.current);
+    }
+
     const handleResize = () => updateHeaderHeight();
 
     window.addEventListener("resize", handleResize, { passive: true });
-    return () => window.removeEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      resizeObserver.disconnect();
+    };
   }, [updateHeaderHeight]);
 
   return (
