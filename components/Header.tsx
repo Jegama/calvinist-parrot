@@ -30,10 +30,10 @@ export function Header() {
         lastScrolledRef.current = scrolled;
         setIsScrolled(scrolled);
         // Update CSS variable for header height so other components can adapt
-        // Unscrolled: 3.5rem (inner) + 1rem (padding) = 4.5rem
+        // Unscrolled: 3.6rem (inner) + 1rem (padding) = 4.6rem
         // Scrolled: 1.7rem (inner) + 0.5rem (padding) = 2.2rem
-        const newHeight = scrolled ? "2.2rem" : "4.5rem";
-        document.documentElement.style.setProperty("--app-header-height", newHeight);
+        const newHeight = scrolled ? "2.2rem" : "4.6rem";
+        document.body.style.setProperty("--app-header-height", newHeight);
       }
     };
 

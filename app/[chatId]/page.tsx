@@ -429,7 +429,6 @@ export default function ChatPage() {
                 paddingRight: isMobile && isScrolled ? "0.625rem" : "0",
                 paddingTop: isMobile && isScrolled ? "0.01rem" : "0",
                 paddingBottom: isMobile && isScrolled ? "0.01rem" : "0",
-                marginTop: isMobile && isScrolled ? "0.5rem" : "0",
                 width: isMobile && isScrolled ? "50%" : "100%",
                 maxWidth: isMobile && isScrolled ? "20rem" : "none",
                 boxShadow: "none",

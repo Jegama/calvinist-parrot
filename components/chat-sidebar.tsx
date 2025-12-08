@@ -12,6 +12,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
@@ -32,6 +33,7 @@ export function AppSidebar({ chats, currentChatId, onDeleted, className, style, 
   const mergedStyle = {
     ...style,
     top: "var(--app-header-height)",
+    height: "calc(100vh - var(--app-header-height))",
   } as CSSProperties;
 
   const handleDelete = useCallback(
@@ -50,13 +52,13 @@ export function AppSidebar({ chats, currentChatId, onDeleted, className, style, 
   );
 
   return (
-    <Sidebar {...props} className={className} style={mergedStyle}>
+    <Sidebar {...props} className={`${className} transition-[top,height] duration-700 ease-in-out`} style={mergedStyle}>
       <SidebarContent>
-        <SidebarHeader>
-          <br />
+        <SidebarHeader className="pt-6 pb-2 font-serif font-semibold text-accent text-lg">
           Your Conversations
         </SidebarHeader>
-        <SidebarGroup>
+        <SidebarSeparator />
+        <SidebarGroup className="pt-2">
           <SidebarGroupContent>
             <SidebarMenu className="gap-0">
               {chats.map((c) => (
