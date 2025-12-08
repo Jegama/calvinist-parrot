@@ -35,16 +35,11 @@ export const siteMetadata: Metadata = {
     images: ["/calvinist-parrot.png"],
   },
   icons: {
-    icon: [
-      { url: "/favicon.ico" },
-      { url: "/LogoWithTextSquare.png", sizes: "1024x1024", type: "image/png" },
-    ],
+    icon: [{ url: "/favicon.ico" }],
     apple: [
       { url: "/LogoWithTextSquare.png", sizes: "1024x1024", type: "image/png" },
     ],
-    shortcut: [
-      { url: "/LogoWithTextSquare.png", sizes: "1024x1024", type: "image/png" },
-    ],
+    shortcut: [{ url: "/favicon.ico" }],
   },
   keywords: [
     "Calvinist Parrot",
