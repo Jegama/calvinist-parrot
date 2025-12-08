@@ -36,9 +36,7 @@ export const siteMetadata: Metadata = {
   },
   icons: {
     icon: [{ url: "/favicon.ico" }],
-    apple: [
-      { url: "/ios_dark_icon.png", sizes: "1024x1024", type: "image/png" },
-    ],
+    apple: [{ url: "/ios_dark_icon.png", sizes: "1024x1024", type: "image/png" }],
     shortcut: [{ url: "/favicon.ico" }],
   },
   keywords: [
