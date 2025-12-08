@@ -1,7 +1,7 @@
 // components/chat-sidebar.tsx
 
-import * as React from "react"
-import type { CSSProperties } from "react"
+import * as React from "react";
+import type { CSSProperties } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -12,15 +12,15 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import Link from "next/link"
-import { Trash2 } from "lucide-react"
-import { useCallback } from "react"
+} from "@/components/ui/sidebar";
+import Link from "next/link";
+import { Trash2 } from "lucide-react";
+import { useCallback } from "react";
 
 type ChatItem = {
-  id: string
-  conversationName: string
-}
+  id: string;
+  conversationName: string;
+};
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   chats: ChatItem[];
@@ -32,24 +32,30 @@ export function AppSidebar({ chats, currentChatId, onDeleted, className, style, 
   const mergedStyle = {
     ...style,
     top: "var(--app-header-height)",
-  } as CSSProperties
+  } as CSSProperties;
 
-  const handleDelete = useCallback(async (chatId: string) => {
-    try {
-      const params = new URLSearchParams({ chatId });
-      // userId is verified via cookie on the server; optional to include here
-      const res = await fetch(`/api/user-chats?${params.toString()}`, { method: "DELETE" });
-      if (!res.ok) throw new Error('Failed to delete chat');
-      onDeleted?.(chatId);
-    } catch (e) {
-      console.error('Delete chat failed', e);
-    }
-  }, [onDeleted]);
+  const handleDelete = useCallback(
+    async (chatId: string) => {
+      try {
+        const params = new URLSearchParams({ chatId });
+        // userId is verified via cookie on the server; optional to include here
+        const res = await fetch(`/api/user-chats?${params.toString()}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Failed to delete chat");
+        onDeleted?.(chatId);
+      } catch (e) {
+        console.error("Delete chat failed", e);
+      }
+    },
+    [onDeleted]
+  );
 
   return (
     <Sidebar {...props} className={className} style={mergedStyle}>
       <SidebarContent>
-        <SidebarHeader><br />Your Conversations</SidebarHeader>
+        <SidebarHeader>
+          <br />
+          Your Conversations
+        </SidebarHeader>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-0">
@@ -67,12 +73,12 @@ export function AppSidebar({ chats, currentChatId, onDeleted, className, style, 
                           <span
                             className="block text-sm leading-tight"
                             style={{
-                              display: '-webkit-box',
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
+                              display: "-webkit-box",
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
                               WebkitLineClamp: 2,
-                              wordBreak: 'break-word',
-                              whiteSpace: 'normal',
+                              wordBreak: "break-word",
+                              whiteSpace: "normal",
                             }}
                           >
                             {c.conversationName || "Unnamed Conversation"}
@@ -84,7 +90,11 @@ export function AppSidebar({ chats, currentChatId, onDeleted, className, style, 
                         aria-label="Delete chat"
                         title="Delete chat"
                         className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive transition-opacity duration-150 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 md:pointer-events-none md:group-hover:pointer-events-auto"
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(c.id); }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleDelete(c.id);
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -98,5 +108,5 @@ export function AppSidebar({ chats, currentChatId, onDeleted, className, style, 
         </SidebarGroup>
       </SidebarContent>
     </Sidebar>
-  )
+  );
 }

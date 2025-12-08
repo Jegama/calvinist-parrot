@@ -344,7 +344,7 @@ export default function ChatPage() {
 
   if (!chat) {
     return (
-      <SidebarProvider>
+      <SidebarProvider style={{ minHeight: "calc(100vh - var(--app-header-height))" }}>
         <AppSidebar
           chats={chats}
           currentChatId={params.chatId}
@@ -387,7 +387,7 @@ export default function ChatPage() {
   }
 
   return (
-    <SidebarProvider>
+    <SidebarProvider style={{ minHeight: "calc(100vh - var(--app-header-height))" }}>
       <AppSidebar
         chats={chats}
         currentChatId={params.chatId}

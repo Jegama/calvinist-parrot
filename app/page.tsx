@@ -41,18 +41,21 @@ export default function MainChatPage() {
           console.error("Error starting new chat:", error);
           setErrorMessage("An error occurred while starting a new chat.");
         },
-      },
+      }
     );
 
     router.push(`/${newChatId}?initialQuestion=${encodeURIComponent(question)}`);
   };
 
   return (
-    <SidebarProvider>
-      <AppSidebar chats={chats} onDeleted={(id) => {
-        // Optimistically remove from cache
-        removeChat(id);
-      }} />
+    <SidebarProvider style={{ minHeight: "calc(100vh - var(--app-header-height))" }}>
+      <AppSidebar
+        chats={chats}
+        onDeleted={(id) => {
+          // Optimistically remove from cache
+          removeChat(id);
+        }}
+      />
       <SidebarInset className="flex h-[calc(100vh-var(--app-header-height))] flex-col overflow-hidden">
         <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <SidebarTrigger className="-ml-1" />
@@ -61,19 +64,10 @@ export default function MainChatPage() {
           <Card className="w-full max-w-3xl">
             <CardHeader>
               <div className="flex items-center space-x-4">
-                <Image
-                  src="/Logo.png"
-                  alt="Calvinist Parrot"
-                  width={100}
-                  height={100}
-                  priority
-                  unoptimized={true}
-                />
+                <Image src="/Logo.png" alt="Calvinist Parrot" width={100} height={100} priority unoptimized={true} />
                 <CardTitle className="w-full justify-center text-3xl font-bold">Calvinist Parrot</CardTitle>
               </div>
-              <CardDescription>
-                What theological question do you have?
-              </CardDescription>
+              <CardDescription>What theological question do you have?</CardDescription>
             </CardHeader>
             <CardContent>
               {errorMessage && <p className="mb-4 text-destructive">{errorMessage}</p>}

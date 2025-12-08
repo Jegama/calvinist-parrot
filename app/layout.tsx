@@ -30,7 +30,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const bodyStyle = {
-    "--app-header-height": "3.5rem",
+    "--app-header-height": "4.6rem",
   } as CSSProperties;
 
   return (
