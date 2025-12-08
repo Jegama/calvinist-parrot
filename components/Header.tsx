@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from 'next/image';
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,14 @@ export function Header() {
   const { user, loading } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const lastScrolledRef = useRef<boolean>(false);
+  const headerRef = useRef<HTMLElement>(null);
+
+  const updateHeaderHeight = useCallback(() => {
+    const height = headerRef.current?.offsetHeight;
+    if (!height) return;
+
+    document.documentElement.style.setProperty("--app-header-height", `${height}px`);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -29,20 +37,31 @@ export function Header() {
       if (scrolled !== lastScrolledRef.current) {
         lastScrolledRef.current = scrolled;
         setIsScrolled(scrolled);
-        // Update CSS variable for header height so other components can adapt
-        const newHeight = scrolled ? "3rem" : "3.5rem";
-        document.documentElement.style.setProperty("--app-header-height", newHeight);
       }
+
+      updateHeaderHeight();
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     // Initialize once on mount
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [updateHeaderHeight]);
+
+  useLayoutEffect(() => {
+    updateHeaderHeight();
+  }, [isScrolled, loading, updateHeaderHeight, user]);
+
+  useEffect(() => {
+    const handleResize = () => updateHeaderHeight();
+
+    window.addEventListener("resize", handleResize, { passive: true });
+    return () => window.removeEventListener("resize", handleResize);
+  }, [updateHeaderHeight]);
 
   return (
-    <header 
+    <header
+      ref={headerRef}
       className={`app-header sticky top-0 z-50 w-full px-4 transition-all duration-700 ease-in-out ${
         isScrolled ? "liquid-glass-header" : ""
       }`}
