@@ -14,9 +14,15 @@ type ConfessionKey = keyof typeof confessionsMap;
  */
 export function applyConfessionToCoreDoctrines(
   coreDoctrines: CoreDoctrineMap,
-  confessionAdopted: boolean
+  confessionAdopted: boolean,
+  confessionName?: string | null
 ): CoreDoctrineMap {
-  if (!confessionAdopted) {
+  // Special case: BF&M 2000 gets inference even when adopted=false
+  // (It's not a historic Reformed confession, but it's biblically sound)
+  const isBFM2000 = confessionName?.toLowerCase().includes("baptist faith and message") ||
+    confessionName?.toLowerCase().includes("bfm");
+
+  if (!confessionAdopted && !isBFM2000) {
     return coreDoctrines;
   }
 
@@ -41,7 +47,15 @@ export function applyConfessionToSecondary(
   confessionName: string | null,
   confessionAdopted: boolean
 ): SecondaryDoctrinesResponse["secondary"] {
-  if (!confessionAdopted || !confessionName) {
+  if (!confessionName) {
+    return secondary;
+  }
+
+  // Special case: BF&M 2000 gets inference even when adopted=false
+  const isBFM2000 = confessionName.toLowerCase().includes("baptist faith and message") ||
+    confessionName.toLowerCase().includes("bfm");
+
+  if (!confessionAdopted && !isBFM2000) {
     return secondary;
   }
 

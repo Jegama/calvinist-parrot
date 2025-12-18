@@ -227,7 +227,7 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
   }
 
   const crawl = await crawlChurchSite(website);
-  const pages = Array.isArray(crawl.results) ? crawl.results : [];
+  let pages = Array.isArray(crawl.results) ? crawl.results : [];
 
   if (!pages.length) {
     console.error("No pages found after crawl", { website, crawl });
@@ -273,7 +273,7 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     }
   }
 
-  const contentBlocks = pages
+  let contentBlocks = pages
     .map((page, index) => {
       const url = page.url ?? "Unknown URL";
       return `### Page ${index + 1}\nURL: ${url}\n--------------------\n${page.rawContent}`;
@@ -283,38 +283,100 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
   const systemPrompt = `You are a research analyst helping Calvinist Parrot Ministries vet churches. Produce precise, source-grounded JSON according to the schema.`;
 
   // ============================================================================
-  // Phase 1: Make 6 parallel LLM calls
+  // Phase 1: Extract basic fields first to get bestPages
   // ============================================================================
-  // console.log("Starting parallel extraction calls (all 6)...");
+  // console.log("Extracting basic fields to identify best pages...");
+
+  const basicFields = await genai.models
+    .generateContent({
+      model: MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${systemPrompt}\n\n${BASIC_FIELDS_PROMPT}\n\n${contentBlocks}` }],
+        },
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: BASIC_FIELDS_SCHEMA,
+        seed: 1689,
+      },
+    })
+    .then((res) => {
+      if (!res.text) throw new Error("Empty response from Basic Fields extraction");
+      return JSON.parse(res.text) as BasicFieldsResponse;
+    });
+
+  // ============================================================================
+  // Phase 2: Fallback extraction of bestPages if crawl yielded limited content
+  // ============================================================================
+  if (pages.length < 3 && basicFields.best_pages_for) {
+    const existingUrls = new Set(pages.map((p) => p.url?.trim()).filter(Boolean));
+    const bestPageUrls = Object.values(basicFields.best_pages_for)
+      .filter((url): url is string => Boolean(url && typeof url === 'string'))
+      .filter((url) => !existingUrls.has(url.trim()));
+
+    if (bestPageUrls.length > 0) {
+      // console.log(`Crawl yielded only ${pages.length} pages. Extracting ${bestPageUrls.length} additional bestPages...`);
+
+      try {
+        const additionalExtracts = await Promise.all(
+          bestPageUrls.map(async (url) => {
+            try {
+              const result = await tavilyClient.extract([url], {
+                extract_depth: "advanced",
+                format: "markdown",
+              });
+              return result;
+            } catch (err) {
+              console.error(`Failed to extract ${url}:`, err);
+              return null;
+            }
+          })
+        );
+
+        // Merge successful extracts into pages
+        for (const extract of additionalExtracts) {
+          if (extract?.results?.[0]) {
+            const page = extract.results[0];
+            if (page.url && page.rawContent) {
+              pages.push({
+                url: page.url,
+                rawContent: page.rawContent,
+                favicon: page.favicon ?? null,
+              });
+            }
+          }
+        }
+
+        // Rebuild content blocks with enriched pages
+        contentBlocks = pages
+          .map((page, index) => {
+            const url = page.url ?? "Unknown URL";
+            return `### Page ${index + 1}\nURL: ${url}\n--------------------\n${page.rawContent}`;
+          })
+          .join("\n\n");
+
+        // console.log(`Enriched content with ${pages.length} total pages.`);
+      } catch (error) {
+        console.error("Error during bestPages extraction:", error);
+        // Continue with original content if fallback fails
+      }
+    }
+  }
+
+  // ============================================================================
+  // Phase 3: Make remaining 5 parallel LLM calls with enriched content
+  // ============================================================================
+  // console.log("Starting parallel extraction calls (remaining 5)...");
 
   const [
-    basicFields,
     coreDoctrinesRaw,
     secondaryRaw,
     tertiaryRaw,
     denomConfession,
     redFlags,
   ] = await Promise.all([
-    // Call 1: Basic Fields
-    genai.models
-      .generateContent({
-        model: MODEL,
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: `${systemPrompt}\n\n${BASIC_FIELDS_PROMPT}\n\n${contentBlocks}` }],
-          },
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: BASIC_FIELDS_SCHEMA,
-          seed: 1689,
-        },
-      })
-      .then((res) => {
-        if (!res.text) throw new Error("Empty response from Call 1");
-        return JSON.parse(res.text) as BasicFieldsResponse;
-      }),
 
     // Call 2: Core Doctrines
     genai.models
@@ -431,7 +493,8 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
   // ============================================================================
   const coreDoctrines = applyConfessionToCoreDoctrines(
     coreDoctrinesRaw.core_doctrines,
-    denomConfession.confession.adopted
+    denomConfession.confession.adopted,
+    denomConfession.confession.name
   );
 
   const secondary = applyConfessionToSecondary(
@@ -569,7 +632,7 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   }
   // Priority 2: Low coverage (<50%) → LIMITED_INFORMATION
   // Not enough doctrinal clarity online; encourage users to contact the church
-  else if (coverageRatio < 0.5) {
+  else if (coverageRatio < 0.6) {
     status = "limited_information";
   }
   // Priority 3: Good coverage with Reformed distinctives AND no secondary differences → RECOMMENDED

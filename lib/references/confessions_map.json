@@ -29,6 +29,16 @@
     "security": "Perseverance of the saints",
     "atonement_model": "Penal substitution"
   },
+  "Baptist Faith and Message (2000 Edition)": {
+    "baptism": "Believer's baptism by immersion",
+    "governance": "Congregational",
+    "lords_supper": "Memorial/symbolic",
+    "gifts": "Continuationist",
+    "sanctification": "Positional & Progressive",
+    "continuity": "Mixed/Not specified",
+    "security": "Perseverance of the saints",
+    "atonement_model": "Penal substitution"
+  },
   "Belgic Confession (1561) + Heidelberg Catechism (1563) + Canons of Dort (1619)": {
     "baptism": "Infant (paedo)",
     "governance": "Presbyterian",
