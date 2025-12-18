@@ -308,60 +308,71 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     });
 
   // ============================================================================
-  // Phase 2: Fallback extraction of bestPages if crawl yielded limited content
+  // Phase 2: Always extract beliefs page + fallback for other bestPages if limited content
   // ============================================================================
+  // ALWAYS extract the beliefs page if we don't have it yet (critical for evaluation)
+  const existingUrls = new Set(pages.map((p) => p.url?.trim()).filter(Boolean));
+  const criticalPages: string[] = [];
+
+  if (basicFields.best_pages_for?.beliefs && !existingUrls.has(basicFields.best_pages_for.beliefs.trim())) {
+    criticalPages.push(basicFields.best_pages_for.beliefs);
+  }
+
+  // If crawl yielded limited content, also extract other bestPages
   if (pages.length < 3 && basicFields.best_pages_for) {
-    const existingUrls = new Set(pages.map((p) => p.url?.trim()).filter(Boolean));
-    const bestPageUrls = Object.values(basicFields.best_pages_for)
+    const additionalPages = Object.values(basicFields.best_pages_for)
       .filter((url): url is string => Boolean(url && typeof url === 'string'))
-      .filter((url) => !existingUrls.has(url.trim()));
+      .filter((url) => !existingUrls.has(url.trim()))
+      .filter((url) => !criticalPages.includes(url)); // Don't duplicate beliefs page
 
-    if (bestPageUrls.length > 0) {
-      // console.log(`Crawl yielded only ${pages.length} pages. Extracting ${bestPageUrls.length} additional bestPages...`);
+    criticalPages.push(...additionalPages);
+  }
 
-      try {
-        const additionalExtracts = await Promise.all(
-          bestPageUrls.map(async (url) => {
-            try {
-              const result = await tavilyClient.extract([url], {
-                extract_depth: "advanced",
-                format: "markdown",
-              });
-              return result;
-            } catch (err) {
-              console.error(`Failed to extract ${url}:`, err);
-              return null;
-            }
-          })
-        );
+  if (criticalPages.length > 0) {
+    // console.log(`Extracting ${criticalPages.length} critical pages (beliefs always included)...`);
 
-        // Merge successful extracts into pages
-        for (const extract of additionalExtracts) {
-          if (extract?.results?.[0]) {
-            const page = extract.results[0];
-            if (page.url && page.rawContent) {
-              pages.push({
-                url: page.url,
-                rawContent: page.rawContent,
-                favicon: page.favicon ?? null,
-              });
-            }
+    try {
+      const additionalExtracts = await Promise.all(
+        criticalPages.map(async (url) => {
+          try {
+            const result = await tavilyClient.extract([url], {
+              extract_depth: "advanced",
+              format: "markdown",
+            });
+            return result;
+          } catch (err) {
+            console.error(`Failed to extract ${url}:`, err);
+            return null;
+          }
+        })
+      );
+
+      // Merge successful extracts into pages
+      for (const extract of additionalExtracts) {
+        if (extract?.results?.[0]) {
+          const page = extract.results[0];
+          if (page.url && page.rawContent) {
+            pages.push({
+              url: page.url,
+              rawContent: page.rawContent,
+              favicon: page.favicon ?? null,
+            });
           }
         }
-
-        // Rebuild content blocks with enriched pages
-        contentBlocks = pages
-          .map((page, index) => {
-            const url = page.url ?? "Unknown URL";
-            return `### Page ${index + 1}\nURL: ${url}\n--------------------\n${page.rawContent}`;
-          })
-          .join("\n\n");
-
-        // console.log(`Enriched content with ${pages.length} total pages.`);
-      } catch (error) {
-        console.error("Error during bestPages extraction:", error);
-        // Continue with original content if fallback fails
       }
+
+      // Rebuild content blocks with enriched pages
+      contentBlocks = pages
+        .map((page, index) => {
+          const url = page.url ?? "Unknown URL";
+          return `### Page ${index + 1}\nURL: ${url}\n--------------------\n${page.rawContent}`;
+        })
+        .join("\n\n");
+
+      // console.log(`Enriched content with ${pages.length} total pages.`);
+    } catch (error) {
+      console.error("Error during bestPages extraction:", error);
+      // Continue with original content if fallback fails
     }
   }
 
