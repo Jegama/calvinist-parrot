@@ -40,7 +40,7 @@ import { filterAllowlistedBadges } from "@/utils/badges";
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-const MODEL = "gemini-3-flash-preview";
+const MODEL = "gemini-2.5-flash";
 
 // Define critical red flags that immediately make status NOT_ENDORSED
 const criticalRedFlagBadges = [
