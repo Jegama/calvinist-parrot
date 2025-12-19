@@ -56,10 +56,10 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
     const timers: NodeJS.Timeout[] = [];
 
     if (evaluationStatus === "fetching") {
-      // Move to analyzing after 12 seconds (realistic crawl time)
+      // Move to analyzing after 15 seconds (realistic crawl time)
       const timer = setTimeout(() => {
         setEvaluationStatus((prev) => (prev === "fetching" ? "analyzing" : prev));
-      }, 12000);
+      }, 15000);
       timers.push(timer);
     }
 

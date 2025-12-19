@@ -40,7 +40,7 @@ import { filterAllowlistedBadges } from "@/utils/badges";
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-const MODEL = "gemini-2.5-flash-preview-09-2025";
+const MODEL = "gemini-3-flash-preview";
 
 // Define critical red flags that immediately make status NOT_ENDORSED
 const criticalRedFlagBadges = [
@@ -234,6 +234,71 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     throw new Error(
       "Unable to gather website content for evaluation. The website may be blocking crawlers or may not have accessible content. Please try a different church website."
     );
+  }
+
+  // ============================================================================
+  // Pre-extract beliefs pages identified by URL pattern (before LLM calls)
+  // ============================================================================
+  // Tavily crawl often returns shallow content for doctrinal pages.
+  // Scan URLs for common beliefs page patterns and extract them immediately.
+  const beliefUrlPatterns = [
+    /statement[_-]?of[_-]?faith/i,
+    /beliefs?/i,
+    /doctrine/i,
+    /what[_-]?we[_-]?believe/i,
+    /confession/i,
+    /faith/i,
+  ];
+
+  const beliefsCandidates = pages
+    .filter((page) => {
+      const url = page.url ?? "";
+      return beliefUrlPatterns.some((pattern) => pattern.test(url));
+    })
+    .map((page) => page.url!)
+    .filter(Boolean);
+
+  if (beliefsCandidates.length > 0) {
+    // console.log(`Pre-extracting ${beliefsCandidates.length} identified beliefs pages...`);
+    
+    try {
+      const extractedBeliefs = await Promise.all(
+        beliefsCandidates.map((url) =>
+          tavilyClient.extract([url], {
+            extract_depth: "advanced",
+            format: "markdown",
+          }).catch((error) => {
+            console.warn(`Failed to pre-extract beliefs page ${url}:`, error);
+            return { results: [] };
+          })
+        )
+      );
+
+      // Replace shallow crawl content with deep extracted content for these URLs
+      const urlToExtractedContent = new Map<string, string>();
+      extractedBeliefs.forEach((response, idx) => {
+        const results = Array.isArray(response.results) ? response.results : [];
+        if (results.length > 0 && results[0].rawContent) {
+          urlToExtractedContent.set(beliefsCandidates[idx], results[0].rawContent);
+        }
+      });
+
+      // Update pages array with enriched content
+      pages = pages.map((page) => {
+        if (page.url && urlToExtractedContent.has(page.url)) {
+          return {
+            ...page,
+            rawContent: urlToExtractedContent.get(page.url)!,
+          };
+        }
+        return page;
+      });
+
+      // console.log(`Enriched ${urlToExtractedContent.size} beliefs pages with deep content.`);
+    } catch (error) {
+      console.warn("Error during pre-extraction of beliefs pages:", error);
+      // Continue with original pages if pre-extraction fails
+    }
   }
 
   // Check if the single page is a blocked/error page
