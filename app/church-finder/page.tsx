@@ -219,6 +219,15 @@ function ChurchFinderClient() {
     [queryClient]
   );
 
+  const handleChurchDeleted = useCallback(
+    (churchId: string) => {
+      queryClient.removeQueries({ queryKey: ["church-detail", churchId], exact: true });
+      void queryClient.invalidateQueries({ queryKey: ["churches"], refetchType: "active" });
+      void queryClient.invalidateQueries({ queryKey: ["churches", "meta"], refetchType: "active" });
+    },
+    [queryClient]
+  );
+
   // Keep URL in sync with dialog state for shareable links (?church=<id>)
   useEffect(() => {
     const idFromParam = searchParams.get("church");
@@ -410,6 +419,7 @@ function ChurchFinderClient() {
         }}
         church={detailQuery.data ?? null}
         onChurchUpdated={handleChurchUpdated}
+        onChurchDeleted={handleChurchDeleted}
       />
     </div>
   );

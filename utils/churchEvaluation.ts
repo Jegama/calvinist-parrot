@@ -114,7 +114,10 @@ export function dropAnchorDupes(data: TavilyCrawlResult): TavilyCrawlResult {
     } else {
       clean.push({ url, rawContent: raw, favicon: item.favicon });
     }
-  } const cleanHashes = new Set<string>();
+
+  }
+
+  const cleanHashes = new Set<string>();
   const cleanUrls = new Set<string>();
   const normalizedResults: typeof results = [];
 
@@ -370,32 +373,20 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     });
 
   // ============================================================================
-  // Phase 2: Always extract beliefs page + fallback for other bestPages if limited content
+  // Phase 2: Always extract all best_pages_for pages (safest, avoids missing key info)
   // ============================================================================
-  // ALWAYS extract the beliefs page if we don't have it yet (critical for evaluation)
-  const existingUrls = new Set(pages.map((p) => p.url?.trim()).filter(Boolean));
-  const criticalPages: string[] = [];
+  const bestPages = Object.values(basicFields.best_pages_for ?? {})
+    .filter((url): url is string => typeof url === "string" && url.trim().length > 0)
+    .map((url) => url.trim());
 
-  if (basicFields.best_pages_for?.beliefs && !existingUrls.has(basicFields.best_pages_for.beliefs.trim())) {
-    criticalPages.push(basicFields.best_pages_for.beliefs);
-  }
+  const uniqueBestPages = Array.from(new Set(bestPages));
 
-  // If crawl yielded limited content, also extract other bestPages
-  if (pages.length < 3 && basicFields.best_pages_for) {
-    const additionalPages = Object.values(basicFields.best_pages_for)
-      .filter((url): url is string => Boolean(url && typeof url === 'string'))
-      .filter((url) => !existingUrls.has(url.trim()))
-      .filter((url) => !criticalPages.includes(url)); // Don't duplicate beliefs page
-
-    criticalPages.push(...additionalPages);
-  }
-
-  if (criticalPages.length > 0) {
-    // console.log(`Extracting ${criticalPages.length} critical pages (beliefs always included)...`);
+  if (uniqueBestPages.length > 0) {
+    // console.log(`Extracting ${uniqueBestPages.length} best_pages_for URLs...`);
 
     try {
       const additionalExtracts = await Promise.all(
-        criticalPages.map(async (url) => {
+        uniqueBestPages.map(async (url) => {
           try {
             const result = await tavilyClient.extract([url], {
               extract_depth: "advanced",
@@ -409,16 +400,28 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
         })
       );
 
-      // Merge successful extracts into pages
+      // Merge successful extracts into pages (replace existing when present)
       for (const extract of additionalExtracts) {
         if (extract?.results?.[0]) {
           const page = extract.results[0];
           if (page.url && page.rawContent) {
-            pages.push({
-              url: page.url,
-              rawContent: page.rawContent,
-              favicon: page.favicon ?? null,
-            });
+            const extractedUrl = page.url.trim();
+            const existingIndex = pages.findIndex((p) => (p.url ?? "").trim() === extractedUrl);
+
+            if (existingIndex >= 0) {
+              pages[existingIndex] = {
+                ...pages[existingIndex],
+                url: extractedUrl,
+                rawContent: page.rawContent,
+                favicon: page.favicon ?? pages[existingIndex].favicon ?? null,
+              };
+            } else {
+              pages.push({
+                url: extractedUrl,
+                rawContent: page.rawContent,
+                favicon: page.favicon ?? null,
+              });
+            }
           }
         }
       }
@@ -437,6 +440,8 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
       // Continue with original content if fallback fails
     }
   }
+
+  // console.log(`Crawled and prepared content from ${pages.length} pages for LLM evaluation.\n\n${contentBlocks}`);
 
   // ============================================================================
   // Phase 3: Make remaining 5 parallel LLM calls with enriched content

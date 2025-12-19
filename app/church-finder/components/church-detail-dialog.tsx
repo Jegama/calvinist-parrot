@@ -18,7 +18,7 @@ import canNotEndorseJson from "@/lib/references/can_not_endorse_churches.json";
 import denominationAliasesJson from "@/lib/references/denomination_aliases.json";
 import badgesJson from "@/lib/references/badges.json";
 import { cn } from "@/lib/utils";
-import { createChurch } from "@/app/church-finder/api";
+import { createChurch, deleteChurch } from "@/app/church-finder/api";
 import { secondaryDifferenceBadges } from "@/lib/schemas/church-finder";
 
 function normalizeDenomination(label: string): string {
@@ -99,9 +99,16 @@ type ChurchDetailDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onChurchUpdated?: (church: ChurchDetail) => void;
+  onChurchDeleted?: (churchId: string) => void;
 };
 
-export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated }: ChurchDetailDialogProps) {
+export function ChurchDetailDialog({
+  church,
+  open,
+  onOpenChange,
+  onChurchUpdated,
+  onChurchDeleted,
+}: ChurchDetailDialogProps) {
   const { user } = useAuth();
   const evaluation = church?.evaluation;
   const status = evaluation?.status ?? null;
@@ -131,11 +138,23 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
     },
   });
 
+  const deleteChurchMutation = useMutation({
+    mutationFn: async () => {
+      if (!church?.id) throw new Error("No church selected");
+      const result = await deleteChurch(church.id, { userId: user?.$id });
+      return result.id;
+    },
+    onSuccess: (deletedId) => {
+      onChurchDeleted?.(deletedId);
+      onOpenChange(false);
+    },
+  });
+
   // Find false doctrines
   const falseDoctrine = evaluation?.coreDoctrines
     ? Object.entries(evaluation.coreDoctrines)
-        .filter(([, value]) => value === "false")
-        .map(([key]) => key as CoreDoctrineKey)
+      .filter(([, value]) => value === "false")
+      .map(([key]) => key as CoreDoctrineKey)
     : [];
 
   // Find red flag badges (excluding false doctrine issues)
@@ -442,8 +461,8 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                       const badgeClasses = isRedFlag
                         ? "badge--red-flag px-3 py-1.5 text-sm font-medium"
                         : isSecondaryDifference
-                        ? "badge--info px-3 py-1.5 text-sm font-medium"
-                        : "badge--neutral px-3 py-1.5 text-sm font-medium";
+                          ? "badge--info px-3 py-1.5 text-sm font-medium"
+                          : "badge--neutral px-3 py-1.5 text-sm font-medium";
 
                       return (
                         <Tooltip key={badge}>
@@ -585,8 +604,8 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                               value === "true"
                                 ? "border-emerald-300 bg-emerald-100/70 dark:border-emerald-800 dark:bg-emerald-950/20"
                                 : value === "false"
-                                ? "border-red-300 bg-red-100/70 dark:border-red-800 dark:bg-red-950/20"
-                                : "border-border bg-card shadow-sm"
+                                  ? "border-red-300 bg-red-100/70 dark:border-red-800 dark:bg-red-950/20"
+                                  : "border-border bg-card shadow-sm"
                             )}
                           >
                             <div className="mb-2 flex items-start justify-between">
@@ -597,8 +616,8 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                                   value === "true"
                                     ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
                                     : value === "false"
-                                    ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-                                    : "bg-muted text-muted-foreground"
+                                      ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                                      : "bg-muted text-muted-foreground"
                                 )}
                               >
                                 {value === "true" ? "✓ Affirmed" : value === "false" ? "✗ Denied" : "Unknown"}
@@ -623,8 +642,8 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                                 {value === "true"
                                   ? "Affirmed through church's adopted confession or denomination."
                                   : value === "false"
-                                  ? "This church explicitly denies this essential Christian doctrine."
-                                  : "Position unclear from available church statements."}
+                                    ? "This church explicitly denies this essential Christian doctrine."
+                                    : "Position unclear from available church statements."}
                               </p>
                             )}
                           </div>
@@ -636,53 +655,53 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                   {/* Other Doctrines - Collapsible */}
                   {(Object.keys(evaluation.secondary ?? {}).length > 0 ||
                     Object.keys(evaluation.tertiary ?? {}).length > 0) && (
-                    <Collapsible open={otherDoctrinesOpen} onOpenChange={setOtherDoctrinesOpen}>
-                      <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-card p-4 hover:bg-muted/20 shadow-sm">
-                        <div className="text-left">
-                          <h3 className="text-lg font-semibold text-foreground">Other Doctrines</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Additional theological positions and practices
-                          </p>
-                        </div>
-                        <ChevronDown
-                          className={cn(
-                            "h-5 w-5 text-muted-foreground transition-transform",
-                            otherDoctrinesOpen && "rotate-180"
-                          )}
-                        />
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="mt-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                          {Object.keys(evaluation.secondary ?? {}).length > 0 && (
-                            <div className="space-y-2 rounded-md border border-border bg-card shadow-sm p-4">
-                              <h4 className="text-base font-semibold text-foreground">Doctrines</h4>
-                              <ul className="space-y-2 text-sm">
-                                {Object.entries(evaluation.secondary ?? {}).map(([key, value]) => (
-                                  <li key={key} className="flex flex-col">
-                                    <span className="font-medium text-foreground">{formatDoctrineKey(key)}</span>
-                                    <span className="text-muted-foreground">{value ?? "Not specified"}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                          {Object.keys(evaluation.tertiary ?? {}).length > 0 && (
-                            <div className="space-y-2 rounded-md border border-border bg-card shadow-sm p-4">
-                              <h4 className="text-base font-semibold text-foreground">Additional Positions</h4>
-                              <ul className="space-y-2 text-sm">
-                                {Object.entries(evaluation.tertiary ?? {}).map(([key, value]) => (
-                                  <li key={key} className="flex flex-col">
-                                    <span className="font-medium text-foreground">{formatDoctrineKey(key)}</span>
-                                    <span className="text-muted-foreground">{value ?? "Not specified"}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  )}
+                      <Collapsible open={otherDoctrinesOpen} onOpenChange={setOtherDoctrinesOpen}>
+                        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border bg-card p-4 hover:bg-muted/20 shadow-sm">
+                          <div className="text-left">
+                            <h3 className="text-lg font-semibold text-foreground">Other Doctrines</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Additional theological positions and practices
+                            </p>
+                          </div>
+                          <ChevronDown
+                            className={cn(
+                              "h-5 w-5 text-muted-foreground transition-transform",
+                              otherDoctrinesOpen && "rotate-180"
+                            )}
+                          />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="mt-4">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            {Object.keys(evaluation.secondary ?? {}).length > 0 && (
+                              <div className="space-y-2 rounded-md border border-border bg-card shadow-sm p-4">
+                                <h4 className="text-base font-semibold text-foreground">Doctrines</h4>
+                                <ul className="space-y-2 text-sm">
+                                  {Object.entries(evaluation.secondary ?? {}).map(([key, value]) => (
+                                    <li key={key} className="flex flex-col">
+                                      <span className="font-medium text-foreground">{formatDoctrineKey(key)}</span>
+                                      <span className="text-muted-foreground">{value ?? "Not specified"}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {Object.keys(evaluation.tertiary ?? {}).length > 0 && (
+                              <div className="space-y-2 rounded-md border border-border bg-card shadow-sm p-4">
+                                <h4 className="text-base font-semibold text-foreground">Additional Positions</h4>
+                                <ul className="space-y-2 text-sm">
+                                  {Object.entries(evaluation.tertiary ?? {}).map(([key, value]) => (
+                                    <li key={key} className="flex flex-col">
+                                      <span className="font-medium text-foreground">{formatDoctrineKey(key)}</span>
+                                      <span className="text-muted-foreground">{value ?? "Not specified"}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
 
                   {/* Remaining Notes - Only show notes not already in core doctrines */}
                   {remainingNotes.length > 0 && (
@@ -781,6 +800,46 @@ export function ChurchDetailDialog({ church, open, onOpenChange, onChurchUpdated
                         {reEvaluateMutation.isSuccess && (
                           <p className="text-sm text-success">
                             ✓ Re-evaluation complete! The page will refresh with updated data.
+                          </p>
+                        )}
+                      </AlertDescription>
+                    </Alert>
+
+                    <Alert className="bg-destructive/5 border-destructive/20 dark:bg-destructive/10 dark:border-destructive/30">
+                      <AlertCircle className="h-4 w-4 !text-destructive" />
+                      <AlertTitle className="text-destructive font-semibold">Delete Church</AlertTitle>
+                      <AlertDescription className="space-y-3">
+                        <p className="text-foreground/80">
+                          This permanently deletes the church and all related addresses, service times, and evaluations.
+                          This cannot be undone.
+                        </p>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                          <code className="min-w-0 flex-1 overflow-x-auto rounded bg-muted px-2 py-1 text-xs text-foreground">
+                            {church.name}
+                          </code>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              if (!church) return;
+                              const ok = window.confirm(
+                                `Delete “${church.name}”? This cannot be undone.`
+                              );
+                              if (!ok) return;
+                              deleteChurchMutation.mutate();
+                            }}
+                            disabled={deleteChurchMutation.status === "pending"}
+                            className="shrink-0"
+                          >
+                            {deleteChurchMutation.status === "pending" ? <Spinner /> : "Delete"}
+                          </Button>
+                        </div>
+                        {deleteChurchMutation.isError && (
+                          <p className="text-sm text-destructive">
+                            {deleteChurchMutation.error instanceof Error
+                              ? deleteChurchMutation.error.message
+                              : "Delete failed"}
                           </p>
                         )}
                       </AlertDescription>
