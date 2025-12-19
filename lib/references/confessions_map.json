@@ -32,12 +32,12 @@
   "Baptist Faith and Message (2000 Edition)": {
     "baptism": "Believer's baptism by immersion",
     "governance": "Congregational",
-    "lords_supper": "Memorial/symbolic",
-    "gifts": "Continuationist",
+    "lords_supper": "Memorial",
+    "gifts": "Ambiguous/not stated",
     "sanctification": "Positional & Progressive",
-    "continuity": "Mixed/Not specified",
+    "continuity": "Ambiguous/not stated",
     "security": "Perseverance of the saints",
-    "atonement_model": "Penal substitution"
+    "atonement_model": "Substitutionary atonement (unspecified)"
   },
   "Belgic Confession (1561) + Heidelberg Catechism (1563) + Canons of Dort (1619)": {
     "baptism": "Infant (paedo)",

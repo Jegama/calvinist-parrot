@@ -30,6 +30,8 @@ type ChurchDiscoveryPanelProps = {
   onChurchView: (church: ChurchDetail) => void;
 };
 
+const CRAWL_STATUS_TRANSITION_TIMEOUT = 15000;
+
 export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDiscoveryPanelProps) {
   const { user } = useAuth();
   const [city, setCity] = useState("");
@@ -59,7 +61,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
       // Move to analyzing after 15 seconds (realistic crawl time)
       const timer = setTimeout(() => {
         setEvaluationStatus((prev) => (prev === "fetching" ? "analyzing" : prev));
-      }, 15000);
+      }, CRAWL_STATUS_TRANSITION_TIMEOUT);
       timers.push(timer);
     }
 
@@ -172,7 +174,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
     // Set up progress simulation for this specific church
     const fetchingTimer = setTimeout(() => {
       setSearchEvaluationStatuses((prev) => new Map(prev).set(result.id, "analyzing"));
-    }, 15000);
+    }, CRAWL_STATUS_TRANSITION_TIMEOUT);
 
     try {
       // Check if church already exists

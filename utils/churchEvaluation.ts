@@ -247,20 +247,17 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     /doctrine/i,
     /what[_-]?we[_-]?believe/i,
     /confession/i,
-    /faith/i,
+    /\bfaith\b/i,
   ];
 
   const beliefsCandidates = pages
-    .filter((page) => {
-      const url = page.url ?? "";
-      return beliefUrlPatterns.some((pattern) => pattern.test(url));
-    })
-    .map((page) => page.url!)
-    .filter(Boolean);
+    .map((page) => page.url?.trim())
+    .filter((url): url is string => Boolean(url))
+    .filter((url) => beliefUrlPatterns.some((pattern) => pattern.test(url)));
 
   if (beliefsCandidates.length > 0) {
     // console.log(`Pre-extracting ${beliefsCandidates.length} identified beliefs pages...`);
-    
+
     try {
       const extractedBeliefs = await Promise.all(
         beliefsCandidates.map((url) =>
@@ -706,7 +703,7 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   if (falseCount > 0 || hasCriticalRedFlag) {
     status = "not_endorsed";
   }
-  // Priority 2: Low coverage (<50%) → LIMITED_INFORMATION
+  // Priority 2: Low coverage (<60%) → LIMITED_INFORMATION
   // Not enough doctrinal clarity online; encourage users to contact the church
   else if (coverageRatio < 0.6) {
     status = "limited_information";
