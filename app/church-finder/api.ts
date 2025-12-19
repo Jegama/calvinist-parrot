@@ -8,13 +8,13 @@ export type ChurchFilters = {
   denomination?: string | null;
   confessional?: "true" | "false" | null;
   status?:
-    | "historic_reformed"
-    | "recommended"
-    | "biblically_sound_with_differences"
-    | "limited_information"
-    | "not_endorsed"
-    | "exclude_red_flag_and_limited"
-    | null;
+  | "historic_reformed"
+  | "recommended"
+  | "biblically_sound_with_differences"
+  | "limited_information"
+  | "not_endorsed"
+  | "exclude_red_flag_and_limited"
+  | null;
 };
 
 function buildQuery(params: ChurchFilters): string {
@@ -147,4 +147,19 @@ export async function createChurch(payload: {
   }
 
   return (await response.json()) as ChurchDetail;
+}
+
+export async function deleteChurch(id: string, payload: { userId?: string } = {}): Promise<{ ok: true; id: string }> {
+  const response = await fetch(`/api/churches/${id}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(error?.error ?? "Unable to delete church");
+  }
+
+  return (await response.json()) as { ok: true; id: string };
 }
