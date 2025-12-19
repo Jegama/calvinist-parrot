@@ -371,6 +371,11 @@ Add badges ONLY if you have clear evidence, including the emoji. If none of the 
 - Guaranteed physical/financial blessing for faith/giving
 - Teachers: Osteen, Copeland, Dollar, Hinn, Meyer (if heavily referenced)
 
+**CRITICAL false-positive guard for ⚠️ Prosperity Gospel**:
+- Do NOT add this badge for normal stewardship, generosity, tithing, or fundraising/capital campaign language (e.g., "Sow to Reap", "harvest", "sowing into God's work", "we met our goal", building/kids/community initiatives) unless the church explicitly teaches that giving/faith will reliably produce personal wealth/health or guarantees material blessing.
+- The mere presence of agricultural metaphors from Scripture ("sow/reap") is NOT sufficient evidence by itself.
+- If the only evidence is a giving campaign description without promises of personal enrichment, omit the badge.
+
 **⚠️ Hyper-Charismatic**: 
 - Excessive focus on manifestations
 - "Drunk in the Spirit", "holy laughter", "grave soaking"
@@ -387,16 +392,19 @@ Add badges ONLY if you have clear evidence, including the emoji. If none of the 
 - **NOTE**: Youth and children's ministries naturally use engaging methods (games, activities, creative lessons) to reach their age group. Only flag if the church's MAIN worship services show entertainment-driven compromise, not based solely on youth/children's ministry descriptions.
 
 **👩‍🏫 Ordained Women**:
-- Women serving as **pastors**, **elders**, **bishops**, **priests**, or **reverends** (senior teaching/governing roles)
-- NOT for women serving as deacons, staff, ministry leaders, or teachers in non-governing roles
-- Look for titles like: "Pastor [Woman's name]", "Elder [Woman's name]", "Rev. [Woman's name]", "Bishop [Woman's name]", "Priestess", "Female clergy"
-- Also check leadership pages for women in elder/pastor positions
-- **IMPORTANT**: If you see "[Woman's Name] - Pastor of [any ministry area]" under "Pastoral Staff" → ADD THIS BADGE
+- Add this badge ONLY when a specific individual woman is explicitly described with an ordained/clergy office title such as **Pastor**, **Elder**, **Reverend/Rev.**, **Bishop**, or **Priest**.
+- This is about the woman's *office/title*, not about general church governance language.
+- NOT for women serving as deacons/deaconesses, staff, ministry leaders/directors, committee members, board/council roles, or teachers in non-governing roles.
+- Do NOT infer this badge from phrases like "elder-led" / "elder-directed" / "elder-governed" unless the page explicitly lists women as elders.
+- Do NOT infer this badge from "Chair" / "Vice-Chair" / "Secretary" / "Treasurer" unless the page explicitly identifies that woman as an Elder/Pastor/Rev/Bishop/Priest.
+- Look for explicit titles like: "Pastor [Woman's name]", "[Woman's name] — Pastor of ___", "Elder [Woman's name]", "Rev. [Woman's name]", "Bishop [Woman's name]", "Priest [Woman's name]".
+- **IMPORTANT**: If you see "[Woman's Name] - Pastor of [any ministry area]" under "Pastoral Staff" → ADD THIS BADGE.
+- **CRITICAL false-positive guard**: If women are listed under "Deacons and Deaconesses" / "Deaconesses" / "Deaconess" (or similar) WITHOUT an Elder/Pastor/Rev/Bishop/Priest title, DO NOT add this badge.
 - Examples that MUST trigger this badge:
   - "Courtney McLaughlin - Pastor of Missions"
-  - "Sarah Johnson - Pastor of Children's Ministry"  
+  - "Sarah Johnson - Pastor of Children's Ministry"
   - "Jane Doe - Teaching Pastor"
-  - Any woman with "Pastor", "Elder", "Reverend", or "Bishop" in their official title
+  - "Elder Sarah Johnson" / "Rev. Jane Doe" / "Bishop Mary Smith"
 
 **🏳️‍🌈 LGBTQ Affirming**: 
 Look for explicit affirmation in these contexts:
@@ -457,5 +465,7 @@ For each red flag badge you add, create a note with:
 - \`label\`: Name of the badge (e.g., "Prosperity Gospel", "LGBTQ Affirming", "New Apostolic Reformation (NAR)")
 - \`text\`: Brief explanation of what you found (≤50 words)
 - \`source_url\`: URL where you found this evidence
+
+For the **👩‍🏫 Ordained Women** badge specifically, your note text MUST quote the woman's name and her explicit office title exactly as written on the site (e.g., "Sarah Johnson — Pastor of Children's Ministry"). If you cannot quote an explicit Elder/Pastor/Rev/Bishop/Priest title tied to a specific woman, DO NOT add the badge.
 
 If NO red flags are found, return empty arrays for both badges and notes.`;
