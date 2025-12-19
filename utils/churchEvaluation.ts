@@ -40,7 +40,7 @@ import { filterAllowlistedBadges } from "@/utils/badges";
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-const MODEL = "gemini-2.5-flash-preview-09-2025";
+const MODEL = "gemini-2.5-flash";
 
 // Define critical red flags that immediately make status NOT_ENDORSED
 const criticalRedFlagBadges = [
@@ -227,13 +227,75 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
   }
 
   const crawl = await crawlChurchSite(website);
-  const pages = Array.isArray(crawl.results) ? crawl.results : [];
+  let pages = Array.isArray(crawl.results) ? crawl.results : [];
 
   if (!pages.length) {
     console.error("No pages found after crawl", { website, crawl });
     throw new Error(
       "Unable to gather website content for evaluation. The website may be blocking crawlers or may not have accessible content. Please try a different church website."
     );
+  }
+
+  // ============================================================================
+  // Pre-extract beliefs pages identified by URL pattern (before LLM calls)
+  // ============================================================================
+  // Tavily crawl often returns shallow content for doctrinal pages.
+  // Scan URLs for common beliefs page patterns and extract them immediately.
+  const beliefUrlPatterns = [
+    /statement[_-]?of[_-]?faith/i,
+    /beliefs?/i,
+    /doctrine/i,
+    /what[_-]?we[_-]?believe/i,
+    /confession/i,
+    /\bfaith\b/i,
+  ];
+
+  const beliefsCandidates = pages
+    .map((page) => page.url?.trim())
+    .filter((url): url is string => Boolean(url))
+    .filter((url) => beliefUrlPatterns.some((pattern) => pattern.test(url)));
+
+  if (beliefsCandidates.length > 0) {
+    // console.log(`Pre-extracting ${beliefsCandidates.length} identified beliefs pages...`);
+
+    try {
+      const extractedBeliefs = await Promise.all(
+        beliefsCandidates.map((url) =>
+          tavilyClient.extract([url], {
+            extract_depth: "advanced",
+            format: "markdown",
+          }).catch((error) => {
+            console.warn(`Failed to pre-extract beliefs page ${url}:`, error);
+            return { results: [] };
+          })
+        )
+      );
+
+      // Replace shallow crawl content with deep extracted content for these URLs
+      const urlToExtractedContent = new Map<string, string>();
+      extractedBeliefs.forEach((response, idx) => {
+        const results = Array.isArray(response.results) ? response.results : [];
+        if (results.length > 0 && results[0].rawContent) {
+          urlToExtractedContent.set(beliefsCandidates[idx], results[0].rawContent);
+        }
+      });
+
+      // Update pages array with enriched content
+      pages = pages.map((page) => {
+        if (page.url && urlToExtractedContent.has(page.url)) {
+          return {
+            ...page,
+            rawContent: urlToExtractedContent.get(page.url)!,
+          };
+        }
+        return page;
+      });
+
+      // console.log(`Enriched ${urlToExtractedContent.size} beliefs pages with deep content.`);
+    } catch (error) {
+      console.warn("Error during pre-extraction of beliefs pages:", error);
+      // Continue with original pages if pre-extraction fails
+    }
   }
 
   // Check if the single page is a blocked/error page
@@ -273,7 +335,7 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
     }
   }
 
-  const contentBlocks = pages
+  let contentBlocks = pages
     .map((page, index) => {
       const url = page.url ?? "Unknown URL";
       return `### Page ${index + 1}\nURL: ${url}\n--------------------\n${page.rawContent}`;
@@ -283,38 +345,111 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
   const systemPrompt = `You are a research analyst helping Calvinist Parrot Ministries vet churches. Produce precise, source-grounded JSON according to the schema.`;
 
   // ============================================================================
-  // Phase 1: Make 6 parallel LLM calls
+  // Phase 1: Extract basic fields first to get bestPages
   // ============================================================================
-  // console.log("Starting parallel extraction calls (all 6)...");
+  // console.log("Extracting basic fields to identify best pages...");
+
+  const basicFields = await genai.models
+    .generateContent({
+      model: MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${systemPrompt}\n\n${BASIC_FIELDS_PROMPT}\n\n${contentBlocks}` }],
+        },
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: BASIC_FIELDS_SCHEMA,
+        seed: 1689,
+      },
+    })
+    .then((res) => {
+      if (!res.text) throw new Error("Empty response from Basic Fields extraction");
+      return JSON.parse(res.text) as BasicFieldsResponse;
+    });
+
+  // ============================================================================
+  // Phase 2: Always extract beliefs page + fallback for other bestPages if limited content
+  // ============================================================================
+  // ALWAYS extract the beliefs page if we don't have it yet (critical for evaluation)
+  const existingUrls = new Set(pages.map((p) => p.url?.trim()).filter(Boolean));
+  const criticalPages: string[] = [];
+
+  if (basicFields.best_pages_for?.beliefs && !existingUrls.has(basicFields.best_pages_for.beliefs.trim())) {
+    criticalPages.push(basicFields.best_pages_for.beliefs);
+  }
+
+  // If crawl yielded limited content, also extract other bestPages
+  if (pages.length < 3 && basicFields.best_pages_for) {
+    const additionalPages = Object.values(basicFields.best_pages_for)
+      .filter((url): url is string => Boolean(url && typeof url === 'string'))
+      .filter((url) => !existingUrls.has(url.trim()))
+      .filter((url) => !criticalPages.includes(url)); // Don't duplicate beliefs page
+
+    criticalPages.push(...additionalPages);
+  }
+
+  if (criticalPages.length > 0) {
+    // console.log(`Extracting ${criticalPages.length} critical pages (beliefs always included)...`);
+
+    try {
+      const additionalExtracts = await Promise.all(
+        criticalPages.map(async (url) => {
+          try {
+            const result = await tavilyClient.extract([url], {
+              extract_depth: "advanced",
+              format: "markdown",
+            });
+            return result;
+          } catch (err) {
+            console.error(`Failed to extract ${url}:`, err);
+            return null;
+          }
+        })
+      );
+
+      // Merge successful extracts into pages
+      for (const extract of additionalExtracts) {
+        if (extract?.results?.[0]) {
+          const page = extract.results[0];
+          if (page.url && page.rawContent) {
+            pages.push({
+              url: page.url,
+              rawContent: page.rawContent,
+              favicon: page.favicon ?? null,
+            });
+          }
+        }
+      }
+
+      // Rebuild content blocks with enriched pages
+      contentBlocks = pages
+        .map((page, index) => {
+          const url = page.url ?? "Unknown URL";
+          return `### Page ${index + 1}\nURL: ${url}\n--------------------\n${page.rawContent}`;
+        })
+        .join("\n\n");
+
+      // console.log(`Enriched content with ${pages.length} total pages.`);
+    } catch (error) {
+      console.error("Error during bestPages extraction:", error);
+      // Continue with original content if fallback fails
+    }
+  }
+
+  // ============================================================================
+  // Phase 3: Make remaining 5 parallel LLM calls with enriched content
+  // ============================================================================
+  // console.log("Starting parallel extraction calls (remaining 5)...");
 
   const [
-    basicFields,
     coreDoctrinesRaw,
     secondaryRaw,
     tertiaryRaw,
     denomConfession,
     redFlags,
   ] = await Promise.all([
-    // Call 1: Basic Fields
-    genai.models
-      .generateContent({
-        model: MODEL,
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: `${systemPrompt}\n\n${BASIC_FIELDS_PROMPT}\n\n${contentBlocks}` }],
-          },
-        ],
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: BASIC_FIELDS_SCHEMA,
-          seed: 1689,
-        },
-      })
-      .then((res) => {
-        if (!res.text) throw new Error("Empty response from Call 1");
-        return JSON.parse(res.text) as BasicFieldsResponse;
-      }),
 
     // Call 2: Core Doctrines
     genai.models
@@ -431,7 +566,8 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
   // ============================================================================
   const coreDoctrines = applyConfessionToCoreDoctrines(
     coreDoctrinesRaw.core_doctrines,
-    denomConfession.confession.adopted
+    denomConfession.confession.adopted,
+    denomConfession.confession.name
   );
 
   const secondary = applyConfessionToSecondary(
@@ -567,9 +703,9 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): {
   if (falseCount > 0 || hasCriticalRedFlag) {
     status = "not_endorsed";
   }
-  // Priority 2: Low coverage (<50%) → LIMITED_INFORMATION
+  // Priority 2: Low coverage (<60%) → LIMITED_INFORMATION
   // Not enough doctrinal clarity online; encourage users to contact the church
-  else if (coverageRatio < 0.5) {
+  else if (coverageRatio < 0.6) {
     status = "limited_information";
   }
   // Priority 3: Good coverage with Reformed distinctives AND no secondary differences → RECOMMENDED

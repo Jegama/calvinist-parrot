@@ -227,7 +227,7 @@ export const DENOMINATION_CONFESSION_PROMPT = `${COMMON_RULES}
 ### Task: Identify Denomination, Confession, and Structural Characteristics
 
 **Denomination:**
-- \`label\`: Best guess of denomination (e.g., "Reformed Baptist", "Presbyterian (PCA)", "Lutheran (LCMS)", "Anglican", "Non-denominational", etc.)
+- \`label\`: Best guess of denomination (e.g., "Reformed Baptist", "Presbyterian (PCA)", "Baptist (SBC affiliated)", "Lutheran (LCMS)", "Anglican", "Non-denominational", etc.)
 - \`confidence\`: 0.0 to 1.0 (how confident are you?)
 - \`signals\`: Array of short reasons (e.g., ["credo-baptism", "elder-led", "WCF referenced"])
 
@@ -291,6 +291,7 @@ Determine if the church **adopts** a historic confession as their doctrinal stan
 - If the site uses qualifying language (e.g., "subscribe for guidance but not absolute adherence", "subscribe for guidance", "affirm as sound teaching"), still mark \`adopted = true\` because the confession is being presented as the church's doctrinal guide. In this case, add a clarifying note that preserves the nuance (see Notes below).
 
 **CRITICAL REJECTIONS - Mark \`adopted = false\` for these:**
+- Baptist Faith and Message (2000 Edition / BFM 2000) - Southern Baptist Convention statement, NOT a historic Reformed confession. While biblically sound, it accommodates both Reformed and Arminian soteriology within the SBC. **Special handling:** Set \`name\` to "Baptist Faith and Message (2000 Edition)", note in denomination field as "Baptist (SBC affiliated/BFM 2000)", and mark \`adopted = false\`. This allows doctrine inference while preventing the Reformed badge.
 - ECO Essential Tenets (2012) - Modern progressive confession, NOT historic Reformed
 - Book of Confessions (PCUSA/ECO collection) - Contains problematic modern confessions (Confession of 1967, Belhar)
 - Any confession not explicitly listed above
