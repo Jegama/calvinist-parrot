@@ -75,17 +75,18 @@ model prayerFamilySpace {
 }
 
 model prayerMember {
-  id             String            @id @default(cuid())
-  spaceId        String
-  appwriteUserId String?
-  displayName    String
-  role           MemberRole        @default(MEMBER)
-  isChild        Boolean           @default(false)
-  assignmentCapacity Int           @default(2)
-  assignmentCount    Int           @default(0)
-  joinedAt       DateTime          @default(now())
-  lastPrayed     prayerFamily[]    @relation("LastPrayedBy")
-  space          prayerFamilySpace @relation(fields: [spaceId], references: [id])
+  id                 String            @id @default(cuid())
+  spaceId            String
+  appwriteUserId     String?
+  displayName        String
+  role               MemberRole        @default(MEMBER)
+  isChild            Boolean           @default(false)
+  birthdate          DateTime?         // For age calculation (Kids Discipleship, bracket badges)
+  assignmentCapacity Int               @default(2)
+  assignmentCount    Int               @default(0)
+  joinedAt           DateTime          @default(now())
+  lastPrayed         prayerFamily[]    @relation("LastPrayedBy")
+  space              prayerFamilySpace @relation(fields: [spaceId], references: [id])
 }
 
 model prayerFamily {

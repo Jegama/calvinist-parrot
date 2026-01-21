@@ -10,6 +10,7 @@ export type Member = {
   assignmentCapacity?: number;
   assignmentCount?: number;
   isChild?: boolean;
+  birthdate?: string | null; // ISO date string for age calculation
 };
 
 export type Family = {

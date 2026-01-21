@@ -112,11 +112,11 @@ export async function leavePrayerSpace(userId: string, spaceId: string, transfer
 /**
  * Regenerate share code for a prayer space
  */
-export async function regenerateShareCode(userId: string, spaceId: string): Promise<{ shareCode: string }> {
-  const response = await fetch(`/api/prayer-tracker/spaces/regenerate-code`, {
+export async function regenerateShareCode(userId: string, _spaceId: string): Promise<{ shareCode: string }> {
+  const response = await fetch(`/api/prayer-tracker/invite`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, spaceId }),
+    body: JSON.stringify({ userId, regenerate: true }),
   });
 
   if (!response.ok) {
@@ -129,11 +129,16 @@ export async function regenerateShareCode(userId: string, spaceId: string): Prom
 /**
  * Add a non-account (child) member to the space
  */
-export async function addChildMember(userId: string, displayName: string, assignmentCapacity?: number): Promise<void> {
+export async function addChildMember(
+  userId: string,
+  displayName: string,
+  assignmentCapacity?: number,
+  birthdate?: string
+): Promise<void> {
   const response = await fetch(`/api/prayer-tracker/members`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, displayName, assignmentCapacity, isChild: true }),
+    body: JSON.stringify({ userId, displayName, assignmentCapacity, isChild: true, birthdate }),
   });
 
   if (!response.ok) {
@@ -148,7 +153,7 @@ export async function addChildMember(userId: string, displayName: string, assign
 export async function updateMember(
   userId: string,
   memberId: string,
-  payload: { displayName?: string; assignmentCapacity?: number; isChild?: boolean }
+  payload: { displayName?: string; assignmentCapacity?: number; isChild?: boolean; birthdate?: string | null }
 ): Promise<void> {
   const response = await fetch(`/api/prayer-tracker/members`, {
     method: "PATCH",

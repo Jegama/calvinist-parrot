@@ -25,6 +25,7 @@ export async function GET(request: Request) {
       assignmentCapacity: true,
       assignmentCount: true,
       isChild: true,
+      birthdate: true,
     },
   });
   const totalCapacity = members.reduce((sum, member) => {

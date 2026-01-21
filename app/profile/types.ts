@@ -27,6 +27,7 @@ export type SpaceMember = {
   assignmentCapacity?: number;
   assignmentCount?: number;
   isChild?: boolean;
+  birthdate?: string | null;
 };
 
 export type MembershipInfo = SpaceMember & {
@@ -50,6 +51,7 @@ export type RawSpaceMember =
       assignmentCapacity?: number;
       assignmentCount?: number;
       isChild?: boolean;
+      birthdate?: string | Date | null;
     }>
   | null
   | undefined;
@@ -75,6 +77,7 @@ export const toSpaceMember = (raw: RawSpaceMember): SpaceMember => ({
   assignmentCapacity: typeof raw?.assignmentCapacity === "number" ? raw.assignmentCapacity : undefined,
   assignmentCount: typeof raw?.assignmentCount === "number" ? raw.assignmentCount : undefined,
   isChild: typeof raw?.isChild === "boolean" ? raw.isChild : undefined,
+  birthdate: raw?.birthdate ? String(raw.birthdate) : null,
 });
 
 export const toPrayerSpace = (raw: RawPrayerSpace): PrayerSpace => ({

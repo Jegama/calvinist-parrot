@@ -30,6 +30,7 @@ export async function GET(request: Request) {
                 assignmentCapacity: true,
                 assignmentCount: true,
                 isChild: true,
+                birthdate: true,
               },
               orderBy: { joinedAt: "asc" },
             },
@@ -49,6 +50,7 @@ export async function GET(request: Request) {
         assignmentCapacity: membership.assignmentCapacity,
         assignmentCount: membership.assignmentCount,
         isChild: membership.isChild,
+        birthdate: membership.birthdate,
         spaceId: membership.spaceId,
       }
     : null;

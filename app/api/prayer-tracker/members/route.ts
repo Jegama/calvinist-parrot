@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { DEFAULT_ADULT_CAPACITY, DEFAULT_CHILD_CAPACITY } from "@/app/prayer-tracker/constants";
+import { parseBirthdate } from "@/utils/ageUtils";
 
 function parseIntOrFallback(value: unknown, fallback: number) {
   const parsed = typeof value === "string" ? Number.parseInt(value, 10) : typeof value === "number" ? value : fallback;
@@ -15,11 +16,21 @@ export async function POST(request: Request) {
     displayName,
     assignmentCapacity,
     isChild = true,
-  }: { userId?: string; displayName?: string; assignmentCapacity?: number; isChild?: boolean } = body;
+    birthdate,
+  }: { userId?: string; displayName?: string; assignmentCapacity?: number; isChild?: boolean; birthdate?: string } = body;
 
   if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
   if (!displayName || !displayName.trim())
     return NextResponse.json({ error: "Display name is required" }, { status: 400 });
+
+  // Validate birthdate if provided
+  let parsedBirthdate: Date | null = null;
+  if (birthdate) {
+    parsedBirthdate = parseBirthdate(birthdate);
+    if (!parsedBirthdate) {
+      return NextResponse.json({ error: "Invalid birthdate format. Use ISO 8601 (YYYY-MM-DD)." }, { status: 400 });
+    }
+  }
 
   const actingMember = await prisma.prayerMember.findFirst({ where: { appwriteUserId: userId } });
   if (!actingMember) return NextResponse.json({ error: "No family space found" }, { status: 404 });
@@ -35,6 +46,7 @@ export async function POST(request: Request) {
       appwriteUserId: null,
       role: "MEMBER",
       isChild: Boolean(isChild),
+      birthdate: parsedBirthdate,
       assignmentCapacity: capacity,
       assignmentCount: 0,
     },
@@ -51,7 +63,8 @@ export async function PATCH(request: Request) {
     displayName,
     assignmentCapacity,
     isChild,
-  }: { userId?: string; memberId?: string; displayName?: string; assignmentCapacity?: number; isChild?: boolean } =
+    birthdate,
+  }: { userId?: string; memberId?: string; displayName?: string; assignmentCapacity?: number; isChild?: boolean; birthdate?: string | null } =
     body;
 
   if (!userId || !memberId) return NextResponse.json({ error: "Missing userId or memberId" }, { status: 400 });
@@ -69,6 +82,19 @@ export async function PATCH(request: Request) {
   if (typeof isChild === "boolean") data.isChild = isChild;
   if (assignmentCapacity !== undefined)
     data.assignmentCapacity = parseIntOrFallback(assignmentCapacity, target.assignmentCapacity);
+
+  // Handle birthdate update (can be set to null to clear)
+  if (birthdate !== undefined) {
+    if (birthdate === null) {
+      data.birthdate = null;
+    } else if (typeof birthdate === "string") {
+      const parsedBirthdate = parseBirthdate(birthdate);
+      if (!parsedBirthdate) {
+        return NextResponse.json({ error: "Invalid birthdate format. Use ISO 8601 (YYYY-MM-DD)." }, { status: 400 });
+      }
+      data.birthdate = parsedBirthdate;
+    }
+  }
 
   if (!Object.keys(data).length) return NextResponse.json(target);
 

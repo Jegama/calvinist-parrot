@@ -29,6 +29,7 @@ export async function GET(request: Request) {
               assignmentCapacity: true,
               assignmentCount: true,
               isChild: true,
+              birthdate: true,
             },
             orderBy: { joinedAt: "asc" },
           },
