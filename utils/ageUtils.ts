@@ -82,11 +82,14 @@ export function getAgeBracket(birthdate: string | Date): AgeBracket | null {
 }
 
 /**
- * Format age for display (e.g., "7 months", "2 years", "2 years 3 months").
+ * Format age for display (e.g., "Newborn", "7 months", "2 years", "2 years 3 months").
  */
 export function formatAge(birthdate: string | Date): string {
   const { years, months } = calculateAge(birthdate);
 
+  if (years === 0 && months === 0) {
+    return "Newborn";
+  }
   if (years === 0) {
     return months === 1 ? "1 month" : `${months} months`;
   }

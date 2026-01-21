@@ -43,26 +43,26 @@ export type PrayerSpace = {
 
 export type RawSpaceMember =
   | Partial<{
-      id: string | number;
-      displayName: string;
-      appwriteUserId: string;
-      role: string;
-      joinedAt: string | Date;
-      assignmentCapacity?: number;
-      assignmentCount?: number;
-      isChild?: boolean;
-      birthdate?: string | Date | null;
-    }>
+    id: string | number;
+    displayName: string;
+    appwriteUserId: string;
+    role: string;
+    joinedAt: string | Date;
+    assignmentCapacity?: number;
+    assignmentCount?: number;
+    isChild?: boolean;
+    birthdate?: string | Date | null;
+  }>
   | null
   | undefined;
 
 export type RawPrayerSpace =
   | Partial<{
-      id: string | number;
-      spaceName: string;
-      shareCode: string;
-      members: RawSpaceMember[];
-    }>
+    id: string | number;
+    spaceName: string;
+    shareCode: string;
+    members: RawSpaceMember[];
+  }>
   | null
   | undefined;
 
@@ -77,7 +77,11 @@ export const toSpaceMember = (raw: RawSpaceMember): SpaceMember => ({
   assignmentCapacity: typeof raw?.assignmentCapacity === "number" ? raw.assignmentCapacity : undefined,
   assignmentCount: typeof raw?.assignmentCount === "number" ? raw.assignmentCount : undefined,
   isChild: typeof raw?.isChild === "boolean" ? raw.isChild : undefined,
-  birthdate: raw?.birthdate ? String(raw.birthdate) : null,
+  birthdate: raw?.birthdate instanceof Date
+    ? raw.birthdate.toISOString()
+    : raw?.birthdate
+      ? String(raw.birthdate)
+      : null,
 });
 
 export const toPrayerSpace = (raw: RawPrayerSpace): PrayerSpace => ({

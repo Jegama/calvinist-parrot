@@ -112,7 +112,7 @@ export async function leavePrayerSpace(userId: string, spaceId: string, transfer
 /**
  * Regenerate share code for a prayer space
  */
-export async function regenerateShareCode(userId: string, _spaceId: string): Promise<{ shareCode: string }> {
+export async function regenerateShareCode(userId: string): Promise<{ shareCode: string }> {
   const response = await fetch(`/api/prayer-tracker/invite`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

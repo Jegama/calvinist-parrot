@@ -3,6 +3,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,7 +172,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
     if (!space || membership?.role !== "OWNER") return;
     setIsRegenerating(true);
     try {
-      await regenerateShareCode(userId, space.id);
+      await regenerateShareCode(userId);
       await onUpdate();
       setRegenerateSuccess(true);
       if (regenerateTimeoutRef.current) clearTimeout(regenerateTimeoutRef.current);
@@ -436,7 +437,11 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                 </div>
                 {membership?.role === "OWNER" && (
                   <div className="mt-3 space-y-2 rounded-md border p-3">
-                    <p className="text-sm font-semibold">Add a child (no account needed)</p>
+                    <p className="text-sm font-semibold">Add a child</p>
+                    <p className="text-xs text-muted-foreground">
+                      Children under 18 can participate without their own account. When they come of age, invite
+                      them to create an account and join your household using the share code.
+                    </p>
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                         <Input
@@ -478,11 +483,13 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                                 selected={newChildBirthdate}
                                 defaultMonth={newChildBirthdate}
                                 captionLayout="dropdown"
-                                fromYear={2005}
-                                toYear={new Date().getFullYear()}
+                                startMonth={new Date(new Date().getFullYear() - 18, 0)}
+                                endMonth={new Date(new Date().getFullYear(), 11)}
                                 onSelect={(date) => {
-                                  setNewChildBirthdate(date);
-                                  setNewChildBirthdateOpen(false);
+                                  flushSync(() => {
+                                    setNewChildBirthdate(date);
+                                    setNewChildBirthdateOpen(false);
+                                  });
                                 }}
                               />
                             </PopoverContent>
@@ -699,11 +706,13 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                     selected={editBirthdate}
                     defaultMonth={editBirthdate}
                     captionLayout="dropdown"
-                    fromYear={2005}
-                    toYear={new Date().getFullYear()}
+                    startMonth={new Date(new Date().getFullYear() - 18, 0)}
+                    endMonth={new Date(new Date().getFullYear(), 11)}
                     onSelect={(date) => {
-                      setEditBirthdate(date);
-                      setEditBirthdateOpen(false);
+                      flushSync(() => {
+                        setEditBirthdate(date);
+                        setEditBirthdateOpen(false);
+                      });
                     }}
                   />
                 </PopoverContent>
@@ -719,17 +728,20 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                 </Button>
               )}
             </div>
-            {editBirthdate && (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Age:</span>
-                <span className="font-medium">{formatAge(editBirthdate)}</span>
-                {getAgeBracket(editBirthdate) && (
-                  <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">
-                    {getBracketLabel(getAgeBracket(editBirthdate)!)}
-                  </span>
-                )}
-              </div>
-            )}
+            {editBirthdate && (() => {
+              const editBracket = getAgeBracket(editBirthdate);
+              return (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Age:</span>
+                  <span className="font-medium">{formatAge(editBirthdate)}</span>
+                  {editBracket && (
+                    <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">
+                      {getBracketLabel(editBracket)}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button
