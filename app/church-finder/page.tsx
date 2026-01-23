@@ -295,17 +295,17 @@ function ChurchFinderClient() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Church Finder</h1>
+        <h1 className="text-3xl font-serif font-bold text-foreground mb-2">Church Finder</h1>
         <p className="text-muted-foreground mb-4">
           We&apos;re building a community-maintained directory to help believers find churches anchored in the Gospel
           and the essentials of the faith. Filter by location and denominational distinctives, and contribute by adding
           churches so others can benefit.
         </p>
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
-          <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
+          <Button variant="outline" asChild className="w-full sm:w-auto">
             <Link href="/doctrinal-statement">View Our Doctrinal Statement</Link>
           </Button>
-          <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
+          <Button variant="outline" asChild className="w-full sm:w-auto">
             <Link href="/church-finder/guide">How evaluations work</Link>
           </Button>
         </div>

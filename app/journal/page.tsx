@@ -538,23 +538,24 @@ export default function JournalPage() {
     <div className="flex flex-col min-h-screen bg-background">
       <main className="flex-1 container mx-auto px-4 py-6 max-w-6xl">
         {/* Page Header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-          <div>
-            <h1 className="font-serif text-2xl sm:text-3xl text-primary">Coram Deo Journal</h1>
-            <p className="text-muted-foreground mt-1">
-              Living before the face of God
-            </p>
+        <header className="mb-8">
+          <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-serif font-bold text-foreground mb-2">Coram Deo Journal</h1>
+              <p className="text-muted-foreground">Living before the face of God</p>
+            </div>
+            <Button
+              onClick={() => setIsComposerOpen(true)}
+              disabled={isSubmitting}
+              className="gap-2 w-full sm:w-auto"
+            >
+              <Plus className="h-4 w-4" />
+              New Entry
+            </Button>
           </div>
-          <Button
-            onClick={() => setIsComposerOpen(true)}
-            className="gap-2 w-full sm:w-auto"
-          >
-            <Plus className="h-4 w-4" />
-            New Entry
-          </Button>
-        </div>
+        </header>
 
-        {/* Dashboard Strip */}
+        {/* Dashboard Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardContent className="pt-4">

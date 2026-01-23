@@ -48,33 +48,35 @@ export default function DashboardClient({ data }: DashboardClientProps) {
   return (
     <div className="bg-background min-h-screen p-4 md:p-8 font-sans text-foreground">
       {/* Header */}
-      <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-        <div className="space-y-3">
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground">AI Model Performance Dashboard</h1>
-          <p className="text-muted-foreground text-base md:text-lg max-w-8xl">
-            Which AI is most faithful and pastoral in answering theological questions? We evaluated Google, OpenAI, and
-            xAI models against a Reformed Baptist framework.
-          </p>
-          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <span className="bg-muted px-3 py-1 rounded-full">📊 500+ Questions Tested</span>
-            <span className="bg-muted px-3 py-1 rounded-full">🎯 3 Major Categories</span>
-            <span className="bg-muted px-3 py-1 rounded-full">🤖 6 Models Compared</span>
+      <header className="mb-8">
+        <div className="flex flex-col gap-4 mb-4 md:flex-row md:justify-between md:items-start">
+          <div>
+            <h1 className="text-3xl font-serif font-bold text-foreground mb-2">AI Model Performance Dashboard</h1>
+            <p className="text-muted-foreground">
+              Which AI is most faithful and pastoral in answering theological questions? We evaluated Google, OpenAI, and
+              xAI models against a Reformed Baptist framework.
+            </p>
+          </div>
+          <div className="flex flex-col items-stretch sm:flex-row sm:items-center gap-2">
+            <Button variant="outline" asChild className="w-full sm:w-auto whitespace-nowrap">
+              <Link href="/doctrinal-statement">
+                View Doctrinal Statement
+              </Link>
+            </Button>
+            <Button variant="outline" asChild className="gap-2 whitespace-nowrap w-full sm:w-auto">
+              <Link href="/llm-evaluation-dashboard/framework">
+                <BookOpen size={16} />
+                View Framework
+              </Link>
+            </Button>
           </div>
         </div>
-        <div className="flex flex-col items-stretch sm:flex-row sm:items-center gap-2">
-          <Link href="/doctrinal-statement">
-            <Button variant="outline" className="w-full sm:w-auto whitespace-nowrap">
-              View Doctrinal Statement
-            </Button>
-          </Link>
-          <Link href="/llm-evaluation-dashboard/framework">
-            <Button variant="outline" className="gap-2 whitespace-nowrap w-full sm:w-auto">
-              <BookOpen size={16} />
-              View Framework
-            </Button>
-          </Link>
+        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mb-6">
+          <span className="bg-muted px-3 py-1 rounded-full">📊 500+ Questions Tested</span>
+          <span className="bg-muted px-3 py-1 rounded-full">🎯 3 Major Categories</span>
+          <span className="bg-muted px-3 py-1 rounded-full">🤖 6 Models Compared</span>
         </div>
-      </div>
+      </header>
 
       {/* Quick Overview Banner */}
       <div className="mb-6 bg-gradient-to-r from-primary/10 to-chart-1/10 border border-primary/20 rounded-lg p-4 md:p-6">

@@ -347,10 +347,6 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">{member.role === "OWNER" ? "Owner" : "Member"}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Last rotation: {member.assignmentCount ?? 0} famil
-                            {(member.assignmentCount ?? 0) === 1 ? "y" : "ies"}
-                          </p>
                           {member.isChild && !hasValidBirthdate && membership?.role === "OWNER" && (
                             <Button
                               variant="link"

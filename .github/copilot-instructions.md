@@ -49,6 +49,30 @@
 - When adding stateful profile features, prefer `useProfileUiStore` for UI flags and `useQueryClient` updates (`updateProfileOverview`) over ad-hoc states.
 - Shared styling leans on Tailwind and `components/ui/**`; reuse `Card`, `Button`, `Sheet`, etc. instead of bespoke markup.
 
+### Standardized Page Headers
+All main feature pages follow a consistent header pattern for visual cohesion:
+```tsx
+<header className="mb-8">
+  <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h1 className="text-3xl font-serif font-bold text-foreground mb-2">Page Title</h1>
+      <p className="text-muted-foreground">Subtitle or description</p>
+    </div>
+    {/* Action buttons (right-aligned on desktop, full-width on mobile) */}
+    <Button className="w-full sm:w-auto">Primary Action</Button>
+  </div>
+</header>
+```
+**Key requirements:**
+- Semantic `<header>` wrapper with `mb-8` spacing
+- H1 uses `text-3xl font-serif font-bold text-foreground mb-2` (Source Serif 4 typography)
+- Subtitle uses `text-muted-foreground` (no custom sizing)
+- Responsive flex layout: `gap-4` between sections, `mb-4` after header row
+- Buttons: `w-full sm:w-auto` for mobile-first responsive behavior
+- Container padding: `py-8` and `px-4 sm:px-6` on parent container
+
+Examples: `/journal`, `/prayer-tracker`, `/church-finder`, `/llm-evaluation-dashboard`
+
 ## Brand Colors & Design System
 - **Always use CSS variables** defined in `app/globals.css` instead of hardcoded colors—enables theme switching and maintains brand consistency.
 - Reference `docs/CP Ministries/Design System.md` for end-to-end foundations, tokens, and component patterns.
