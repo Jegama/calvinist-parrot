@@ -3,6 +3,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +18,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { PrayerSpace, MembershipInfo } from "../types";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import type { PrayerSpace, MembershipInfo, SpaceMember } from "../types";
 import { useProfileUiStore } from "../ui-store";
 import { DEFAULT_ADULT_CAPACITY, DEFAULT_CHILD_CAPACITY } from "@/app/prayer-tracker/constants";
+import { formatAge, getAgeBracket, getBracketLabel, isValidBirthdate } from "@/utils/ageUtils";
 import {
   createPrayerSpace,
   joinPrayerSpace,
@@ -44,9 +48,18 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
   const regenerateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [newChildName, setNewChildName] = useState("");
   const [newChildCapacity, setNewChildCapacity] = useState<number>(1);
+  const [newChildBirthdate, setNewChildBirthdate] = useState<Date | undefined>(undefined);
+  const [newChildBirthdateOpen, setNewChildBirthdateOpen] = useState(false);
   const [isAddingChild, setIsAddingChild] = useState(false);
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [capacityDrafts, setCapacityDrafts] = useState<Record<string, number>>({});
+
+  // Edit member dialog state
+  const [editMemberDialogOpen, setEditMemberDialogOpen] = useState(false);
+  const [memberToEdit, setMemberToEdit] = useState<SpaceMember | null>(null);
+  const [editBirthdate, setEditBirthdate] = useState<Date | undefined>(undefined);
+  const [editBirthdateOpen, setEditBirthdateOpen] = useState(false);
+  const [isUpdatingBirthdate, setIsUpdatingBirthdate] = useState(false);
 
   const {
     pendingCode,
@@ -128,9 +141,11 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
     if (!newChildName.trim()) return;
     setIsAddingChild(true);
     try {
-      await addChildMember(userId, newChildName.trim(), newChildCapacity);
+      const birthdateStr = newChildBirthdate ? newChildBirthdate.toISOString() : undefined;
+      await addChildMember(userId, newChildName.trim(), newChildCapacity, birthdateStr);
       setNewChildName("");
       setNewChildCapacity(1);
+      setNewChildBirthdate(undefined);
       await onUpdate();
     } catch (error) {
       console.error("Failed to add child member", error);
@@ -157,7 +172,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
     if (!space || membership?.role !== "OWNER") return;
     setIsRegenerating(true);
     try {
-      await regenerateShareCode(userId, space.id);
+      await regenerateShareCode(userId);
       await onUpdate();
       setRegenerateSuccess(true);
       if (regenerateTimeoutRef.current) clearTimeout(regenerateTimeoutRef.current);
@@ -305,105 +320,191 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                   </Alert>
                 )}
                 <div className="space-y-2">
-                  {space.members.map((member) => (
-                    <div key={member.id} className="flex flex-col gap-3 rounded-md border p-3">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium">{member.displayName}</p>
-                          {member.isChild && (
-                            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              Child
-                            </span>
+                  {space.members.map((member) => {
+                    const hasValidBirthdate = member.birthdate && isValidBirthdate(member.birthdate);
+                    const ageDisplay = hasValidBirthdate ? formatAge(member.birthdate!) : null;
+                    const bracket = hasValidBirthdate ? getAgeBracket(member.birthdate!) : null;
+
+                    return (
+                      <div key={member.id} className="flex flex-col gap-3 rounded-md border p-3">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium">{member.displayName}</p>
+                            {member.isChild && (
+                              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Child
+                              </span>
+                            )}
+                            {member.isChild && ageDisplay && (
+                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                {ageDisplay}
+                              </span>
+                            )}
+                            {member.isChild && bracket && (
+                              <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                                {getBracketLabel(bracket)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{member.role === "OWNER" ? "Owner" : "Member"}</p>
+                          {member.isChild && !hasValidBirthdate && membership?.role === "OWNER" && (
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-xs text-muted-foreground underline"
+                              onClick={() => {
+                                setMemberToEdit(member);
+                                setEditBirthdate(undefined);
+                                setEditMemberDialogOpen(true);
+                              }}
+                            >
+                              + Add birthdate
+                            </Button>
+                          )}
+                          {member.isChild && hasValidBirthdate && membership?.role === "OWNER" && (
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-xs text-muted-foreground underline"
+                              onClick={() => {
+                                setMemberToEdit(member);
+                                setEditBirthdate(new Date(member.birthdate!));
+                                setEditMemberDialogOpen(true);
+                              }}
+                            >
+                              Edit birthdate
+                            </Button>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground">{member.role === "OWNER" ? "Owner" : "Member"}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Last rotation: {member.assignmentCount ?? 0} famil
-                          {(member.assignmentCount ?? 0) === 1 ? "y" : "ies"}
-                        </p>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-muted-foreground">Capacity</label>
+                            <Input
+                              type="number"
+                              className="w-24"
+                              min={0}
+                              value={capacityDrafts[member.id] ?? member.assignmentCapacity ?? 0}
+                              disabled={membership?.role !== "OWNER"}
+                              onChange={(e) =>
+                                setCapacityDrafts((prev) => ({
+                                  ...prev,
+                                  [member.id]: Number.parseInt(e.target.value || "0", 10),
+                                }))
+                              }
+                              onBlur={() => {
+                                // Auto-save on blur if value changed
+                                const currentDraft = capacityDrafts[member.id];
+                                const original = member.assignmentCapacity ?? 0;
+                                if (
+                                  currentDraft !== undefined &&
+                                  currentDraft !== original &&
+                                  membership?.role === "OWNER"
+                                ) {
+                                  handleUpdateCapacity(member.id);
+                                }
+                              }}
+                            />
+                            {membership?.role === "OWNER" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleUpdateCapacity(member.id)}
+                                disabled={savingMemberId === member.id}
+                              >
+                                {savingMemberId === member.id ? "Saving..." : "Save"}
+                              </Button>
+                            )}
+                          </div>
+                          {membership?.role === "OWNER" && member.id !== membership.id && (
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setMemberToRemove(member);
+                                setRemoveDialogOpen(true);
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    );
+                  })}
+                </div>
+                {membership?.role === "OWNER" && (
+                  <div className="mt-3 space-y-2 rounded-md border p-3">
+                    <p className="text-sm font-semibold">Add a child</p>
+                    <p className="text-xs text-muted-foreground">
+                      Children under 18 can participate without their own account. When they come of age, invite
+                      them to create an account and join your household using the share code.
+                    </p>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <Input
+                          placeholder="Child's name"
+                          value={newChildName}
+                          onChange={(e) => setNewChildName(e.target.value)}
+                          className="sm:flex-1"
+                        />
                         <div className="flex items-center gap-2">
                           <label className="text-xs text-muted-foreground">Capacity</label>
                           <Input
                             type="number"
-                            className="w-24"
+                            className="w-20"
                             min={0}
-                            value={capacityDrafts[member.id] ?? member.assignmentCapacity ?? 0}
-                            disabled={membership?.role !== "OWNER"}
+                            value={newChildCapacity}
                             onChange={(e) =>
-                              setCapacityDrafts((prev) => ({
-                                ...prev,
-                                [member.id]: Number.parseInt(e.target.value || "0", 10),
-                              }))
+                              setNewChildCapacity(() => {
+                                const parsed = Number.parseInt(e.target.value || "1", 10);
+                                return Number.isNaN(parsed) ? 1 : parsed;
+                              })
                             }
-                            onBlur={() => {
-                              // Auto-save on blur if value changed
-                              const currentDraft = capacityDrafts[member.id];
-                              const original = member.assignmentCapacity ?? 0;
-                              if (
-                                currentDraft !== undefined &&
-                                currentDraft !== original &&
-                                membership?.role === "OWNER"
-                              ) {
-                                handleUpdateCapacity(member.id);
-                              }
-                            }}
                           />
-                          {membership?.role === "OWNER" && (
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-muted-foreground">Birthdate</label>
+                          <Popover open={newChildBirthdateOpen} onOpenChange={setNewChildBirthdateOpen}>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-40 justify-start font-normal">
+                                {newChildBirthdate
+                                  ? newChildBirthdate.toLocaleDateString()
+                                  : "Select date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={newChildBirthdate}
+                                defaultMonth={newChildBirthdate}
+                                captionLayout="dropdown"
+                                startMonth={new Date(new Date().getFullYear() - 18, 0)}
+                                endMonth={new Date(new Date().getFullYear(), 11)}
+                                onSelect={(date) => {
+                                  flushSync(() => {
+                                    setNewChildBirthdate(date);
+                                    setNewChildBirthdateOpen(false);
+                                  });
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          {newChildBirthdate && (
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
-                              onClick={() => handleUpdateCapacity(member.id)}
-                              disabled={savingMemberId === member.id}
+                              onClick={() => setNewChildBirthdate(undefined)}
+                              className="h-8 px-2 text-xs text-muted-foreground"
                             >
-                              {savingMemberId === member.id ? "Saving..." : "Save"}
+                              Clear
                             </Button>
                           )}
                         </div>
-                        {membership?.role === "OWNER" && member.id !== membership.id && (
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setMemberToRemove(member);
-                              setRemoveDialogOpen(true);
-                            }}
-                          >
-                            Remove
-                          </Button>
-                        )}
+                        <Button onClick={handleAddChild} disabled={isAddingChild || !newChildName.trim()}>
+                          {isAddingChild ? "Adding..." : "Add Child"}
+                        </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-                {membership?.role === "OWNER" && (
-                  <div className="mt-3 space-y-2 rounded-md border p-3">
-                    <p className="text-sm font-semibold">Add a child (no account needed)</p>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                      <Input
-                        placeholder="Child's name"
-                        value={newChildName}
-                        onChange={(e) => setNewChildName(e.target.value)}
-                        className="sm:flex-1"
-                      />
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-muted-foreground">Capacity</label>
-                        <Input
-                          type="number"
-                          className="w-20"
-                          min={0}
-                          value={newChildCapacity}
-                          onChange={(e) =>
-                            setNewChildCapacity(() => {
-                              const parsed = Number.parseInt(e.target.value || "1", 10);
-                              return Number.isNaN(parsed) ? 1 : parsed;
-                            })
-                          }
-                        />
-                      </div>
-                      <Button onClick={handleAddChild} disabled={isAddingChild || !newChildName.trim()}>
-                        {isAddingChild ? "Adding..." : "Add Child"}
-                      </Button>
                     </div>
                   </div>
                 )}
@@ -572,6 +673,103 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
               disabled={isLeavingSpace || (membership?.role === "OWNER" && !transferOwnerId)}
             >
               Leave Space
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Member Birthdate Dialog */}
+      <Dialog open={editMemberDialogOpen} onOpenChange={setEditMemberDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit birthdate</DialogTitle>
+            <DialogDescription>
+              Set or update the birthdate for {memberToEdit?.displayName}. This helps track their age and developmental stage.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-muted-foreground">Birthdate</label>
+              <Popover open={editBirthdateOpen} onOpenChange={setEditBirthdateOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-44 justify-start font-normal">
+                    {editBirthdate ? editBirthdate.toLocaleDateString() : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={editBirthdate}
+                    defaultMonth={editBirthdate}
+                    captionLayout="dropdown"
+                    startMonth={new Date(new Date().getFullYear() - 18, 0)}
+                    endMonth={new Date(new Date().getFullYear(), 11)}
+                    onSelect={(date) => {
+                      flushSync(() => {
+                        setEditBirthdate(date);
+                        setEditBirthdateOpen(false);
+                      });
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+              {editBirthdate && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditBirthdate(undefined)}
+                  className="h-8 px-2 text-xs text-muted-foreground"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+            {editBirthdate && (() => {
+              const editBracket = getAgeBracket(editBirthdate);
+              return (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Age:</span>
+                  <span className="font-medium">{formatAge(editBirthdate)}</span>
+                  {editBracket && (
+                    <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">
+                      {getBracketLabel(editBracket)}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditMemberDialogOpen(false);
+                setMemberToEdit(null);
+                setEditBirthdate(undefined);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!memberToEdit) return;
+                setIsUpdatingBirthdate(true);
+                try {
+                  const birthdateStr = editBirthdate ? editBirthdate.toISOString() : null;
+                  await updateMember(userId, memberToEdit.id, { birthdate: birthdateStr });
+                  await onUpdate();
+                  setEditMemberDialogOpen(false);
+                  setMemberToEdit(null);
+                  setEditBirthdate(undefined);
+                } catch (error) {
+                  console.error("Failed to update birthdate", error);
+                } finally {
+                  setIsUpdatingBirthdate(false);
+                }
+              }}
+              disabled={isUpdatingBirthdate}
+            >
+              {isUpdatingBirthdate ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

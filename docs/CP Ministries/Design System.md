@@ -121,31 +121,66 @@ Do not invent new tokens ad hoc; extend the semantic set consistently.
 
 Patterns below reference tokens and Tailwind utilities already configured.
 
-### 4.1 Header
+### 4.1 Global Header
 
 - Container: `.app-header` with Cream background (light) or dark card (dark).
 - Text: Deep Teal in light; foreground in dark.
 - Separator: `.header-separator` uses accent tint in light, border in dark.
 - Behavior: graceful scroll shrink; liquid-glass variant available.
 
-### 4.2 Buttons
+### 4.2 Page Headers (Feature Pages)
+
+All main feature pages use a standardized header pattern for consistency:
+
+```tsx
+<header className="mb-8">
+  <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h1 className="text-3xl font-serif font-bold text-foreground mb-2">Page Title</h1>
+      <p className="text-muted-foreground">Subtitle or description</p>
+    </div>
+    <Button className="w-full sm:w-auto">Primary Action</Button>
+  </div>
+</header>
+```
+
+**Structure:**
+- Semantic `<header>` element with `mb-8` bottom margin
+- Responsive flex container with `gap-4` and `mb-4`
+- Title section on left, actions on right (stacks on mobile)
+- H1: `text-3xl font-serif font-bold text-foreground mb-2` (3xl = 1.875rem)
+- Subtitle: `text-muted-foreground` (default body size)
+- Action buttons: `w-full sm:w-auto` for responsive behavior
+
+**Container requirements:**
+- Parent should have `py-8` for vertical rhythm
+- Horizontal padding: `px-4 sm:px-6` or use container classes
+
+**Examples in codebase:**
+- Journal: `/app/journal/page.tsx`
+- Prayer Tracker: `/app/prayer-tracker/page.tsx`
+- Church Finder: `/app/church-finder/page.tsx`
+- LLM Dashboard: `/app/llm-evaluation-dashboard/dashboard-client.tsx`
+
+### 4.3 Buttons
 
 - Primary: `bg-primary text-primary-foreground` with focus `ring`.
 - Accent: `bg-accent text-accent-foreground` for secondary CTAs.
 - Outline/Secondary: use component variants from shadcn base.
 - States: hover = slightly darker fill; disabled = reduced opacity + no shadow.
+- Responsive sizing: Use `w-full sm:w-auto` for buttons in headers/toolbars.
 
-### 4.3 Forms & Inputs
+### 4.4 Forms & Inputs
 
 - Inputs: `bg-background`/`bg-card`, `border-border`, focus `ring`.
 - Labels: `text-foreground/80`; helper text uses `muted-foreground`.
 
-### 4.4 Cards
+### 4.5 Cards
 
 - Default: `bg-card text-card-foreground` with subtle shadow and radius.
 - Variants: emphasize sections with border or accent bar if needed.
 
-### 4.5 Status & Alerts
+### 4.6 Status & Alerts
 
 - Use utility classes:
   - Confessional: `.status--confessional`
@@ -154,23 +189,23 @@ Patterns below reference tokens and Tailwind utilities already configured.
   - Warning: `.status--warning` (Warm Gold background; dark readable text)
   - Danger: `.status--danger`
 
-### 4.6 Badges/Chips
+### 4.7 Badges/Chips
 
 - `.badge--neutral` for default labels.
 - `.badge--red-flag` for red-flag markers.
 
-### 4.7 Chat Bubbles
+### 4.8 Chat Bubbles
 
 - User: `bg-user-message text-user-message-foreground` (Sage)
 - Parrot: `bg-parrot-message text-parrot-message-foreground` (Deep Blue)
 - Maintain adequate padding and max-width for readability (~60–70ch max for prose).
 
-### 4.8 Sidebar Navigation
+### 4.9 Sidebar Navigation
 
 - Buttons: `.sidebar-button` with hover tint and active Mint background.
 - Colors: use `sidebar.*` tokens for background, foreground, accents, borders, ring.
 
-### 4.9 Tables & Data
+### 4.10 Tables & Data
 
 - Use `chart.*` tokens for consistent categorical color usage in data viz.
 - Ensure data text contrast meets AA; avoid gold-on-cream combinations.

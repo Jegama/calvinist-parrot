@@ -1,16 +1,9 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 type FamilyAssignment = { familyId: string; prayedByMemberId?: string | null };
-
-function resolveUserId(request: Request, body: { userId?: string }) {
-  const bodyUserId = typeof body.userId === "string" ? body.userId.trim() : "";
-  if (bodyUserId) return bodyUserId;
-  const { searchParams } = new URL(request.url);
-  const queryUserId = searchParams.get("userId");
-  return queryUserId?.trim() || undefined;
-}
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as {
@@ -18,11 +11,12 @@ export async function POST(request: Request) {
     familyAssignments?: FamilyAssignment[];
     personalIds?: string[];
   };
-  const userId = resolveUserId(request, body);
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(body.userId);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const membership = await prisma.prayerMember.findFirst({
-    where: { appwriteUserId: userId },
+    where: { appwriteUserId: authenticatedUserId },
     select: { id: true, spaceId: true },
   });
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
@@ -134,17 +128,17 @@ export async function POST(request: Request) {
     await prisma.$transaction(transactions);
   }
 
-  assignedUserIds.add(userId);
+  assignedUserIds.add(authenticatedUserId);
 
   await prisma.userProfile
     .update({
-      where: { appwriteUserId: userId },
+      where: { appwriteUserId: authenticatedUserId },
       data: { lastPrayerAt: now, lastSeenAt: now },
     })
     .catch(() => null);
 
   if (assignedUserIds.size > 1) {
-    const otherUserIds = Array.from(assignedUserIds).filter((id) => id !== userId);
+    const otherUserIds = Array.from(assignedUserIds).filter((id) => id !== authenticatedUserId);
     await Promise.all(
       otherUserIds.map((otherUserId) =>
         prisma.userProfile

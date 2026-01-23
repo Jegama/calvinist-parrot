@@ -18,41 +18,18 @@
 - Conversation titles and categories reuse mini OpenAI models through `utils/generateConversationName.ts` and prompt constants in `lib/prompts.ts`.
 - `app/page.tsx` and `app/[chatId]/page.tsx` invalidate the chat list query after streaming completes; make sure new mutations call `invalidate`/`upsertChat` so the sidebar stays in sync.
 
-## Prayer Tracker Module
-- Feature lives in `app/prayer-tracker/**` with sheets, rotation logic, and helpers split into `components/` and `utils.ts`.
-- API routes mirror the UI: `spaces`, `families`, `requests`, `rotation`, `rotation/confirm`, `journal`, and `invite`; each expects an Appwrite `userId` (use `appendUserId` when invoking from server code).
-- **Unified Request System**: `personal-requests` routes were refactored to `requests`; now handles both household-level requests (`prayerPersonalRequest`) and family-specific requests (`prayerFamilyRequest`) through a single unified API using the `UnifiedRequest` type with a `familyId` discriminator (null = household, set = family-specific).
-- Rotations compute member assignments in `/api/prayer-tracker/rotation/route.ts`; confirm endpoint writes Prisma records to `prayerRotation`, `prayerLog`, and request statuses for both household and family requests.
-- `app/prayer-tracker/page.tsx` keeps rotation state client-side with unified request management; components include `RequestSheet` (formerly `PersonalSheet`), `RequestsSection` (formerly `PersonalRequestsSection`), and new `FamilyDetailDialog` for viewing family info and their specific requests.
-- Follow the existing `fetch` patterns in `app/prayer-tracker/api.ts` for optimistic updates, error messaging via `handleApiError`, and category normalization helpers; API module exports typed `Result<T, E>` for consistent error handling.
-
-## Church Finder Module
-- Feature lives in `app/church-finder/**` with interactive map, filtering, discovery panel, and detail dialogs split across `components/`.
-- API routes under `app/api/churches/**`: root GET/POST for list/create, `[id]` for details, `search` for OpenStreetMap queries, `check` for existence validation, `meta` for filter dropdowns.
-- **AI-Powered Evaluation System**: Church creation (`POST /api/churches`) triggers an automated multi-stage LLM evaluation workflow via `utils/churchEvaluation.ts`:
-  - **Tavily Crawl**: Website content extraction using `tavily.crawl()` with duplicate anchor removal (`dropAnchorDupes`).
-  - **Parallel LLM Calls**: Six concurrent Gemini 2.5 Flash calls for basic fields, core doctrines, secondary/tertiary doctrines, denomination/confession, and red flags using schemas from `lib/schemas/church-finder.ts` and prompts from `lib/prompts/church-finder.ts`.
-  - **Post-Processing**: Status classification (Historic Reformed, Recommended, Biblically Sound with Differences, Limited Information, Not Endorsed) based on core doctrine coverage, confession adoption, and red flags via `postProcessEvaluation`.
-  - **Confession Inference**: Auto-populates missing doctrine data when historic confessions detected using `utils/confessionInference.ts`.
-  - **Badge System**: Allowlisted badges filtered through `utils/badges.ts`; only approved badges persist to prevent LLM hallucination.
-- **Core Doctrines**: Ten essential beliefs (trinity, gospel, justification by faith, Christ's deity/humanity, scripture authority, incarnation/virgin birth, atonement, resurrection, return/judgment, character of God) evaluated as `true/false/unknown` and stored in normalized Prisma columns.
-- **Secondary/Tertiary Doctrines**: JSON storage for non-essential beliefs (baptism, governance, eschatology, worship style, etc.) with structured extraction.
-- **Church Sorting**: Priority-based ordering in list view (Historic Reformed → Recommended → Biblically Sound → Limited Info → Not Endorsed) using `sortChurchesByPriority` helper in `app/api/churches/route.ts`.
-- **Discovery Workflow**: `ChurchDiscoveryPanel` component searches OpenStreetMap via Nominatim API, checks existence with `/api/churches/check`, creates new churches with loading states (Fetching → Analyzing → Complete), and manages optimistic updates.
-- **Filtering**: Status-based filtering (`exclude_red_flag` default), state/city dropdowns populated from `/api/churches/meta`, denomination and confessional toggles, pagination with 10 items per page.
-- **Map Integration**: Leaflet map in `ChurchMap` component with marker clustering, popups, and height syncing via `ResizeObserver`; lazy-loaded through `SafeMapContainer` to avoid SSR issues.
-- **Data Mappers**: `lib/churchMapper.ts` transforms Prisma relations to API types (`ChurchListItem`, `ChurchDetail`, `ChurchEvaluationRecord`) with doctrine value normalization.
-- **Geocoding**: Google Maps API integration in `utils/churchEvaluation.ts` for address → lat/lng conversion; handles multiple addresses per church with primary flag.
-- **Types**: Comprehensive TypeScript definitions in `types/church.ts` for evaluation workflow, API responses, and doctrine maps.
-- Prisma tables: `church`, `churchAddress`, `churchServiceTime`, `churchEvaluation`; evaluations are immutable records (re-evaluation creates new rows).
-- Follow existing patterns in `app/church-finder/api.ts` for `fetch` calls, query key structure (`["churches", page, state, city, ...]`), and TanStack Query cache updates.
+## Feature Modules
+- **Prayer Tracker:** UI in `app/prayer-tracker`; APIs in `app/api/prayer-tracker`. Uses unified request system (`familyId` null = household). See `.github/instructions/prayer-tracker.instructions.md` for patterns.
+- **Church Finder:** UI in `app/church-finder`; APIs in `app/api/churches`. AI evaluation pipeline uses Tavily + Gemini. See `.github/instructions/church-finder.instructions.md` for details.
+- **Journal:** UI in `app/journal`; APIs in `app/api/journal`. Streams NDJSON events for progressive AI reflection. See `.github/instructions/journal-api.instructions.md` and `.github/instructions/journal-ui.instructions.md` for patterns.
 
 ## Data & Integrations
-- Chat history tables: `prisma/chatHistory`, `prisma/chatMessage`; QA uses `questionHistory`; devotionals persist in `parrotDevotionals`; prayer tracker tables defined in latest migrations (`20250103*`, `20251011*`); church finder tables: `church`, `churchAddress`, `churchServiceTime`, `churchEvaluation`.
-- Profile pages hydrate from `app/api/profile/overview/route.ts`, which batches Prisma reads for `questionHistory`, `userProfile`, and the `prayerMember` + `space` graph—keep related fields in that handler so cached queries stay coherent.
-- Bible references use AO Lab endpoints through `utils/bibleUtils.ts` and mapping helpers in `utils/bookMappings.ts`.
-- Daily devotionals rely on Tavily plus OpenAI JSON schema (`utils/devotionalUtils.ts`); guard execution when `TAVILY_API_KEY` is missing and require `Authorization: Bearer ${CRON_SECRET}` for cron routes.
-- Church evaluations use Tavily crawl + Gemini 2.5 Flash parallel extraction (`utils/churchEvaluation.ts`); require `TAVILY_API_KEY` and `GEMINI_API_KEY` environment variables.
+- Prisma schema in `prisma/schema.prisma`; run `npx prisma migrate dev` after edits.
+- Tables: `chatHistory`, `chatMessage` (chat), `questionHistory` (QA), `parrotDevotionals`, prayer tracker tables (`20250103*`, `20251011*` migrations), church finder tables (`church`, `churchAddress`, `churchServiceTime`, `churchEvaluation`).
+- Profile API batches reads in `app/api/profile/overview/route.ts`.
+- Bible refs use AO Lab endpoints via `utils/bibleUtils.ts`.
+- Daily devotionals use Tavily + OpenAI; require `TAVILY_API_KEY` and `Authorization: Bearer ${CRON_SECRET}` for cron.
+- Church evaluations use Tavily + Gemini; require `TAVILY_API_KEY` and `GEMINI_API_KEY`.
 
 ## Frontend Patterns
 - Treat pages with hooks/effects as client components (`"use client"`); keep server components free of browser-only APIs.
@@ -60,6 +37,31 @@
 - Wrap any LLM output with `components/MarkdownWithBibleVerses.tsx` to preserve verse popovers; avoid duplicating parsing logic elsewhere.
 - When adding stateful profile features, prefer `useProfileUiStore` for UI flags and `useQueryClient` updates (`updateProfileOverview`) over ad-hoc states.
 - Shared styling leans on Tailwind and `components/ui/**`; reuse `Card`, `Button`, `Sheet`, etc. instead of bespoke markup.
+- **Page height calculation:** Use `min-h-[calc(100vh-var(--app-header-height))]` instead of `min-h-screen` to account for the dynamic sticky header height. The header sets `--app-header-height` CSS variable based on scroll state.
+
+### Standardized Page Headers
+All main feature pages follow a consistent header pattern for visual cohesion:
+```tsx
+<header className="mb-8">
+  <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <h1 className="text-3xl font-serif font-bold text-foreground mb-2">Page Title</h1>
+      <p className="text-muted-foreground">Subtitle or description</p>
+    </div>
+    {/* Action buttons (right-aligned on desktop, full-width on mobile) */}
+    <Button className="w-full sm:w-auto">Primary Action</Button>
+  </div>
+</header>
+```
+**Key requirements:**
+- Semantic `<header>` wrapper with `mb-8` spacing
+- H1 uses `text-3xl font-serif font-bold text-foreground mb-2` (Source Serif 4 typography)
+- Subtitle uses `text-muted-foreground` (no custom sizing)
+- Responsive flex layout: `gap-4` between sections, `mb-4` after header row
+- Buttons: `w-full sm:w-auto` for mobile-first responsive behavior
+- Container padding: `py-8` and `px-4 sm:px-6` on parent container
+
+Examples: `/journal`, `/prayer-tracker`, `/church-finder`, `/llm-evaluation-dashboard`
 
 ## Brand Colors & Design System
 - **Always use CSS variables** defined in `app/globals.css` instead of hardcoded colors—enables theme switching and maintains brand consistency.
@@ -81,8 +83,9 @@
 - If a requested change appears to conflict with those guidelines, note the concern in your PR or ask for clarification before proceeding.
 
 ## Environment & Workflows
-- `.env.template` lists required secrets: OpenAI keys, Tavily key, Prisma `DATABASE_URL`, `CRON_SECRET`, and Appwrite IDs; keep `GPT_MODEL` / `FT_MODEL` values aligned with `package.json` expectations.
-- Dev loop: `npm install`, `npm run dev`; production build triggers `prisma generate && next build`.
-- Run `npm run lint` before commits—TypeScript strict mode fails builds on unresolved types.
-- Streaming handlers should favor `ReadableStream` + `sendProgress` over manual `Response` writes to avoid backpressure issues.
-- Log data cautiously; redact Scripture and user content when adding diagnostics.
+- Required env vars: OpenAI keys, Tavily key, Gemini key, Prisma `DATABASE_URL`, `CRON_SECRET`, Appwrite IDs.
+- Dev: `npm install`, `npm run dev`; build: `prisma generate && next build`.
+- Run `npm run lint` before commits—TypeScript strict mode enabled.
+- Streaming handlers: use `ReadableStream` + `sendProgress` to avoid backpressure.
+- Log cautiously; redact Scripture and user content.
+- **Auth for APIs:** All `app/api/**` handlers must use `requireAuthenticatedUser` or `getAuthenticatedUserId` from `lib/auth.ts` instead of manual cookie reads.

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -8,6 +9,9 @@ export async function GET(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "Missing userId" }, { status: 400 });
   }
+
+  const { errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse) return errorResponse;
 
   const [questions, profile, membership] = await Promise.all([
     prisma.questionHistory.findMany({
@@ -30,6 +34,7 @@ export async function GET(request: Request) {
                 assignmentCapacity: true,
                 assignmentCount: true,
                 isChild: true,
+                birthdate: true,
               },
               orderBy: { joinedAt: "asc" },
             },
@@ -49,6 +54,7 @@ export async function GET(request: Request) {
         assignmentCapacity: membership.assignmentCapacity,
         assignmentCount: membership.assignmentCount,
         isChild: membership.isChild,
+        birthdate: membership.birthdate,
         spaceId: membership.spaceId,
       }
     : null;

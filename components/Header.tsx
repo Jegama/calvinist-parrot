@@ -109,6 +109,9 @@ export function Header() {
               <Link href="/" prefetch={false} className="hover:opacity-70 transition-opacity">
                 Chat
               </Link>
+              <Link href="/journal" prefetch={false} className="hover:opacity-70 transition-opacity">
+                Journal
+              </Link>
               <Link href="/devotional" prefetch={false} className="hover:opacity-70 transition-opacity">
                 Devotional
               </Link>
@@ -157,6 +160,11 @@ export function Header() {
                 <DropdownMenuItem asChild>
                   <Link href="/" prefetch={false} className="w-full">
                     Chat
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/journal" prefetch={false} className="w-full">
+                    Journal
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>

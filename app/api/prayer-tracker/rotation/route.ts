@@ -5,11 +5,13 @@ import {
   MIN_FAMILY_LIMIT,
   MAX_PERSONAL_REQUESTS_PER_ROTATION,
 } from "@/app/prayer-tracker/constants";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  const providedUserId = searchParams.get("userId") ?? undefined;
+  const { userId, errorResponse } = await requireAuthenticatedUser(providedUserId);
+  if (errorResponse || !userId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: userId } });
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
@@ -25,6 +27,7 @@ export async function GET(request: Request) {
       assignmentCapacity: true,
       assignmentCount: true,
       isChild: true,
+      birthdate: true,
     },
   });
   const totalCapacity = members.reduce((sum, member) => {

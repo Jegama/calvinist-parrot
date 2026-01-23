@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 /**
  * GET /api/prayer-tracker/requests
  * Fetches all requests (both household and family-specific) for the user's space
  * Returns a unified array with familyId to distinguish between types
  */
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+export async function GET() {
+  const { errorResponse, userId } = await requireAuthenticatedUser();
+  if (errorResponse || !userId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: userId } });
   if (!membership) return NextResponse.json([]);
@@ -109,10 +109,14 @@ export async function POST(request: Request) {
     linkedToFamily: typeof payload.linkedToFamily === "string" ? payload.linkedToFamily : "household",
   };
 
-  if (!userId || !requestText)
-    return NextResponse.json({ error: "Missing userId or requestText" }, { status: 400 });
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: userId } });
+  if (!requestText)
+    return NextResponse.json({ error: "Missing requestText" }, { status: 400 });
+
+  const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId } });
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
 
   // Route to appropriate table based on linkedToFamily

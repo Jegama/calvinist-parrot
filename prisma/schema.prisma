@@ -1,7 +1,8 @@
 // prisma/schema.prisma
 
-// Always use  `npx prisma migrate dev` to apply changes to the database
+// Always use  `npx prisma migrate dev` to apply changes to the dev database
 // To see the tables locally, use `npx prisma studio`
+// For production, use `npx prisma migrate deploy` after deploying new code
 
 generator client {
   provider = "prisma-client-js"
@@ -69,23 +70,25 @@ model prayerFamilySpace {
   updatedAt        DateTime                @updatedAt
   families         prayerFamily[]
   journal          prayerJournalEntry[]
+  journalEntries   journalEntry[]          // Journal v1 entries
   members          prayerMember[]
   personalRequests prayerPersonalRequest[]
   profiles         userProfile[]           @relation("DefaultSpaceProfiles")
 }
 
 model prayerMember {
-  id             String            @id @default(cuid())
-  spaceId        String
-  appwriteUserId String?
-  displayName    String
-  role           MemberRole        @default(MEMBER)
-  isChild        Boolean           @default(false)
-  assignmentCapacity Int           @default(2)
-  assignmentCount    Int           @default(0)
-  joinedAt       DateTime          @default(now())
-  lastPrayed     prayerFamily[]    @relation("LastPrayedBy")
-  space          prayerFamilySpace @relation(fields: [spaceId], references: [id])
+  id                 String            @id @default(cuid())
+  spaceId            String
+  appwriteUserId     String?
+  displayName        String
+  role               MemberRole        @default(MEMBER)
+  isChild            Boolean           @default(false)
+  birthdate          DateTime?         // For age calculation (Kids Discipleship, bracket badges)
+  assignmentCapacity Int               @default(2)
+  assignmentCount    Int               @default(0)
+  joinedAt           DateTime          @default(now())
+  lastPrayed         prayerFamily[]    @relation("LastPrayedBy")
+  space              prayerFamilySpace @relation(fields: [spaceId], references: [id])
 }
 
 model prayerFamily {
@@ -143,6 +146,45 @@ model prayerJournalEntry {
   entryText String
   tags      String[]
   space     prayerFamilySpace @relation(fields: [spaceId], references: [id])
+}
+
+// ==========================================
+// Journal v1 (Coram Deo Journal) - Phase 2
+// ==========================================
+
+model journalEntry {
+  id              String            @id @default(cuid())
+  spaceId         String?           // Links to prayerFamilySpace (household)
+  authorProfileId String            // Links to userProfile.id
+  entryDate       DateTime          @default(now())
+  entryText       String
+  entryType       JournalEntryType  @default(PERSONAL)
+  category        LogCategory?      // Only used for DISCIPLESHIP entries (Phase 3)
+  subjectMemberId String?           // Child member ID for DISCIPLESHIP entries
+  tags            String[]          // Flat array for quick filtering
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  space           prayerFamilySpace? @relation(fields: [spaceId], references: [id])
+  aiOutput        journalEntryAI?
+
+  @@index([spaceId])
+  @@index([authorProfileId])
+  @@index([subjectMemberId])
+  @@index([entryType])
+}
+
+model journalEntryAI {
+  id        String       @id @default(cuid())
+  entryId   String       @unique
+  call1     Json         // Pastoral Reflection output
+  call2     Json?        // Tags + Prayer Suggestions output (nullable until processed)
+  modelInfo Json         // { model: string, version: string, promptVersion: string }
+  createdAt DateTime     @default(now())
+
+  // Relations
+  entry     journalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 }
 
 model chatHistory {
@@ -290,4 +332,18 @@ enum ChurchEvaluationStatus {
   BIBLICALLY_SOUND_WITH_DIFFERENCES
   LIMITED_INFORMATION
   NOT_ENDORSED
+}
+
+// ==========================================
+// Journal v1 Enums - Phase 2
+// ==========================================
+
+enum JournalEntryType {
+  PERSONAL      // Personal journal entry
+  DISCIPLESHIP  // Kids discipleship log (Phase 3)
+}
+
+enum LogCategory {
+  SPIRIT  // "Sowing to Spirit" - blessings/wins (Phase 3)
+  FLESH   // "Sowing to Flesh" - struggles/consequences (Phase 3)
 }

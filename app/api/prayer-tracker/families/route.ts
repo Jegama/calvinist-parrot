@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  const providedUserId = searchParams.get("userId") ?? undefined;
+  const { userId, errorResponse } = await requireAuthenticatedUser(providedUserId);
+  if (errorResponse || !userId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const membership = await prisma.prayerMember.findFirst({
     where: { appwriteUserId: userId },
@@ -36,10 +38,12 @@ export async function POST(request: Request) {
     children?: string[];
     categoryTag?: string;
   };
-  if (!userId || !familyName)
-    return NextResponse.json({ error: "Missing userId or familyName" }, { status: 400 });
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: userId } });
+  if (!familyName) return NextResponse.json({ error: "Missing familyName" }, { status: 400 });
+  const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId } });
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
 
   const fam = await prisma.prayerFamily.create({

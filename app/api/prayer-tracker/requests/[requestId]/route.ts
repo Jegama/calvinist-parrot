@@ -2,19 +2,9 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 
+import { requireAuthenticatedUser } from "@/lib/auth";
+
 type RouteContext = { params: Promise<{ requestId: string }> };
-
-async function getMembership(userId?: string) {
-  if (!userId) return null;
-  return prisma.prayerMember.findFirst({ where: { appwriteUserId: userId } });
-}
-
-function resolveUserId(request: Request, bodyUserId?: string) {
-  if (bodyUserId && bodyUserId.trim().length) return bodyUserId.trim();
-  const { searchParams } = new URL(request.url);
-  const queryUserId = searchParams.get("userId");
-  return queryUserId ?? undefined;
-}
 
 /**
  * PATCH /api/prayer-tracker/requests/[requestId]
@@ -34,7 +24,9 @@ export async function PATCH(request: Request, context: RouteContext) {
     linkedToFamily?: string; // New family assignment (if changed)
     originalLinkedToFamily?: string; // Original family assignment
   };
-  const userId = resolveUserId(request, body.userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(body.userId);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const {
     requestText,
     notes,
@@ -46,9 +38,9 @@ export async function PATCH(request: Request, context: RouteContext) {
     originalLinkedToFamily,
   } = body;
 
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  if (!authenticatedUserId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 
-  const membership = await getMembership(userId);
+  const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId } });
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
 
   const now = new Date();
@@ -243,8 +235,8 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   // Update current user's profile
   transactions.push(
-    prisma.userProfile.upsert({
-      where: { appwriteUserId: userId },
+      prisma.userProfile.upsert({
+        where: { appwriteUserId: authenticatedUserId },
       update: markAnswered
         ? {
             // Increment answeredPersonalCount for household requests, answeredFamilyCount for family-specific requests
@@ -258,7 +250,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           },
       create: markAnswered
         ? {
-            appwriteUserId: userId,
+            appwriteUserId: authenticatedUserId,
             displayName: membership.displayName,
             email: null,
             answeredFamilyCount: isHouseholdRequest ? 0 : 1,
@@ -266,7 +258,7 @@ export async function PATCH(request: Request, context: RouteContext) {
             lastSeenAt: now,
           }
         : {
-            appwriteUserId: userId,
+            appwriteUserId: authenticatedUserId,
             displayName: membership.displayName,
             email: null,
             lastSeenAt: now,
@@ -277,7 +269,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   // Update profiles for all other members in the space when marking as answered
   if (markAnswered && spaceMembers.length > 0) {
     spaceMembers.forEach((member) => {
-      if (!member.appwriteUserId || member.appwriteUserId === userId) {
+        if (!member.appwriteUserId || member.appwriteUserId === authenticatedUserId) {
         return;
       }
 
@@ -315,12 +307,12 @@ export async function PATCH(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   const { requestId } = await context.params;
   const body = await request.json().catch(() => ({}));
-  const userId = resolveUserId(request, body?.userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(body?.userId);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const isHouseholdRequest = body?.isHouseholdRequest;
 
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-
-  const membership = await getMembership(userId);
+  const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId } });
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
 
   if (isHouseholdRequest) {

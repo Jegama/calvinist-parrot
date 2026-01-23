@@ -80,9 +80,12 @@ export default function PrayerTrackerPage() {
           <CardHeader>
             <CardTitle>Prayer Tracker</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-4">
             <p>You don&apos;t have a shared family space yet.</p>
             <p>Create one from your profile page to begin tracking prayers together.</p>
+            <Button asChild>
+              <Link href="/profile">Go to Profile</Link>
+            </Button>
           </CardContent>
         </Card>
       </ProtectedView>
@@ -91,42 +94,48 @@ export default function PrayerTrackerPage() {
 
   return (
     <ProtectedView fallback={authFallback}>
-      <div className="max-w-6xl mx-auto mt-8 mb-16 space-y-8 px-4 sm:px-6">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">{spaceName}</h1>
-            <p className="text-sm text-muted-foreground">Prayer partners: {memberNames}</p>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        <header className="mb-8">
+          <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-serif font-bold text-foreground mb-2">{spaceName}</h1>
+              <p className="text-muted-foreground">Prayer partners: {memberNames}</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <Button asChild variant="outline" className="w-full sm:w-auto">
+                <Link href="/prayer-tracker/family-worship">Why Family Worship?</Link>
+              </Button>
+              <Button
+                onClick={rotationWorkflow.computeRotation}
+                disabled={rotationWorkflow.isComputing}
+                className="w-full sm:w-auto"
+              >
+                {rotationWorkflow.isComputing ? "Computing..." : "Compute Tonight's Rotation"}
+              </Button>
+            </div>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-            <Button asChild variant="outline">
-              <Link href="/prayer-tracker/family-worship">Why Family Worship?</Link>
-            </Button>
-            <Button onClick={rotationWorkflow.computeRotation} disabled={rotationWorkflow.isComputing}>
-              {rotationWorkflow.isComputing ? "Computing..." : "Compute Tonight's Rotation"}
-            </Button>
-          </div>
-        </div>
-
-        {rotationWorkflow.rotationError && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {rotationWorkflow.rotationError}
-          </div>
-        )}
-
-        <RotationCard
-          rotation={rotationWorkflow.rotation}
-          members={members}
-          familyAssignments={rotationWorkflow.familyAssignments}
-          personalSelections={rotationWorkflow.personalSelections}
-          isConfirming={rotationWorkflow.isConfirming}
-          hasSelections={rotationWorkflow.hasSelections}
-          onFamilyAssignmentChange={rotationWorkflow.handleFamilyAssignmentChange}
-          onPersonalSelectionChange={rotationWorkflow.handlePersonalSelectionChange}
-          onCancelRotation={rotationWorkflow.handleCancelRotation}
-          onConfirmRotation={rotationWorkflow.confirmRotation}
-        />
+        </header>
 
         <div className="space-y-6">
+          {rotationWorkflow.rotationError && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {rotationWorkflow.rotationError}
+            </div>
+          )}
+
+          <RotationCard
+            rotation={rotationWorkflow.rotation}
+            members={members}
+            familyAssignments={rotationWorkflow.familyAssignments}
+            personalSelections={rotationWorkflow.personalSelections}
+            isConfirming={rotationWorkflow.isConfirming}
+            hasSelections={rotationWorkflow.hasSelections}
+            onFamilyAssignmentChange={rotationWorkflow.handleFamilyAssignmentChange}
+            onPersonalSelectionChange={rotationWorkflow.handlePersonalSelectionChange}
+            onCancelRotation={rotationWorkflow.handleCancelRotation}
+            onConfirmRotation={rotationWorkflow.confirmRotation}
+          />
+
           <RequestsSection
             className="w-full"
             requests={requests}

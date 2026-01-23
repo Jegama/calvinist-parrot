@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 function generateShareCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxy123456789-*";
@@ -11,10 +12,12 @@ function generateShareCode() {
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const { userId, regenerate } = body as { userId?: string; regenerate?: boolean };
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const membership = await prisma.prayerMember.findFirst({
-    where: { appwriteUserId: userId },
+    where: { appwriteUserId: authenticatedUserId },
     include: { space: true },
   });
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });

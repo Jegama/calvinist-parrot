@@ -9,7 +9,16 @@ interface MarkdownWithBibleVersesProps {
   content: string;
 }
 
+// Sanitize content by removing control characters except common whitespace
+function sanitizeContent(text: string): string {
+  // Remove control characters (U+0000 to U+001F) except for \n, \t, \r
+  return text.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, '');
+}
+
 export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProps) {
+  // Sanitize content before processing
+  const sanitizedContent = sanitizeContent(content);
+  
   const renderWithBibleVerses: (children: React.ReactNode) => React.ReactNode = (children) => {
     if (typeof children === 'string') {
       const parts = [];
@@ -105,6 +114,6 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
     },
   };
 
-  return <ReactMarkdown components={customComponents}>{content}</ReactMarkdown>;
+  return <ReactMarkdown components={customComponents}>{sanitizedContent}</ReactMarkdown>;
 }
 

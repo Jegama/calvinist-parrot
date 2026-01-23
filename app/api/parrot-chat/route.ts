@@ -3,7 +3,6 @@
 // export const maxDuration = 60;
 
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import type { Prisma } from "@prisma/client";
 import { sendError, sendProgress } from "@/lib/progressUtils";
 import prisma from "@/lib/prisma";
@@ -13,6 +12,7 @@ import { toolsArray } from "@/utils/langChainAgents/tools";
 import { generateConversationName } from "@/utils/generateConversationName";
 import { updateUserMemoriesFromConversation } from "@/utils/memoryExtraction";
 import { buildParrotSystemPrompt } from "@/utils/buildParrotSystemPrompt";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
   const TOOL_NODE_NAMES = new Set(["tools", ...toolsArray.map((tool) => tool.name)]);
@@ -45,14 +45,20 @@ export async function POST(request: Request) {
     clientChatId,
   }: ChatRequestBody = await request.json();
 
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const effectiveUserId = userId || authenticatedUserId;
+
   // Handle new chat from Parrot QA
-  if (userId && initialQuestion && initialAnswer && !chatId) {
+  if (effectiveUserId && initialQuestion && initialAnswer && !chatId) {
     const allMessagesStr = `user: ${initialQuestion}\nparrot: ${initialAnswer}`;
     const conversationName = await generateConversationName(allMessagesStr);
     const chat = await prisma.$transaction(async (tx) => {
       const createdChat = await tx.chatHistory.create({
         data: {
-          userId,
+          userId: effectiveUserId,
           conversationName,
           category: category || "",
           subcategory: subcategory || "",
@@ -88,7 +94,7 @@ export async function POST(request: Request) {
       const createdChat = await tx.chatHistory.create({
         data: {
           id: clientChatId ?? undefined,
-          userId,
+          userId: effectiveUserId,
           conversationName: "New Conversation",
           category: "",
           subcategory: "",
@@ -114,13 +120,13 @@ export async function POST(request: Request) {
   // If chatID and message run main system <-- This continues the converation and is the main use case.
   if (chatId && message) {
     // Fetch userId from chatHistory if not provided in request
-    let effectiveUserId = userId;
-    if (!effectiveUserId) {
+    let resolvedUserId = effectiveUserId;
+    if (!resolvedUserId) {
       const chatRecord = await prisma.chatHistory.findUnique({
         where: { id: chatId },
         select: { userId: true },
       });
-      effectiveUserId = chatRecord?.userId || "";
+      resolvedUserId = chatRecord?.userId || "";
     }
 
     type LangChainMessage =
@@ -166,7 +172,7 @@ export async function POST(request: Request) {
 
     // Fetch user profile for pastoral context injection
     const userProfile = await prisma.userProfile.findUnique({
-      where: { appwriteUserId: effectiveUserId },
+      where: { appwriteUserId: resolvedUserId },
       select: {
         denomination: true,
         preferredDepth: true,
@@ -185,11 +191,11 @@ export async function POST(request: Request) {
     const newParrotSysPrompt = buildParrotSystemPrompt({
       userProfile,
       denominationFallback: denomination,
-      effectiveUserId,
+      effectiveUserId: resolvedUserId,
     });
 
     // Capture variables for stream closure
-    const capturedUserId = effectiveUserId;
+    const capturedUserId = resolvedUserId;
     const capturedChatId = chatId;
 
     const stream = new ReadableStream({
@@ -505,17 +511,12 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const chatId = searchParams.get("chatId");
-  const userIdFromQuery = searchParams.get("userId");
-  const cookieStore = await cookies();
-  const userIdFromCookie = cookieStore.get("userId")?.value ?? null;
-  const requesterUserId = userIdFromQuery ?? userIdFromCookie;
+  const userIdFromQuery = searchParams.get("userId") ?? undefined;
+  const { userId: requesterUserId, errorResponse } = await requireAuthenticatedUser(userIdFromQuery);
+  if (errorResponse || !requesterUserId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!chatId) {
     return NextResponse.json({ error: "Missing chatId" }, { status: 400 });
-  }
-
-  if (!requesterUserId) {
-    return NextResponse.json({ error: "Missing user identity" }, { status: 401 });
   }
 
   const chat = await prisma.chatHistory.findUnique({ where: { id: chatId } });
