@@ -19,28 +19,17 @@
 - `app/page.tsx` and `app/[chatId]/page.tsx` invalidate the chat list query after streaming completes; make sure new mutations call `invalidate`/`upsertChat` so the sidebar stays in sync.
 
 ## Feature Modules
-- **Prayer Tracker:** Located in [app/prayer-tracker](../app/prayer-tracker). APIs mirror the UI in [app/api](../app/api). Key invariants:
-  - **Unified Request System:** Use `UnifiedRequest` with `familyId` discriminant; household requests use `null`.
-  - **Auth:** Use shared helpers in [lib/auth.ts](../lib/auth.ts) for all `app/api/**` handlers.
-  - **Rotation Confirm Effects:** Writes to `prayerRotation`, `prayerLog`, and updates request statuses.
-  - **Client Patterns:** Follow [app/prayer-tracker/api.ts](../app/prayer-tracker/api.ts) for optimistic updates and `Result<T, E>` errors; reuse TanStack Query cache keys and helpers.
-- **Church Finder:** UI in [app/church-finder](../app/church-finder); APIs under [app/api/churches](../app/api/churches). Key invariants:
-  - **Evaluation Pipeline:** See [utils/churchEvaluation.ts](../utils/churchEvaluation.ts) (Tavily crawl → concurrent LLM extraction → post-processing).
-  - **Normalization:** Map Prisma relations via [lib/churchMapper.ts](../lib/churchMapper.ts); core doctrines stored as normalized columns; secondary/tertiary in JSON.
-  - **Sorting & Badges:** List ordering via `sortChurchesByPriority` in [app/api/churches/route.ts](../app/api/churches/route.ts); enforce badge allowlist in [utils/badges.ts](../utils/badges.ts).
-  - **Env Vars:** Requires `TAVILY_API_KEY` and `GEMINI_API_KEY`. See [.env.template](../.env.template).
- - **Journal:** UI in [app/journal](../app/journal); APIs under [app/api/journal](../app/api/journal). Key invariants:
-   - **Auth & Ownership:** Use [lib/auth.ts](../lib/auth.ts) and verify `authorProfileId` before reads/writes.
-   - **Streaming Events:** [entries/route.ts](../app/api/journal/entries/route.ts) streams NDJSON with event types: `entry_created`, `progress`, `call1a_complete`, `call1b_complete`, `call1c_complete`, `call2_complete`, `done`, `error`.
-   - **AI Pipeline:** See [utils/journal/llm.ts](../utils/journal/llm.ts); outputs defined in [types/journal.ts](../types/journal.ts). Persist with retry/backoff and merge tags.
-   - **Profile Counters:** Increment/decrement `journalEntriesCount` on create/delete.
+- **Prayer Tracker:** UI in `app/prayer-tracker`; APIs in `app/api/prayer-tracker`. Uses unified request system (`familyId` null = household). See `.github/instructions/prayer-tracker.instructions.md` for patterns.
+- **Church Finder:** UI in `app/church-finder`; APIs in `app/api/churches`. AI evaluation pipeline uses Tavily + Gemini. See `.github/instructions/church-finder.instructions.md` for details.
+- **Journal:** UI in `app/journal`; APIs in `app/api/journal`. Streams NDJSON events for progressive AI reflection. See `.github/instructions/journal-api.instructions.md` and `.github/instructions/journal-ui.instructions.md` for patterns.
 
 ## Data & Integrations
-- Chat history tables: `prisma/chatHistory`, `prisma/chatMessage`; QA uses `questionHistory`; devotionals persist in `parrotDevotionals`; prayer tracker tables defined in latest migrations (`20250103*`, `20251011*`); church finder tables: `church`, `churchAddress`, `churchServiceTime`, `churchEvaluation`.
-- Profile pages hydrate from `app/api/profile/overview/route.ts`, which batches Prisma reads for `questionHistory`, `userProfile`, and the `prayerMember` + `space` graph—keep related fields in that handler so cached queries stay coherent.
-- Bible references use AO Lab endpoints through `utils/bibleUtils.ts` and mapping helpers in `utils/bookMappings.ts`.
-- Daily devotionals rely on Tavily plus OpenAI JSON schema (`utils/devotionalUtils.ts`); guard execution when `TAVILY_API_KEY` is missing and require `Authorization: Bearer ${CRON_SECRET}` for cron routes.
-- Church evaluations use Tavily crawl + Gemini 2.5 Flash parallel extraction (`utils/churchEvaluation.ts`); require `TAVILY_API_KEY` and `GEMINI_API_KEY` environment variables.
+- Prisma schema in `prisma/schema.prisma`; run `npx prisma migrate dev` after edits.
+- Tables: `chatHistory`, `chatMessage` (chat), `questionHistory` (QA), `parrotDevotionals`, prayer tracker tables (`20250103*`, `20251011*` migrations), church finder tables (`church`, `churchAddress`, `churchServiceTime`, `churchEvaluation`).
+- Profile API batches reads in `app/api/profile/overview/route.ts`.
+- Bible refs use AO Lab endpoints via `utils/bibleUtils.ts`.
+- Daily devotionals use Tavily + OpenAI; require `TAVILY_API_KEY` and `Authorization: Bearer ${CRON_SECRET}` for cron.
+- Church evaluations use Tavily + Gemini; require `TAVILY_API_KEY` and `GEMINI_API_KEY`.
 
 ## Frontend Patterns
 - Treat pages with hooks/effects as client components (`"use client"`); keep server components free of browser-only APIs.
@@ -93,9 +82,9 @@ Examples: `/journal`, `/prayer-tracker`, `/church-finder`, `/llm-evaluation-dash
 - If a requested change appears to conflict with those guidelines, note the concern in your PR or ask for clarification before proceeding.
 
 ## Environment & Workflows
-- `.env.template` lists required secrets: OpenAI keys, Tavily key, Prisma `DATABASE_URL`, `CRON_SECRET`, and Appwrite IDs; keep `GPT_MODEL` / `FT_MODEL` values aligned with `package.json` expectations.
-- Dev loop: `npm install`, `npm run dev`; production build triggers `prisma generate && next build`.
-- Run `npm run lint` before commits—TypeScript strict mode fails builds on unresolved types.
-- Streaming handlers should favor `ReadableStream` + `sendProgress` over manual `Response` writes to avoid backpressure issues.
-- Log data cautiously; redact Scripture and user content when adding diagnostics.
-- **Auth helper for routes**: All new `app/api/**` handlers must use the shared cookie auth helper from [lib/auth.ts](../lib/auth.ts) (`requireAuthenticatedUser`/`getAuthenticatedUserId`) instead of manual `cookies()` reads or trusting body/query userId.
+- Required env vars: OpenAI keys, Tavily key, Gemini key, Prisma `DATABASE_URL`, `CRON_SECRET`, Appwrite IDs.
+- Dev: `npm install`, `npm run dev`; build: `prisma generate && next build`.
+- Run `npm run lint` before commits—TypeScript strict mode enabled.
+- Streaming handlers: use `ReadableStream` + `sendProgress` to avoid backpressure.
+- Log cautiously; redact Scripture and user content.
+- **Auth for APIs:** All `app/api/**` handlers must use `requireAuthenticatedUser` or `getAuthenticatedUserId` from `lib/auth.ts` instead of manual cookie reads.

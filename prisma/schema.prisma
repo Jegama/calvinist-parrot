@@ -1,7 +1,8 @@
 // prisma/schema.prisma
 
-// Always use  `npx prisma migrate dev` to apply changes to the database
+// Always use  `npx prisma migrate dev` to apply changes to the dev database
 // To see the tables locally, use `npx prisma studio`
+// For production, use `npx prisma migrate deploy` after deploying new code
 
 generator client {
   provider = "prisma-client-js"
