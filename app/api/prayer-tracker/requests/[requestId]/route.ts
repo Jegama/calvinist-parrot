@@ -250,7 +250,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           },
       create: markAnswered
         ? {
-            appwriteUserId: userId,
+            appwriteUserId: authenticatedUserId,
             displayName: membership.displayName,
             email: null,
             answeredFamilyCount: isHouseholdRequest ? 0 : 1,
@@ -258,7 +258,7 @@ export async function PATCH(request: Request, context: RouteContext) {
             lastSeenAt: now,
           }
         : {
-            appwriteUserId: userId,
+            appwriteUserId: authenticatedUserId,
             displayName: membership.displayName,
             email: null,
             lastSeenAt: now,
