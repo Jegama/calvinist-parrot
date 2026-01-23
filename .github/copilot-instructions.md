@@ -18,34 +18,22 @@
 - Conversation titles and categories reuse mini OpenAI models through `utils/generateConversationName.ts` and prompt constants in `lib/prompts.ts`.
 - `app/page.tsx` and `app/[chatId]/page.tsx` invalidate the chat list query after streaming completes; make sure new mutations call `invalidate`/`upsertChat` so the sidebar stays in sync.
 
-## Prayer Tracker Module
-- Feature lives in `app/prayer-tracker/**` with sheets, rotation logic, and helpers split into `components/` and `utils.ts`.
-- API routes mirror the UI: `spaces`, `families`, `requests`, `rotation`, `rotation/confirm`, `journal`, and `invite`; each expects an Appwrite `userId` (use `appendUserId` when invoking from server code).
-- **Unified Request System**: `personal-requests` routes were refactored to `requests`; now handles both household-level requests (`prayerPersonalRequest`) and family-specific requests (`prayerFamilyRequest`) through a single unified API using the `UnifiedRequest` type with a `familyId` discriminator (null = household, set = family-specific).
-- Rotations compute member assignments in `/api/prayer-tracker/rotation/route.ts`; confirm endpoint writes Prisma records to `prayerRotation`, `prayerLog`, and request statuses for both household and family requests.
-- `app/prayer-tracker/page.tsx` keeps rotation state client-side with unified request management; components include `RequestSheet` (formerly `PersonalSheet`), `RequestsSection` (formerly `PersonalRequestsSection`), and new `FamilyDetailDialog` for viewing family info and their specific requests.
-- Follow the existing `fetch` patterns in `app/prayer-tracker/api.ts` for optimistic updates, error messaging via `handleApiError`, and category normalization helpers; API module exports typed `Result<T, E>` for consistent error handling.
-
-## Church Finder Module
-- Feature lives in `app/church-finder/**` with interactive map, filtering, discovery panel, and detail dialogs split across `components/`.
-- API routes under `app/api/churches/**`: root GET/POST for list/create, `[id]` for details, `search` for OpenStreetMap queries, `check` for existence validation, `meta` for filter dropdowns.
-- **AI-Powered Evaluation System**: Church creation (`POST /api/churches`) triggers an automated multi-stage LLM evaluation workflow via `utils/churchEvaluation.ts`:
-  - **Tavily Crawl**: Website content extraction using `tavily.crawl()` with duplicate anchor removal (`dropAnchorDupes`).
-  - **Parallel LLM Calls**: Six concurrent Gemini 2.5 Flash calls for basic fields, core doctrines, secondary/tertiary doctrines, denomination/confession, and red flags using schemas from `lib/schemas/church-finder.ts` and prompts from `lib/prompts/church-finder.ts`.
-  - **Post-Processing**: Status classification (Historic Reformed, Recommended, Biblically Sound with Differences, Limited Information, Not Endorsed) based on core doctrine coverage, confession adoption, and red flags via `postProcessEvaluation`.
-  - **Confession Inference**: Auto-populates missing doctrine data when historic confessions detected using `utils/confessionInference.ts`.
-  - **Badge System**: Allowlisted badges filtered through `utils/badges.ts`; only approved badges persist to prevent LLM hallucination.
-- **Core Doctrines**: Ten essential beliefs (trinity, gospel, justification by faith, Christ's deity/humanity, scripture authority, incarnation/virgin birth, atonement, resurrection, return/judgment, character of God) evaluated as `true/false/unknown` and stored in normalized Prisma columns.
-- **Secondary/Tertiary Doctrines**: JSON storage for non-essential beliefs (baptism, governance, eschatology, worship style, etc.) with structured extraction.
-- **Church Sorting**: Priority-based ordering in list view (Historic Reformed → Recommended → Biblically Sound → Limited Info → Not Endorsed) using `sortChurchesByPriority` helper in `app/api/churches/route.ts`.
-- **Discovery Workflow**: `ChurchDiscoveryPanel` component searches OpenStreetMap via Nominatim API, checks existence with `/api/churches/check`, creates new churches with loading states (Fetching → Analyzing → Complete), and manages optimistic updates.
-- **Filtering**: Status-based filtering (`exclude_red_flag` default), state/city dropdowns populated from `/api/churches/meta`, denomination and confessional toggles, pagination with 10 items per page.
-- **Map Integration**: Leaflet map in `ChurchMap` component with marker clustering, popups, and height syncing via `ResizeObserver`; lazy-loaded through `SafeMapContainer` to avoid SSR issues.
-- **Data Mappers**: `lib/churchMapper.ts` transforms Prisma relations to API types (`ChurchListItem`, `ChurchDetail`, `ChurchEvaluationRecord`) with doctrine value normalization.
-- **Geocoding**: Google Maps API integration in `utils/churchEvaluation.ts` for address → lat/lng conversion; handles multiple addresses per church with primary flag.
-- **Types**: Comprehensive TypeScript definitions in `types/church.ts` for evaluation workflow, API responses, and doctrine maps.
-- Prisma tables: `church`, `churchAddress`, `churchServiceTime`, `churchEvaluation`; evaluations are immutable records (re-evaluation creates new rows).
-- Follow existing patterns in `app/church-finder/api.ts` for `fetch` calls, query key structure (`["churches", page, state, city, ...]`), and TanStack Query cache updates.
+## Feature Modules
+- **Prayer Tracker:** Located in [app/prayer-tracker](../app/prayer-tracker). APIs mirror the UI in [app/api](../app/api). Key invariants:
+  - **Unified Request System:** Use `UnifiedRequest` with `familyId` discriminant; household requests use `null`.
+  - **Auth:** Use shared helpers in [lib/auth.ts](../lib/auth.ts) for all `app/api/**` handlers.
+  - **Rotation Confirm Effects:** Writes to `prayerRotation`, `prayerLog`, and updates request statuses.
+  - **Client Patterns:** Follow [app/prayer-tracker/api.ts](../app/prayer-tracker/api.ts) for optimistic updates and `Result<T, E>` errors; reuse TanStack Query cache keys and helpers.
+- **Church Finder:** UI in [app/church-finder](../app/church-finder); APIs under [app/api/churches](../app/api/churches). Key invariants:
+  - **Evaluation Pipeline:** See [utils/churchEvaluation.ts](../utils/churchEvaluation.ts) (Tavily crawl → concurrent LLM extraction → post-processing).
+  - **Normalization:** Map Prisma relations via [lib/churchMapper.ts](../lib/churchMapper.ts); core doctrines stored as normalized columns; secondary/tertiary in JSON.
+  - **Sorting & Badges:** List ordering via `sortChurchesByPriority` in [app/api/churches/route.ts](../app/api/churches/route.ts); enforce badge allowlist in [utils/badges.ts](../utils/badges.ts).
+  - **Env Vars:** Requires `TAVILY_API_KEY` and `GEMINI_API_KEY`. See [.env.template](../.env.template).
+ - **Journal:** UI in [app/journal](../app/journal); APIs under [app/api/journal](../app/api/journal). Key invariants:
+   - **Auth & Ownership:** Use [lib/auth.ts](../lib/auth.ts) and verify `authorProfileId` before reads/writes.
+   - **Streaming Events:** [entries/route.ts](../app/api/journal/entries/route.ts) streams NDJSON with event types: `entry_created`, `progress`, `call1a_complete`, `call1b_complete`, `call1c_complete`, `call2_complete`, `done`, `error`.
+   - **AI Pipeline:** See [utils/journal/llm.ts](../utils/journal/llm.ts); outputs defined in [types/journal.ts](../types/journal.ts). Persist with retry/backoff and merge tags.
+   - **Profile Counters:** Increment/decrement `journalEntriesCount` on create/delete.
 
 ## Data & Integrations
 - Chat history tables: `prisma/chatHistory`, `prisma/chatMessage`; QA uses `questionHistory`; devotionals persist in `parrotDevotionals`; prayer tracker tables defined in latest migrations (`20250103*`, `20251011*`); church finder tables: `church`, `churchAddress`, `churchServiceTime`, `churchEvaluation`.
@@ -86,3 +74,4 @@
 - Run `npm run lint` before commits—TypeScript strict mode fails builds on unresolved types.
 - Streaming handlers should favor `ReadableStream` + `sendProgress` over manual `Response` writes to avoid backpressure issues.
 - Log data cautiously; redact Scripture and user content when adding diagnostics.
+- **Auth helper for routes**: All new `app/api/**` handlers must use the shared cookie auth helper from [lib/auth.ts](../lib/auth.ts) (`requireAuthenticatedUser`/`getAuthenticatedUserId`) instead of manual `cookies()` reads or trusting body/query userId.
