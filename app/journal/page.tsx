@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ProtectedView } from "@/components/ProtectedView";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -516,38 +517,19 @@ export default function JournalPage() {
     );
   };
 
-  // Loading state
-  if (authLoading) {
-    return (
-      <div className="flex flex-col min-h-[calc(100vh-var(--app-header-height))] bg-background">
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      </div>
-    );
-  }
+  const authFallback = (
+    <Card className="max-w-2xl mx-auto mt-8 mb-8">
+      <CardHeader>
+        <CardTitle>Coram Deo Journal</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>Checking your session… redirecting to login if needed.</p>
+      </CardContent>
+    </Card>
+  );
 
-  // Not logged in
   if (!user) {
-    return (
-      <div className="flex flex-col min-h-[calc(100vh-var(--app-header-height))] bg-background">
-        <div className="flex-1 flex items-center justify-center p-4">
-          <Card className="max-w-md w-full">
-            <CardHeader>
-              <CardTitle className="font-serif text-2xl text-center">Coram Deo Journal</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center space-y-4">
-              <p className="text-muted-foreground">
-                Reflect on your life before God with pastoral guidance rooted in Scripture.
-              </p>
-              <Button onClick={() => router.push("/login")} className="w-full">
-                Sign in to start journaling
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
+    return <ProtectedView fallback={authFallback} />;
   }
 
   return (

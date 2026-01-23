@@ -1,5 +1,7 @@
 <div align="center">
-	<img src="./public/LogoForHeader.png" alt="Calvinist Parrot" height="140" />
+    <a href="https://www.calvinistparrotministries.org">
+        <img src="./public/LogoForHeader.png" alt="Calvinist Parrot Ministries" height="140" />
+    </a>
 </div>
 
 # Calvinist Parrot
@@ -20,6 +22,7 @@ Calvinist Parrot delivers Biblical insights and deep theological responses by co
 - **Theological Q&A:** Answers complex theological questions with layered reasoning.
 - **Multi-Perspective Insights:** Choose from Reformed Baptist, Presbyterian, Wesleyan, Lutheran, Anglican, Pentecostal/Charismatic, or Non-Denominational Evangelical modes.
 - **Daily Devotionals:** Get devotionals generated from current news and Scripture.
+- **Coram Deo Journal:** Reflect on your daily life before God with AI-powered pastoral guidance. Each entry receives structured reflection grounded in Scripture, identifying heart issues, suggesting "put off/put on" patterns from Ephesians 4, and offering practical next steps. Journal insights can be promoted to Prayer Tracker requests or continued in deeper conversation.
 - **Prayer Tracker:** Organize your prayer life with rotating prayer assignments, personal and family prayer requests, and prayer journals—designed to help you pray consistently for your household and broader faith community.
 - **Church Finder:** Discover biblically sound churches with AI-powered doctrinal evaluations. Each church is analyzed for adherence to essential Christian doctrines, historic Reformed confessions, and theological soundness to help you find a faithful congregation.
  - **AI Model Evaluation Dashboard:** See how different AI models perform on doctrinal fidelity, kindness and gentleness, and interfaith sensitivity using the built-in evaluation dashboard at `/llm-evaluation-dashboard`.
