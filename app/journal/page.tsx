@@ -78,6 +78,13 @@ async function continueInChat(userId: string, entryId: string): Promise<{ chatId
   return res.json();
 }
 
+async function fetchHouseholdStatus(userId: string): Promise<{ hasHousehold: boolean; spaceId?: string }> {
+  const res = await fetch(`/api/prayer-tracker/spaces?userId=${userId}`);
+  if (!res.ok) throw new Error("Failed to fetch household status");
+  const data = await res.json();
+  return { hasHousehold: !!data.space, spaceId: data.space?.id };
+}
+
 async function reprocessEntry(userId: string, entryId: string): Promise<ReadableStream<Uint8Array>> {
   const res = await fetch(`/api/journal/entries/${entryId}/reprocess`, {
     method: "POST",
@@ -111,6 +118,14 @@ export default function JournalPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["journal", "entries", user?.$id, page, search, selectedTags],
     queryFn: () => fetchEntries(user!.$id, page, search || undefined, selectedTags.length > 0 ? selectedTags : undefined),
+    enabled: !!user?.$id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  // Household status query
+  const { data: householdStatus } = useQuery({
+    queryKey: ["household", "status", user?.$id],
+    queryFn: () => fetchHouseholdStatus(user!.$id),
     enabled: !!user?.$id,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -173,9 +188,9 @@ export default function JournalPage() {
               // First paint: title, summary, situation
               setActiveEntry(prev => prev ? {
                 ...prev,
-                aiOutput: { 
-                  call1: { ...event.call1a } as Call1Output, 
-                  call2: null 
+                aiOutput: {
+                  call1: { ...event.call1a } as Call1Output,
+                  call2: null
                 }
               } : null);
               break;
@@ -184,12 +199,12 @@ export default function JournalPage() {
               // Heart and put off/put on analysis
               setActiveEntry(prev => prev ? {
                 ...prev,
-                aiOutput: { 
-                  call1: { 
+                aiOutput: {
+                  call1: {
                     ...prev.aiOutput?.call1,
-                    ...event.call1b 
-                  } as Call1Output, 
-                  call2: prev.aiOutput?.call2 || null 
+                    ...event.call1b
+                  } as Call1Output,
+                  call2: prev.aiOutput?.call2 || null
                 }
               } : null);
               break;
@@ -198,12 +213,12 @@ export default function JournalPage() {
               // Scripture and next steps
               setActiveEntry(prev => prev ? {
                 ...prev,
-                aiOutput: { 
-                  call1: { 
+                aiOutput: {
+                  call1: {
                     ...prev.aiOutput?.call1,
-                    ...event.call1c 
-                  } as Call1Output, 
-                  call2: prev.aiOutput?.call2 || null 
+                    ...event.call1c
+                  } as Call1Output,
+                  call2: prev.aiOutput?.call2 || null
                 }
               } : null);
               break;
@@ -296,9 +311,9 @@ export default function JournalPage() {
             case "call1a_complete":
               setActiveEntry(prev => prev ? {
                 ...prev,
-                aiOutput: { 
-                  call1: { ...event.call1a } as Call1Output, 
-                  call2: null 
+                aiOutput: {
+                  call1: { ...event.call1a } as Call1Output,
+                  call2: null
                 }
               } : null);
               break;
@@ -306,12 +321,12 @@ export default function JournalPage() {
             case "call1b_complete":
               setActiveEntry(prev => prev ? {
                 ...prev,
-                aiOutput: { 
-                  call1: { 
+                aiOutput: {
+                  call1: {
                     ...prev.aiOutput?.call1,
-                    ...event.call1b 
-                  } as Call1Output, 
-                  call2: prev.aiOutput?.call2 || null 
+                    ...event.call1b
+                  } as Call1Output,
+                  call2: prev.aiOutput?.call2 || null
                 }
               } : null);
               break;
@@ -319,12 +334,12 @@ export default function JournalPage() {
             case "call1c_complete":
               setActiveEntry(prev => prev ? {
                 ...prev,
-                aiOutput: { 
-                  call1: { 
+                aiOutput: {
+                  call1: {
                     ...prev.aiOutput?.call1,
-                    ...event.call1c 
-                  } as Call1Output, 
-                  call2: prev.aiOutput?.call2 || null 
+                    ...event.call1c
+                  } as Call1Output,
+                  call2: prev.aiOutput?.call2 || null
                 }
               } : null);
               break;
@@ -470,8 +485,8 @@ export default function JournalPage() {
         </Card>
 
         {activeEntry.aiOutput?.call1 || streamProgress ? (
-          <ReflectionCard 
-            call1={activeEntry.aiOutput?.call1 || null} 
+          <ReflectionCard
+            call1={activeEntry.aiOutput?.call1 || null}
             isStreaming={!!streamProgress}
             streamMessage={streamProgress?.message}
           />
@@ -481,6 +496,7 @@ export default function JournalPage() {
           <SuggestedRequestsPanel
             call2={activeEntry.aiOutput.call2}
             userId={user!.$id}
+            hasHousehold={householdStatus?.hasHousehold ?? false}
           />
         ) : streamProgress ? (
           <Card>
@@ -503,7 +519,7 @@ export default function JournalPage() {
   // Loading state
   if (authLoading) {
     return (
-      <div className="flex flex-col min-h-screen bg-background">
+      <div className="flex flex-col min-h-[calc(100vh-var(--app-header-height))] bg-background">
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -514,7 +530,7 @@ export default function JournalPage() {
   // Not logged in
   if (!user) {
     return (
-      <div className="flex flex-col min-h-screen bg-background">
+      <div className="flex flex-col min-h-[calc(100vh-var(--app-header-height))] bg-background">
         <div className="flex-1 flex items-center justify-center p-4">
           <Card className="max-w-md w-full">
             <CardHeader>
@@ -535,8 +551,8 @@ export default function JournalPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <main className="flex-1 container mx-auto px-4 py-6 max-w-6xl">
+    <div className="flex flex-col min-h-[calc(100vh-var(--app-header-height))] bg-background">
+      <main className="flex-1 container mx-auto px-4 sm:px-6 py-8 max-w-6xl">
         {/* Page Header */}
         <header className="mb-8">
           <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-start sm:justify-between">

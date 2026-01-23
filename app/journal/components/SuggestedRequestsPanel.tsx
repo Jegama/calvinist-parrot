@@ -3,16 +3,18 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Plus, Loader2, HandHeart } from "lucide-react";
+import { Check, Plus, Loader2, HandHeart, Info } from "lucide-react";
 import type { Call2Output } from "@/types/journal";
 import { BibleVerse } from "@/components/BibleVerse";
 
 interface SuggestedRequestsPanelProps {
   call2: Call2Output;
   userId: string;
+  hasHousehold: boolean;
 }
 
 async function addPrayerRequest(
@@ -35,7 +37,7 @@ async function addPrayerRequest(
   if (!res.ok) throw new Error("Failed to add prayer request");
 }
 
-export function SuggestedRequestsPanel({ call2, userId }: SuggestedRequestsPanelProps) {
+export function SuggestedRequestsPanel({ call2, userId, hasHousehold }: SuggestedRequestsPanelProps) {
   const queryClient = useQueryClient();
   const [addedRequests, setAddedRequests] = useState<Set<string>>(new Set());
 
@@ -66,6 +68,24 @@ export function SuggestedRequestsPanel({ call2, userId }: SuggestedRequestsPanel
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
+        {!hasHousehold && (
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
+            <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground mb-1">
+                Create a household to add prayer requests
+              </p>
+              <p className="text-sm text-muted-foreground mb-3">
+                The Prayer Tracker requires a shared family space. Create one from your profile to start tracking prayers together.
+              </p>
+              <Button size="sm" asChild>
+                <Link href="/profile">
+                  Go to Profile
+                </Link>
+              </Button>
+            </div>
+          </div>
+        )}
         {requests.map((req, i) => {
           const key = `prayer-${i}`;
           const isAdded = addedRequests.has(key);
@@ -85,17 +105,18 @@ export function SuggestedRequestsPanel({ call2, userId }: SuggestedRequestsPanel
                   </Badge>
                 )}
               </div>
-              <Button
-                variant={isAdded ? "ghost" : "outline"}
-                size="sm"
-                disabled={isAdded || isAdding}
-                onClick={() => addMutation.mutate({
-                  title: req.title,
-                  notes: req.notes,
-                  linkedScripture: req.linkedScripture,
-                  key,
-                })}
-              >
+              {hasHousehold && (
+                <Button
+                  variant={isAdded ? "ghost" : "outline"}
+                  size="sm"
+                  disabled={isAdded || isAdding}
+                  onClick={() => addMutation.mutate({
+                    title: req.title,
+                    notes: req.notes,
+                    linkedScripture: req.linkedScripture,
+                    key,
+                  })}
+                >
                 {isAdding ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : isAdded ? (
@@ -109,7 +130,8 @@ export function SuggestedRequestsPanel({ call2, userId }: SuggestedRequestsPanel
                     Add
                   </>
                 )}
-              </Button>
+                </Button>
+              )}
             </div>
           );
         })}

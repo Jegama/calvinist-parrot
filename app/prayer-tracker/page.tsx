@@ -80,9 +80,12 @@ export default function PrayerTrackerPage() {
           <CardHeader>
             <CardTitle>Prayer Tracker</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-4">
             <p>You don&apos;t have a shared family space yet.</p>
             <p>Create one from your profile page to begin tracking prayers together.</p>
+            <Button asChild>
+              <Link href="/profile">Go to Profile</Link>
+            </Button>
           </CardContent>
         </Card>
       </ProtectedView>

@@ -37,6 +37,7 @@
 - Wrap any LLM output with `components/MarkdownWithBibleVerses.tsx` to preserve verse popovers; avoid duplicating parsing logic elsewhere.
 - When adding stateful profile features, prefer `useProfileUiStore` for UI flags and `useQueryClient` updates (`updateProfileOverview`) over ad-hoc states.
 - Shared styling leans on Tailwind and `components/ui/**`; reuse `Card`, `Button`, `Sheet`, etc. instead of bespoke markup.
+- **Page height calculation:** Use `min-h-[calc(100vh-var(--app-header-height))]` instead of `min-h-screen` to account for the dynamic sticky header height. The header sets `--app-header-height` CSS variable based on scroll state.
 
 ### Standardized Page Headers
 All main feature pages follow a consistent header pattern for visual cohesion:
