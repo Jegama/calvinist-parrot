@@ -13,6 +13,7 @@ import {
   storeJournalAIOutput,
 } from "@/utils/journal/llm";
 import type { Call1Output, Call2Output, Call1aOutput, Call1bOutput, Call1cOutput } from "@/types/journal";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 /**
  * POST /api/journal/entries/[id]/reprocess
@@ -31,9 +32,13 @@ export async function POST(
       return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     }
 
+    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+    if (errorResponse || !authenticatedUserId)
+      return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     // Get user profile
     const profile = await prisma.userProfile.findUnique({
-      where: { appwriteUserId: userId },
+      where: { appwriteUserId: authenticatedUserId },
     });
 
     if (!profile) {

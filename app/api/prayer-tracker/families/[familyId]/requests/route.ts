@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 type RouteContext = { params: Promise<{ familyId: string }> };
 
 export async function GET(request: Request, context: RouteContext) {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  const providedUserId = searchParams.get("userId") ?? undefined;
+  const { userId, errorResponse } = await requireAuthenticatedUser(providedUserId);
+  if (errorResponse || !userId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { familyId } = await context.params;
 
@@ -62,11 +64,15 @@ export async function POST(request: Request, context: RouteContext) {
         ? null
         : undefined,
   };
-  if (!userId || !requestText)
-    return NextResponse.json({ error: "Missing userId or requestText" }, { status: 400 });
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!requestText)
+    return NextResponse.json({ error: "Missing requestText" }, { status: 400 });
 
   const membership = await prisma.prayerMember.findFirst({
-    where: { appwriteUserId: userId },
+    where: { appwriteUserId: authenticatedUserId },
     select: { spaceId: true },
   });
   if (!membership)

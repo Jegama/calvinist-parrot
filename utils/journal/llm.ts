@@ -234,39 +234,52 @@ export async function storeJournalAIOutput(params: {
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      await prisma.$transaction([
-    prisma.journalEntryAI.upsert({
-      where: { entryId },
-      create: {
-        entryId,
-        call1: call1 as object,
-        call2: call2 as object,
-        modelInfo: {
-          model: MODEL,
-          version: "1.0",
-          promptVersion: PROMPT_VERSION,
-        },
-      },
-      update: {
-        call1: call1 as object,
-        call2: call2 as object,
-        modelInfo: {
-          model: MODEL,
-          version: "1.0",
-          promptVersion: PROMPT_VERSION,
-        },
-      },
-    }),
-    prisma.journalEntry.update({
-      where: { id: entryId },
-      data: { tags: flatTags },
-    }),
-      ]);
+      await prisma.$transaction(async (tx) => {
+        const existingEntry = await tx.journalEntry.findUnique({
+          where: { id: entryId },
+          select: { tags: true },
+        });
+
+        if (!existingEntry) {
+          throw new Error("Journal entry not found when storing AI output");
+        }
+
+        const mergedTags = Array.from(new Set([...(existingEntry.tags || []), ...flatTags]));
+
+        await tx.journalEntryAI.upsert({
+          where: { entryId },
+          create: {
+            entryId,
+            call1: call1 as object,
+            call2: call2 as object,
+            modelInfo: {
+              model: MODEL,
+              version: "1.0",
+              promptVersion: PROMPT_VERSION,
+            },
+          },
+          update: {
+            call1: call1 as object,
+            call2: call2 as object,
+            modelInfo: {
+              model: MODEL,
+              version: "1.0",
+              promptVersion: PROMPT_VERSION,
+            },
+          },
+        });
+
+        await tx.journalEntry.update({
+          where: { id: entryId },
+          data: { tags: mergedTags },
+        });
+      });
       // Success - exit retry loop
       return;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Check if it's a transaction timeout (P2028)
-      if (error.code === "P2028" && attempt < maxRetries) {
+      const prismaError = error as { code?: string };
+      if (prismaError.code === "P2028" && attempt < maxRetries) {
         // Exponential backoff: 1s, 2s, 4s
         const delay = baseDelay * Math.pow(2, attempt);
         console.log(`Transaction timeout (P2028), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);

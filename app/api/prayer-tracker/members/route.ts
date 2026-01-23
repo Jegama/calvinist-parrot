@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { DEFAULT_ADULT_CAPACITY, DEFAULT_CHILD_CAPACITY } from "@/app/prayer-tracker/constants";
 import { parseBirthdate } from "@/utils/ageUtils";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 function parseIntOrFallback(value: unknown, fallback: number) {
   const parsed = typeof value === "string" ? Number.parseInt(value, 10) : typeof value === "number" ? value : fallback;
@@ -19,6 +20,9 @@ export async function POST(request: Request) {
     birthdate,
   }: { userId?: string; displayName?: string; assignmentCapacity?: number; isChild?: boolean; birthdate?: string } = body;
 
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse) return errorResponse;
+
   if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
   if (!displayName || !displayName.trim())
     return NextResponse.json({ error: "Display name is required" }, { status: 400 });
@@ -32,7 +36,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const actingMember = await prisma.prayerMember.findFirst({ where: { appwriteUserId: userId } });
+  const actingMember = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId } });
   if (!actingMember) return NextResponse.json({ error: "No family space found" }, { status: 404 });
   if (actingMember.role !== "OWNER")
     return NextResponse.json({ error: "Only the owner can add members" }, { status: 403 });
@@ -67,9 +71,12 @@ export async function PATCH(request: Request) {
   }: { userId?: string; memberId?: string; displayName?: string; assignmentCapacity?: number; isChild?: boolean; birthdate?: string | null } =
     body;
 
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse) return errorResponse;
+
   if (!userId || !memberId) return NextResponse.json({ error: "Missing userId or memberId" }, { status: 400 });
 
-  const actingMember = await prisma.prayerMember.findFirst({ where: { appwriteUserId: userId } });
+  const actingMember = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId } });
   if (!actingMember) return NextResponse.json({ error: "No family space found" }, { status: 404 });
   if (actingMember.role !== "OWNER")
     return NextResponse.json({ error: "Only the owner can update members" }, { status: 403 });

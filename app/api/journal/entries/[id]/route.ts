@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import type { Call1Output, Call2Output } from "@/types/journal";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 /**
  * GET /api/journal/entries/[id]
@@ -22,9 +23,13 @@ export async function GET(
     return NextResponse.json({ error: "Missing userId" }, { status: 400 });
   }
 
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   // Get user profile
   const profile = await prisma.userProfile.findUnique({
-    where: { appwriteUserId: userId },
+    where: { appwriteUserId: authenticatedUserId },
   });
 
   if (!profile) {
@@ -84,9 +89,13 @@ export async function PATCH(
       return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     }
 
+    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+    if (errorResponse || !authenticatedUserId)
+      return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     // Get user profile
     const profile = await prisma.userProfile.findUnique({
-      where: { appwriteUserId: userId },
+      where: { appwriteUserId: authenticatedUserId },
     });
 
     if (!profile) {
@@ -146,9 +155,13 @@ export async function DELETE(
     return NextResponse.json({ error: "Missing userId" }, { status: 400 });
   }
 
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   // Get user profile
   const profile = await prisma.userProfile.findUnique({
-    where: { appwriteUserId: userId },
+    where: { appwriteUserId: authenticatedUserId },
   });
 
   if (!profile) {
@@ -168,15 +181,16 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  // Delete entry (cascade will delete AI output)
-  await prisma.journalEntry.delete({
-    where: { id },
-  });
+  // Delete entry (cascade will delete AI output) and decrement counter atomically
+  await prisma.$transaction(async (tx) => {
+    await tx.journalEntry.delete({
+      where: { id },
+    });
 
-  // Decrement journal entries count
-  await prisma.userProfile.update({
-    where: { id: profile.id },
-    data: { journalEntriesCount: { decrement: 1 } },
+    await tx.userProfile.update({
+      where: { id: profile.id },
+      data: { journalEntriesCount: { decrement: 1 } },
+    });
   });
 
   return NextResponse.json({ success: true });

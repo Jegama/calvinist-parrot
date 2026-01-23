@@ -15,6 +15,7 @@ import {
   storeJournalAIOutput,
 } from "@/utils/journal/llm";
 import type { Call1Output, Call2Output, Call1aOutput, Call1bOutput, Call1cOutput } from "@/types/journal";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 /**
  * GET /api/journal/entries
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");
   const page = parseInt(searchParams.get("page") || "1", 10);
-  const limit = parseInt(searchParams.get("limit") || "20", 10);
+  const requestedLimit = parseInt(searchParams.get("limit") || "20", 10);
   const tags = searchParams.get("tags")?.split(",").filter(Boolean);
   const search = searchParams.get("search");
   const startDate = searchParams.get("startDate");
@@ -33,6 +34,13 @@ export async function GET(request: Request) {
   if (!userId) {
     return NextResponse.json({ error: "Missing userId" }, { status: 400 });
   }
+
+  const { errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse) return errorResponse;
+
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(Math.max(requestedLimit, 1), 50)
+    : 20;
 
   // Get user profile
   const profile = await prisma.userProfile.findUnique({
@@ -117,16 +125,20 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { userId, entryText, entryDate } = body;
 
-    if (!userId || !entryText) {
+    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+    if (errorResponse || !authenticatedUserId)
+      return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    if (!entryText) {
       return NextResponse.json(
-        { error: "Missing userId or entryText" },
+        { error: "Missing entryText" },
         { status: 400 }
       );
     }
 
     // Get user profile
     const profile = await prisma.userProfile.findUnique({
-      where: { appwriteUserId: userId },
+      where: { appwriteUserId: authenticatedUserId },
     });
 
     if (!profile) {
@@ -137,25 +149,28 @@ export async function POST(request: Request) {
     }
 
     // Get household membership (optional)
-    const membership = await getMembershipForUser(userId);
+    const membership = await getMembershipForUser(authenticatedUserId);
     const spaceId = membership?.spaceId || null;
 
-    // Create the entry first
-    const entry = await prisma.journalEntry.create({
-      data: {
-        authorProfileId: profile.id,
-        spaceId,
-        entryText,
-        entryDate: entryDate ? new Date(entryDate) : new Date(),
-        entryType: "PERSONAL",
-        tags: [],
-      },
-    });
+    // Create the entry and increment the counter atomically
+    const entry = await prisma.$transaction(async (tx) => {
+      const createdEntry = await tx.journalEntry.create({
+        data: {
+          authorProfileId: profile.id,
+          spaceId,
+          entryText,
+          entryDate: entryDate ? new Date(entryDate) : new Date(),
+          entryType: "PERSONAL",
+          tags: [],
+        },
+      });
 
-    // Increment journal entries count
-    await prisma.userProfile.update({
-      where: { id: profile.id },
-      data: { journalEntriesCount: { increment: 1 } },
+      await tx.userProfile.update({
+        where: { id: profile.id },
+        data: { journalEntriesCount: { increment: 1 } },
+      });
+
+      return createdEntry;
     });
 
     // Get preferred depth for AI reflection

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { DEFAULT_ADULT_CAPACITY } from "@/app/prayer-tracker/constants";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 function generateShareCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxy123456789-*";
@@ -11,8 +12,9 @@ function generateShareCode() {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  const providedUserId = searchParams.get("userId") ?? undefined;
+  const { userId, errorResponse } = await requireAuthenticatedUser(providedUserId);
+  if (errorResponse || !userId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const membership = await prisma.prayerMember.findFirst({
     where: { appwriteUserId: userId },
@@ -49,10 +51,12 @@ export async function POST(request: Request) {
     displayName?: string;
     spaceName?: string;
   };
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const existing = await prisma.prayerMember.findFirst({
-    where: { appwriteUserId: userId },
+    where: { appwriteUserId: authenticatedUserId },
     include: { space: true },
   });
   if (existing) return NextResponse.json({ space: existing.space, membership: existing });
@@ -63,7 +67,7 @@ export async function POST(request: Request) {
   const space = await prisma.prayerFamilySpace.create({
     data: {
       shareCode,
-      createdByUserId: userId,
+      createdByUserId: authenticatedUserId,
       spaceName: resolvedSpaceName,
     },
   });
@@ -71,7 +75,7 @@ export async function POST(request: Request) {
   const member = await prisma.prayerMember.create({
     data: {
       spaceId: space.id,
-      appwriteUserId: userId,
+      appwriteUserId: authenticatedUserId,
       displayName: displayName || "You",
       role: "OWNER",
       assignmentCapacity: DEFAULT_ADULT_CAPACITY,
@@ -81,7 +85,7 @@ export async function POST(request: Request) {
 
   await prisma.userProfile
     .update({
-      where: { appwriteUserId: userId },
+      where: { appwriteUserId: authenticatedUserId },
       data: { defaultSpaceId: space.id, lastSeenAt: new Date() },
     })
     .catch(() => null);
@@ -93,11 +97,14 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const body = await request.json().catch(() => ({}));
   const { userId, spaceId, spaceName } = body as { userId?: string; spaceId?: string; spaceName?: string };
-  if (!userId || !spaceId || !spaceName)
-    return NextResponse.json({ error: "Missing userId, spaceId, or spaceName" }, { status: 400 });
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!spaceId || !spaceName)
+    return NextResponse.json({ error: "Missing spaceId or spaceName" }, { status: 400 });
 
   // Only owner can rename
-  const member = await prisma.prayerMember.findFirst({ where: { appwriteUserId: userId, spaceId } });
+  const member = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId, spaceId } });
   if (!member || member.role !== "OWNER") return NextResponse.json({ error: "Only owner can rename" }, { status: 403 });
 
   const updated = await prisma.prayerFamilySpace.update({
@@ -116,9 +123,12 @@ export async function DELETE(request: Request) {
     removeMemberId?: string; // if owner is removing another member
     transferToMemberId?: string; // if owner is leaving, must transfer
   };
-  if (!userId || !spaceId) return NextResponse.json({ error: "Missing userId or spaceId" }, { status: 400 });
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!spaceId) return NextResponse.json({ error: "Missing spaceId" }, { status: 400 });
 
-  const member = await prisma.prayerMember.findFirst({ where: { appwriteUserId: userId, spaceId } });
+  const member = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId, spaceId } });
   if (!member) return NextResponse.json({ error: "Not a member" }, { status: 403 });
 
   // Owner removing another member

@@ -7,6 +7,7 @@ import prisma from "@/lib/prisma";
 import { generateConversationName } from "@/utils/generateConversationName";
 import type { Call1Output } from "@/types/journal";
 import { formatCall1ForChat } from "@/lib/prompts/journal";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 /**
  * POST /api/journal/entries/[id]/continue-chat
@@ -26,9 +27,13 @@ export async function POST(
       return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     }
 
+    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+    if (errorResponse || !authenticatedUserId)
+      return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     // Get user profile
     const profile = await prisma.userProfile.findUnique({
-      where: { appwriteUserId: userId },
+      where: { appwriteUserId: authenticatedUserId },
     });
 
     if (!profile) {
@@ -61,7 +66,7 @@ export async function POST(
     const chat = await prisma.$transaction(async (tx) => {
       const createdChat = await tx.chatHistory.create({
         data: {
-          userId,
+          userId: authenticatedUserId,
           conversationName,
           category: "journal",
           subcategory: "reflection",

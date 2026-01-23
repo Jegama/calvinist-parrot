@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");
   if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+
+  const { errorResponse } = await requireAuthenticatedUser(userId);
+  if (errorResponse) return errorResponse;
 
   const profile = await prisma.userProfile.findUnique({ where: { appwriteUserId: userId } });
   return NextResponse.json(profile);
@@ -37,7 +40,16 @@ export async function POST(request: Request) {
     },
   });
 
-  return NextResponse.json(profile);
+  const response = NextResponse.json(profile);
+  response.cookies.set("userId", userId, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+  });
+
+  return response;
 }
 
 export async function PATCH(request: Request) {
@@ -48,19 +60,12 @@ export async function PATCH(request: Request) {
       denomination?: string;
     };
 
-    const cookieStore = await cookies();
-    const authenticatedUserId = cookieStore.get("userId")?.value;
-
-    if (!authenticatedUserId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userIdFromBody);
+    if (errorResponse || !authenticatedUserId)
+      return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     if (!denomination) {
       return NextResponse.json({ error: "Missing denomination" }, { status: 400 });
-    }
-
-    if (userIdFromBody && userIdFromBody !== authenticatedUserId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Valid denominations

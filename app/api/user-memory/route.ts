@@ -3,12 +3,12 @@
 // For testing and debugging memory extraction
 
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import {
   getUserProfile,
   searchUserMemories,
   getMemoryStore,
 } from "@/lib/langGraphStore";
+import { requireAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -26,27 +26,9 @@ export async function GET(request: Request) {
     );
   }
 
-  // 🔒 Security: Verify the requesting user matches the userId
-  const cookieStore = await cookies();
-  const requestingUserId = cookieStore.get("userId")?.value;
-
-  if (!requestingUserId) {
-    return NextResponse.json(
-      {
-        error: "Unauthorized - Please log in",
-      },
-      { status: 401 }
-    );
-  }
-
-  if (requestingUserId !== userId) {
-    return NextResponse.json(
-      {
-        error: "Forbidden - You can only access your own memories",
-      },
-      { status: 403 }
-    );
-  }
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId ?? undefined);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized - Please log in" }, { status: 401 });
 
   try {
     if (action === "search" && query) {
@@ -116,27 +98,9 @@ export async function DELETE(request: Request) {
     );
   }
 
-  // 🔒 Security: Verify the requesting user matches the userId
-  const cookieStore = await cookies();
-  const requestingUserId = cookieStore.get("userId")?.value;
-
-  if (!requestingUserId) {
-    return NextResponse.json(
-      {
-        error: "Unauthorized - Please log in",
-      },
-      { status: 401 }
-    );
-  }
-
-  if (requestingUserId !== userId) {
-    return NextResponse.json(
-      {
-        error: "Forbidden - You can only delete your own memories",
-      },
-      { status: 403 }
-    );
-  }
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId ?? undefined);
+  if (errorResponse || !authenticatedUserId)
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized - Please log in" }, { status: 401 });
 
   try {
     const store = getMemoryStore();
