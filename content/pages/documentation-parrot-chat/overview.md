@@ -32,7 +32,7 @@ For simplicity, I created this other endpoint that focuses on quick QA. Please c
 ## How It Works
 
 1. **Chat Session Initialization**  
-   There are two ways to start a new chat:
+   - There are two ways to start a new chat:
    - **From Parrot QA**: Initialize with both question and answer
    - **From Chat Interface**: Initialize with just a question
 
