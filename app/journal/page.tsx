@@ -100,7 +100,7 @@ export default function JournalPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
 
   // State
   const [page, setPage] = useState(1);
