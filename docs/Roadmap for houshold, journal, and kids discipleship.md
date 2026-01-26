@@ -1,6 +1,6 @@
 # Calvinist Parrot Roadmap, Household, Journal, Kids Discipleship, Prayer Integration
 
-This document merges your preferences, your existing Prayer Tracker architecture, your Heritage Journal plan, and the best parts of the “Coram Deo Journal” proposal into one cohesive implementation plan with four phases.
+This document merges your preferences, your existing Prayer Tracker architecture, your Heritage Journal plan, and the best parts of the journal proposal into one cohesive implementation plan with four phases.
 
 ## Product goals and principles
 
@@ -13,12 +13,12 @@ This document merges your preferences, your existing Prayer Tracker architecture
 
 **Naming Decisions:**
 
-| Feature | Nav Label (Header.tsx) | Route | Full Name (marketing/docs) |
-|---------|------------------------|-------|----------------------------|
-| Personal Journal | **Journal** | `/journal` | Coram Deo Journal |
-| Kids Discipleship | **Kids Discipleship** | `/kids-discipleship` | Heritage Builder |
+| Feature | Nav Label (Header.tsx) | Route | Full Name (marketing/docs) | Tagline |
+|---------|------------------------|-------|----------------------------|----------|
+| Personal Journal | **Journal** | `/journal` | Personal Journal | Daily reflections with pastoral insight |
+| Kids Discipleship | **Heritage** | `/kids-discipleship` | Heritage Journal | Building faith with your children |
 
-*Rationale:* Simple nav labels follow existing patterns (Chat, Devotional, Prayer Tracker). Fuller names appear on feature landing pages and align with theological frame ("Coram Deo" = living before the face of God; "Heritage" = Psalm 127:3).
+*Rationale:* Simple nav labels follow existing patterns (Chat, Devotional, Prayer Tracker). "Personal Journal" is immediately clear and accessible without theological jargon. "Heritage Journal" ties to Psalm 127:3 (children as heritage) and signals legacy-building. Fuller taglines appear on feature landing pages to communicate purpose without overloading the navigation.
 
 **Guiding principles (aligned with your design system):**
 
@@ -427,7 +427,7 @@ This is a separate structured reflection tuned for parenting tone.
 
 ---
 
-## Phase 2: Ship Journal v1 (Coram Deo Journal)
+## Phase 2: Ship Journal v1 (Personal Journal)
 
 ### Scope
 

@@ -1,12 +1,18 @@
-# Phase 3 – Kids Discipleship v1 (Heritage Builder)
+# Phase 3 – Kids Discipleship v1 (Heritage Journal)
 
 **Source Documents:**
 - [Roadmap for houshold, journal, and kids discipleship.md](../Roadmap%20for%20houshold,%20journal,%20and%20kids%20discipleship.md) — Master plan
 - [Planning The Heritage Journal.md](../Planning%20The%20Heritage%20Journal.md) — UI sections and examples
 - [Plan of Discipleship Framework.md](../Plan%20of%20Discipleship%20Framework.md) — Dr. Gifford's Four Elements and age brackets
 
+**Feature Branding:**
+- **Full name**: Heritage Journal
+- **Tagline**: "Building faith with your children"
+- **Nav label**: "Heritage" (in Header.tsx)
+- **Route**: `/kids-discipleship`
+
 ## Objectives
-- Deliver a unified Kids Discipleship page at `/kids-discipleship` with tabs per child, shared by both parents in the household.
+- Deliver a unified Heritage Journal page at `/kids-discipleship` with tabs per child, shared by both parents in the household.
 - Support Annual Plan (Four Elements), Monthly Vision, logs (Nurture/Admonition), and derived prayer focus lists.
 - Reuse Journal entry pipeline for logs while keeping Prayer Tracker unchanged for now.
 

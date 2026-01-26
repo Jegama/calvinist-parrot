@@ -1,5 +1,5 @@
 // utils/journal/llm.ts
-// AI pipeline for Coram Deo Journal (Phase 2)
+// AI pipeline for Personal Journal (Phase 2)
 // Handles pastoral reflection (Call 1a/1b/1c) and tags/suggestions (Call 2)
 // Uses parallel execution for faster UX
 

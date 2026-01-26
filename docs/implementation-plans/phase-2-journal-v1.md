@@ -1,4 +1,4 @@
-# Phase 2 – Journal v1 (Coram Deo Journal)
+# Phase 2 – Journal v1 (Personal Journal)
 
 **Source Documents:**
 - [Roadmap for houshold, journal, and kids discipleship.md](../Roadmap%20for%20houshold,%20journal,%20and%20kids%20discipleship.md) — Master plan with LLM architecture and dashboard specs

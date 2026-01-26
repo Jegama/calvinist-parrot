@@ -1,5 +1,5 @@
 // app/journal/page.tsx
-// Coram Deo Journal - Main page with entry list, composer, and dashboard
+// Personal Journal - Main page with entry list, composer, and dashboard
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -520,7 +520,7 @@ export default function JournalPage() {
   const authFallback = (
     <Card className="max-w-2xl mx-auto mt-8 mb-8">
       <CardHeader>
-        <CardTitle>Coram Deo Journal</CardTitle>
+        <CardTitle>Personal Journal</CardTitle>
       </CardHeader>
       <CardContent>
         <p>Checking your session… redirecting to login if needed.</p>
@@ -539,8 +539,8 @@ export default function JournalPage() {
         <header className="mb-8">
           <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-3xl font-serif font-bold text-foreground mb-2">Coram Deo Journal</h1>
-              <p className="text-muted-foreground">Living before the face of God</p>
+              <h1 className="text-3xl font-serif font-bold text-foreground mb-2">Personal Journal</h1>
+              <p className="text-muted-foreground">Daily reflections with pastoral insight</p>
             </div>
             <Button
               onClick={() => setIsComposerOpen(true)}
@@ -548,7 +548,7 @@ export default function JournalPage() {
               className="gap-2 w-full sm:w-auto"
             >
               <Plus className="h-4 w-4" />
-              New Entry
+              Write Today's Entry
             </Button>
           </div>
         </header>
@@ -561,7 +561,11 @@ export default function JournalPage() {
                 <BookOpen className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Total Entries</span>
               </div>
-              <p className="text-2xl font-semibold mt-1">{data?.total || 0}</p>
+              {data?.total === 0 ? (
+                <p className="text-sm text-muted-foreground italic mt-1">Start your first entry above</p>
+              ) : (
+                <p className="text-2xl font-semibold mt-1">{data?.total || 0}</p>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -647,9 +651,13 @@ export default function JournalPage() {
             ) : data?.entries.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center">
-                  <p className="text-muted-foreground mb-4">No journal entries yet</p>
-                  <Button onClick={() => setIsComposerOpen(true)} variant="outline">
-                    Write your first entry
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-sm font-medium mb-2">No journal entries yet</p>
+                  <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
+                    Write about your day, struggles, or growth—get gentle, pastoral reflection to help you see your heart and grow in grace.
+                  </p>
+                  <Button onClick={() => setIsComposerOpen(true)} variant="default">
+                    Start Your First Entry
                   </Button>
                 </CardContent>
               </Card>
@@ -726,13 +734,31 @@ export default function JournalPage() {
                   What is on your heart today? Reflect on circumstances, emotions, struggles, or thanksgivings.
                   Consider: What happened? How did you respond? What might God be teaching you?
                 </p>
-                <Textarea
-                  placeholder="Write your journal entry..."
-                  value={newEntryText}
-                  onChange={(e) => setNewEntryText(e.target.value)}
-                  className="min-h-[200px]"
-                  disabled={isSubmitting}
-                />
+                <div>
+                  <Textarea
+                    placeholder="Write your journal entry..."
+                    value={newEntryText}
+                    onChange={(e) => setNewEntryText(e.target.value)}
+                    className="min-h-[200px]"
+                    disabled={isSubmitting}
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Tip: Reflect on what happened, how you responded, and what God might be teaching you
+                  </p>
+                </div>
+                {newEntryText.length === 0 && (
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
+                      Need help getting started?
+                    </summary>
+                    <ul className="mt-2 space-y-1 text-muted-foreground ml-4 list-disc">
+                      <li>What happened today that stood out?</li>
+                      <li>How did you feel or respond?</li>
+                      <li>Where did you see God's hand?</li>
+                      <li>What are you struggling with?</li>
+                    </ul>
+                  </details>
+                )}
                 <div className="flex justify-end gap-2">
                   <Button
                     variant="outline"

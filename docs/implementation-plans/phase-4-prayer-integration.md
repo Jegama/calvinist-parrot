@@ -5,9 +5,14 @@
 - [Prayer Tracker Feature One Pager.md](../Prayer%20Tracker%20Feature%20One%20Pager.md) — Current Prayer Tracker architecture
 
 ## Objectives
-- Promote journal- and kids-derived items into Prayer Tracker requests with cross-links.
+- Promote Personal Journal and Heritage Journal entries into Prayer Tracker requests with cross-links.
 - Keep rotation and request flows stable while adding metadata.
-- Build a unified household dashboard with highlights from prayer, journal, and kids modules.
+- Build a unified household dashboard with highlights from prayer, personal reflection, and kids discipleship modules.
+
+**Feature Branding Context:**
+- **Personal Journal**: Daily reflections with pastoral insight (route: `/journal`)
+- **Heritage Journal**: Building faith with your children (route: `/kids-discipleship`)
+- Both integrate with Prayer Tracker to turn reflection into prayer action.
 
 ## Dependencies
 - **Phase 1:** `lib/householdService.ts` for access control

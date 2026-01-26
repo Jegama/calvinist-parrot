@@ -149,7 +149,7 @@ model prayerJournalEntry {
 }
 
 // ==========================================
-// Journal v1 (Coram Deo Journal) - Phase 2
+// Journal v1 (Personal Journal) - Phase 2
 // ==========================================
 
 model journalEntry {
