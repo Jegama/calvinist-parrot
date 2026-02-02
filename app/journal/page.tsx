@@ -97,7 +97,7 @@ async function reprocessEntry(userId: string, entryId: string): Promise<Readable
 }
 
 export default function JournalPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile(1024);
@@ -548,7 +548,7 @@ export default function JournalPage() {
               className="gap-2 w-full sm:w-auto"
             >
               <Plus className="h-4 w-4" />
-              Write Today's Entry
+              Write Today&apos;s Entry
             </Button>
           </div>
         </header>
@@ -754,7 +754,7 @@ export default function JournalPage() {
                     <ul className="mt-2 space-y-1 text-muted-foreground ml-4 list-disc">
                       <li>What happened today that stood out?</li>
                       <li>How did you feel or respond?</li>
-                      <li>Where did you see God's hand?</li>
+                      <li>Where did you see God&apos;s hand?</li>
                       <li>What are you struggling with?</li>
                     </ul>
                   </details>

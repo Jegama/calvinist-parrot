@@ -112,6 +112,9 @@ export function Header() {
               <Link href="/journal" prefetch={false} className="hover:opacity-70 transition-opacity">
                 Journal
               </Link>
+              <Link href="/kids-discipleship" prefetch={false} className="hover:opacity-70 transition-opacity">
+                Heritage
+              </Link>
               <Link href="/devotional" prefetch={false} className="hover:opacity-70 transition-opacity">
                 Devotional
               </Link>
@@ -165,6 +168,11 @@ export function Header() {
                 <DropdownMenuItem asChild>
                   <Link href="/journal" prefetch={false} className="w-full">
                     Journal
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/kids-discipleship" prefetch={false} className="w-full">
+                    Heritage
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>

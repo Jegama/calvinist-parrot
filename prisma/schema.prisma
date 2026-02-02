@@ -89,6 +89,10 @@ model prayerMember {
   joinedAt           DateTime          @default(now())
   lastPrayed         prayerFamily[]    @relation("LastPrayedBy")
   space              prayerFamilySpace @relation(fields: [spaceId], references: [id])
+
+  // Kids Discipleship relations (Phase 3)
+  annualPlans        discipleshipAnnualPlan[]    @relation("ChildAnnualPlans")
+  monthlyVisions     discipleshipMonthlyVision[] @relation("ChildMonthlyVisions")
 }
 
 model prayerFamily {
@@ -161,6 +165,7 @@ model journalEntry {
   entryType       JournalEntryType  @default(PERSONAL)
   category        LogCategory?      // Only used for DISCIPLESHIP entries (Phase 3)
   subjectMemberId String?           // Child member ID for DISCIPLESHIP entries
+  gospelConnection String?          // How the parent pointed the child to Jesus (Phase 3)
   tags            String[]          // Flat array for quick filtering
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -344,6 +349,68 @@ enum JournalEntryType {
 }
 
 enum LogCategory {
-  SPIRIT  // "Sowing to Spirit" - blessings/wins (Phase 3)
-  FLESH   // "Sowing to Flesh" - struggles/consequences (Phase 3)
+  NURTURE     // Celebrating obedience, catching them doing good (Eph 6:4)
+  ADMONITION  // Correcting disobedience, redirecting the heart (Eph 6:4)
+}
+
+// ==========================================
+// Kids Discipleship v1 (Heritage Journal) - Phase 3
+// ==========================================
+
+enum CompetencyType {
+  PROFESSIONAL  // Career/work skills
+  PERSONAL      // Life/home skills
+}
+
+model discipleshipAnnualPlan {
+  id                  String         @id @default(cuid())
+  memberId            String         // Child member (prayerMember.id)
+  year                Int            // e.g., 2026
+
+  // Four Elements
+  characterGoal       String
+  characterScripture  String?
+  characterAction     String?
+
+  competencyGoal      String
+  competencyScripture String?
+  competencyAction    String?
+  competencyType      CompetencyType @default(PERSONAL)
+
+  blessingsPlan       String?
+  consequencesPlan    String?
+  themeVerse          String?
+
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  // Relation
+  member              prayerMember   @relation("ChildAnnualPlans", fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, year])
+  @@index([memberId])
+}
+
+model discipleshipMonthlyVision {
+  id              String       @id @default(cuid())
+  memberId        String       // Child member (prayerMember.id)
+  yearMonth       String       // Format: "YYYY-MM" (e.g., "2026-01")
+
+  memoryVerse     String?
+  characterFocus  String?
+  competencyFocus String?
+  emphasize       String?      // "What we will emphasize"
+  watchFor        String?      // "What we will watch for"
+  encourage       String?      // "How we will encourage" (blessings)
+  correct         String?      // "How we will correct" (consequences)
+  reviewNotes     String?      // Monthly review: "What to adjust next month"
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relation
+  member          prayerMember @relation("ChildMonthlyVisions", fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, yearMonth])
+  @@index([memberId])
 }
