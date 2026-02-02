@@ -2,7 +2,7 @@
 // Section A: Annual Plan — The Four Elements
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -36,6 +36,8 @@ interface Props {
   userId: string;
   memberId: string;
   childName: string;
+  scrollToAndEdit?: boolean;
+  onScrollHandled?: () => void;
 }
 
 async function fetchAnnualPlans(userId: string, memberId: string) {
@@ -72,18 +74,56 @@ async function createOrUpdatePlan(
   }
 }
 
-export function AnnualPlanSection({ userId, memberId }: Props) {
+export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit, onScrollHandled }: Props) {
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
   const [showHistory, setShowHistory] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<AnnualPlan>>({});
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Track if we need to scroll when the component updates
+  const [shouldScrollOnMount, setShouldScrollOnMount] = useState(false);
+  // Track if we've already handled this scroll request (to prevent re-triggering)
+  const [hasHandledScroll, setHasHandledScroll] = useState(false);
+  // Track the previous scrollToAndEdit value to detect changes
+  const [prevScrollToAndEdit, setPrevScrollToAndEdit] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["kids-discipleship", "annual-plan", memberId],
     queryFn: () => fetchAnnualPlans(userId, memberId),
     enabled: !!userId && !!memberId,
   });
+
+  const childData = data?.children?.find((c: { memberId: string }) => c.memberId === memberId);
+  const plans: AnnualPlan[] = childData?.plans || [];
+  const currentPlan = plans.find((p) => p.year === currentYear);
+  const pastPlans = plans.filter((p) => p.year < currentYear);
+
+  // Handle scroll to and edit when triggered from parent (using render-time state sync pattern)
+  if (scrollToAndEdit !== prevScrollToAndEdit) {
+    setPrevScrollToAndEdit(scrollToAndEdit ?? false);
+    if (scrollToAndEdit) {
+      setHasHandledScroll(false); // Reset for new scroll request
+    }
+  }
+
+  // Process scroll request when data is ready and we haven't handled it yet
+  if (scrollToAndEdit && !isLoading && !hasHandledScroll && !isEditing) {
+    setHasHandledScroll(true);
+    setFormData(currentPlan || {});
+    setIsEditing(true);
+    setShouldScrollOnMount(true);
+  }
+
+  // Callback ref that scrolls when the element is available
+  const scrollRef = (node: HTMLDivElement | null) => {
+    cardRef.current = node;
+    if (node && shouldScrollOnMount) {
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+      setShouldScrollOnMount(false);
+      onScrollHandled?.();
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: (params: { data: Partial<AnnualPlan>; planId?: string }) =>
@@ -95,11 +135,6 @@ export function AnnualPlanSection({ userId, memberId }: Props) {
       setIsEditing(false);
     },
   });
-
-  const childData = data?.children?.find((c: { memberId: string }) => c.memberId === memberId);
-  const plans: AnnualPlan[] = childData?.plans || [];
-  const currentPlan = plans.find((p) => p.year === currentYear);
-  const pastPlans = plans.filter((p) => p.year < currentYear);
 
   const startEditing = () => {
     setFormData(currentPlan || {});
@@ -127,13 +162,13 @@ export function AnnualPlanSection({ userId, memberId }: Props) {
   }
 
   return (
-    <Card>
+    <Card ref={scrollRef}>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5 text-accent" />
-              Annual Plan — The Four Elements
+              Annual Plan for {childName}
             </CardTitle>
             <CardDescription className="mt-1">
               Year: {currentYear}
@@ -300,14 +335,23 @@ export function AnnualPlanSection({ userId, memberId }: Props) {
             </div>
 
             {/* Save/Cancel */}
-            <div className="flex gap-2">
-              <Button onClick={handleSave} disabled={mutation.isPending || !formData.characterGoal || !formData.competencyGoal}>
-                <Save className="h-4 w-4 mr-2" />
-                {mutation.isPending ? "Saving..." : "Save Plan"}
-              </Button>
-              <Button variant="outline" onClick={() => setIsEditing(false)}>
-                Cancel
-              </Button>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <Button onClick={handleSave} disabled={mutation.isPending || !formData.characterGoal || !formData.competencyGoal}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {mutation.isPending ? "Saving..." : "Save Plan"}
+                </Button>
+                <Button variant="outline" onClick={() => setIsEditing(false)}>
+                  Cancel
+                </Button>
+              </div>
+              {mutation.isError && (
+                <p className="text-sm text-destructive">
+                  {mutation.error instanceof Error
+                    ? mutation.error.message
+                    : "Failed to save plan. Please try again."}
+                </p>
+              )}
             </div>
           </div>
         ) : currentPlan ? (

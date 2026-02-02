@@ -277,14 +277,23 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
             </div>
 
             {/* Save/Cancel */}
-            <div className="flex gap-2">
-              <Button onClick={handleSave} disabled={mutation.isPending}>
-                <Save className="h-4 w-4 mr-2" />
-                {mutation.isPending ? "Saving..." : "Save Vision"}
-              </Button>
-              <Button variant="outline" onClick={() => setIsEditing(false)}>
-                Cancel
-              </Button>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <Button onClick={handleSave} disabled={mutation.isPending}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {mutation.isPending ? "Saving..." : "Save Vision"}
+                </Button>
+                <Button variant="outline" onClick={() => setIsEditing(false)}>
+                  Cancel
+                </Button>
+              </div>
+              {mutation.isError && (
+                <p className="text-sm text-destructive">
+                  {mutation.error instanceof Error
+                    ? mutation.error.message
+                    : "Failed to save vision. Please try again."}
+                </p>
+              )}
             </div>
           </div>
         ) : hasCurrentVisionContent && currentVision ? (

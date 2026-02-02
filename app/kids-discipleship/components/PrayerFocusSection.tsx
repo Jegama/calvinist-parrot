@@ -1,15 +1,14 @@
 // app/kids-discipleship/components/PrayerFocusSection.tsx
-// Section D: Prayer Focus (derived from logs) + Section E: Monthly Review + Section F: Annual Review
+// Section D: Prayer Focus (derived from logs) + Section F: Annual Review
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Heart,
@@ -17,14 +16,10 @@ import {
   AlertCircle,
   Plus,
   BookOpen,
-  TrendingUp,
-  TrendingDown,
-  BarChart3,
   Check,
   Loader2,
   Cake,
   Sparkles,
-  Save,
   Calendar,
 } from "lucide-react";
 import { BibleVerse } from "@/components/BibleVerse";
@@ -38,13 +33,6 @@ interface PrayerFocusItem {
   sourceEntryDate: string;
   sourceCategory: "NURTURE" | "ADMONITION";
   sourceSnippet: string;
-}
-
-interface LogStats {
-  nurtureCount: number;
-  admonitionCount: number;
-  topHeartIssues: string[];
-  topVirtues: string[];
 }
 
 interface Props {
@@ -83,33 +71,6 @@ async function addPrayerRequest(
   if (!res.ok) throw new Error("Failed to add prayer request");
 }
 
-async function fetchMonthlyVision(userId: string, memberId: string) {
-  const res = await fetch(
-    `/api/kids-discipleship/monthly-vision?userId=${userId}&memberId=${memberId}`
-  );
-  if (!res.ok) throw new Error("Failed to fetch monthly vision");
-  return res.json();
-}
-
-async function updateReviewNotes(
-  userId: string,
-  memberId: string,
-  yearMonth: string,
-  reviewNotes: string
-): Promise<void> {
-  const res = await fetch("/api/kids-discipleship/monthly-vision", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      userId,
-      memberId,
-      yearMonth,
-      reviewNotes,
-    }),
-  });
-  if (!res.ok) throw new Error("Failed to save review notes");
-}
-
 async function fetchAnnualPlans(userId: string, memberId: string) {
   const res = await fetch(
     `/api/kids-discipleship/annual-plan?userId=${userId}&memberId=${memberId}`
@@ -127,8 +88,6 @@ export function PrayerFocusSection({
 }: Props) {
   const queryClient = useQueryClient();
   const [addedRequests, setAddedRequests] = useState<Set<string>>(new Set());
-  const [reviewNotes, setReviewNotes] = useState("");
-  const [notesSaved, setNotesSaved] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["kids-discipleship", "prayer-focus", memberId],
@@ -139,19 +98,8 @@ export function PrayerFocusSection({
 
   const prayerNeeds: PrayerFocusItem[] = data?.prayerNeeds || [];
   const praises: PrayerFocusItem[] = data?.praises || [];
-  const stats: LogStats = data?.stats || {
-    nurtureCount: 0,
-    admonitionCount: 0,
-    topHeartIssues: [],
-    topVirtues: [],
-  };
-
-  // Fetch monthly vision for review notes
-  const { data: visionData } = useQuery({
-    queryKey: ["kids-discipleship", "monthly-vision", memberId],
-    queryFn: () => fetchMonthlyVision(userId, memberId),
-    enabled: !!userId && !!memberId,
-  });
+  const nurtureCount: number = data?.stats?.nurtureCount || 0;
+  const admonitionCount: number = data?.stats?.admonitionCount || 0;
 
   // Fetch annual plan to check if one exists for current year
   const { data: annualPlanData } = useQuery({
@@ -168,19 +116,6 @@ export function PrayerFocusSection({
     (p: { year: number }) => p.year === currentYear
   );
 
-  const currentYearMonth = visionData?.currentYearMonth;
-  const currentVision = visionData?.visions?.find(
-    (v: { yearMonth: string }) => v.yearMonth === currentYearMonth
-  );
-
-  // Sync review notes from fetched data
-  const fetchedNotes = currentVision?.reviewNotes || "";
-  useEffect(() => {
-    if (fetchedNotes && reviewNotes === "") {
-      setReviewNotes(fetchedNotes);
-    }
-  }, [fetchedNotes, reviewNotes]);
-
   const addMutation = useMutation({
     mutationFn: (params: { title: string; notes: string; linkedScripture: string | null; key: string }) =>
       addPrayerRequest(
@@ -192,15 +127,6 @@ export function PrayerFocusSection({
     onSuccess: (_, variables) => {
       setAddedRequests((prev) => new Set(prev).add(variables.key));
       queryClient.invalidateQueries({ queryKey: ["prayer-requests"] });
-    },
-  });
-
-  const saveNotesMutation = useMutation({
-    mutationFn: () => updateReviewNotes(userId, memberId, currentYearMonth, reviewNotes),
-    onSuccess: () => {
-      setNotesSaved(true);
-      setTimeout(() => setNotesSaved(false), 2000);
-      queryClient.invalidateQueries({ queryKey: ["kids-discipleship", "monthly-vision", memberId] });
     },
   });
 
@@ -227,8 +153,10 @@ export function PrayerFocusSection({
     // Check if approaching new age bracket
     const ageInMonths = Math.floor((now.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
 
+    // Get bracket boundaries from AGE_BRACKET_CONFIG
+    const bracketBoundaries = Object.values(AGE_BRACKET_CONFIG).map(b => b.min).filter(min => min > 0);
+    
     // Check if within 6 months of a bracket boundary
-    const bracketBoundaries = [3, 7, 13]; // Ages where brackets change
     for (const boundary of bracketBoundaries) {
       const monthsToNextBracket = (boundary * 12) - ageInMonths;
       if (monthsToNextBracket > 0 && monthsToNextBracket <= 6) {
@@ -256,7 +184,7 @@ export function PrayerFocusSection({
     );
   }
 
-  const totalLogs = stats.nurtureCount + stats.admonitionCount;
+  const totalLogs = nurtureCount + admonitionCount;
   const hasData = totalLogs > 0;
 
   return (
@@ -393,135 +321,6 @@ export function PrayerFocusSection({
                 )}
               </TabsContent>
             </Tabs>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Monthly Review Dashboard Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-accent" />
-            Monthly Review Dashboard
-          </CardTitle>
-          <CardDescription>
-            Last 30 days summary for {childName}
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent>
-          {!hasData ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <BarChart3 className="h-8 w-8 mx-auto mb-3 opacity-50" />
-              <p>No data yet for the dashboard.</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Win/Struggle counts */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/20 text-center">
-                  <div className="flex items-center justify-center gap-2 mb-1">
-                    <TrendingUp className="h-5 w-5 text-green-600" />
-                    <span className="text-2xl font-bold text-green-600">{stats.nurtureCount}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Nurture Moments</p>
-                </div>
-                <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 text-center">
-                  <div className="flex items-center justify-center gap-2 mb-1">
-                    <TrendingDown className="h-5 w-5 text-amber-600" />
-                    <span className="text-2xl font-bold text-amber-600">{stats.admonitionCount}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Admonition Moments</p>
-                </div>
-              </div>
-
-              {/* Top patterns */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                {stats.topHeartIssues.length > 0 && (
-                  <div className="p-4 rounded-lg bg-muted/50">
-                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-amber-500" />
-                      Top Heart Issues
-                    </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {stats.topHeartIssues.map((issue) => (
-                        <Badge key={issue} variant="secondary">
-                          {issue}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {stats.topVirtues.length > 0 && (
-                  <div className="p-4 rounded-lg bg-muted/50">
-                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                      <Heart className="h-4 w-4 text-green-500" />
-                      Top Virtues
-                    </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {stats.topVirtues.map((virtue) => (
-                        <Badge key={virtue} variant="secondary" className="bg-green-100 dark:bg-green-900">
-                          {virtue}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Ratio indicator */}
-              <div className="p-4 rounded-lg border">
-                <h4 className="text-sm font-medium mb-2">Nurture/Admonition Ratio</h4>
-                <div className="h-4 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-green-500 to-green-400"
-                    style={{
-                      width: `${(stats.nurtureCount / totalLogs) * 100}%`,
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {Math.round((stats.nurtureCount / totalLogs) * 100)}% nurture / {" "}
-                  {Math.round((stats.admonitionCount / totalLogs) * 100)}% admonition
-                </p>
-              </div>
-
-              {/* What to adjust next month */}
-              <div className="p-4 rounded-lg border bg-muted/30">
-                <h4 className="text-sm font-medium mb-2">What to Adjust Next Month</h4>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Based on your observations, what would you like to focus on or change?
-                </p>
-                <Textarea
-                  placeholder="E.g., Focus more on patience during mealtimes, introduce new bedtime routine..."
-                  value={reviewNotes}
-                  onChange={(e) => setReviewNotes(e.target.value)}
-                  rows={3}
-                  className="resize-none"
-                />
-                <div className="flex items-center justify-between mt-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => saveNotesMutation.mutate()}
-                    disabled={saveNotesMutation.isPending}
-                  >
-                    {saveNotesMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : notesSaved ? (
-                      <Check className="h-4 w-4 mr-2 text-green-600" />
-                    ) : (
-                      <Save className="h-4 w-4 mr-2" />
-                    )}
-                    {notesSaved ? "Saved!" : "Save Notes"}
-                  </Button>
-                  {currentVision?.reviewNotes && reviewNotes !== currentVision.reviewNotes && (
-                    <span className="text-xs text-muted-foreground">Unsaved changes</span>
-                  )}
-                </div>
-              </div>
-            </div>
           )}
         </CardContent>
       </Card>

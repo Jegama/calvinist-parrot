@@ -3,6 +3,10 @@
 // Phase 3: Display only (promotion to Prayer Tracker in Phase 4)
 
 import prisma from "@/lib/prisma";
+
+// Constants
+const MAX_LOGS_TO_FETCH = 50;
+const MAX_PRAYER_FOCUS_ITEMS = 6;
 import { LogCategory } from "@prisma/client";
 import type { KidsCall2Output } from "@/lib/prompts/kids-discipleship";
 
@@ -48,7 +52,7 @@ export async function derivePrayerFocus(
       },
     },
     orderBy: { entryDate: "desc" },
-    take: 50, // Limit to prevent too many results
+    take: MAX_LOGS_TO_FETCH,
   });
 
   const prayerNeeds: PrayerFocusItem[] = [];
@@ -84,11 +88,10 @@ export async function derivePrayerFocus(
     }
   }
 
-  // Limit to 6 items each (newest first since logs are ordered by date DESC)
-  const MAX_ITEMS = 6;
+  // Limit items each (newest first since logs are ordered by date DESC)
   return {
-    prayerNeeds: prayerNeeds.slice(0, MAX_ITEMS),
-    praises: praises.slice(0, MAX_ITEMS),
+    prayerNeeds: prayerNeeds.slice(0, MAX_PRAYER_FOCUS_ITEMS),
+    praises: praises.slice(0, MAX_PRAYER_FOCUS_ITEMS),
   };
 }
 
@@ -103,6 +106,7 @@ export async function getLogStats(
   admonitionCount: number;
   topHeartIssues: string[];
   topVirtues: string[];
+  topDevelopmentalAreas: string[];
 }> {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - daysBack);
@@ -126,6 +130,7 @@ export async function getLogStats(
   let admonitionCount = 0;
   const heartIssueCounts: Record<string, number> = {};
   const virtueCounts: Record<string, number> = {};
+  const developmentalAreaCounts: Record<string, number> = {};
 
   for (const log of logs) {
     if (log.category === LogCategory.NURTURE) nurtureCount++;
@@ -145,6 +150,10 @@ export async function getLogStats(
           virtueCounts[virtue] = (virtueCounts[virtue] || 0) + 1;
         }
       }
+      // Developmental areas from all logs
+      for (const area of call2.tags.developmentalArea || []) {
+        developmentalAreaCounts[area] = (developmentalAreaCounts[area] || 0) + 1;
+      }
     }
   }
 
@@ -159,10 +168,16 @@ export async function getLogStats(
     .slice(0, 3)
     .map(([tag]) => tag);
 
+  const topDevelopmentalAreas = Object.entries(developmentalAreaCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([tag]) => tag);
+
   return {
     nurtureCount,
     admonitionCount,
     topHeartIssues,
     topVirtues,
+    topDevelopmentalAreas,
   };
 }

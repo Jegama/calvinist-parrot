@@ -20,17 +20,48 @@ import {
 import {
   getAgeBracket,
   formatAge,
-  AGE_BRACKET_CONFIG,
+  type AgeBracket,
 } from "@/utils/ageUtils";
 import type { LogCategory } from "@prisma/client";
 
 const MODEL = "gpt-5-mini";
 const PROMPT_VERSION = "1.0.0";
 
+/**
+ * Type guard to validate KidsCall1Output structure
+ */
+function isKidsCall1Output(value: unknown): value is KidsCall1Output {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.summary === "string" &&
+    Array.isArray(v.whatMightBeGoingOnInTheHeart) &&
+    typeof v.gospelConnectionSuggestion === "object" &&
+    Array.isArray(v.parentShepherdingNextSteps) &&
+    Array.isArray(v.scripture) &&
+    typeof v.encouragementForParent === "string" &&
+    Array.isArray(v.safetyFlags)
+  );
+}
+
+/**
+ * Type guard to validate KidsCall2Output structure
+ */
+function isKidsCall2Output(value: unknown): value is KidsCall2Output {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.tags === "object" &&
+    v.tags !== null &&
+    Array.isArray(v.suggestedChildPrayerRequests) &&
+    Array.isArray(v.suggestedMonthlyVisionAdjustments)
+  );
+}
+
 export interface KidsLogContext {
   childId: string;
   childName: string;
-  childBirthdate: Date | null;
+  childBirthdate: Date;
   category: LogCategory;
   entryText: string;
   gospelConnection: string | null;
@@ -42,17 +73,17 @@ export interface KidsLogContext {
  * Build the prompt context from a log's data
  */
 export function buildPromptContext(ctx: KidsLogContext): KidsPromptContext {
-  const birthdate = ctx.childBirthdate;
-  let childAge = "Unknown age";
-  let ageBracket = "Unknown bracket";
+  // Birthday is mandatory, so this should always exist.
+  const childAge = formatAge(ctx.childBirthdate);
 
-  if (birthdate) {
-    childAge = formatAge(birthdate);
-    const bracket = getAgeBracket(birthdate);
-    if (bracket) {
-      ageBracket = AGE_BRACKET_CONFIG[bracket].label;
-    }
+  const bracket = getAgeBracket(ctx.childBirthdate);
+  if (!bracket) {
+    // This should never happen if getAgeBracket is correct,
+    // but throwing is better than silently degrading prompt quality.
+    throw new Error("Kids discipleship: could not compute age bracket from birthdate");
   }
+
+  const ageBracket: AgeBracket = bracket;
 
   return {
     childName: ctx.childName,
@@ -99,7 +130,11 @@ export async function runKidsCall1(
     throw new Error("No response from Kids Call 1 LLM");
   }
 
-  return response.output_parsed as unknown as KidsCall1Output;
+  if (!isKidsCall1Output(response.output_parsed)) {
+    throw new Error("Invalid Kids Call 1 response structure");
+  }
+
+  return response.output_parsed;
 }
 
 /**
@@ -134,7 +169,11 @@ export async function runKidsCall2(
     throw new Error("No response from Kids Call 2 LLM");
   }
 
-  return response.output_parsed as unknown as KidsCall2Output;
+  if (!isKidsCall2Output(response.output_parsed)) {
+    throw new Error("Invalid Kids Call 2 response structure");
+  }
+
+  return response.output_parsed;
 }
 
 /**

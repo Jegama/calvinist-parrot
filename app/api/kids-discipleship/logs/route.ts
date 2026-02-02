@@ -178,6 +178,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!child.birthdate) {
+    return NextResponse.json(
+      { error: "Child birthdate is required for Heritage Journal. Please add a birthdate in Family Space settings." },
+      { status: 400 }
+    );
+  }
+
   try {
     await assertHouseholdAccess(userId, child.spaceId);
   } catch {
@@ -220,7 +227,7 @@ export async function POST(request: Request) {
         const promptContext = buildPromptContext({
           childId: child.id,
           childName: child.displayName,
-          childBirthdate: child.birthdate,
+          childBirthdate: child.birthdate!,
           category: category as LogCategory,
           entryText,
           gospelConnection: gospelConnection || null,
@@ -276,6 +283,7 @@ export async function POST(request: Request) {
             entryDate: entry.entryDate.toISOString(),
             entryText: entry.entryText,
             category: entry.category,
+            gospelConnection: entry.gospelConnection,
             tags,
           },
           call1,

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CalendarIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -328,6 +328,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                     return (
                       <div key={member.id} className="flex flex-col gap-3 rounded-md border p-3">
                         <div className="flex flex-col gap-1">
+                          {/* Line 1: Name + CHILD badge */}
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-medium">{member.displayName}</p>
                             {member.isChild && (
@@ -335,46 +336,38 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                                 Child
                               </span>
                             )}
-                            {member.isChild && ageDisplay && (
-                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                                {ageDisplay}
-                              </span>
-                            )}
-                            {member.isChild && bracket && (
-                              <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                                {getBracketLabel(bracket)}
-                              </span>
-                            )}
                           </div>
+                          {/* Line 2: Age + Bracket + Edit (for children) */}
+                          {member.isChild && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              {ageDisplay && (
+                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                  {ageDisplay}
+                                </span>
+                              )}
+                              {bracket && (
+                                <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                                  {getBracketLabel(bracket)}
+                                </span>
+                              )}
+                              {membership?.role === "OWNER" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                                  onClick={() => {
+                                    setMemberToEdit(member);
+                                    setEditBirthdate(hasValidBirthdate ? new Date(member.birthdate!) : undefined);
+                                    setEditMemberDialogOpen(true);
+                                  }}
+                                >
+                                  <CalendarIcon className="mr-1 h-3 w-3" />
+                                  {hasValidBirthdate ? "Edit" : "Add birthdate"}
+                                </Button>
+                              )}
+                            </div>
+                          )}
                           <p className="text-xs text-muted-foreground">{member.role === "OWNER" ? "Owner" : "Member"}</p>
-                          {member.isChild && !hasValidBirthdate && membership?.role === "OWNER" && (
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0 text-xs text-muted-foreground underline"
-                              onClick={() => {
-                                setMemberToEdit(member);
-                                setEditBirthdate(undefined);
-                                setEditMemberDialogOpen(true);
-                              }}
-                            >
-                              + Add birthdate
-                            </Button>
-                          )}
-                          {member.isChild && hasValidBirthdate && membership?.role === "OWNER" && (
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0 text-xs text-muted-foreground underline"
-                              onClick={() => {
-                                setMemberToEdit(member);
-                                setEditBirthdate(new Date(member.birthdate!));
-                                setEditMemberDialogOpen(true);
-                              }}
-                            >
-                              Edit birthdate
-                            </Button>
-                          )}
                         </div>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-2">
@@ -501,11 +494,14 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                             </Button>
                           )}
                         </div>
-                        <Button onClick={handleAddChild} disabled={isAddingChild || !newChildName.trim()}>
-                          {isAddingChild ? "Adding..." : "Add Child"}
-                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          Birthdate is required to enable age-appropriate guidance in the Heritage Journal feature
+                        </p>
                       </div>
                     </div>
+                    <Button onClick={handleAddChild} disabled={isAddingChild || !newChildName.trim() || !newChildBirthdate}>
+                      {isAddingChild ? "Adding..." : "Add Child"}
+                    </Button>
                   </div>
                 )}
               </div>

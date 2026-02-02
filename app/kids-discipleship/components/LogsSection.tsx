@@ -63,7 +63,7 @@ async function fetchLogs(userId: string, memberId: string, category?: string) {
   return res.json();
 }
 
-export function LogsSection({ userId, memberId }: Props) {
+export function LogsSection({ userId, memberId, childName }: Props) {
   const queryClient = useQueryClient();
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<"NURTURE" | "ADMONITION">("NURTURE");
@@ -243,7 +243,7 @@ export function LogsSection({ userId, memberId }: Props) {
             </DialogTrigger>
             <DialogContent className="max-w-lg">
               <DialogHeader>
-                <DialogTitle>Log a Parenting Moment</DialogTitle>
+                <DialogTitle>Log a Parenting Moment for {childName}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 {/* Category Toggle */}
@@ -455,7 +455,7 @@ function LogCard({ entry, isNew }: { entry: LogEntry; isNew?: boolean }) {
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-3">
-            <ReflectionCard call1={entry.aiOutput.call1} />
+            <ReflectionCard call1={entry.aiOutput.call1} call2={entry.aiOutput.call2} />
           </CollapsibleContent>
         </Collapsible>
       )}
@@ -464,9 +464,47 @@ function LogCard({ entry, isNew }: { entry: LogEntry; isNew?: boolean }) {
 }
 
 // Reflection Card Component
-function ReflectionCard({ call1 }: { call1: KidsCall1Output }) {
+function ReflectionCard({ call1, call2 }: { call1: KidsCall1Output; call2?: KidsCall2Output | null }) {
+  // Safety flag helpers (matching Journal's ReflectionCard pattern)
+  const isUrgentSafetyFlag = (flag: string): boolean => {
+    return (
+      flag === "URGENT_CHILD_SAFETY" ||
+      flag === "URGENT_ABUSE_CONCERN" ||
+      flag === "URGENT_MENTAL_HEALTH"
+    );
+  };
+
+  const formatUrgentSafetyFlag = (flag: string): string => {
+    switch (flag) {
+      case "URGENT_CHILD_SAFETY":
+        return "Possible immediate child safety concern noted. If anyone is in immediate danger, please contact emergency services.";
+      case "URGENT_ABUSE_CONCERN":
+        return "Possible abuse concern noted. If you believe a child is in danger, please contact local authorities or a child protection hotline.";
+      case "URGENT_MENTAL_HEALTH":
+        return "Possible mental health concern noted. If you or your child need immediate support, please reach out to a mental health professional or crisis line.";
+      default:
+        return flag;
+    }
+  };
+
+  const urgentSafetyFlags = (call1.safetyFlags || []).filter(isUrgentSafetyFlag);
+
   return (
     <div className="p-4 rounded-lg bg-muted/30 space-y-4">
+      {/* Urgent Safety Flags (red notice at top) */}
+      {urgentSafetyFlags.length > 0 && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4">
+          <h4 className="text-sm font-semibold text-destructive mb-2">Important Notice</h4>
+          <ul className="space-y-1">
+            {urgentSafetyFlags.map((flag, i) => (
+              <li key={i} className="text-sm text-destructive/80">
+                {formatUrgentSafetyFlag(flag)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <p className="font-medium">{call1.summary}</p>
 
       {call1.whatMightBeGoingOnInTheHeart.length > 0 && (
@@ -522,6 +560,42 @@ function ReflectionCard({ call1 }: { call1: KidsCall1Output }) {
       {call1.encouragementForParent && (
         <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
           <p className="text-sm italic">{call1.encouragementForParent}</p>
+        </div>
+      )}
+
+      {/* Parent Consistency Note (from call2) */}
+      {call2?.parentConsistencyNote && (
+        <div>
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">Pattern Observation:</h4>
+          <p className="text-sm">{call2.parentConsistencyNote}</p>
+        </div>
+      )}
+
+      {/* Suggested Monthly Vision Adjustments (from call2) */}
+      {call2?.suggestedMonthlyVisionAdjustments && call2.suggestedMonthlyVisionAdjustments.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">
+            Consider for Monthly Vision:
+          </h4>
+          <ul className="list-disc list-inside space-y-1 text-sm">
+            {call2.suggestedMonthlyVisionAdjustments.map((suggestion, i) => (
+              <li key={i}>{suggestion}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Developmental Areas (from call2 tags) */}
+      {call2?.tags?.developmentalArea && call2.tags.developmentalArea.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">Developmental Areas:</h4>
+          <div className="flex flex-wrap gap-1">
+            {call2.tags.developmentalArea.map((area, i) => (
+              <Badge key={i} variant="secondary" className="text-xs">
+                {area}
+              </Badge>
+            ))}
+          </div>
         </div>
       )}
     </div>

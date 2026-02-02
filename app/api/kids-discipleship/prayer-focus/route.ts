@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");
   const memberId = searchParams.get("memberId");
-  const daysBack = parseInt(searchParams.get("daysBack") || "30", 10);
+  const daysBack = Math.min(Math.max(parseInt(searchParams.get("daysBack") || "30", 10), 1), 365);
 
   if (!userId || !memberId) {
     return NextResponse.json(

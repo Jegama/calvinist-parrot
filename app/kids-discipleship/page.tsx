@@ -21,6 +21,7 @@ import { formatAge, getAgeBracket, AGE_BRACKET_CONFIG } from "@/utils/ageUtils";
 import { AnnualPlanSection } from "./components/AnnualPlanSection";
 import { MonthlyVisionSection } from "./components/MonthlyVisionSection";
 import { LogsSection } from "./components/LogsSection";
+import { MonthlyReviewSection } from "./components/MonthlyReviewSection";
 import { PrayerFocusSection } from "./components/PrayerFocusSection";
 import Link from "next/link";
 
@@ -51,8 +52,9 @@ async function fetchHousehold(userId: string): Promise<HouseholdResponse | null>
 }
 
 export default function KidsDiscipleshipPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [activeChildId, setActiveChildId] = useState<string | null>(null);
+  const [scrollToAnnualPlan, setScrollToAnnualPlan] = useState(false);
 
   // Fetch household data with children
   const { data: householdData, isLoading: householdLoading } = useQuery({
@@ -84,13 +86,12 @@ export default function KidsDiscipleshipPage() {
     return AGE_BRACKET_CONFIG[bracket];
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-[calc(100vh-var(--app-header-height))] flex items-center justify-center">
-        <Skeleton className="h-12 w-48" />
-      </div>
-    );
-  }
+  // Handler for "Create Next Year Plan" from PrayerFocusSection
+  const handleCreateNextYearPlan = () => {
+    setScrollToAnnualPlan(true);
+    // The AnnualPlanSection will handle scrolling and opening edit mode
+    // when it detects the scrollToAnnualPlan prop
+  };
 
   return (
     <ProtectedView>
@@ -197,11 +198,13 @@ export default function KidsDiscipleshipPage() {
                 {/* Age bracket guidance */}
                 {child.birthdate && getAgeBracket(child.birthdate) && (
                   <Alert>
-                    <BookOpen className="h-4 w-4" />
-                    <AlertDescription>
-                      <strong>{AGE_BRACKET_CONFIG[getAgeBracket(child.birthdate)!].label}:</strong>{" "}
-                      {AGE_BRACKET_CONFIG[getAgeBracket(child.birthdate)!].description}
-                    </AlertDescription>
+                    <div className="flex items-center gap-3">
+                      <BookOpen className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>{AGE_BRACKET_CONFIG[getAgeBracket(child.birthdate)!].label}:</strong>{" "}
+                        {AGE_BRACKET_CONFIG[getAgeBracket(child.birthdate)!].description}
+                      </AlertDescription>
+                    </div>
                   </Alert>
                 )}
 
@@ -210,6 +213,8 @@ export default function KidsDiscipleshipPage() {
                   userId={user!.$id}
                   memberId={child.id}
                   childName={child.displayName}
+                  scrollToAndEdit={scrollToAnnualPlan}
+                  onScrollHandled={() => setScrollToAnnualPlan(false)}
                 />
 
                 {/* Section B: Monthly Vision */}
@@ -227,12 +232,20 @@ export default function KidsDiscipleshipPage() {
                   childName={child.displayName}
                 />
 
-                {/* Section D: Prayer Focus */}
+                {/* Section D: Monthly Review Dashboard */}
+                <MonthlyReviewSection
+                  userId={user!.$id}
+                  memberId={child.id}
+                  childName={child.displayName}
+                />
+
+                {/* Section E: Prayer Focus */}
                 <PrayerFocusSection
                   userId={user!.$id}
                   memberId={child.id}
                   childName={child.displayName}
                   childBirthdate={child.birthdate}
+                  onCreateNextYearPlan={handleCreateNextYearPlan}
                 />
               </TabsContent>
             ))}
