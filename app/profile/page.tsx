@@ -85,8 +85,6 @@ export default function ProfilePage() {
     <ProtectedView fallback={fallback}>
       <ProfileCard name={user.name || ""} email={user.email || ""} onLogout={handleLogout} />
 
-      {profileStats && <PrayerJourneyCard stats={profileStats} />}
-
       {profileStats && (
         <TheologicalPreferencesCard stats={profileStats} userId={user.$id} onUpdate={() => profileOverview.refetch()} />
       )}
@@ -98,6 +96,8 @@ export default function ProfilePage() {
         userName={user.name || "Member"}
         onUpdate={() => profileOverview.refetch()}
       />
+
+      {profileStats && space && <PrayerJourneyCard stats={profileStats} />}
 
       <PreviousQuestionsCard questions={questions} />
     </ProtectedView>

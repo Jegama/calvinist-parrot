@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { ProtectedView } from "@/components/ProtectedView";
+import { Users } from "lucide-react";
 import { RotationCard } from "./components/RotationCard";
 import { FamilySection } from "./components/FamilySection";
 import { RequestsSection } from "./components/RequestsSection";
@@ -76,18 +77,33 @@ export default function PrayerTrackerPage() {
   if (!spaceName) {
     return (
       <ProtectedView fallback={authFallback}>
-        <Card className="max-w-2xl mx-auto mt-8 mb-8">
-          <CardHeader>
-            <CardTitle>Prayer Tracker</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p>You don&apos;t have a shared family space yet.</p>
-            <p>Create one from your profile page to begin tracking prayers together.</p>
-            <Button asChild>
-              <Link href="/profile">Go to Profile</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="container mx-auto px-4 sm:px-6 py-8 min-h-[calc(100vh-var(--app-header-height))]">
+          <header className="mb-8">
+            <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h1 className="text-3xl font-serif font-bold text-foreground mb-2">
+                  Prayer Tracker
+                </h1>
+                <p className="text-muted-foreground">
+                  Track and pray for your family together
+                </p>
+              </div>
+            </div>
+          </header>
+
+          <Card>
+            <CardContent className="py-12 text-center">
+              <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h2 className="text-xl font-semibold mb-2">No Household Found</h2>
+              <p className="text-muted-foreground mb-4">
+                Create a household from your profile page to begin tracking prayers together.
+              </p>
+              <Button asChild>
+                <Link href="/profile">Go to Profile</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </ProtectedView>
     );
   }

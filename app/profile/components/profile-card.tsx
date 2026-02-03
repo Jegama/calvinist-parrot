@@ -15,7 +15,7 @@ export function ProfileCard({ name, email, onLogout }: ProfileCardProps) {
   return (
     <Card className="mx-auto max-w-sm mt-10">
       <CardHeader>
-        <CardTitle>Profile</CardTitle>
+        <CardTitle className="text-2xl font-serif">Profile</CardTitle>
       </CardHeader>
       <CardContent>
         <p>Name: {name}</p>

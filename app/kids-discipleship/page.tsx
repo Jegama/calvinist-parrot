@@ -2,7 +2,7 @@
 // Heritage Journal - Kids Discipleship main page with child tabs
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { ProtectedView } from "@/components/ProtectedView";
@@ -23,6 +23,7 @@ import { MonthlyVisionSection } from "./components/MonthlyVisionSection";
 import { LogsSection } from "./components/LogsSection";
 import { MonthlyReviewSection } from "./components/MonthlyReviewSection";
 import { PrayerFocusSection } from "./components/PrayerFocusSection";
+import { SectionErrorBoundary } from "@/components/section-error-boundary";
 import Link from "next/link";
 
 // Types
@@ -51,10 +52,22 @@ async function fetchHousehold(userId: string): Promise<HouseholdResponse | null>
   return res.json();
 }
 
+async function fetchProgressionState(userId: string, memberId: string) {
+  const res = await fetch(`/api/kids-discipleship/progression-state?userId=${userId}&memberId=${memberId}`);
+  if (!res.ok) return null;
+  return res.json() as Promise<{
+    hasAnnualPlan: boolean;
+    hasMonthlyVision: boolean;
+    hasLogs: boolean;
+  }>;
+}
+
 export default function KidsDiscipleshipPage() {
   const { user } = useAuth();
   const [activeChildId, setActiveChildId] = useState<string | null>(null);
   const [scrollToAnnualPlan, setScrollToAnnualPlan] = useState(false);
+  const logsRef = useRef<HTMLDivElement>(null);
+  const hasScrolledRef = useRef(false);
 
   // Fetch household data with children
   const { data: householdData, isLoading: householdLoading } = useQuery({
@@ -77,6 +90,43 @@ export default function KidsDiscipleshipPage() {
 
   // Get the active child or default to first
   const currentChildId = activeChildId || children[0]?.id;
+
+  // Fetch progression state for the active child
+  const { data: progressionState } = useQuery({
+    queryKey: ["kids-discipleship", "progression", user?.$id, currentChildId],
+    queryFn: () => fetchProgressionState(user!.$id, currentChildId),
+    enabled: !!user?.$id && !!currentChildId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+
+  // Smart scrolling: scroll to Logs section for returning users (those who have logs)
+  useEffect(() => {
+    if (
+      progressionState?.hasLogs &&
+      logsRef.current &&
+      !hasScrolledRef.current &&
+      !scrollToAnnualPlan
+    ) {
+      // Delay scroll to ensure all cards above are fully rendered
+      const timer = setTimeout(() => {
+        if (logsRef.current) {
+          const contractedHeaderHeight = 64; // Typical contracted header height
+          const breathingRoom = 24;
+
+          // Calculate position accounting for contracted header
+          const elementTop = logsRef.current.getBoundingClientRect().top + window.scrollY;
+          const scrollToPosition = elementTop - contractedHeaderHeight - breathingRoom;
+
+          window.scrollTo({
+            top: scrollToPosition,
+            behavior: "smooth"
+          });
+          hasScrolledRef.current = true;
+        }
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [progressionState?.hasLogs, scrollToAnnualPlan]);
 
   // Get age bracket info for active child
   const getChildBracketInfo = (child: ChildMember) => {
@@ -130,11 +180,11 @@ export default function KidsDiscipleshipPage() {
               <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h2 className="text-xl font-semibold mb-2">No Household Found</h2>
               <p className="text-muted-foreground mb-4">
-                Create a household in Prayer Tracker to start tracking your
+                Create a household from your profile page to start tracking your
                 children&apos;s discipleship.
               </p>
-              <Link href="/prayer-tracker">
-                <Button>Go to Prayer Tracker</Button>
+              <Link href="/profile">
+                <Button>Go to Profile</Button>
               </Link>
             </CardContent>
           </Card>
@@ -147,11 +197,11 @@ export default function KidsDiscipleshipPage() {
               <Baby className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h2 className="text-xl font-semibold mb-2">No Children Added</h2>
               <p className="text-muted-foreground mb-4">
-                Add children to your household in Prayer Tracker to start using
+                Add children to your household from your profile page to start using
                 Heritage Journal.
               </p>
-              <Link href="/prayer-tracker">
-                <Button>Add Children in Prayer Tracker</Button>
+              <Link href="/profile">
+                <Button>Add Children in Profile</Button>
               </Link>
             </CardContent>
           </Card>
@@ -209,44 +259,64 @@ export default function KidsDiscipleshipPage() {
                 )}
 
                 {/* Section A: Annual Plan */}
-                <AnnualPlanSection
-                  userId={user!.$id}
-                  memberId={child.id}
-                  childName={child.displayName}
-                  scrollToAndEdit={scrollToAnnualPlan}
-                  onScrollHandled={() => setScrollToAnnualPlan(false)}
-                />
+                <SectionErrorBoundary fallbackTitle="Error loading Annual Plan">
+                  <AnnualPlanSection
+                    userId={user!.$id}
+                    memberId={child.id}
+                    childName={child.displayName}
+                    scrollToAndEdit={scrollToAnnualPlan}
+                    onScrollHandled={() => setScrollToAnnualPlan(false)}
+                  />
+                </SectionErrorBoundary>
 
-                {/* Section B: Monthly Vision */}
-                <MonthlyVisionSection
-                  userId={user!.$id}
-                  memberId={child.id}
-                  childName={child.displayName}
-                  childBirthdate={child.birthdate}
-                />
+                {/* Section B: Monthly Vision - Show after Annual Plan exists */}
+                {progressionState?.hasAnnualPlan && (
+                  <SectionErrorBoundary fallbackTitle="Error loading Monthly Vision">
+                    <MonthlyVisionSection
+                      userId={user!.$id}
+                      memberId={child.id}
+                      childName={child.displayName}
+                      childBirthdate={child.birthdate}
+                    />
+                  </SectionErrorBoundary>
+                )}
 
-                {/* Section C: Nurture & Admonition Log */}
-                <LogsSection
-                  userId={user!.$id}
-                  memberId={child.id}
-                  childName={child.displayName}
-                />
+                {/* Section C: Nurture & Admonition Log - Show after Monthly Vision exists */}
+                {progressionState?.hasMonthlyVision && (
+                  <div ref={logsRef}>
+                    <SectionErrorBoundary fallbackTitle="Error loading Logs">
+                      <LogsSection
+                        userId={user!.$id}
+                        memberId={child.id}
+                        childName={child.displayName}
+                      />
+                    </SectionErrorBoundary>
+                  </div>
+                )}
 
-                {/* Section D: Monthly Review Dashboard */}
-                <MonthlyReviewSection
-                  userId={user!.$id}
-                  memberId={child.id}
-                  childName={child.displayName}
-                />
+                {/* Section D: Monthly Review Dashboard - Show after first log */}
+                {progressionState?.hasLogs && (
+                  <SectionErrorBoundary fallbackTitle="Error loading Monthly Review">
+                    <MonthlyReviewSection
+                      userId={user!.$id}
+                      memberId={child.id}
+                      childName={child.displayName}
+                    />
+                  </SectionErrorBoundary>
+                )}
 
-                {/* Section E: Prayer Focus */}
-                <PrayerFocusSection
-                  userId={user!.$id}
-                  memberId={child.id}
-                  childName={child.displayName}
-                  childBirthdate={child.birthdate}
-                  onCreateNextYearPlan={handleCreateNextYearPlan}
-                />
+                {/* Section E: Prayer Focus - Show after first log */}
+                {progressionState?.hasLogs && (
+                  <SectionErrorBoundary fallbackTitle="Error loading Prayer Focus">
+                    <PrayerFocusSection
+                      userId={user!.$id}
+                      memberId={child.id}
+                      childName={child.displayName}
+                      childBirthdate={child.birthdate}
+                      onCreateNextYearPlan={handleCreateNextYearPlan}
+                    />
+                  </SectionErrorBoundary>
+                )}
               </TabsContent>
             ))}
           </Tabs>

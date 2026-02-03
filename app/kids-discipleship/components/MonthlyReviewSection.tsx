@@ -2,7 +2,7 @@
 // Section E: Monthly Review Dashboard with stats and notes
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +71,8 @@ async function updateReviewNotes(
 
 export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
   const queryClient = useQueryClient();
+  // Track timeout for cleanup
+  const savedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Local edits - only used when user has modified the notes
   const [localNotes, setLocalNotes] = useState("");
   const [notesSaved, setNotesSaved] = useState(false);
@@ -78,6 +80,14 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
   const [userHasEdited, setUserHasEdited] = useState(false);
   // Track which memberId the local state belongs to
   const [editingMemberId, setEditingMemberId] = useState(memberId);
+
+  // Cleanup timeout helper
+  const cleanupTimeouts = useCallback(() => {
+    if (savedTimeoutRef.current !== null) {
+      clearTimeout(savedTimeoutRef.current);
+      savedTimeoutRef.current = null;
+    }
+  }, []);
 
   // Reset local state when switching children
   if (memberId !== editingMemberId) {
@@ -130,7 +140,11 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
     onSuccess: () => {
       setNotesSaved(true);
       setUserHasEdited(false); // Reset after save so future fetches can update
-      setTimeout(() => setNotesSaved(false), 2000);
+      // Clear any existing timeout before setting a new one
+      cleanupTimeouts();
+      savedTimeoutRef.current = setTimeout(() => {
+        setNotesSaved(false);
+      }, 2000);
       queryClient.invalidateQueries({ queryKey: ["kids-discipleship", "monthly-vision", memberId] });
     },
   });
@@ -143,10 +157,19 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
     return (
       <Card>
         <CardHeader>
-          <Skeleton className="h-6 w-48" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-5 w-5 rounded" />
+            <Skeleton className="h-6 w-48" />
+          </div>
+          <Skeleton className="h-4 w-36 mt-1" />
         </CardHeader>
-        <CardContent>
-          <Skeleton className="h-32 w-full" />
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-24 w-full rounded-lg" />
+            <Skeleton className="h-24 w-full rounded-lg" />
+          </div>
+          <Skeleton className="h-20 w-full rounded-lg" />
+          <Skeleton className="h-16 w-full rounded-lg" />
         </CardContent>
       </Card>
     );
@@ -193,12 +216,12 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
               {stats.topHeartIssues.length > 0 && (
                 <div className="p-4 rounded-lg bg-muted/50">
                   <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-amber-500" />
+                    <AlertCircle className="h-4 w-4 text-amber-500" aria-hidden="true" />
                     Top Heart Issues
                   </h4>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1" role="list" aria-label="Top heart issues observed">
                     {stats.topHeartIssues.map((issue) => (
-                      <Badge key={issue} variant="secondary">
+                      <Badge key={issue} variant="secondary" role="listitem">
                         {issue}
                       </Badge>
                     ))}
@@ -209,12 +232,12 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
               {stats.topVirtues.length > 0 && (
                 <div className="p-4 rounded-lg bg-muted/50">
                   <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <Heart className="h-4 w-4 text-green-500" />
+                    <Heart className="h-4 w-4 text-green-500" aria-hidden="true" />
                     Top Virtues
                   </h4>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1" role="list" aria-label="Top virtues observed">
                     {stats.topVirtues.map((virtue) => (
-                      <Badge key={virtue} variant="secondary" className="bg-green-100 dark:bg-green-900">
+                      <Badge key={virtue} variant="secondary" className="bg-green-100 dark:bg-green-900" role="listitem">
                         {virtue}
                       </Badge>
                     ))}
@@ -225,15 +248,16 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
               {stats.topDevelopmentalAreas.length > 0 && (
                 <div className="p-4 rounded-lg bg-muted/50 sm:col-span-2">
                   <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-indigo-500" />
+                    <TrendingUp className="h-4 w-4 text-indigo-500" aria-hidden="true" />
                     Key Developmental Areas
                   </h4>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1" role="list" aria-label="Key developmental areas observed">
                     {stats.topDevelopmentalAreas.map((area) => (
                       <Badge
                         key={area}
                         variant="secondary"
                         className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
+                        role="listitem"
                       >
                         {area}
                       </Badge>

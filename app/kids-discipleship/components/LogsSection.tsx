@@ -463,28 +463,39 @@ function LogCard({ entry, isNew }: { entry: LogEntry; isNew?: boolean }) {
   );
 }
 
+// Allowlist of urgent safety flags matching the LLM prompt
+const URGENT_SAFETY_FLAGS = [
+  "URGENT_SELF_HARM",
+  "URGENT_CHILD_SAFETY",
+  "URGENT_VIOLENCE_OR_ABUSE",
+  "URGENT_MEDICAL_EMERGENCY",
+  "URGENT_OTHER_IMMEDIATE_DANGER",
+] as const;
+
+type UrgentSafetyFlag = (typeof URGENT_SAFETY_FLAGS)[number];
+
+const SAFETY_FLAG_MESSAGES: Record<UrgentSafetyFlag, string> = {
+  URGENT_SELF_HARM:
+    "Possible self-harm concern noted. If you or someone you know is in crisis, please reach out to a mental health professional or crisis line immediately.",
+  URGENT_CHILD_SAFETY:
+    "Possible immediate child safety concern noted. If anyone is in immediate danger, please contact emergency services.",
+  URGENT_VIOLENCE_OR_ABUSE:
+    "Possible violence or abuse concern noted. If you believe a child is in danger, please contact local authorities or a child protection hotline.",
+  URGENT_MEDICAL_EMERGENCY:
+    "Possible medical emergency noted. If anyone needs immediate medical attention, please contact emergency services.",
+  URGENT_OTHER_IMMEDIATE_DANGER:
+    "Possible immediate danger noted. If anyone is in immediate danger, please contact emergency services.",
+};
+
 // Reflection Card Component
 function ReflectionCard({ call1, call2 }: { call1: KidsCall1Output; call2?: KidsCall2Output | null }) {
-  // Safety flag helpers (matching Journal's ReflectionCard pattern)
-  const isUrgentSafetyFlag = (flag: string): boolean => {
-    return (
-      flag === "URGENT_CHILD_SAFETY" ||
-      flag === "URGENT_ABUSE_CONCERN" ||
-      flag === "URGENT_MENTAL_HEALTH"
-    );
+  // Safety flag helpers
+  const isUrgentSafetyFlag = (flag: string): flag is UrgentSafetyFlag => {
+    return URGENT_SAFETY_FLAGS.includes(flag as UrgentSafetyFlag);
   };
 
-  const formatUrgentSafetyFlag = (flag: string): string => {
-    switch (flag) {
-      case "URGENT_CHILD_SAFETY":
-        return "Possible immediate child safety concern noted. If anyone is in immediate danger, please contact emergency services.";
-      case "URGENT_ABUSE_CONCERN":
-        return "Possible abuse concern noted. If you believe a child is in danger, please contact local authorities or a child protection hotline.";
-      case "URGENT_MENTAL_HEALTH":
-        return "Possible mental health concern noted. If you or your child need immediate support, please reach out to a mental health professional or crisis line.";
-      default:
-        return flag;
-    }
+  const formatUrgentSafetyFlag = (flag: UrgentSafetyFlag): string => {
+    return SAFETY_FLAG_MESSAGES[flag] ?? flag;
   };
 
   const urgentSafetyFlags = (call1.safetyFlags || []).filter(isUrgentSafetyFlag);
@@ -589,9 +600,9 @@ function ReflectionCard({ call1, call2 }: { call1: KidsCall1Output; call2?: Kids
       {call2?.tags?.developmentalArea && call2.tags.developmentalArea.length > 0 && (
         <div>
           <h4 className="text-sm font-medium text-muted-foreground mb-2">Developmental Areas:</h4>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1" role="list" aria-label="Developmental areas observed">
             {call2.tags.developmentalArea.map((area, i) => (
-              <Badge key={i} variant="secondary" className="text-xs">
+              <Badge key={i} variant="secondary" className="text-xs" role="listitem">
                 {area}
               </Badge>
             ))}
