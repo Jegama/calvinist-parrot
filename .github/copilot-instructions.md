@@ -22,6 +22,7 @@
 - **Prayer Tracker:** UI in `app/prayer-tracker`; APIs in `app/api/prayer-tracker`. Uses unified request system (`familyId` null = household). See `.github/instructions/prayer-tracker.instructions.md` for patterns.
 - **Church Finder:** UI in `app/church-finder`; APIs in `app/api/churches`. AI evaluation pipeline uses Tavily + Gemini. See `.github/instructions/church-finder.instructions.md` for details.
 - **Journal:** UI in `app/journal`; APIs in `app/api/journal`. Streams NDJSON events for progressive AI reflection. See `.github/instructions/journal-api.instructions.md` and `.github/instructions/journal-ui.instructions.md` for patterns.
+- **Kids Discipleship:** UI in `app/kids-discipleship`; APIs in `app/api/kids-discipleship`. Streams NDJSON for AI shepherding reflections. Uses household children from Prayer Tracker. See `.github/instructions/kids-discipleship-api.instructions.md` and `.github/instructions/kids-discipleship-ui.instructions.md` for patterns.
 
 ## Data & Integrations
 - Prisma schema in `prisma/schema.prisma`; run `npx prisma migrate dev` after edits.
@@ -38,6 +39,46 @@
 - When adding stateful profile features, prefer `useProfileUiStore` for UI flags and `useQueryClient` updates (`updateProfileOverview`) over ad-hoc states.
 - Shared styling leans on Tailwind and `components/ui/**`; reuse `Card`, `Button`, `Sheet`, etc. instead of bespoke markup.
 - **Page height calculation:** Use `min-h-[calc(100vh-var(--app-header-height))]` instead of `min-h-screen` to account for the dynamic sticky header height. The header sets `--app-header-height` CSS variable based on scroll state.
+
+### Pagination Pattern
+For lists requiring pagination, follow the established pattern used in Church Finder, Prayer Tracker, and Kids Discipleship:
+```tsx
+import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
+
+const paginationControls = (
+  <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+    <span>
+      {Math.min((currentPage - 1) * PAGE_SIZE + 1, total)}-{Math.min(currentPage * PAGE_SIZE, total)} of {total}
+      {filterSuffix && ` ${filterSuffix}`}
+    </span>
+    <div className="flex items-center gap-1.5">
+      <Button size="sm" variant="outline" onClick={() => setPage(1)} disabled={!canPrev} aria-label="Go to first page">
+        <ChevronFirst className="h-4 w-4" aria-hidden="true" />
+      </Button>
+      <Button size="sm" variant="outline" onClick={() => setPage(currentPage - 1)} disabled={!canPrev} aria-label="Go to previous page">
+        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+      </Button>
+      <span className="px-1">Page {currentPage} / {totalPages}</span>
+      <Button size="sm" variant="outline" onClick={() => setPage(currentPage + 1)} disabled={!canNext} aria-label="Go to next page">
+        <ChevronRight className="h-4 w-4" aria-hidden="true" />
+      </Button>
+      <Button size="sm" variant="outline" onClick={() => setPage(totalPages)} disabled={!canNext} aria-label="Go to last page">
+        <ChevronLast className="h-4 w-4" aria-hidden="true" />
+      </Button>
+    </div>
+  </div>
+);
+```
+**Key requirements:**
+- Display range as "X-Y of Z" with optional filter suffix
+- Four navigation buttons: first, previous, next, last using lucide-react chevron icons
+- Icons only (no text) for compact layout
+- Consistent styling: `border-border/60`, `bg-muted/20`, `text-xs` for text
+- Include `aria-label` on buttons and `aria-hidden="true"` on icons for accessibility
+- Place controls above and below paginated content for easy navigation
+- For features with multiple filter states (e.g., categories), consider per-filter page tracking to preserve position when users switch filters
+
+Examples: Church Finder (`app/church-finder/components/church-list.tsx`), Prayer Tracker families and requests (`app/prayer-tracker/components/FamilySection.tsx`, `app/prayer-tracker/components/RequestsSection.tsx`)
 
 ### Standardized Page Headers
 All main feature pages follow a consistent header pattern for visual cohesion:

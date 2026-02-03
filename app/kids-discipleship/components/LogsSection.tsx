@@ -2,7 +2,7 @@
 // Section C: Nurture & Admonition Log
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -19,6 +19,9 @@ import {
   Loader2,
   ChevronDown,
   ChevronRight,
+  ChevronFirst,
+  ChevronLast,
+  ChevronLeft,
   BookOpen,
   Lightbulb,
   CheckCircle,
@@ -73,14 +76,113 @@ export function LogsSection({ userId, memberId, childName }: Props) {
   const [streamProgress, setStreamProgress] = useState<string | null>(null);
   const [newLogEntry, setNewLogEntry] = useState<LogEntry | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [pagesByFilter, setPagesByFilter] = useState<Record<string, number>>({});
 
+  const PAGE_SIZE = 5;
+
+  // Fetch all logs once, filter client-side to avoid extra network calls
   const { data, isLoading } = useQuery({
-    queryKey: ["kids-discipleship", "logs", memberId, filterCategory],
-    queryFn: () => fetchLogs(userId, memberId, filterCategory === "all" ? undefined : filterCategory),
+    queryKey: ["kids-discipleship", "logs", memberId],
+    queryFn: () => fetchLogs(userId, memberId),
     enabled: !!userId && !!memberId,
   });
 
-  const logs: LogEntry[] = data?.logs || [];
+  const allLogs: LogEntry[] = data?.logs || [];
+
+  // Filter logs client-side based on selected category
+  const logs = useMemo(() => {
+    if (filterCategory === "all") return allLogs;
+    return allLogs.filter((log) => log.category === filterCategory);
+  }, [allLogs, filterCategory]);
+
+  // Pagination logic
+  const total = logs.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const activePage = pagesByFilter[filterCategory] ?? 1;
+  const currentPage = Math.min(activePage, totalPages);
+
+  const setPageForFilter = useCallback(
+    (nextPage: number) => {
+      setPagesByFilter((prev) => {
+        const clamped = Math.max(1, Math.min(nextPage, totalPages));
+        if (prev[filterCategory] === clamped) {
+          return prev;
+        }
+        return { ...prev, [filterCategory]: clamped };
+      });
+    },
+    [filterCategory, totalPages]
+  );
+
+  const handleFilterChange = useCallback(
+    (value: string) => {
+      if (value !== filterCategory) {
+        setPagesByFilter((prev) => (prev[value] === 1 ? prev : { ...prev, [value]: 1 }));
+      }
+      setFilterCategory(value);
+    },
+    [filterCategory]
+  );
+
+  const pagedLogs = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return logs.slice(start, start + PAGE_SIZE);
+  }, [logs, currentPage, PAGE_SIZE]);
+
+  const canPrev = currentPage > 1;
+  const canNext = currentPage < totalPages;
+  const filterSuffix = filterCategory === "all" ? "" : ` in ${filterCategory}`;
+
+  // Pagination controls component
+  const paginationControls = (
+    <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+      <span>
+        {Math.min((currentPage - 1) * PAGE_SIZE + 1, total)}-{Math.min(currentPage * PAGE_SIZE, total)} of {total}
+        {filterSuffix && ` ${filterSuffix}`}
+      </span>
+      <div className="flex items-center gap-1.5">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPageForFilter(1)}
+          disabled={!canPrev}
+          aria-label="Go to first page"
+        >
+          <ChevronFirst className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPageForFilter(currentPage - 1)}
+          disabled={!canPrev}
+          aria-label="Go to previous page"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <span className="px-1">
+          Page {currentPage} / {totalPages}
+        </span>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPageForFilter(currentPage + 1)}
+          disabled={!canNext}
+          aria-label="Go to next page"
+        >
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPageForFilter(totalPages)}
+          disabled={!canNext}
+          aria-label="Go to last page"
+        >
+          <ChevronLast className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </div>
+    </div>
+  );
 
   const handleSubmit = useCallback(async () => {
     if (!entryText.trim()) return;
@@ -349,13 +451,13 @@ export function LogsSection({ userId, memberId, childName }: Props) {
         )}
 
         {/* Filter tabs */}
-        <Tabs value={filterCategory} onValueChange={setFilterCategory}>
+        <Tabs value={filterCategory} onValueChange={handleFilterChange}>
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="NURTURE" className="data-[state=active]:text-success">
               Nurture
             </TabsTrigger>
-            <TabsTrigger value="ADMONITION" className="data-[state=active]:status-text--warning">
+            <TabsTrigger value="ADMONITION" className="data-[state=active]:text-warning-foreground">
               Admonition
             </TabsTrigger>
           </TabsList>
@@ -370,11 +472,17 @@ export function LogsSection({ userId, memberId, childName }: Props) {
           </div>
         ) : (
           <div className="space-y-4">
-            {logs
-              .filter((log) => !newLogEntry || log.id !== newLogEntry.id)
-              .map((log) => (
-                <LogCard key={log.id} entry={log} />
-              ))}
+            {paginationControls}
+
+            <div className="space-y-4">
+              {pagedLogs
+                .filter((log) => !newLogEntry || log.id !== newLogEntry.id)
+                .map((log) => (
+                  <LogCard key={log.id} entry={log} />
+                ))}
+            </div>
+
+            {paginationControls}
           </div>
         )}
       </CardContent>

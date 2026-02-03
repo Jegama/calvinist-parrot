@@ -46,8 +46,10 @@
     --ring: 199 100% 22%;
     /* Semantic roles (centralize status colors) */
     --info: 180 100% 15%;
+    --info-foreground: 0 0% 100%;
     /* Deep Teal (accent) as informational tone */
     --warning: 42 100% 70%;
+    --warning-foreground: 32 90% 30%;
     /* Warm Gold for warnings/limited info */
     /* Brand: Warm Gold #FFD166 */
     --chart-1: 42 100% 70%;
@@ -116,7 +118,9 @@
     --ring: 0 0% 98%;
     /* Semantic roles (dark mode adjustments) */
     --info: 180 100% 30%;
+    --info-foreground: 0 0% 98%;
     --warning: 42 100% 70%;
+    --warning-foreground: 42 100% 70%;
     /* Brand colors - adjusted for dark mode */
     --chart-1: 42 100% 70%;
     --chart-2: 180 100% 30%;

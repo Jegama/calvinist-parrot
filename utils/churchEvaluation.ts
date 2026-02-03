@@ -1,5 +1,5 @@
 import { tavily } from "@tavily/core";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 import type {
   ChurchEvaluationRaw,
@@ -40,7 +40,7 @@ import { filterAllowlistedBadges } from "@/utils/badges";
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
 const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-3-flash-preview";
 
 // Define critical red flags that immediately make status NOT_ENDORSED
 const criticalRedFlagBadges = [
@@ -365,6 +365,9 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
         responseMimeType: "application/json",
         responseSchema: BASIC_FIELDS_SCHEMA,
         seed: 1689,
+        thinkingConfig: {
+          thinkingLevel: ThinkingLevel.LOW
+        }
       },
     })
     .then((res) => {
@@ -470,6 +473,9 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
           responseMimeType: "application/json",
           responseSchema: CORE_DOCTRINES_SCHEMA,
           seed: 1689,
+          thinkingConfig: {
+            thinkingLevel: ThinkingLevel.LOW
+          }
         },
       })
       .then((res) => {
@@ -491,6 +497,9 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
           responseMimeType: "application/json",
           responseSchema: SECONDARY_DOCTRINES_SCHEMA,
           seed: 1689,
+          thinkingConfig: {
+            thinkingLevel: ThinkingLevel.LOW
+          }
         },
       })
       .then((res) => {
@@ -512,6 +521,9 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
           responseMimeType: "application/json",
           responseSchema: TERTIARY_DOCTRINES_SCHEMA,
           seed: 1689,
+          thinkingConfig: {
+            thinkingLevel: ThinkingLevel.LOW
+          }
         },
       })
       .then((res) => {
@@ -535,6 +547,9 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
           responseMimeType: "application/json",
           responseSchema: DENOMINATION_CONFESSION_SCHEMA,
           seed: 1689,
+          thinkingConfig: {
+            thinkingLevel: ThinkingLevel.LOW
+          }
         },
       })
       .then((res) => {
@@ -556,6 +571,9 @@ export async function extractChurchEvaluation(website: string): Promise<ChurchEv
           responseMimeType: "application/json",
           responseSchema: RED_FLAGS_SCHEMA,
           seed: 1689,
+          thinkingConfig: {
+            thinkingLevel: ThinkingLevel.LOW
+          }
         },
       })
       .then((res) => {
