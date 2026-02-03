@@ -99,9 +99,9 @@ export function Header() {
             <Separator orientation="vertical" className="header-separator mr-2 h-4" />
           </span>
 
-          {/* Desktop Navigation (visible on md and above) - fade out when scrolled */}
+          {/* Desktop Navigation (visible on xl and above) - fade out when scrolled */}
           <div
-            className="hidden md:flex items-center transition-opacity duration-700 ease-in-out"
+            className="hidden xl:flex items-center transition-opacity duration-700 ease-in-out"
             style={{ opacity: isScrolled ? 0 : 1, pointerEvents: isScrolled ? "none" : "auto" }}
             aria-hidden={isScrolled}
           >
@@ -147,9 +147,9 @@ export function Header() {
             </nav>
           </div>
 
-          {/* Mobile Dropdown (hidden on md and above) - fade out when scrolled */}
+          {/* Mobile Dropdown (hidden on xl and above) - fade out when scrolled */}
           <div
-            className="md:hidden transition-opacity duration-700 ease-in-out"
+            className="xl:hidden transition-opacity duration-700 ease-in-out"
             style={{ opacity: isScrolled ? 0 : 1, pointerEvents: isScrolled ? "none" : "auto" }}
             aria-hidden={isScrolled}
           >

@@ -255,7 +255,7 @@ export function LogsSection({ userId, memberId, childName }: Props) {
                       variant={selectedCategory === "NURTURE" ? "default" : "outline"}
                       className={
                         selectedCategory === "NURTURE"
-                          ? "bg-green-600 hover:bg-green-700 flex-1"
+                          ? "bg-success hover:bg-success/90 flex-1"
                           : "flex-1"
                       }
                       onClick={() => setSelectedCategory("NURTURE")}
@@ -268,7 +268,7 @@ export function LogsSection({ userId, memberId, childName }: Props) {
                       variant={selectedCategory === "ADMONITION" ? "default" : "outline"}
                       className={
                         selectedCategory === "ADMONITION"
-                          ? "bg-amber-600 hover:bg-amber-700 flex-1"
+                          ? "bg-warning hover:bg-warning/90 text-foreground flex-1"
                           : "flex-1"
                       }
                       onClick={() => setSelectedCategory("ADMONITION")}
@@ -297,6 +297,7 @@ export function LogsSection({ userId, memberId, childName }: Props) {
                     value={entryText}
                     onChange={(e) => setEntryText(e.target.value)}
                     rows={4}
+                    className="bg-input-bg resize-none"
                   />
                 </div>
 
@@ -309,6 +310,7 @@ export function LogsSection({ userId, memberId, childName }: Props) {
                     value={gospelConnection}
                     onChange={(e) => setGospelConnection(e.target.value)}
                     rows={2}
+                    className="bg-input-bg resize-none"
                   />
                 </div>
 
@@ -350,10 +352,10 @@ export function LogsSection({ userId, memberId, childName }: Props) {
         <Tabs value={filterCategory} onValueChange={setFilterCategory}>
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="NURTURE" className="text-green-600 dark:text-green-400">
+            <TabsTrigger value="NURTURE" className="data-[state=active]:text-success">
               Nurture
             </TabsTrigger>
-            <TabsTrigger value="ADMONITION" className="text-amber-600 dark:text-amber-400">
+            <TabsTrigger value="ADMONITION" className="data-[state=active]:status-text--warning">
               Admonition
             </TabsTrigger>
           </TabsList>
@@ -361,9 +363,9 @@ export function LogsSection({ userId, memberId, childName }: Props) {
 
         {/* Logs list */}
         {logs.length === 0 && !newLogEntry ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Heart className="h-8 w-8 mx-auto mb-3 opacity-50" />
-            <p>No logs yet.</p>
+          <div className="text-center py-12 text-muted-foreground">
+            <Heart className="h-12 w-12 mx-auto mb-4 opacity-50 text-accent" />
+            <h3 className="text-lg font-medium mb-1">No logs yet</h3>
             <p className="text-sm">Start recording parenting moments to track growth.</p>
           </div>
         ) : (
@@ -396,18 +398,18 @@ function LogCard({ entry, isNew }: { entry: LogEntry; isNew?: boolean }) {
 
   return (
     <div
-      className={`p-4 rounded-lg border ${
-        isNew ? "border-accent bg-accent/5" : "bg-card"
+      className={`p-5 rounded-xl border ${
+        isNew ? "border-accent bg-accent/5" : "bg-card shadow-sm"
       }`}
     >
-      <div className="flex items-start justify-between mb-2">
+      <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <Badge
-            variant="secondary"
+            variant="outline"
             className={
               entry.category === "NURTURE"
-                ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                : "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
+                ? "border-success/30 bg-success/10 text-success hover:bg-success/20"
+                : "border-warning/30 bg-warning/10 text-warning-foreground hover:bg-warning/20"
             }
           >
             {entry.category === "NURTURE" ? (
@@ -417,25 +419,25 @@ function LogCard({ entry, isNew }: { entry: LogEntry; isNew?: boolean }) {
             )}
             {entry.category}
           </Badge>
-          {isNew && <Badge variant="outline" className="text-accent">New</Badge>}
+          {isNew && <Badge variant="default" className="bg-accent text-accent-foreground">New</Badge>}
         </div>
-        <span className="text-xs text-muted-foreground">{formatDate(entry.entryDate)}</span>
+        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">{formatDate(entry.entryDate)}</span>
       </div>
 
-      <p className="text-sm mb-3">{entry.entryText}</p>
+      <p className="text-sm leading-relaxed mb-4">{entry.entryText}</p>
 
       {/* Gospel Connection if provided */}
       {entry.gospelConnection && (
-        <div className="mb-3 p-2 rounded-lg bg-accent/10 border border-accent/20">
-          <p className="text-xs font-medium text-accent mb-1">Gospel Connection</p>
+        <div className="mb-4 p-3 rounded-lg bg-accent/10 border border-accent/20">
+          <p className="text-xs font-bold text-accent uppercase tracking-wider mb-1">Gospel Connection</p>
           <p className="text-sm">{entry.gospelConnection}</p>
         </div>
       )}
 
       {entry.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-3">
+        <div className="flex flex-wrap gap-1.5 mb-4">
           {entry.tags.map((tag) => (
-            <Badge key={tag} variant="outline" className="text-xs">
+            <Badge key={tag} variant="secondary" className="text-xs bg-muted text-muted-foreground hover:bg-muted/80">
               {tag}
             </Badge>
           ))}
@@ -446,15 +448,15 @@ function LogCard({ entry, isNew }: { entry: LogEntry; isNew?: boolean }) {
       {entry.aiOutput?.call1 && (
         <Collapsible open={showReflection} onOpenChange={setShowReflection}>
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="w-full justify-between">
-              <span className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="w-full justify-between h-9 hover:bg-muted/50">
+              <span className="flex items-center gap-2 text-primary font-medium">
                 <BookOpen className="h-4 w-4" />
                 Shepherding Reflection
               </span>
-              {showReflection ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              {showReflection ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
             </Button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="mt-3">
+          <CollapsibleContent className="mt-3 pl-2 border-l-2 border-primary/20">
             <ReflectionCard call1={entry.aiOutput.call1} call2={entry.aiOutput.call2} />
           </CollapsibleContent>
         </Collapsible>

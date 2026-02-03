@@ -413,14 +413,14 @@ export default function JournalPage() {
     return (
       <>
         {!activeEntry.aiOutput && !streamProgress && (
-          <Card className="border-yellow-200 dark:border-yellow-900 bg-yellow-50 dark:bg-yellow-950/20">
+          <Card className="status--warning">
             <CardContent className="pt-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-medium text-yellow-900 dark:text-yellow-200 text-sm mb-1">
+                  <p className="font-medium text-sm mb-1">
                     AI Reflection Unavailable
                   </p>
-                  <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                  <p className="text-xs opacity-90">
                     Processing failed for this entry. Click the retry button to regenerate your AI reflection.
                   </p>
                 </div>
@@ -618,7 +618,7 @@ export default function JournalPage() {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="pl-10"
+              className="pl-10 bg-card border-border shadow-sm"
             />
           </div>
           {selectedTags.length > 0 && (

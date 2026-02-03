@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Target, ChevronDown, ChevronRight, History, Plus, Save, BookOpen } from "lucide-react";
+import { Target, ChevronDown, ChevronRight, History, Plus, Save, BookOpen, ScrollText } from "lucide-react";
 
 interface AnnualPlan {
   id: string;
@@ -186,162 +186,185 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
         {isEditing ? (
           // Edit Form
           <div className="space-y-6">
-            {/* Character Focus */}
-            <div className="space-y-3 p-4 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline">1</Badge>
-                <h3 className="font-semibold">Character Focus (Christ-likeness)</h3>
+            
+            <div className="grid gap-6 sm:grid-cols-2">
+              {/* Character Focus Form - Primary (Deep Blue) */}
+              <div className="flex flex-col p-5 rounded-xl border border-primary/20 bg-primary/5 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold ring-1 ring-primary/20">1</div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-primary">Character Focus</h3>
+                </div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="characterGoal" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Goal</Label>
+                    <Input
+                      id="characterGoal"
+                      placeholder="e.g., Patience"
+                      value={formData.characterGoal || ""}
+                      onChange={(e) => setFormData({ ...formData, characterGoal: e.target.value })}
+                      className="bg-input-bg font-serif text-lg font-medium"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="characterScripture" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Scripture Tag</Label>
+                    <Input
+                      id="characterScripture"
+                      placeholder="e.g., Ephesians 6:1"
+                      value={formData.characterScripture || ""}
+                      onChange={(e) => setFormData({ ...formData, characterScripture: e.target.value })}
+                      className="bg-input-bg"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="characterAction" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Observable Action</Label>
+                    <Input
+                      id="characterAction"
+                      placeholder="e.g., Stopping when saying no"
+                      value={formData.characterAction || ""}
+                      onChange={(e) => setFormData({ ...formData, characterAction: e.target.value })}
+                      className="bg-input-bg"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground italic pt-2 border-t border-primary/10">
+                  Biblical Basis: 2 Peter 1:5-7 — "Add to your faith virtue..."
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                Biblical Basis: 2 Peter 1:5-7 — &quot;Add to your faith virtue...&quot;
-              </p>
-              <div className="grid gap-3">
-                <div>
-                  <Label htmlFor="characterGoal">Goal</Label>
-                  <Input
-                    id="characterGoal"
-                    placeholder="e.g., Submission, Patience, Self-control"
-                    value={formData.characterGoal || ""}
-                    onChange={(e) => setFormData({ ...formData, characterGoal: e.target.value })}
-                  />
+
+              {/* Competency Focus Form - Accent (Deep Teal) */}
+              <div className="flex flex-col p-5 rounded-xl border border-accent/20 bg-accent/5 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold ring-1 ring-accent/20">2</div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-accent">Competency Focus</h3>
                 </div>
-                <div>
-                  <Label htmlFor="characterScripture">Scripture Tag</Label>
-                  <Input
-                    id="characterScripture"
-                    placeholder="e.g., Ephesians 6:1"
-                    value={formData.characterScripture || ""}
-                    onChange={(e) => setFormData({ ...formData, characterScripture: e.target.value })}
-                  />
+                
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="competencyGoal" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Goal</Label>
+                    <Input
+                      id="competencyGoal"
+                      placeholder="e.g., Sleep Schedule"
+                      value={formData.competencyGoal || ""}
+                      onChange={(e) => setFormData({ ...formData, competencyGoal: e.target.value })}
+                      className="bg-input-bg font-serif text-lg font-medium"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="competencyType" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Type</Label>
+                    <Select
+                      value={formData.competencyType || "PERSONAL"}
+                      onValueChange={(v) => setFormData({ ...formData, competencyType: v as "PROFESSIONAL" | "PERSONAL" })}
+                    >
+                      <SelectTrigger className="bg-input-bg">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PERSONAL">Personal (Life/Home Skills)</SelectItem>
+                        <SelectItem value="PROFESSIONAL">Professional (Career/Work Skills)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <Label htmlFor="competencyScripture" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Scripture Tag</Label>
+                        <Input
+                        id="competencyScripture"
+                        placeholder="e.g., 1 Cor 14:40"
+                        value={formData.competencyScripture || ""}
+                        onChange={(e) => setFormData({ ...formData, competencyScripture: e.target.value })}
+                        className="bg-input-bg"
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="competencyAction" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Observable Action</Label>
+                        <Input
+                        id="competencyAction"
+                        placeholder="e.g., Having a schedule"
+                        value={formData.competencyAction || ""}
+                        onChange={(e) => setFormData({ ...formData, competencyAction: e.target.value })}
+                        className="bg-input-bg"
+                        />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="characterAction">Observable Action</Label>
-                  <Input
-                    id="characterAction"
-                    placeholder="e.g., Responding to 'No' without whining"
-                    value={formData.characterAction || ""}
-                    onChange={(e) => setFormData({ ...formData, characterAction: e.target.value })}
-                  />
-                </div>
+                <p className="text-[10px] text-muted-foreground italic pt-2 border-t border-accent/10">
+                  Biblical Basis: 2 Thess 3:10 — "If anyone is not willing to work..."
+                </p>
               </div>
             </div>
 
-            {/* Competency Focus */}
-            <div className="space-y-3 p-4 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline">2</Badge>
-                <h3 className="font-semibold">Competency Focus (Life Skills)</h3>
-              </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                Biblical Basis: 2 Thessalonians 3:10-12 — &quot;If anyone is not willing to work, let him not eat.&quot;
-              </p>
-              <div className="grid gap-3">
-                <div>
-                  <Label htmlFor="competencyGoal">Goal</Label>
-                  <Input
-                    id="competencyGoal"
-                    placeholder="e.g., Sleep Schedule, Gentle Hands"
-                    value={formData.competencyGoal || ""}
-                    onChange={(e) => setFormData({ ...formData, competencyGoal: e.target.value })}
-                  />
+            <div className="grid gap-6 sm:grid-cols-2">
+                {/* Blessings Form - Success (Green) */}
+                <div className="flex flex-col p-5 rounded-xl border border-success/20 bg-success/5 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-success/10 text-success text-xs font-bold ring-1 ring-success/20">3</div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-success">Blessings</h3>
                 </div>
+                
                 <div>
-                  <Label htmlFor="competencyType">Type</Label>
-                  <Select
-                    value={formData.competencyType || "PERSONAL"}
-                    onValueChange={(v) => setFormData({ ...formData, competencyType: v as "PROFESSIONAL" | "PERSONAL" })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PERSONAL">Personal (Life/Home Skills)</SelectItem>
-                      <SelectItem value="PROFESSIONAL">Professional (Career/Work Skills)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <Label htmlFor="blessingsPlan" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">How will we celebrate obedience?</Label>
+                    <Textarea
+                    id="blessingsPlan"
+                    placeholder="e.g., Telling him he did great and our sanity"
+                    value={formData.blessingsPlan || ""}
+                    onChange={(e) => setFormData({ ...formData, blessingsPlan: e.target.value })}
+                    rows={3}
+                    className="bg-input-bg resize-none"
+                    />
                 </div>
-                <div>
-                  <Label htmlFor="competencyScripture">Scripture Tag</Label>
-                  <Input
-                    id="competencyScripture"
-                    placeholder="e.g., 1 Corinthians 14:40"
-                    value={formData.competencyScripture || ""}
-                    onChange={(e) => setFormData({ ...formData, competencyScripture: e.target.value })}
-                  />
+                <p className="text-[10px] text-muted-foreground italic pt-2 border-t border-success/10">
+                    Biblical Basis: Eph 6:2-3 — "Honor your father and mother..."
+                </p>
                 </div>
-                <div>
-                  <Label htmlFor="competencyAction">Observable Action</Label>
-                  <Input
-                    id="competencyAction"
-                    placeholder="e.g., Sleeping in own crib; not grabbing glasses"
-                    value={formData.competencyAction || ""}
-                    onChange={(e) => setFormData({ ...formData, competencyAction: e.target.value })}
-                  />
-                </div>
-              </div>
-            </div>
 
-            {/* Blessings */}
-            <div className="space-y-3 p-4 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline">3</Badge>
-                <h3 className="font-semibold">Blessings (The Harvest of Obedience)</h3>
-              </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                Biblical Basis: Ephesians 6:2-3 — &quot;Honor your father and mother... that it may go well with you.&quot;
-              </p>
-              <div>
-                <Label htmlFor="blessingsPlan">How will we celebrate obedience?</Label>
-                <Textarea
-                  id="blessingsPlan"
-                  placeholder="e.g., Clapping, Puffs, Park Time, Extra stories"
-                  value={formData.blessingsPlan || ""}
-                  onChange={(e) => setFormData({ ...formData, blessingsPlan: e.target.value })}
-                  rows={2}
-                />
-              </div>
-            </div>
-
-            {/* Consequences */}
-            <div className="space-y-3 p-4 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline">4</Badge>
-                <h3 className="font-semibold">Consequences (The Harvest of Disobedience)</h3>
-              </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                Biblical Basis: Galatians 6:7; Proverbs 22:15 — Age-appropriate and immediate.
-              </p>
-              <div>
-                <Label htmlFor="consequencesPlan">What is the age-appropriate response to rebellion?</Label>
-                <Textarea
-                  id="consequencesPlan"
-                  placeholder="e.g., Firm 'No', Redirection, Playpen Time"
-                  value={formData.consequencesPlan || ""}
-                  onChange={(e) => setFormData({ ...formData, consequencesPlan: e.target.value })}
-                  rows={2}
-                />
-              </div>
+                {/* Consequences Form - Destructive (Red) */}
+                <div className="flex flex-col p-5 rounded-xl border border-destructive/20 bg-destructive/5 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-destructive/10 text-destructive text-xs font-bold ring-1 ring-destructive/20">4</div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-destructive">Consequences</h3>
+                </div>
+                
+                <div>
+                    <Label htmlFor="consequencesPlan" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Response to rebellion?</Label>
+                    <Textarea
+                    id="consequencesPlan"
+                    placeholder="e.g., Firm No"
+                    value={formData.consequencesPlan || ""}
+                    onChange={(e) => setFormData({ ...formData, consequencesPlan: e.target.value })}
+                    rows={3}
+                    className="bg-input-bg resize-none"
+                    />
+                </div>
+                <p className="text-[10px] text-muted-foreground italic pt-2 border-t border-destructive/10">
+                    Biblical Basis: Gal 6:7; Prov 22:15 — Age-appropriate response.
+                </p>
+                </div>
             </div>
 
             {/* Theme Verse */}
-            <div>
-              <Label htmlFor="themeVerse">Theme Verse for the Year (Optional)</Label>
+            <div className="p-5 rounded-xl border bg-card/50 space-y-3">
+              <Label htmlFor="themeVerse" className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                <ScrollText className="h-4 w-4" />
+                Theme Verse (Optional)
+              </Label>
               <Input
                 id="themeVerse"
-                placeholder="e.g., Train up a child in the way he should go... (Proverbs 22:6)"
+                placeholder="e.g., Train up a child in the way he should go..."
                 value={formData.themeVerse || ""}
                 onChange={(e) => setFormData({ ...formData, themeVerse: e.target.value })}
+                className="bg-input-bg font-serif italic"
               />
             </div>
 
             {/* Save/Cancel */}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 pt-2">
               <div className="flex gap-2">
-                <Button onClick={handleSave} disabled={mutation.isPending || !formData.characterGoal || !formData.competencyGoal}>
+                <Button onClick={handleSave} disabled={mutation.isPending || !formData.characterGoal || !formData.competencyGoal} className="w-full sm:w-auto">
                   <Save className="h-4 w-4 mr-2" />
                   {mutation.isPending ? "Saving..." : "Save Plan"}
                 </Button>
-                <Button variant="outline" onClick={() => setIsEditing(false)}>
+                <Button variant="outline" onClick={() => setIsEditing(false)} className="w-full sm:w-auto">
                   Cancel
                 </Button>
               </div>
@@ -357,68 +380,86 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
         ) : currentPlan ? (
           // Display current plan
           <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="p-4 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="outline">1</Badge>
-                  <span className="font-medium">Character Focus</span>
+            <div className="grid gap-6 sm:grid-cols-2">
+              {/* Character Focus - Primary (Deep Blue) */}
+              <div className="flex flex-col h-full p-5 rounded-xl border border-primary/20 bg-primary/5 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold ring-1 ring-primary/20">1</div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-primary">Character Focus</span>
                 </div>
-                <p className="text-lg font-semibold text-accent">{currentPlan.characterGoal}</p>
-                {currentPlan.characterScripture && (
-                  <p className="text-sm text-muted-foreground mt-1">{currentPlan.characterScripture}</p>
-                )}
-                {currentPlan.characterAction && (
-                  <p className="text-sm mt-2">{currentPlan.characterAction}</p>
-                )}
+                <div className="space-y-2">
+                  <p className="text-xl font-serif font-bold text-foreground">{currentPlan.characterGoal}</p>
+                  {currentPlan.characterScripture && (
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <BookOpen className="h-4 w-4 mt-0.5 shrink-0" />
+                      <span>{currentPlan.characterScripture}</span>
+                    </div>
+                  )}
+                  {currentPlan.characterAction && (
+                    <p className="text-sm border-t border-primary/10 pt-2 mt-2">{currentPlan.characterAction}</p>
+                  )}
+                </div>
               </div>
 
-              <div className="p-4 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="outline">2</Badge>
-                  <span className="font-medium">Competency Focus</span>
-                  <Badge variant="secondary" className="text-xs">
+              {/* Competency Focus - Accent (Deep Teal) */}
+              <div className="flex flex-col h-full p-5 rounded-xl border border-accent/20 bg-accent/5 shadow-sm">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold ring-1 ring-accent/20">2</div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-accent">Competency Focus</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-accent/20 text-accent/80">
                     {currentPlan.competencyType === "PERSONAL" ? "Personal" : "Professional"}
                   </Badge>
                 </div>
-                <p className="text-lg font-semibold text-accent">{currentPlan.competencyGoal}</p>
-                {currentPlan.competencyScripture && (
-                  <p className="text-sm text-muted-foreground mt-1">{currentPlan.competencyScripture}</p>
-                )}
-                {currentPlan.competencyAction && (
-                  <p className="text-sm mt-2">{currentPlan.competencyAction}</p>
-                )}
+                <div className="space-y-2">
+                  <p className="text-xl font-serif font-bold text-foreground">{currentPlan.competencyGoal}</p>
+                  {currentPlan.competencyScripture && (
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <BookOpen className="h-4 w-4 mt-0.5 shrink-0" />
+                      <span>{currentPlan.competencyScripture}</span>
+                    </div>
+                  )}
+                  {currentPlan.competencyAction && (
+                    <p className="text-sm border-t border-accent/10 pt-2 mt-2">{currentPlan.competencyAction}</p>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-2">
+              {/* Blessings - Success (Green) */}
               {currentPlan.blessingsPlan && (
-                <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline" className="bg-green-100 dark:bg-green-900">3</Badge>
-                    <span className="font-medium">Blessings</span>
+                <div className="flex flex-col h-full p-5 rounded-xl border border-success/20 bg-success/5 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-success/10 text-success text-xs font-bold ring-1 ring-success/20">3</div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-success">Blessings</span>
                   </div>
-                  <p className="text-sm">{currentPlan.blessingsPlan}</p>
+                  <p className="text-sm leading-relaxed">{currentPlan.blessingsPlan}</p>
                 </div>
               )}
 
+              {/* Consequences - Destructive (Red) or Warning (Gold)? Using Destructive/Orange for correction */}
               {currentPlan.consequencesPlan && (
-                <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900">4</Badge>
-                    <span className="font-medium">Consequences</span>
+                <div className="flex flex-col h-full p-5 rounded-xl border border-destructive/20 bg-destructive/5 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-destructive/10 text-destructive text-xs font-bold ring-1 ring-destructive/20">4</div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-destructive">Consequences</span>
                   </div>
-                  <p className="text-sm">{currentPlan.consequencesPlan}</p>
+                  <p className="text-sm leading-relaxed">{currentPlan.consequencesPlan}</p>
                 </div>
               )}
             </div>
 
             {currentPlan.themeVerse && (
-              <div className="p-4 rounded-lg border border-accent/20 bg-accent/5">
-                <div className="flex items-center gap-2 mb-1">
-                  <BookOpen className="h-4 w-4 text-accent" />
-                  <span className="font-medium text-sm">Theme Verse</span>
+              <div className="p-6 rounded-xl bg-card border shadow-sm">
+                <div className="flex items-center gap-2 mb-3 text-muted-foreground">
+                  <BookOpen className="h-4 w-4" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Theme Verse</span>
                 </div>
-                <p className="text-sm italic">{currentPlan.themeVerse}</p>
+                <blockquote className="pl-4 border-l-2 border-primary/30 italic text-muted-foreground">
+                  "{currentPlan.themeVerse}"
+                </blockquote>
               </div>
             )}
           </div>

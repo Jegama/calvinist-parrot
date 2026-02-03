@@ -30,6 +30,7 @@ This document maps the Brand Identity colors to their usage in the application's
 | **Charcoal** | `#333333` | `0, 0%, 20%` | `--foreground`<br>`--card-foreground`<br>`--user-message-foreground`<br>`--sidebar-primary` | Body text, headings |
 | **Light Gray** | `#E5E5E5` | `0, 0%, 90%` | `--border`<br>`--sidebar-border` | Borders, dividers |
 | **Very Light Gray** | `#F5F5F5` | `0, 0%, 96%` | `--muted`<br>`--input`<br>`--secondary` | Muted backgrounds, input fields, secondary actions |
+| **Pure White** | `#FFFFFF` | `0, 0%, 100%` | `--input-bg` | Input backgrounds in light mode |
 
 ## Semantic Color Variables
 

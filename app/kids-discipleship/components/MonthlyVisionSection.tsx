@@ -191,99 +191,109 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
       <CardContent className="space-y-6">
         {isEditing ? (
           // Edit Form
-          <div className="space-y-4">
+          <div className="space-y-6">
             {/* Memory verse - hidden for infants/toddlers (0-3 years) */}
             {!isMemoryVerseExempt && (
-              <div>
-                <Label htmlFor="memoryVerse">Memory Verse for the Month</Label>
+              <div className="p-5 rounded-xl border border-primary/20 bg-primary/5 shadow-sm space-y-3">
+                <div className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 text-primary" />
+                    <Label htmlFor="memoryVerse" className="text-xs font-bold uppercase tracking-wider text-primary">Memory Verse</Label>
+                </div>
                 <Input
                   id="memoryVerse"
                   placeholder="e.g., Children, obey your parents in the Lord... (Ephesians 6:1)"
                   value={formData.memoryVerse || ""}
                   onChange={(e) => setFormData({ ...formData, memoryVerse: e.target.value })}
+                  className="bg-input-bg font-serif text-lg italic"
                 />
               </div>
             )}
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="characterFocus">Character Focus</Label>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <div className="flex flex-col p-5 rounded-xl border border-primary/20 bg-primary/5 shadow-sm space-y-3">
+                <Label htmlFor="characterFocus" className="text-xs font-bold uppercase tracking-wider text-primary">Character Focus</Label>
                 <Input
                   id="characterFocus"
-                  placeholder="Which aspect of the annual character goal?"
+                  placeholder="e.g., Not whining"
                   value={formData.characterFocus || ""}
                   onChange={(e) => setFormData({ ...formData, characterFocus: e.target.value })}
+                  className="bg-input-bg font-serif text-lg font-medium"
                 />
               </div>
-              <div>
-                <Label htmlFor="competencyFocus">Competency Focus</Label>
+              <div className="flex flex-col p-5 rounded-xl border border-accent/20 bg-accent/5 shadow-sm space-y-3">
+                <Label htmlFor="competencyFocus" className="text-xs font-bold uppercase tracking-wider text-accent">Competency Focus</Label>
                 <Input
                   id="competencyFocus"
-                  placeholder="Which specific skill or habit?"
+                  placeholder="e.g., Go to sleep"
                   value={formData.competencyFocus || ""}
                   onChange={(e) => setFormData({ ...formData, competencyFocus: e.target.value })}
+                  className="bg-input-bg font-serif text-lg font-medium"
                 />
               </div>
             </div>
 
-            <div className="p-4 rounded-lg bg-muted/50 space-y-4">
-              <h4 className="font-medium">Household Practice Plan</h4>
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider border-b pb-2">Household Practice Plan</h4>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="emphasize">What we will emphasize</Label>
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="p-5 rounded-xl border border-accent/20 bg-accent/5 space-y-3">
+                  <Label htmlFor="emphasize" className="text-xs font-bold uppercase tracking-wider text-accent">Emphasize</Label>
                   <Textarea
                     id="emphasize"
-                    placeholder="Specific behaviors or attitudes to reinforce..."
+                    placeholder="Specific behaviors..."
                     value={formData.emphasize || ""}
                     onChange={(e) => setFormData({ ...formData, emphasize: e.target.value })}
-                    rows={2}
+                    rows={3}
+                    className="bg-input-bg resize-none"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="watchFor">What we will watch for</Label>
+                <div className="p-5 rounded-xl border border-warning/40 bg-warning/10 space-y-3">
+                  <Label htmlFor="watchFor" className="text-xs font-bold uppercase tracking-wider text-warning-foreground/80">Watch For</Label>
                   <Textarea
                     id="watchFor"
-                    placeholder="Signs of growth or struggle to observe..."
+                    placeholder="Signs of growth or struggle..."
                     value={formData.watchFor || ""}
                     onChange={(e) => setFormData({ ...formData, watchFor: e.target.value })}
-                    rows={2}
+                    rows={3}
+                    className="bg-input-bg resize-none"
                   />
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="encourage">How we will encourage (blessings)</Label>
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="p-5 rounded-xl border border-success/20 bg-success/5 space-y-3">
+                  <Label htmlFor="encourage" className="text-xs font-bold uppercase tracking-wider text-success">Encourage (Blessings)</Label>
                   <Textarea
                     id="encourage"
-                    placeholder="Specific ways to celebrate obedience..."
+                    placeholder="Celebration plan..."
                     value={formData.encourage || ""}
                     onChange={(e) => setFormData({ ...formData, encourage: e.target.value })}
-                    rows={2}
+                    rows={3}
+                    className="bg-input-bg resize-none"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="correct">How we will correct (consequences)</Label>
+                <div className="p-5 rounded-xl border border-destructive/20 bg-destructive/5 space-y-3">
+                  <Label htmlFor="correct" className="text-xs font-bold uppercase tracking-wider text-destructive">Correct (Consequences)</Label>
                   <Textarea
                     id="correct"
-                    placeholder="Age-appropriate responses to disobedience..."
+                    placeholder="Correction plan..."
                     value={formData.correct || ""}
                     onChange={(e) => setFormData({ ...formData, correct: e.target.value })}
-                    rows={2}
+                    rows={3}
+                    className="bg-input-bg resize-none"
                   />
                 </div>
               </div>
             </div>
 
             {/* Save/Cancel */}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 pt-2">
               <div className="flex gap-2">
-                <Button onClick={handleSave} disabled={mutation.isPending}>
+                <Button onClick={handleSave} disabled={mutation.isPending} className="w-full sm:w-auto">
                   <Save className="h-4 w-4 mr-2" />
                   {mutation.isPending ? "Saving..." : "Save Vision"}
                 </Button>
-                <Button variant="outline" onClick={() => setIsEditing(false)}>
+                <Button variant="outline" onClick={() => setIsEditing(false)} className="w-full sm:w-auto">
                   Cancel
                 </Button>
               </div>
@@ -298,55 +308,57 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
           </div>
         ) : hasCurrentVisionContent && currentVision ? (
           // Display current vision
-          <div className="space-y-4">
+          <div className="space-y-6">
             {currentVision.memoryVerse && !isMemoryVerseExempt && (
-              <div className="p-4 rounded-lg border border-accent/20 bg-accent/5">
-                <div className="flex items-center gap-2 mb-1">
-                  <BookOpen className="h-4 w-4 text-accent" />
-                  <span className="font-medium text-sm">Memory Verse</span>
+              <div className="p-6 rounded-xl border border-primary/20 bg-primary/5 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-primary">Memory Verse</span>
                 </div>
-                <p className="text-sm italic">{currentVision.memoryVerse}</p>
+                <p className="font-serif text-lg font-medium text-foreground relative pl-4 border-l-2 border-primary/20 italic">
+                  "{currentVision.memoryVerse}"
+                </p>
               </div>
             )}
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-2">
               {currentVision.characterFocus && (
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <span className="text-xs font-medium text-muted-foreground">Character Focus</span>
-                  <p className="font-medium">{currentVision.characterFocus}</p>
+                <div className="flex flex-col p-5 rounded-xl border border-primary/20 bg-primary/5 shadow-sm">
+                  <span className="text-xs font-bold uppercase tracking-wider text-primary mb-2">Character Focus</span>
+                  <p className="font-serif text-lg font-bold text-foreground">{currentVision.characterFocus}</p>
                 </div>
               )}
               {currentVision.competencyFocus && (
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <span className="text-xs font-medium text-muted-foreground">Competency Focus</span>
-                  <p className="font-medium">{currentVision.competencyFocus}</p>
+                <div className="flex flex-col p-5 rounded-xl border border-accent/20 bg-accent/5 shadow-sm">
+                  <span className="text-xs font-bold uppercase tracking-wider text-accent mb-2">Competency Focus</span>
+                  <p className="font-serif text-lg font-bold text-foreground">{currentVision.competencyFocus}</p>
                 </div>
               )}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-2">
               {currentVision.emphasize && (
-                <div className="p-3 rounded-lg bg-muted/30">
-                  <span className="text-xs font-medium text-muted-foreground">Emphasize</span>
-                  <p className="text-sm">{currentVision.emphasize}</p>
+                <div className="p-5 rounded-xl border border-accent/20 bg-accent/5 shadow-sm">
+                  <span className="text-xs font-bold uppercase tracking-wider text-accent mb-2 block">Emphasize</span>
+                  <p className="text-sm leading-relaxed">{currentVision.emphasize}</p>
                 </div>
               )}
               {currentVision.watchFor && (
-                <div className="p-3 rounded-lg bg-muted/30">
-                  <span className="text-xs font-medium text-muted-foreground">Watch For</span>
-                  <p className="text-sm">{currentVision.watchFor}</p>
+                <div className="p-5 rounded-xl border border-warning/40 bg-warning/10 shadow-sm">
+                  <span className="text-xs font-bold uppercase tracking-wider text-warning-foreground/80 mb-2 block">Watch For</span>
+                  <p className="text-sm leading-relaxed">{currentVision.watchFor}</p>
                 </div>
               )}
               {currentVision.encourage && (
-                <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20">
-                  <span className="text-xs font-medium text-muted-foreground">Encourage</span>
-                  <p className="text-sm">{currentVision.encourage}</p>
+                <div className="p-5 rounded-xl border border-success/20 bg-success/5 shadow-sm">
+                  <span className="text-xs font-bold uppercase tracking-wider text-success mb-2 block">Encourage</span>
+                  <p className="text-sm leading-relaxed">{currentVision.encourage}</p>
                 </div>
               )}
               {currentVision.correct && (
-                <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20">
-                  <span className="text-xs font-medium text-muted-foreground">Correct</span>
-                  <p className="text-sm">{currentVision.correct}</p>
+                <div className="p-5 rounded-xl border border-destructive/20 bg-destructive/5 shadow-sm">
+                  <span className="text-xs font-bold uppercase tracking-wider text-destructive mb-2 block">Correct</span>
+                  <p className="text-sm leading-relaxed">{currentVision.correct}</p>
                 </div>
               )}
             </div>
@@ -415,13 +427,13 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
                       </div>
                     )}
                     {previousMonthVision.encourage && (
-                      <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20">
+                      <div className="p-3 rounded-lg bg-success/10 border border-success/30">
                         <span className="text-xs font-medium text-muted-foreground">Encourage</span>
                         <p className="text-sm">{previousMonthVision.encourage}</p>
                       </div>
                     )}
                     {previousMonthVision.correct && (
-                      <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20">
+                      <div className="p-3 rounded-lg bg-warning/30 border border-warning/50">
                         <span className="text-xs font-medium text-muted-foreground">Correct</span>
                         <p className="text-sm">{previousMonthVision.correct}</p>
                       </div>

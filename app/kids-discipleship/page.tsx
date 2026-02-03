@@ -157,8 +157,6 @@ export default function KidsDiscipleshipPage() {
                 Building faith with your children
               </p>
             </div>
-          </div>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <Button variant="outline" asChild className="w-full sm:w-auto">
               <Link href="/kids-discipleship/framework">View our Plan of Discipleship Framework</Link>
             </Button>
@@ -215,25 +213,28 @@ export default function KidsDiscipleshipPage() {
             className="space-y-6"
           >
             {/* Child tabs */}
-            <TabsList className="flex flex-wrap h-auto gap-2 bg-muted/50 p-2">
+            <TabsList className="flex flex-nowrap overflow-x-auto h-auto gap-3 bg-transparent p-0 mb-8 w-full justify-start pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
               {children.map((child) => {
                 const bracketInfo = getChildBracketInfo(child);
                 return (
                   <TabsTrigger
                     key={child.id}
                     value={child.id}
-                    className="flex flex-col items-start gap-1 px-4 py-3 h-auto data-[state=active]:bg-background"
+                    className="group flex-shrink-0 flex flex-col items-start gap-1.5 px-5 py-3 h-auto min-w-[140px] rounded-xl border border-transparent bg-muted/30 hover:bg-muted/60 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all ease-in-out duration-200"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{child.displayName}</span>
+                      <span className="font-serif font-bold text-lg tracking-tight">{child.displayName}</span>
                       {child.birthdate && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs font-sans font-normal text-muted-foreground group-data-[state=active]:text-primary-foreground/90">
                           {formatAge(child.birthdate)}
                         </span>
                       )}
                     </div>
                     {bracketInfo && (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge 
+                        variant="secondary" 
+                        className="text-[10px] h-5 font-bold tracking-wide border-0 bg-accent/10 text-accent group-data-[state=active]:bg-white/20 group-data-[state=active]:text-white"
+                      >
                         {bracketInfo.label}
                       </Badge>
                     )}
@@ -247,9 +248,9 @@ export default function KidsDiscipleshipPage() {
               <TabsContent key={child.id} value={child.id} className="space-y-8">
                 {/* Age bracket guidance */}
                 {child.birthdate && getAgeBracket(child.birthdate) && (
-                  <Alert>
-                    <div className="flex items-center gap-3">
-                      <BookOpen className="h-4 w-4" />
+                  <Alert className="bg-accent/10 border-accent/30">
+                    <div className="flex items-start gap-3">
+                      <BookOpen className="h-4 w-4 text-accent flex-shrink-0 mt-1" />
                       <AlertDescription>
                         <strong>{AGE_BRACKET_CONFIG[getAgeBracket(child.birthdate)!].label}:</strong>{" "}
                         {AGE_BRACKET_CONFIG[getAgeBracket(child.birthdate)!].description}

@@ -195,33 +195,33 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
           <div className="space-y-6">
             {/* Win/Struggle counts */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/20 text-center">
+              <div className="p-4 rounded-xl bg-success/10 border border-success/20 text-center">
                 <div className="flex items-center justify-center gap-2 mb-1">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
-                  <span className="text-2xl font-bold text-green-600">{stats.nurtureCount}</span>
+                  <TrendingUp className="h-5 w-5 text-success" />
+                  <span className="text-2xl font-bold text-success">{stats.nurtureCount}</span>
                 </div>
-                <p className="text-sm text-muted-foreground">Nurture Moments</p>
+                <p className="text-xs font-medium uppercase tracking-wider text-success/80">Nurture Moments</p>
               </div>
-              <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 text-center">
+              <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-center">
                 <div className="flex items-center justify-center gap-2 mb-1">
-                  <TrendingDown className="h-5 w-5 text-amber-600" />
-                  <span className="text-2xl font-bold text-amber-600">{stats.admonitionCount}</span>
+                  <TrendingDown className="h-5 w-5 text-destructive" />
+                  <span className="text-2xl font-bold text-destructive">{stats.admonitionCount}</span>
                 </div>
-                <p className="text-sm text-muted-foreground">Admonition Moments</p>
+                <p className="text-xs font-medium uppercase tracking-wider text-destructive/80">Admonition Moments</p>
               </div>
             </div>
 
             {/* Top patterns */}
             <div className="grid gap-4 sm:grid-cols-2">
               {stats.topHeartIssues.length > 0 && (
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                <div className="p-5 rounded-xl border border-warning/30 bg-warning/5">
+                  <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 mb-3 text-warning-foreground">
+                    <AlertCircle className="h-4 w-4" aria-hidden="true" />
                     Top Heart Issues
                   </h4>
-                  <div className="flex flex-wrap gap-1" role="list" aria-label="Top heart issues observed">
+                  <div className="flex flex-wrap gap-2" role="list" aria-label="Top heart issues observed">
                     {stats.topHeartIssues.map((issue) => (
-                      <Badge key={issue} variant="secondary" role="listitem">
+                      <Badge key={issue} variant="outline" className="border-warning/30 bg-warning/10 hover:bg-warning/20 text-warning-foreground" role="listitem">
                         {issue}
                       </Badge>
                     ))}
@@ -230,14 +230,14 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
               )}
 
               {stats.topVirtues.length > 0 && (
-                <div className="p-4 rounded-lg bg-muted/50">
-                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <Heart className="h-4 w-4 text-green-500" aria-hidden="true" />
+                <div className="p-5 rounded-xl border border-success/30 bg-success/5">
+                  <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 mb-3 text-success">
+                    <Heart className="h-4 w-4" aria-hidden="true" />
                     Top Virtues
                   </h4>
-                  <div className="flex flex-wrap gap-1" role="list" aria-label="Top virtues observed">
+                  <div className="flex flex-wrap gap-2" role="list" aria-label="Top virtues observed">
                     {stats.topVirtues.map((virtue) => (
-                      <Badge key={virtue} variant="secondary" className="bg-green-100 dark:bg-green-900" role="listitem">
+                      <Badge key={virtue} variant="outline" className="border-success/30 bg-success/10 hover:bg-success/20 text-success" role="listitem">
                         {virtue}
                       </Badge>
                     ))}
@@ -246,17 +246,17 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
               )}
 
               {stats.topDevelopmentalAreas.length > 0 && (
-                <div className="p-4 rounded-lg bg-muted/50 sm:col-span-2">
-                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-indigo-500" aria-hidden="true" />
+                <div className="p-5 rounded-xl border border-primary/20 bg-primary/5 sm:col-span-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider flex items-center gap-2 mb-3 text-primary">
+                    <TrendingUp className="h-4 w-4" aria-hidden="true" />
                     Key Developmental Areas
                   </h4>
-                  <div className="flex flex-wrap gap-1" role="list" aria-label="Key developmental areas observed">
+                  <div className="flex flex-wrap gap-2" role="list" aria-label="Key developmental areas observed">
                     {stats.topDevelopmentalAreas.map((area) => (
                       <Badge
                         key={area}
-                        variant="secondary"
-                        className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
+                        variant="outline"
+                        className="border-primary/30 bg-primary/10 hover:bg-primary/20 text-primary"
                         role="listitem"
                       >
                         {area}
@@ -268,25 +268,25 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
             </div>
 
             {/* Ratio indicator */}
-            <div className="p-4 rounded-lg border">
-              <h4 className="text-sm font-medium mb-2">Nurture/Admonition Ratio</h4>
-              <div className="h-4 rounded-full bg-muted overflow-hidden">
+            <div className="p-5 rounded-xl border bg-card/50">
+              <h4 className="text-sm font-medium mb-3">Nurture/Admonition Ratio</h4>
+              <div className="h-4 rounded-full bg-destructive/30 overflow-hidden flex">
                 <div
-                  className="h-full bg-gradient-to-r from-green-500 to-green-400"
+                  className="h-full bg-success"
                   style={{
                     width: `${(stats.nurtureCount / totalLogs) * 100}%`,
                   }}
                 />
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                {Math.round((stats.nurtureCount / totalLogs) * 100)}% nurture /{" "}
-                {Math.round((stats.admonitionCount / totalLogs) * 100)}% admonition
-              </p>
+              <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-success"></span> {Math.round((stats.nurtureCount / totalLogs) * 100)}% nurture</span>
+                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-destructive"></span> {Math.round((stats.admonitionCount / totalLogs) * 100)}% admonition</span>
+              </div>
             </div>
 
             {/* What to adjust next month */}
-            <div className="p-4 rounded-lg border bg-muted/30">
-              <h4 className="text-sm font-medium mb-2">What to Adjust Next Month</h4>
+            <div className="p-5 rounded-xl border bg-muted/30">
+              <h4 className="text-sm font-semibold mb-2">What to Adjust Next Month</h4>
               <p className="text-xs text-muted-foreground mb-3">
                 Based on your observations, what would you like to focus on or change?
               </p>
@@ -295,7 +295,7 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
                 value={displayNotes}
                 onChange={(e) => handleNotesChange(e.target.value)}
                 rows={3}
-                className="resize-none"
+                className="resize-none bg-input-bg"
               />
               <div className="flex items-center justify-between mt-3">
                 <Button

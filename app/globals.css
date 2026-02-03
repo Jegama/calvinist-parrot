@@ -40,6 +40,8 @@
     /* Brand: Light Gray #E5E5E5 - Borders */
     --border: 0 0% 90%;
     --input: 0 0% 96%;
+    /* Input background - Pure white in light mode for better contrast */
+    --input-bg: 0 0% 100%;
     /* Brand: Deep Blue - Focus rings */
     --ring: 199 100% 22%;
     /* Semantic roles (centralize status colors) */
@@ -108,6 +110,8 @@
     /* Dark borders */
     --border: 0 0% 25%;
     --input: 0 0% 25%;
+    /* Input background - Dark charcoal in dark mode */
+    --input-bg: 0 0% 10%;
     /* Light ring for dark mode */
     --ring: 0 0% 98%;
     /* Semantic roles (dark mode adjustments) */

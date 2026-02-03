@@ -264,11 +264,11 @@ export function PrayerFocusSection({
             <Tabs defaultValue="needs" className="space-y-4">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="needs" className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-amber-500" />
+                  <AlertCircle className="h-4 w-4 status-text--warning" />
                   Prayer Needs ({prayerNeeds.length})
                 </TabsTrigger>
                 <TabsTrigger value="praises" className="flex items-center gap-2">
-                  <Heart className="h-4 w-4 text-green-500" />
+                  <Heart className="h-4 w-4 text-success" />
                   Praises ({praises.length})
                 </TabsTrigger>
               </TabsList>
