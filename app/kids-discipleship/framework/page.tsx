@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/table";
 import { Metadata } from "next";
 
+import { BibleVerse } from "@/components/BibleVerse";
+
 export const metadata: Metadata = {
   title: "Plan of Discipleship Framework | Heritage Journal",
   description:
@@ -140,7 +142,7 @@ export default function FrameworkPage() {
             </div>
             <Alert className="bg-accent/5 border-accent/20">
               <AlertDescription>
-                <strong>Biblical Basis:</strong> 2 Peter 1:5-7 (Supplement your faith with virtue...).
+                <strong>Biblical Basis:</strong> <BibleVerse reference="2 Peter 1:5-7" /> (Supplement your faith with virtue...).
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -180,8 +182,7 @@ export default function FrameworkPage() {
             </div>
             <Alert className="bg-accent/5 border-accent/20">
               <AlertDescription>
-                <strong>Biblical Basis:</strong> 2 Thessalonians 3:10-12 (The value of work and quiet living); 1
-                Thessalonians 4:11.
+                <strong>Biblical Basis:</strong> <BibleVerse reference="2 Thessalonians 3:10-12" /> (The value of work and quiet living); <BibleVerse reference="1 Thessalonians 4:11" />.
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -223,7 +224,7 @@ export default function FrameworkPage() {
             </div>
             <Alert className="bg-accent/5 border-accent/20">
               <AlertDescription>
-                <strong>Biblical Basis:</strong> Ephesians 6:2-3 (&quot;...that it may go well with you&quot;).
+                <strong>Biblical Basis:</strong> <BibleVerse reference="Ephesians 6:2-3" /> (&quot;...that it may go well with you&quot;).
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -250,7 +251,7 @@ export default function FrameworkPage() {
             </div>
             <Alert className="bg-accent/5 border-accent/20">
               <AlertDescription>
-                <strong>Biblical Basis:</strong> Galatians 6:7 (Reaping what you sow); Proverbs 22:15.
+                <strong>Biblical Basis:</strong> <BibleVerse reference="Galatians 6:7" /> (Reaping what you sow); <BibleVerse reference="Proverbs 22:15" />.
               </AlertDescription>
             </Alert>
           </CardContent>

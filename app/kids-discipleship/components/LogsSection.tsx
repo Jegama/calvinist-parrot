@@ -87,13 +87,12 @@ export function LogsSection({ userId, memberId, childName }: Props) {
     enabled: !!userId && !!memberId,
   });
 
-  const allLogs: LogEntry[] = data?.logs || [];
-
   // Filter logs client-side based on selected category
   const logs = useMemo(() => {
+    const allLogs: LogEntry[] = data?.logs || [];
     if (filterCategory === "all") return allLogs;
     return allLogs.filter((log) => log.category === filterCategory);
-  }, [allLogs, filterCategory]);
+  }, [data?.logs, filterCategory]);
 
   // Pagination logic
   const total = logs.length;

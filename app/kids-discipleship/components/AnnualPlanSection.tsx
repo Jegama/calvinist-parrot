@@ -2,7 +2,7 @@
 // Section A: Annual Plan — The Four Elements
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,6 +14,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Target, ChevronDown, ChevronRight, History, Plus, Save, BookOpen, ScrollText } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+import { BibleVerse } from "@/components/BibleVerse";
+import { useVerseValidation } from "@/hooks/use-verse-validation";
 
 interface AnnualPlan {
   id: string;
@@ -98,6 +102,8 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
   const plans: AnnualPlan[] = childData?.plans || [];
   const currentPlan = plans.find((p) => p.year === currentYear);
   const pastPlans = plans.filter((p) => p.year < currentYear);
+  // Get most recent past plan (last year) for pre-filling
+  const previousYearPlan = pastPlans.length > 0 ? pastPlans[0] : null;
 
   // Handle scroll to and edit when triggered from parent (using render-time state sync pattern)
   if (scrollToAndEdit !== prevScrollToAndEdit) {
@@ -132,12 +138,45 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
       queryClient.invalidateQueries({
         queryKey: ["kids-discipleship", "annual-plan", memberId],
       });
+      // Invalidate progression state to show next section
+      queryClient.invalidateQueries({
+        queryKey: ["kids-discipleship", "progression", userId, memberId],
+      });
       setIsEditing(false);
     },
   });
 
+  // Verse validation
+  const { verseErrors, validateField, clearErrors, hasErrors } = useVerseValidation();
+
+  // Validate verse fields when form data changes
+  useEffect(() => {
+    if (isEditing) {
+      validateField("characterScripture", formData.characterScripture || "");
+      validateField("competencyScripture", formData.competencyScripture || "");
+      validateField("themeVerse", formData.themeVerse || "");
+    }
+  }, [formData.characterScripture, formData.competencyScripture, formData.themeVerse, isEditing, validateField]);
+
   const startEditing = () => {
-    setFormData(currentPlan || {});
+    // If no current plan but we have a previous year, pre-fill from it
+    if (!currentPlan && previousYearPlan) {
+      setFormData({
+        characterGoal: previousYearPlan.characterGoal,
+        characterScripture: previousYearPlan.characterScripture,
+        characterAction: previousYearPlan.characterAction,
+        competencyGoal: previousYearPlan.competencyGoal,
+        competencyScripture: previousYearPlan.competencyScripture,
+        competencyAction: previousYearPlan.competencyAction,
+        competencyType: previousYearPlan.competencyType,
+        blessingsPlan: previousYearPlan.blessingsPlan,
+        consequencesPlan: previousYearPlan.consequencesPlan,
+        themeVerse: previousYearPlan.themeVerse,
+      });
+    } else {
+      setFormData(currentPlan || {});
+    }
+    clearErrors();
     setIsEditing(true);
   };
 
@@ -207,14 +246,17 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
                     />
                   </div>
                   <div>
-                    <Label htmlFor="characterScripture" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Scripture Tag</Label>
+                    <Label htmlFor="characterScripture" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Scripture Reference</Label>
                     <Input
                       id="characterScripture"
                       placeholder="e.g., Ephesians 6:1"
                       value={formData.characterScripture || ""}
                       onChange={(e) => setFormData({ ...formData, characterScripture: e.target.value })}
-                      className="bg-input-bg"
+                      className={cn("bg-input-bg", verseErrors.characterScripture && "border-destructive focus-visible:ring-destructive")}
                     />
+                    {verseErrors.characterScripture && (
+                      <p className="text-xs text-destructive mt-1">{verseErrors.characterScripture}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="characterAction" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Observable Action</Label>
@@ -228,7 +270,7 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
                   </div>
                 </div>
                 <p className="text-[10px] text-muted-foreground italic pt-2 border-t border-primary/10">
-                  Biblical Basis: 2 Peter 1:5-7 — "Add to your faith virtue..."
+                  Biblical Basis: <BibleVerse reference="2 Peter 1:5-7" /> — &ldquo;Add to your faith virtue...&rdquo;
                 </p>
               </div>
 
@@ -267,14 +309,17 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <Label htmlFor="competencyScripture" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Scripture Tag</Label>
+                        <Label htmlFor="competencyScripture" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Scripture Reference</Label>
                         <Input
                         id="competencyScripture"
-                        placeholder="e.g., 1 Cor 14:40"
+                        placeholder="e.g., 1 Corinthians 14:40"
                         value={formData.competencyScripture || ""}
                         onChange={(e) => setFormData({ ...formData, competencyScripture: e.target.value })}
-                        className="bg-input-bg"
+                        className={cn("bg-input-bg", verseErrors.competencyScripture && "border-destructive focus-visible:ring-destructive")}
                         />
+                        {verseErrors.competencyScripture && (
+                          <p className="text-xs text-destructive mt-1">{verseErrors.competencyScripture}</p>
+                        )}
                     </div>
                     <div>
                         <Label htmlFor="competencyAction" className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Observable Action</Label>
@@ -289,7 +334,7 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
                   </div>
                 </div>
                 <p className="text-[10px] text-muted-foreground italic pt-2 border-t border-accent/10">
-                  Biblical Basis: 2 Thess 3:10 — "If anyone is not willing to work..."
+                  Biblical Basis: <BibleVerse reference="2 Thessalonians 3:10" /> — &ldquo;If anyone is not willing to work...&rdquo;
                 </p>
               </div>
             </div>
@@ -314,7 +359,7 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
                     />
                 </div>
                 <p className="text-[10px] text-muted-foreground italic pt-2 border-t border-success/10">
-                    Biblical Basis: Eph 6:2-3 — "Honor your father and mother..."
+                    Biblical Basis: <BibleVerse reference="Ephesians 6:2-3" /> — &ldquo;Honor your father and mother...&rdquo;
                 </p>
                 </div>
 
@@ -337,7 +382,7 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
                     />
                 </div>
                 <p className="text-[10px] text-muted-foreground italic pt-2 border-t border-destructive/10">
-                    Biblical Basis: Gal 6:7; Prov 22:15 — Age-appropriate response.
+                    Biblical Basis: <BibleVerse reference="Galatians 6:7" />; <BibleVerse reference="Proverbs 22:15" /> — Age-appropriate response.
                 </p>
                 </div>
             </div>
@@ -346,21 +391,24 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
             <div className="p-5 rounded-xl border bg-card/50 space-y-3">
               <Label htmlFor="themeVerse" className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 <ScrollText className="h-4 w-4" />
-                Theme Verse (Optional)
+                Theme Verse Reference (Optional)
               </Label>
               <Input
                 id="themeVerse"
-                placeholder="e.g., Train up a child in the way he should go..."
+                placeholder="e.g., Proverbs 22:6"
                 value={formData.themeVerse || ""}
                 onChange={(e) => setFormData({ ...formData, themeVerse: e.target.value })}
-                className="bg-input-bg font-serif italic"
+                className={cn("bg-input-bg", verseErrors.themeVerse && "border-destructive focus-visible:ring-destructive")}
               />
+              {verseErrors.themeVerse && (
+                <p className="text-xs text-destructive mt-1">{verseErrors.themeVerse}</p>
+              )}
             </div>
 
             {/* Save/Cancel */}
             <div className="flex flex-col gap-2 pt-2">
               <div className="flex gap-2">
-                <Button onClick={handleSave} disabled={mutation.isPending || !formData.characterGoal || !formData.competencyGoal} className="w-full sm:w-auto">
+                <Button onClick={handleSave} disabled={mutation.isPending || !formData.characterGoal || !formData.competencyGoal || hasErrors} className="w-full sm:w-auto">
                   <Save className="h-4 w-4 mr-2" />
                   {mutation.isPending ? "Saving..." : "Save Plan"}
                 </Button>
@@ -392,7 +440,7 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
                   {currentPlan.characterScripture && (
                     <div className="flex items-start gap-2 text-sm text-muted-foreground">
                       <BookOpen className="h-4 w-4 mt-0.5 shrink-0" />
-                      <span>{currentPlan.characterScripture}</span>
+                      <BibleVerse reference={currentPlan.characterScripture} />
                     </div>
                   )}
                   {currentPlan.characterAction && (
@@ -417,7 +465,7 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
                   {currentPlan.competencyScripture && (
                     <div className="flex items-start gap-2 text-sm text-muted-foreground">
                       <BookOpen className="h-4 w-4 mt-0.5 shrink-0" />
-                      <span>{currentPlan.competencyScripture}</span>
+                      <BibleVerse reference={currentPlan.competencyScripture} />
                     </div>
                   )}
                   {currentPlan.competencyAction && (
@@ -457,14 +505,107 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
                   <BookOpen className="h-4 w-4" />
                   <span className="text-xs font-bold uppercase tracking-wider">Theme Verse</span>
                 </div>
-                <blockquote className="pl-4 border-l-2 border-primary/30 italic text-muted-foreground">
-                  "{currentPlan.themeVerse}"
-                </blockquote>
+                <div className="pl-4 border-l-2 border-primary/30">
+                  <BibleVerse reference={currentPlan.themeVerse} />
+                </div>
               </div>
             )}
           </div>
+        ) : previousYearPlan ? (
+          // No plan yet for current year - show previous year for review
+          <div className="space-y-4">
+            {/* Prompt to review */}
+            <div className="p-4 rounded-lg border border-accent/30 bg-accent/5">
+              <p className="text-sm font-medium text-foreground mb-1">
+                Time to review your plan for {currentYear}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Here&apos;s what you focused on in {previousYearPlan.year}. Review and adjust as needed for the new year.
+              </p>
+              <Button variant="default" className="mt-3" onClick={startEditing}>
+                Review &amp; Update Plan
+              </Button>
+            </div>
+
+            {/* Show previous year's content as reference */}
+            <div className="opacity-75">
+              <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
+                <History className="h-3 w-3" />
+                From {previousYearPlan.year}:
+              </p>
+
+              <div className="grid gap-6 sm:grid-cols-2">
+                {/* Character Focus - Primary (Deep Blue) */}
+                <div className="flex flex-col h-full p-5 rounded-xl border border-primary/20 bg-primary/5 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold ring-1 ring-primary/20">1</div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-primary">Character Focus</span>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xl font-serif font-bold text-foreground">{previousYearPlan.characterGoal}</p>
+                    {previousYearPlan.characterScripture && (
+                      <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <BookOpen className="h-4 w-4 mt-0.5 shrink-0" />
+                        <BibleVerse reference={previousYearPlan.characterScripture} />
+                      </div>
+                    )}
+                    {previousYearPlan.characterAction && (
+                      <p className="text-sm border-t border-primary/10 pt-2 mt-2">{previousYearPlan.characterAction}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Competency Focus - Accent (Deep Teal) */}
+                <div className="flex flex-col h-full p-5 rounded-xl border border-accent/20 bg-accent/5 shadow-sm">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10 text-accent text-xs font-bold ring-1 ring-accent/20">2</div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-accent">Competency Focus</span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-accent/20 text-accent/80">
+                      {previousYearPlan.competencyType === "PERSONAL" ? "Personal" : "Professional"}
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xl font-serif font-bold text-foreground">{previousYearPlan.competencyGoal}</p>
+                    {previousYearPlan.competencyScripture && (
+                      <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <BookOpen className="h-4 w-4 mt-0.5 shrink-0" />
+                        <BibleVerse reference={previousYearPlan.competencyScripture} />
+                      </div>
+                    )}
+                    {previousYearPlan.competencyAction && (
+                      <p className="text-sm border-t border-accent/10 pt-2 mt-2">{previousYearPlan.competencyAction}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-6 sm:grid-cols-2 mt-4">
+                {previousYearPlan.blessingsPlan && (
+                  <div className="p-3 rounded-lg border border-success/20 bg-success/5">
+                    <span className="text-xs font-medium text-muted-foreground">Blessings</span>
+                    <p className="text-sm mt-1">{previousYearPlan.blessingsPlan}</p>
+                  </div>
+                )}
+                {previousYearPlan.consequencesPlan && (
+                  <div className="p-3 rounded-lg border border-destructive/20 bg-destructive/5">
+                    <span className="text-xs font-medium text-muted-foreground">Consequences</span>
+                    <p className="text-sm mt-1">{previousYearPlan.consequencesPlan}</p>
+                  </div>
+                )}
+              </div>
+
+              {previousYearPlan.themeVerse && (
+                <div className="mt-4 p-3 rounded-lg border bg-muted/20">
+                  <span className="text-xs font-medium text-muted-foreground">Theme Verse: </span>
+                  <BibleVerse reference={previousYearPlan.themeVerse} />
+                </div>
+              )}
+            </div>
+          </div>
         ) : (
-          // No plan yet
+          // No plan yet - true empty state (no previous year either)
           <div className="text-center py-8 text-muted-foreground">
             <Target className="h-8 w-8 mx-auto mb-3 opacity-50" />
             <p className="mb-2">No annual plan set for {currentYear}.</p>

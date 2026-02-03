@@ -2,7 +2,7 @@
 // Section B: Monthly Vision
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -13,6 +13,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, ChevronDown, ChevronRight, History, Save, BookOpen } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+import { BibleVerse } from "@/components/BibleVerse";
+import { useVerseValidation } from "@/hooks/use-verse-validation";
 
 interface MonthlyVision {
   id: string;
@@ -98,6 +102,16 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<MonthlyVision>>({});
 
+  // Verse validation
+  const { verseErrors, validateField, clearErrors, hasErrors } = useVerseValidation();
+
+  // Validate memory verse field when form data changes
+  useEffect(() => {
+    if (isEditing) {
+      validateField("memoryVerse", formData.memoryVerse || "");
+    }
+  }, [formData.memoryVerse, isEditing, validateField]);
+
   const { data, isLoading } = useQuery({
     queryKey: ["kids-discipleship", "monthly-vision", memberId],
     queryFn: () => fetchMonthlyVisions(userId, memberId),
@@ -110,6 +124,10 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["kids-discipleship", "monthly-vision", memberId],
+      });
+      // Invalidate progression state to show next section
+      queryClient.invalidateQueries({
+        queryKey: ["kids-discipleship", "progression", userId, memberId],
       });
       setIsEditing(false);
     },
@@ -147,6 +165,7 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
     } else {
       setFormData(currentVision || {});
     }
+    clearErrors();
     setIsEditing(true);
   };
 
@@ -197,15 +216,18 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
               <div className="p-5 rounded-xl border border-primary/20 bg-primary/5 shadow-sm space-y-3">
                 <div className="flex items-center gap-2">
                     <BookOpen className="h-4 w-4 text-primary" />
-                    <Label htmlFor="memoryVerse" className="text-xs font-bold uppercase tracking-wider text-primary">Memory Verse</Label>
+                    <Label htmlFor="memoryVerse" className="text-xs font-bold uppercase tracking-wider text-primary">Memory Verse Reference</Label>
                 </div>
                 <Input
                   id="memoryVerse"
-                  placeholder="e.g., Children, obey your parents in the Lord... (Ephesians 6:1)"
+                  placeholder="e.g., Ephesians 6:1"
                   value={formData.memoryVerse || ""}
                   onChange={(e) => setFormData({ ...formData, memoryVerse: e.target.value })}
-                  className="bg-input-bg font-serif text-lg italic"
+                  className={cn("bg-input-bg", verseErrors.memoryVerse && "border-destructive focus-visible:ring-destructive")}
                 />
+                {verseErrors.memoryVerse && (
+                  <p className="text-xs text-destructive">{verseErrors.memoryVerse}</p>
+                )}
               </div>
             )}
 
@@ -219,6 +241,9 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
                   onChange={(e) => setFormData({ ...formData, characterFocus: e.target.value })}
                   className="bg-input-bg font-serif text-lg font-medium"
                 />
+                <p className="text-[10px] text-muted-foreground italic pt-2 border-t border-primary/10">
+                  Biblical Basis: <BibleVerse reference="2 Peter 1:5-7" /> — Christ-like character traits
+                </p>
               </div>
               <div className="flex flex-col p-5 rounded-xl border border-accent/20 bg-accent/5 shadow-sm space-y-3">
                 <Label htmlFor="competencyFocus" className="text-xs font-bold uppercase tracking-wider text-accent">Competency Focus</Label>
@@ -229,6 +254,9 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
                   onChange={(e) => setFormData({ ...formData, competencyFocus: e.target.value })}
                   className="bg-input-bg font-serif text-lg font-medium"
                 />
+                <p className="text-[10px] text-muted-foreground italic pt-2 border-t border-accent/10">
+                  Biblical Basis: <BibleVerse reference="2 Thessalonians 3:10-12" /> — Life skills for responsible living
+                </p>
               </div>
             </div>
 
@@ -271,6 +299,9 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
                     rows={3}
                     className="bg-input-bg resize-none"
                   />
+                  <p className="text-[10px] text-muted-foreground italic pt-2 border-t border-success/10">
+                    Biblical Basis: <BibleVerse reference="Ephesians 6:2-3" /> — Harvest of obedience
+                  </p>
                 </div>
                 <div className="p-5 rounded-xl border border-destructive/20 bg-destructive/5 space-y-3">
                   <Label htmlFor="correct" className="text-xs font-bold uppercase tracking-wider text-destructive">Correct (Consequences)</Label>
@@ -282,6 +313,9 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
                     rows={3}
                     className="bg-input-bg resize-none"
                   />
+                  <p className="text-[10px] text-muted-foreground italic pt-2 border-t border-destructive/10">
+                    Biblical Basis: <BibleVerse reference="Galatians 6:7" />; <BibleVerse reference="Proverbs 22:15" /> — Harvest of disobedience
+                  </p>
                 </div>
               </div>
             </div>
@@ -289,7 +323,7 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
             {/* Save/Cancel */}
             <div className="flex flex-col gap-2 pt-2">
               <div className="flex gap-2">
-                <Button onClick={handleSave} disabled={mutation.isPending} className="w-full sm:w-auto">
+                <Button onClick={handleSave} disabled={mutation.isPending || hasErrors} className="w-full sm:w-auto">
                   <Save className="h-4 w-4 mr-2" />
                   {mutation.isPending ? "Saving..." : "Save Vision"}
                 </Button>
@@ -315,9 +349,9 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
                   <BookOpen className="h-5 w-5 text-primary" />
                   <span className="text-xs font-bold uppercase tracking-wider text-primary">Memory Verse</span>
                 </div>
-                <p className="font-serif text-lg font-medium text-foreground relative pl-4 border-l-2 border-primary/20 italic">
-                  "{currentVision.memoryVerse}"
-                </p>
+                <div className="relative pl-4 border-l-2 border-primary/20">
+                  <BibleVerse reference={currentVision.memoryVerse} />
+                </div>
               </div>
             )}
 
@@ -394,7 +428,7 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
                         <BookOpen className="h-4 w-4 text-accent" />
                         <span className="font-medium text-sm">Memory Verse</span>
                       </div>
-                      <p className="text-sm italic">{previousMonthVision.memoryVerse}</p>
+                      <BibleVerse reference={previousMonthVision.memoryVerse} />
                     </div>
                   )}
 
@@ -489,8 +523,9 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
                   </CollapsibleTrigger>
                   <CollapsibleContent className="p-4 pt-2 rounded-b-lg bg-muted/20 border-x border-b -mt-1">
                     {vision.memoryVerse && (
-                      <div>
-                        <p className="italic text-muted-foreground text-sm mb-3">Memory verse: {vision.memoryVerse}</p>
+                      <div className="mb-3">
+                        <span className="text-xs text-muted-foreground">Memory verse: </span>
+                        <BibleVerse reference={vision.memoryVerse} />
                       </div>
                     )}
 
