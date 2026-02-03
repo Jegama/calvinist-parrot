@@ -498,6 +498,7 @@ export default function JournalPage() {
             call2={activeEntry.aiOutput.call2}
             userId={user!.$id}
             hasHousehold={householdStatus?.hasHousehold ?? false}
+            entryId={activeEntry.id}
           />
         ) : streamProgress ? (
           <Card>
@@ -589,14 +590,14 @@ export default function JournalPage() {
                 <span className="text-sm text-muted-foreground">Common Tags</span>
               </div>
               <div className="flex flex-wrap gap-1">
-                {getTopTags(data?.entries || []).slice(0, 5).map(tag => (
+                {getTopTags(data?.entries || []).slice(0, 5).map(({ tag, count }) => (
                   <Badge
                     key={tag}
                     variant={selectedTags.includes(tag) ? "default" : "secondary"}
                     className="cursor-pointer text-xs"
                     onClick={() => handleTagClick(tag)}
                   >
-                    {formatTagLabel(tag)}
+                    {formatTagLabel(tag)} ({count})
                   </Badge>
                 ))}
                 {(!data?.entries || data.entries.length === 0) && (
@@ -797,7 +798,7 @@ export default function JournalPage() {
 }
 
 // Helper functions
-function getTopTags(entries: JournalEntry[]): string[] {
+function getTopTags(entries: JournalEntry[]): Array<{ tag: string; count: number }> {
   const tagCounts = new Map<string, number>();
   for (const entry of entries) {
     for (const tag of entry.tags) {
@@ -806,7 +807,7 @@ function getTopTags(entries: JournalEntry[]): string[] {
   }
   return [...tagCounts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .map(([tag]) => tag);
+    .map(([tag, count]) => ({ tag, count }));
 }
 
 function formatTagLabel(tag: string): string {

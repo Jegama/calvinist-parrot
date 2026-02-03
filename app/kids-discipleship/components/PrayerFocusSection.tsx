@@ -1,5 +1,6 @@
 // app/kids-discipleship/components/PrayerFocusSection.tsx
 // Section D: Prayer Focus (derived from logs) + Section F: Annual Review
+// Phase 4: Now passes linkedJournalEntryId and subjectMemberId for cross-linking
 "use client";
 
 import { useState } from "react";
@@ -55,7 +56,9 @@ async function addPrayerRequest(
   userId: string,
   requestText: string,
   notes: string | null,
-  linkedScripture: string | null
+  linkedScripture: string | null,
+  linkedJournalEntryId: string | null,
+  subjectMemberId: string
 ): Promise<void> {
   const res = await fetch("/api/prayer-tracker/requests", {
     method: "POST",
@@ -66,6 +69,8 @@ async function addPrayerRequest(
       notes,
       linkedScripture,
       familyId: null, // Household request
+      linkedJournalEntryId, // Phase 4: Cross-link to kids log
+      subjectMemberId, // Phase 4: Child this prayer is about
     }),
   });
   if (!res.ok) throw new Error("Failed to add prayer request");
@@ -117,12 +122,14 @@ export function PrayerFocusSection({
   );
 
   const addMutation = useMutation({
-    mutationFn: (params: { title: string; notes: string; linkedScripture: string | null; key: string }) =>
+    mutationFn: (params: { title: string; notes: string; linkedScripture: string | null; sourceEntryId: string | null; key: string }) =>
       addPrayerRequest(
         userId,
         params.title,
         params.notes,
-        params.linkedScripture
+        params.linkedScripture,
+        params.sourceEntryId,
+        memberId // Child this prayer is about
       ),
     onSuccess: (_, variables) => {
       setAddedRequests((prev) => new Set(prev).add(variables.key));
@@ -290,7 +297,7 @@ export function PrayerFocusSection({
                         type="need"
                         isAdded={isAdded}
                         isAdding={isAdding}
-                        onAdd={() => addMutation.mutate({ title: item.title, notes: item.notes, linkedScripture: item.linkedScripture, key })}
+                        onAdd={() => addMutation.mutate({ title: item.title, notes: item.notes, linkedScripture: item.linkedScripture, sourceEntryId: item.sourceEntryId, key })}
                       />
                     );
                   })
@@ -314,7 +321,7 @@ export function PrayerFocusSection({
                         type="praise"
                         isAdded={isAdded}
                         isAdding={isAdding}
-                        onAdd={() => addMutation.mutate({ title: item.title, notes: item.notes, linkedScripture: item.linkedScripture, key })}
+                        onAdd={() => addMutation.mutate({ title: item.title, notes: item.notes, linkedScripture: item.linkedScripture, sourceEntryId: item.sourceEntryId, key })}
                       />
                     );
                   })

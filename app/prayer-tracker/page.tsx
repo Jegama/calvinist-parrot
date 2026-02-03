@@ -1,26 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { ProtectedView } from "@/components/ProtectedView";
-import { Users } from "lucide-react";
+import { Users, LayoutDashboard, ListChecks, Users2 } from "lucide-react";
 import { RotationCard } from "./components/RotationCard";
 import { FamilySection } from "./components/FamilySection";
 import { RequestsSection } from "./components/RequestsSection";
 import { FamilySheet } from "./components/FamilySheet";
 import { RequestSheet } from "./components/RequestSheet";
 import { FamilyDetailDialog } from "./components/FamilyDetailDialog";
+import { OverviewSection } from "./components/OverviewSection";
 import type { Family } from "./types";
 import { usePrayerSpace } from "./hooks/use-prayer-space";
 import { useFamilyManager } from "./hooks/use-family-manager";
 import { useRequestManager } from "./hooks/use-request-manager";
 import { useRotationWorkflow } from "./hooks/use-rotation-workflow";
 
-export default function PrayerTrackerPage() {
+function PrayerTrackerContent() {
   const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
 
@@ -38,6 +41,11 @@ export default function PrayerTrackerPage() {
 
   const [familyDetailDialogOpen, setFamilyDetailDialogOpen] = useState(false);
   const [selectedFamilyForDetail, setSelectedFamilyForDetail] = useState<Family | null>(null);
+
+  // Tab state from URL or default to "overview"
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") || "overview";
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   const memberNames = useMemo(() => {
     const names = members.map((member) => member.displayName).join(" & ");
@@ -152,35 +160,69 @@ export default function PrayerTrackerPage() {
             onConfirmRotation={rotationWorkflow.confirmRotation}
           />
 
-          <RequestsSection
-            className="w-full"
-            requests={requests}
-            families={families}
-            newRequest={requestManager.newRequest}
-            requestFormError={requestManager.requestFormError}
-            answeringRequestId={requestManager.answeringRequestId}
-            onNewRequestChange={requestManager.handleNewRequestChange}
-            onCreateRequest={requestManager.createRequest}
-            onEditRequest={requestManager.openRequestSheet}
-            onMarkAnswered={requestManager.markRequestAnswered}
-          />
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 bg-primary/5 dark:bg-muted/50 p-1">
+              <TabsTrigger 
+                value="overview" 
+                className="flex items-center gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none dark:data-[state=active]:bg-background dark:data-[state=active]:text-foreground"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                <span className="hidden sm:inline">Overview</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="requests" 
+                className="flex items-center gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none dark:data-[state=active]:bg-background dark:data-[state=active]:text-foreground"
+              >
+                <ListChecks className="h-4 w-4" />
+                <span className="hidden sm:inline">Requests</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="families" 
+                className="flex items-center gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none dark:data-[state=active]:bg-background dark:data-[state=active]:text-foreground"
+              >
+                <Users2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Families</span>
+              </TabsTrigger>
+            </TabsList>
 
-          <FamilySection
-            className="w-full"
-            newFamily={familyManager.newFamily}
-            familyFormError={familyManager.familyFormError}
-            categories={familyManager.categories}
-            categoryFilter={familyManager.categoryFilter}
-            filteredFamilies={familyManager.filteredFamilies}
-            onNewFamilyChange={familyManager.handleNewFamilyChange}
-            onCreateFamily={familyManager.createFamily}
-            onCategoryFilterChange={(value) => familyManager.setCategoryFilter(value)}
-            onEditFamily={familyManager.openFamilySheet}
-            onViewFamilyDetail={(family) => {
-              setSelectedFamilyForDetail(family);
-              setFamilyDetailDialogOpen(true);
-            }}
-          />
+            <TabsContent value="overview" className="mt-6">
+              <OverviewSection />
+            </TabsContent>
+
+            <TabsContent value="requests" className="mt-6">
+              <RequestsSection
+                className="w-full"
+                requests={requests}
+                families={families}
+                newRequest={requestManager.newRequest}
+                requestFormError={requestManager.requestFormError}
+                answeringRequestId={requestManager.answeringRequestId}
+                onNewRequestChange={requestManager.handleNewRequestChange}
+                onCreateRequest={requestManager.createRequest}
+                onEditRequest={requestManager.openRequestSheet}
+                onMarkAnswered={requestManager.markRequestAnswered}
+              />
+            </TabsContent>
+
+            <TabsContent value="families" className="mt-6">
+              <FamilySection
+                className="w-full"
+                newFamily={familyManager.newFamily}
+                familyFormError={familyManager.familyFormError}
+                categories={familyManager.categories}
+                categoryFilter={familyManager.categoryFilter}
+                filteredFamilies={familyManager.filteredFamilies}
+                onNewFamilyChange={familyManager.handleNewFamilyChange}
+                onCreateFamily={familyManager.createFamily}
+                onCategoryFilterChange={(value) => familyManager.setCategoryFilter(value)}
+                onEditFamily={familyManager.openFamilySheet}
+                onViewFamilyDetail={(family) => {
+                  setSelectedFamilyForDetail(family);
+                  setFamilyDetailDialogOpen(true);
+                }}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
 
         <FamilySheet
@@ -249,5 +291,22 @@ export default function PrayerTrackerPage() {
         />
       </div>
     </ProtectedView>
+  );
+}
+
+export default function PrayerTrackerPage() {
+  return (
+    <Suspense fallback={
+      <Card className="max-w-2xl mx-auto mt-8 mb-8">
+        <CardHeader>
+          <CardTitle>Prayer Tracker</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>Loading...</p>
+        </CardContent>
+      </Card>
+    }>
+      <PrayerTrackerContent />
+    </Suspense>
   );
 }

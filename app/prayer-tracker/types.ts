@@ -36,6 +36,10 @@ export type PersonalRequest = {
   dateAdded?: string;
   status?: "ACTIVE" | "ANSWERED" | "ARCHIVED";
   answeredAt?: string | null;
+  // Phase 4: Cross-linking fields
+  linkedJournalEntryId?: string | null;
+  subjectMemberId?: string | null;
+  linkedEntryType?: "PERSONAL" | "DISCIPLESHIP" | null; // For badge display
 };
 
 export type FamilyRequest = {
@@ -48,6 +52,9 @@ export type FamilyRequest = {
   dateAdded?: string;
   status?: "ACTIVE" | "ANSWERED" | "ARCHIVED";
   answeredAt?: string | null;
+  // Phase 4: Cross-linking field
+  linkedJournalEntryId?: string | null;
+  linkedEntryType?: "PERSONAL" | "DISCIPLESHIP" | null; // For badge display
 };
 
 // Unified request type that can be either household or family-specific
@@ -64,6 +71,10 @@ export type UnifiedRequest = {
   // if familyId is set, it's a family-specific request (prayerFamilyRequest)
   familyId?: string | null;
   familyName?: string | null; // For display purposes
+  // Phase 4: Cross-linking fields (privacy-aware: only included if user is author)
+  linkedJournalEntryId?: string | null;
+  linkedEntryType?: "PERSONAL" | "DISCIPLESHIP" | null;
+  subjectMemberId?: string | null;
 };
 
 export type Rotation = {

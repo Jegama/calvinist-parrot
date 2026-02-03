@@ -19,6 +19,7 @@ import { UnifiedRequest, NewPersonalFormState, Family } from "../types";
 import { formatRelative, formatTimeSince } from "../utils";
 import { useCallback, useMemo, useState } from "react";
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
+import { FromSourceBadge } from "./FromSourceBadge";
 
 const joinClassNames = (base: string, extra?: string) => {
   if (!extra) return base;
@@ -274,6 +275,11 @@ export function RequestsSection({
                           <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-2 py-0.5 text-[11px] font-medium">
                             {isHouseholdRequest ? "Our Family" : item.familyName}
                           </span>
+                          <FromSourceBadge
+                            linkedJournalEntryId={item.linkedJournalEntryId}
+                            linkedEntryType={item.linkedEntryType}
+                            subjectMemberId={item.subjectMemberId}
+                          />
                           {isAnswered && item.answeredAt && (
                             <span className="inline-flex items-center rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">
                               Answered {formatRelative(item.answeredAt)}

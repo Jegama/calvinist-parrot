@@ -115,32 +115,46 @@ model prayerFamily {
 }
 
 model prayerFamilyRequest {
-  id              String        @id @default(cuid())
-  familyId        String
-  status          RequestStatus @default(ACTIVE)
-  requestText     String
-  notes           String?
-  linkedScripture String?
-  dateAdded       DateTime      @default(now())
-  dateUpdated     DateTime      @updatedAt
-  lastPrayedAt    DateTime?
-  answeredAt      DateTime?
-  family          prayerFamily  @relation(fields: [familyId], references: [id])
+  id                   String        @id @default(cuid())
+  familyId             String
+  status               RequestStatus @default(ACTIVE)
+  requestText          String
+  notes                String?
+  linkedScripture      String?
+  linkedJournalEntryId String?       // Phase 4: Links to journalEntry.id
+  dateAdded            DateTime      @default(now())
+  dateUpdated          DateTime      @updatedAt
+  lastPrayedAt         DateTime?
+  answeredAt           DateTime?
+
+  // Relations
+  family               prayerFamily  @relation(fields: [familyId], references: [id])
+  linkedEntry          journalEntry? @relation("FamilyRequestSource", fields: [linkedJournalEntryId], references: [id], onDelete: SetNull)
+
+  @@index([linkedJournalEntryId])
 }
 
 model prayerPersonalRequest {
-  id                String            @id @default(cuid())
-  spaceId           String
-  status            RequestStatus     @default(ACTIVE)
-  requestText       String
-  notes             String?
-  linkedScripture   String?
-  requesterMemberId String?
-  dateAdded         DateTime          @default(now())
-  dateUpdated       DateTime          @updatedAt
-  lastPrayedAt      DateTime?
-  answeredAt        DateTime?
-  space             prayerFamilySpace @relation(fields: [spaceId], references: [id])
+  id                   String            @id @default(cuid())
+  spaceId              String
+  status               RequestStatus     @default(ACTIVE)
+  requestText          String
+  notes                String?
+  linkedScripture      String?
+  requesterMemberId    String?
+  linkedJournalEntryId String?           // Phase 4: Links to journalEntry.id
+  subjectMemberId      String?           // Phase 4: Child member for kids-related requests
+  dateAdded            DateTime          @default(now())
+  dateUpdated          DateTime          @updatedAt
+  lastPrayedAt         DateTime?
+  answeredAt           DateTime?
+
+  // Relations
+  space                prayerFamilySpace @relation(fields: [spaceId], references: [id])
+  linkedEntry          journalEntry?     @relation("PersonalRequestSource", fields: [linkedJournalEntryId], references: [id], onDelete: SetNull)
+
+  @@index([linkedJournalEntryId])
+  @@index([subjectMemberId])
 }
 
 model prayerJournalEntry {
@@ -171,8 +185,10 @@ model journalEntry {
   updatedAt       DateTime          @updatedAt
 
   // Relations
-  space           prayerFamilySpace? @relation(fields: [spaceId], references: [id])
-  aiOutput        journalEntryAI?
+  space            prayerFamilySpace?      @relation(fields: [spaceId], references: [id])
+  aiOutput         journalEntryAI?
+  personalRequests prayerPersonalRequest[] @relation("PersonalRequestSource")
+  familyRequests   prayerFamilyRequest[]   @relation("FamilyRequestSource")
 
   @@index([spaceId])
   @@index([authorProfileId])
