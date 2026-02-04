@@ -170,22 +170,31 @@ export async function POST(request: Request) {
       return history;
     };
 
-    // Fetch user profile for pastoral context injection
-    const userProfile = await prisma.userProfile.findUnique({
-      where: { appwriteUserId: resolvedUserId },
-      select: {
-        denomination: true,
-        preferredDepth: true,
-        followUpTendency: true,
-        spiritualStatus: true,
-        gospelPresentationCount: true,
-        coreDoctrineQuestions: true,
-        secondaryDoctrineQuestions: true,
-        tertiaryDoctrineQuestions: true,
-        ministryContext: true,
-        churchInvolvement: true,
-      },
-    });
+    // TTFT Optimization: Fetch user profile and chat messages in parallel
+    // This eliminates one sequential DB round-trip (~100-300ms savings)
+    type ChatMessageSummary = { sender: string; content: string };
+    const [userProfile, previousMessages] = await Promise.all([
+      prisma.userProfile.findUnique({
+        where: { appwriteUserId: resolvedUserId },
+        select: {
+          denomination: true,
+          preferredDepth: true,
+          followUpTendency: true,
+          spiritualStatus: true,
+          gospelPresentationCount: true,
+          coreDoctrineQuestions: true,
+          secondaryDoctrineQuestions: true,
+          tertiaryDoctrineQuestions: true,
+          ministryContext: true,
+          churchInvolvement: true,
+        },
+      }),
+      prisma.chatMessage.findMany({
+        where: { chatId },
+        orderBy: { timestamp: "asc" },
+        select: { sender: true, content: true },
+      }) as Promise<ChatMessageSummary[]>,
+    ]);
 
     // Build system prompt with pastoral context & denomination mapping
     const newParrotSysPrompt = buildParrotSystemPrompt({
@@ -200,24 +209,26 @@ export async function POST(request: Request) {
 
     const stream = new ReadableStream({
       async start(controller) {
-        // Message accumulator to avoid repeated DB fetches
-        let conversationMessages: { sender: string; content: string }[] = [];
+        // TTFT Optimization: Send immediate progress event before any async work
+        // This gives the user instant visual feedback while we prepare the LLM call
+        sendProgress(
+          {
+            type: "progress",
+            title: "Processing",
+            content: "Preparing your response...",
+          },
+          controller
+        );
+
+        // Message accumulator - initialized from pre-fetched data
+        const conversationMessages: { sender: string; content: string }[] = previousMessages.map((msg: ChatMessageSummary) => ({
+          sender: msg.sender,
+          content: msg.content,
+        }));
         let hasAnnouncedDrafting = false;
         const pendingWrites: Prisma.PrismaPromise<unknown>[] = [];
 
         try {
-          // Fetch initial messages only once
-          type ChatMessageSummary = { sender: string; content: string };
-          const previousMessages: ChatMessageSummary[] = await prisma.chatMessage.findMany({
-            where: { chatId: capturedChatId },
-            orderBy: { timestamp: "asc" },
-            select: { sender: true, content: true },
-          });
-
-          conversationMessages = previousMessages.map((msg: ChatMessageSummary) => ({
-            sender: msg.sender,
-            content: msg.content,
-          }));
 
           // Only add and save user message if not auto-triggered. This is from `app/[chatId]/page.tsx`, when you load the page and the last message is from the user.
           if (!isAutoTrigger) {
@@ -437,35 +448,7 @@ export async function POST(request: Request) {
             sendError(error, "parrot_response", controller);
           }
 
-          // Fetch current chat metadata (for naming and memory extraction)
-          let currentChat: Awaited<ReturnType<typeof prisma.chatHistory.findUnique>> = null;
-          try {
-            currentChat = await prisma.chatHistory.findUnique({
-              where: { id: capturedChatId },
-            });
-          } catch (error) {
-            console.error("Error fetching chat metadata:", error);
-          }
-
-          // Handle conversation naming
-          try {
-            if (currentChat && currentChat.conversationName === "New Conversation") {
-              const allMessagesStr = conversationMessages.map((m) => `${m.sender}: ${m.content}`).join("\n");
-              const conversationName = await generateConversationName(allMessagesStr);
-
-              pendingWrites.push(
-                prisma.chatHistory.update({
-                  where: { id: capturedChatId },
-                  data: {
-                    conversationName: conversationName || "New Conversation",
-                  },
-                })
-              );
-            }
-          } catch (error) {
-            sendError(error, "conversation_metadata", controller);
-          }
-
+          // Persist messages to database (without conversation naming - that's deferred)
           if (pendingWrites.length > 0) {
             try {
               await prisma.$transaction(pendingWrites);
@@ -474,8 +457,39 @@ export async function POST(request: Request) {
             }
           }
 
-          // 🧠 Extract and update user memories in the background
-          // This runs asynchronously and doesn't block the response
+          // TTFT Optimization: Send "done" immediately, then handle background tasks
+          // This ensures the user sees completion as fast as possible
+          sendProgress({ type: "done" }, controller);
+          controller.close();
+
+          // === Background tasks (fire-and-forget, don't block response) ===
+          // These run after the stream is closed and don't affect user experience
+
+          // 1. Handle conversation naming asynchronously
+          (async () => {
+            try {
+              const currentChat = await prisma.chatHistory.findUnique({
+                where: { id: capturedChatId },
+                select: { conversationName: true },
+              });
+
+              if (currentChat && currentChat.conversationName === "New Conversation") {
+                const allMessagesStr = conversationMessages.map((m) => `${m.sender}: ${m.content}`).join("\n");
+                const conversationName = await generateConversationName(allMessagesStr);
+
+                await prisma.chatHistory.update({
+                  where: { id: capturedChatId },
+                  data: {
+                    conversationName: conversationName || "New Conversation",
+                  },
+                });
+              }
+            } catch (error) {
+              console.error("Background conversation naming failed:", error);
+            }
+          })();
+
+          // 2. Extract and update user memories asynchronously
           if (capturedUserId) {
             updateUserMemoriesFromConversation(
               capturedUserId,
@@ -484,15 +498,11 @@ export async function POST(request: Request) {
                 content: m.content,
               }))
             ).catch((error) => {
-              // Log but don't fail - memory extraction is non-critical
               console.error("Background memory extraction failed:", error);
             });
           } else {
             console.warn("⚠️ Memory extraction skipped: userId is undefined");
           }
-
-          sendProgress({ type: "done" }, controller);
-          controller.close();
         } catch (error) {
           sendError(error, "general", controller);
           controller.close();
