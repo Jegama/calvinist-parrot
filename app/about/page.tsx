@@ -14,7 +14,7 @@ export default async function AboutPage() {
   return (
     <Card className="max-w-2xl mx-auto mt-8 mb-8">
       <CardHeader>
-        <CardTitle>About</CardTitle>
+        <CardTitle className="text-3xl font-bold mt-6 mb-4">About</CardTitle>
       </CardHeader>
       <CardContent>
         <MarkdownWithBibleVerses content={introContent} />

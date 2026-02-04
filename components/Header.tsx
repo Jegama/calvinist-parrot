@@ -99,30 +99,33 @@ export function Header() {
             <Separator orientation="vertical" className="header-separator mr-2 h-4" />
           </span>
 
-          {/* Desktop Navigation (visible on xl and above) - fade out when scrolled */}
+          {/* Desktop Navigation (visible on lg and above) - fade out when scrolled */}
           <div
-            className="hidden xl:flex items-center transition-opacity duration-700 ease-in-out"
+            className="hidden lg:flex items-center transition-opacity duration-700 ease-in-out"
             style={{ opacity: isScrolled ? 0 : 1, pointerEvents: isScrolled ? "none" : "auto" }}
             aria-hidden={isScrolled}
           >
-            <nav className="flex items-center space-x-6 text-sm font-medium">
+            <nav className="flex items-center space-x-4 xl:space-x-6 text-sm font-medium">
               <Link href="/" prefetch={false} className="hover:opacity-70 transition-opacity">
                 Chat
-              </Link>
-              <Link href="/journal" prefetch={false} className="hover:opacity-70 transition-opacity">
-                Journal
-              </Link>
-              <Link href="/kids-discipleship" prefetch={false} className="hover:opacity-70 transition-opacity">
-                Heritage
               </Link>
               <Link href="/devotional" prefetch={false} className="hover:opacity-70 transition-opacity">
                 Devotional
               </Link>
+              <Link href="/journal" prefetch={false} className="hover:opacity-70 transition-opacity">
+                Journal
+              </Link>
               <Link href="/prayer-tracker" prefetch={false} className="hover:opacity-70 transition-opacity">
                 Prayer Tracker
               </Link>
+              <Link href="/kids-discipleship" prefetch={false} className="hover:opacity-70 transition-opacity">
+                Heritage
+              </Link>
               <Link href="/church-finder" prefetch={false} className="hover:opacity-70 transition-opacity">
                 Church Finder
+              </Link>
+              <Link href="/about" prefetch={false} className="hover:opacity-70 transition-opacity">
+                About
               </Link>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -141,15 +144,12 @@ export function Header() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Link href="/about" prefetch={false} className="hover:opacity-70 transition-opacity">
-                About
-              </Link>
             </nav>
           </div>
 
-          {/* Mobile Dropdown (hidden on xl and above) - fade out when scrolled */}
+          {/* Mobile Dropdown (hidden on lg and above) - fade out when scrolled */}
           <div
-            className="xl:hidden transition-opacity duration-700 ease-in-out"
+            className="lg:hidden transition-opacity duration-700 ease-in-out"
             style={{ opacity: isScrolled ? 0 : 1, pointerEvents: isScrolled ? "none" : "auto" }}
             aria-hidden={isScrolled}
           >
@@ -166,23 +166,23 @@ export function Header() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/journal" prefetch={false} className="w-full">
-                    Journal
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/kids-discipleship" prefetch={false} className="w-full">
-                    Heritage
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
                   <Link href="/devotional" prefetch={false} className="w-full">
                     Devotional
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
+                  <Link href="/journal" prefetch={false} className="w-full">
+                    Journal
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link href="/prayer-tracker" prefetch={false} className="w-full">
                     Prayer Tracker
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/kids-discipleship" prefetch={false} className="w-full">
+                    Heritage
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
@@ -192,6 +192,11 @@ export function Header() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
+                  <Link href="/about" prefetch={false} className="w-full">
+                    About
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link href="/parrot-qa" prefetch={false} className="w-full">
                     Parrot QA (Labs)
                   </Link>
@@ -199,12 +204,6 @@ export function Header() {
                 <DropdownMenuItem asChild>
                   <Link href="/llm-evaluation-dashboard" prefetch={false} className="w-full">
                     AI Eval (Labs)
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/about" prefetch={false} className="w-full">
-                    About
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>

@@ -323,7 +323,7 @@ export default function ChatPage() {
         }
       }
     },
-    [input, params.chatId, fetchChat, invalidateChatList, initialQuestionParam, router]
+    [input, params.chatId, fetchChat, invalidateChatList, initialQuestionParam, router, chat?.id, upsertChat]
   );
 
   // --- Auto-trigger sending if only the initial user message exists ---
