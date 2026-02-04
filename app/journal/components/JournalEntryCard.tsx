@@ -31,9 +31,10 @@ interface JournalEntryCardProps {
 export function JournalEntryCard({ entry, isActive, onClick, onReprocess, isReprocessing }: JournalEntryCardProps) {
   const date = new Date(entry.entryDate);
   const title = entry.aiOutput?.call1?.title || "Journal Entry";
-  const preview = entry.entryText.length > 100
-    ? entry.entryText.substring(0, 100) + "..."
-    : entry.entryText;
+  const preview = entry.aiOutput?.call1?.oneSentenceSummary || 
+    (entry.entryText.length > 100
+      ? entry.entryText.substring(0, 100) + "..."
+      : entry.entryText);
   
   // Check if AI processing failed (entry exists but no aiOutput)
   const processingFailed = !entry.aiOutput;

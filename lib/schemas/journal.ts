@@ -131,11 +131,6 @@ export const JOURNAL_CALL2_SCHEMA = {
                 maxItems: 3,
                 description: "1-3 prayer requests with short titles and longer descriptions"
             },
-            searchKeywords: {
-                type: "array",
-                items: { type: "string" },
-                description: "Keywords for future search functionality"
-            },
             dashboardSignals: {
                 type: "object",
                 properties: {
@@ -145,7 +140,7 @@ export const JOURNAL_CALL2_SCHEMA = {
                 additionalProperties: false
             }
         },
-        required: ["tags", "suggestedPrayerRequests", "searchKeywords", "dashboardSignals"],
+        required: ["tags", "suggestedPrayerRequests", "dashboardSignals"],
         additionalProperties: false
     }
 };

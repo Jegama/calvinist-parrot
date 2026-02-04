@@ -48,7 +48,6 @@ export type Call2Output = {
         notes: string;
         linkedScripture: string | null;
     }[];
-    searchKeywords: string[];
     dashboardSignals: {
         recurringTheme: string | null;
     };

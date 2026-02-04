@@ -10,7 +10,6 @@ import {
   runCall1b,
   runCall1c,
   runTagsAndSuggestions,
-  getPreferredDepth,
   getRecentEntryContext,
   storeJournalAIOutput,
 } from "@/utils/journal/llm";
@@ -173,10 +172,7 @@ export async function POST(request: Request) {
       return createdEntry;
     });
 
-    // Get preferred depth for AI reflection
-    const preferredDepth = await getPreferredDepth(profile.id);
-
-    // Get rich context from recent entries (summaries, keywords, recurring themes)
+    // Get rich context from recent entries (situation summaries and themes)
     const recentContext = await getRecentEntryContext(profile.id, 5);
 
     // Stream the response as JSONL with parallel calls
@@ -212,8 +208,6 @@ export async function POST(request: Request) {
           // STEP 1: Run Call 1a first (title, summary, situation)
           const call1a: Call1aOutput = await runCall1a({
             entryText,
-            recentContext,
-            preferredDepth,
           });
 
           // Send Call 1a result immediately
@@ -234,7 +228,7 @@ export async function POST(request: Request) {
             runCall1b({
               entryText,
               situationSummary: call1a.situationSummary,
-              preferredDepth,
+              recentContext,
             }).then((result: Call1bOutput) => {
               // Send 1b result as soon as it completes
               sendEvent({
@@ -246,7 +240,7 @@ export async function POST(request: Request) {
             runCall1c({
               entryText,
               situationSummary: call1a.situationSummary,
-              preferredDepth,
+              recentContext,
             }).then((result: Call1cOutput) => {
               // Send 1c result as soon as it completes
               sendEvent({
