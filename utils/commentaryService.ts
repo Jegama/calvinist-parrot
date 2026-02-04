@@ -10,7 +10,7 @@ const BIBLE_API_BASE_URL = "https://bible.helloao.org";
  * Given an array of Bible passage references, this function fetches and returns
  * the formatted commentary text for each passage.
  *
- * @param passages - An array of Bible reference strings (e.g., "John 3:16").
+ * @param passages - An array of Bible reference strings (e.g., "John 6:44").
  * @returns A promise that resolves to an object where each key is the original passage
  *          and its value is the formatted commentary text or an error message.
  */

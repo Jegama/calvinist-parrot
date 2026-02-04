@@ -26,7 +26,7 @@ export function PreviousQuestionsCard({
   return (
     <Card className="max-w-2xl mx-auto mt-8 mb-8">
       <CardHeader>
-        <CardTitle>Your Previous Questions</CardTitle>
+        <CardTitle className="text-2xl font-serif">Your Previous Questions</CardTitle>
       </CardHeader>
       <CardContent>
         <Accordion type="single" collapsible>

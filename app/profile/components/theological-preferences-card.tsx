@@ -56,7 +56,7 @@ export function TheologicalPreferencesCard({ stats, userId, onUpdate }: Theologi
   return (
     <Card className="mx-auto max-w-2xl mt-6">
       <CardHeader>
-        <CardTitle>Theological Preferences</CardTitle>
+        <CardTitle className="text-2xl font-serif">Theological Preferences</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {denominationSaved && (

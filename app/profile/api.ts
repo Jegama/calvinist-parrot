@@ -166,3 +166,20 @@ export async function updateMember(
     throw new Error(errorData.error || "Failed to update member");
   }
 }
+
+/**
+ * Permanently delete entire household and all related data.
+ * Only available when the user is the sole adult with an account.
+ */
+export async function deleteHousehold(userId: string, spaceId: string): Promise<void> {
+  const response = await fetch(`/api/prayer-tracker/spaces/delete-household`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, spaceId }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: "Failed to delete household" }));
+    throw new Error(errorData.error || "Failed to delete household");
+  }
+}

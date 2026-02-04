@@ -47,7 +47,17 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
       hasInteractedRef.current = true;
       return;
     }
-    containerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // Calculate position accounting for contracted header
+    const contractedHeaderHeight = 64;
+    const breathingRoom = 24;
+    const elementTop = containerRef.current.getBoundingClientRect().top + window.scrollY;
+    const scrollToPosition = elementTop - contractedHeaderHeight - breathingRoom;
+
+    window.scrollTo({
+      top: scrollToPosition,
+      behavior: "smooth"
+    });
   }, [page]);
 
   const paginationControls = (
@@ -123,12 +133,12 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                 const displayLabel = church.confessionAdopted
                   ? "Confessional Reformed"
                   : status === "not_endorsed"
-                  ? "Not Endorsed"
-                  : status === "limited_information"
-                  ? "Limited Info"
-                  : status === "biblically_sound_with_differences"
-                  ? "Biblically Sound"
-                  : "Recommended";
+                    ? "Not Endorsed"
+                    : status === "limited_information"
+                      ? "Limited Info"
+                      : status === "biblically_sound_with_differences"
+                        ? "Biblically Sound"
+                        : "Recommended";
                 const badges = church.badges ?? [];
                 // Prioritize badges by category and cap the number shown
                 const CATEGORY_PRIORITY: Record<string, number> = {
@@ -176,12 +186,12 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                               {church.confessionAdopted
                                 ? "Publicly subscribes to a historic Reformed confession."
                                 : status === "not_endorsed"
-                                ? "We cannot endorse this church based on what is published."
-                                : status === "limited_information"
-                                ? "Website does not clearly state several essentials."
-                                : status === "biblically_sound_with_differences"
-                                ? "Affirms essentials but holds to non-Reformed secondary positions."
-                                : "We can commend this church based on essentials affirmed on its site."}
+                                  ? "We cannot endorse this church based on what is published."
+                                  : status === "limited_information"
+                                    ? "Website does not clearly state several essentials."
+                                    : status === "biblically_sound_with_differences"
+                                      ? "Affirms essentials but holds to non-Reformed secondary positions."
+                                      : "We can commend this church based on essentials affirmed on its site."}
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -229,8 +239,8 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
                             const badgeClasses = isRedFlag
                               ? "badge--red-flag px-2 py-0.5 text-xs"
                               : isSecondaryDifference
-                              ? "badge--info px-2 py-0.5 text-xs"
-                              : "badge--neutral px-2 py-0.5 text-xs";
+                                ? "badge--info px-2 py-0.5 text-xs"
+                                : "badge--neutral px-2 py-0.5 text-xs";
 
                             return (
                               <Tooltip key={badge}>

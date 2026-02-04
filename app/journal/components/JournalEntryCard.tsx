@@ -95,7 +95,7 @@ export function JournalEntryCard({ entry, isActive, onClick, onReprocess, isRepr
         </p>
         
         {processingFailed && (
-          <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-1 italic">
+          <p className="text-xs status-text--warning mt-1 italic">
             AI reflection unavailable
           </p>
         )}

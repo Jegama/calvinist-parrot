@@ -1,5 +1,6 @@
 // app/journal/components/SuggestedRequestsPanel.tsx
 // Displays suggested prayer requests from Call 2 with "Add" buttons
+// Phase 4: Now passes linkedJournalEntryId for cross-linking
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,13 +16,15 @@ interface SuggestedRequestsPanelProps {
   call2: Call2Output;
   userId: string;
   hasHousehold: boolean;
+  entryId: string; // Phase 4: Journal entry ID for cross-linking
 }
 
 async function addPrayerRequest(
   userId: string,
   requestText: string,
   notes: string | null,
-  linkedScripture: string | null
+  linkedScripture: string | null,
+  linkedJournalEntryId: string
 ): Promise<void> {
   const res = await fetch("/api/prayer-tracker/requests", {
     method: "POST",
@@ -31,19 +34,20 @@ async function addPrayerRequest(
       requestText,
       notes,
       linkedScripture,
-      familyId: null, // Household request
+      linkedToFamily: "household", // API expects "household" or a familyId
+      linkedJournalEntryId, // Phase 4: Cross-link to journal entry
     }),
   });
   if (!res.ok) throw new Error("Failed to add prayer request");
 }
 
-export function SuggestedRequestsPanel({ call2, userId, hasHousehold }: SuggestedRequestsPanelProps) {
+export function SuggestedRequestsPanel({ call2, userId, hasHousehold, entryId }: SuggestedRequestsPanelProps) {
   const queryClient = useQueryClient();
   const [addedRequests, setAddedRequests] = useState<Set<string>>(new Set());
 
   const addMutation = useMutation({
     mutationFn: (params: { title: string; notes: string; linkedScripture: string | null; key: string }) =>
-      addPrayerRequest(userId, params.title, params.notes, params.linkedScripture),
+      addPrayerRequest(userId, params.title, params.notes, params.linkedScripture, entryId),
     onSuccess: (_, variables) => {
       setAddedRequests(prev => new Set(prev).add(variables.key));
       queryClient.invalidateQueries({ queryKey: ["prayer-requests"] });
@@ -135,28 +139,6 @@ export function SuggestedRequestsPanel({ call2, userId, hasHousehold }: Suggeste
             </div>
           );
         })}
-
-        {/* Tags Display */}
-        {Object.values(call2.tags).some(arr => arr.length > 0) && (
-          <div className="pt-4 border-t">
-            <h4 className="text-sm font-medium mb-2 text-muted-foreground">
-              Extracted Tags
-            </h4>
-            <div className="flex flex-wrap gap-1">
-              {Object.entries(call2.tags).map(([category, values]) =>
-                values.map((value, i) => (
-                  <Badge
-                    key={`${category}-${value}-${i}`}
-                    variant="secondary"
-                    className="text-xs"
-                  >
-                    {value}
-                  </Badge>
-                ))
-              )}
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

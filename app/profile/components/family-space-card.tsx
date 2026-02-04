@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CalendarIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +33,7 @@ import {
   regenerateShareCode,
   addChildMember,
   updateMember,
+  deleteHousehold,
 } from "../api";
 
 type FamilySpaceCardProps = {
@@ -60,6 +61,11 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
   const [editBirthdate, setEditBirthdate] = useState<Date | undefined>(undefined);
   const [editBirthdateOpen, setEditBirthdateOpen] = useState(false);
   const [isUpdatingBirthdate, setIsUpdatingBirthdate] = useState(false);
+
+  // Delete household dialog state
+  const [deleteHouseholdDialogOpen, setDeleteHouseholdDialogOpen] = useState(false);
+  const [isDeletingHousehold, setIsDeletingHousehold] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const {
     pendingCode,
@@ -122,6 +128,16 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
   }, [space?.members]);
 
   const showZeroCapacityWarning = space && space.members.length > 0 && totalCapacity === 0;
+
+  // Check if delete household option should be available
+  // Only show when user is owner AND is the only adult with an account
+  const canDeleteHousehold = useMemo(() => {
+    if (!space || membership?.role !== "OWNER") return false;
+    const adultAccountMembers = space.members.filter(
+      (m) => m.appwriteUserId && !m.isChild
+    );
+    return adultAccountMembers.length === 1;
+  }, [space, membership?.role]);
 
   const handleCopyCode = async () => {
     if (!space) return;
@@ -257,11 +273,28 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
     }
   };
 
+  const handleDeleteHousehold = async () => {
+    if (!space || !canDeleteHousehold) return;
+    if (deleteConfirmText !== "DELETE") return;
+
+    setIsDeletingHousehold(true);
+    try {
+      await deleteHousehold(userId, space.id);
+      setDeleteHouseholdDialogOpen(false);
+      setDeleteConfirmText("");
+      await onUpdate();
+    } catch (error) {
+      console.error("Failed to delete household", error);
+    } finally {
+      setIsDeletingHousehold(false);
+    }
+  };
+
   return (
     <>
       <Card className="mx-auto max-w-2xl mt-8">
         <CardHeader>
-          <CardTitle>Family Space</CardTitle>
+          <CardTitle className="text-2xl font-serif">Family Space</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {space ? (
@@ -328,6 +361,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                     return (
                       <div key={member.id} className="flex flex-col gap-3 rounded-md border p-3">
                         <div className="flex flex-col gap-1">
+                          {/* Line 1: Name + CHILD badge */}
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-medium">{member.displayName}</p>
                             {member.isChild && (
@@ -335,46 +369,38 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                                 Child
                               </span>
                             )}
-                            {member.isChild && ageDisplay && (
-                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                                {ageDisplay}
-                              </span>
-                            )}
-                            {member.isChild && bracket && (
-                              <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                                {getBracketLabel(bracket)}
-                              </span>
-                            )}
                           </div>
+                          {/* Line 2: Age + Bracket + Edit (for children) */}
+                          {member.isChild && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              {ageDisplay && (
+                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                  {ageDisplay}
+                                </span>
+                              )}
+                              {bracket && (
+                                <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                                  {getBracketLabel(bracket)}
+                                </span>
+                              )}
+                              {membership?.role === "OWNER" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                                  onClick={() => {
+                                    setMemberToEdit(member);
+                                    setEditBirthdate(hasValidBirthdate ? new Date(member.birthdate!) : undefined);
+                                    setEditMemberDialogOpen(true);
+                                  }}
+                                >
+                                  <CalendarIcon className="mr-1 h-3 w-3" />
+                                  {hasValidBirthdate ? "Edit" : "Add birthdate"}
+                                </Button>
+                              )}
+                            </div>
+                          )}
                           <p className="text-xs text-muted-foreground">{member.role === "OWNER" ? "Owner" : "Member"}</p>
-                          {member.isChild && !hasValidBirthdate && membership?.role === "OWNER" && (
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0 text-xs text-muted-foreground underline"
-                              onClick={() => {
-                                setMemberToEdit(member);
-                                setEditBirthdate(undefined);
-                                setEditMemberDialogOpen(true);
-                              }}
-                            >
-                              + Add birthdate
-                            </Button>
-                          )}
-                          {member.isChild && hasValidBirthdate && membership?.role === "OWNER" && (
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0 text-xs text-muted-foreground underline"
-                              onClick={() => {
-                                setMemberToEdit(member);
-                                setEditBirthdate(new Date(member.birthdate!));
-                                setEditMemberDialogOpen(true);
-                              }}
-                            >
-                              Edit birthdate
-                            </Button>
-                          )}
                         </div>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-2">
@@ -501,15 +527,30 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                             </Button>
                           )}
                         </div>
-                        <Button onClick={handleAddChild} disabled={isAddingChild || !newChildName.trim()}>
-                          {isAddingChild ? "Adding..." : "Add Child"}
-                        </Button>
+                        <p className="text-xs text-muted-foreground">
+                          Birthdate is required to enable age-appropriate guidance in the Heritage Journal feature
+                        </p>
                       </div>
                     </div>
+                    <Button onClick={handleAddChild} disabled={isAddingChild || !newChildName.trim() || !newChildBirthdate}>
+                      {isAddingChild ? "Adding..." : "Add Child"}
+                    </Button>
                   </div>
                 )}
               </div>
-              <div className="flex justify-end">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                {canDeleteHousehold && (
+                  <Button
+                    variant="outline"
+                    className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => {
+                      setDeleteConfirmText("");
+                      setDeleteHouseholdDialogOpen(true);
+                    }}
+                  >
+                    Delete Household
+                  </Button>
+                )}
                 <Button
                   variant="destructive"
                   onClick={() => {
@@ -770,6 +811,65 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
               disabled={isUpdatingBirthdate}
             >
               {isUpdatingBirthdate ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Household Dialog */}
+      <Dialog open={deleteHouseholdDialogOpen} onOpenChange={setDeleteHouseholdDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Delete Household Permanently</DialogTitle>
+            <DialogDescription>
+              This action <span className="font-semibold">cannot be undone</span>. This will permanently delete your
+              household and all associated data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                <p className="font-semibold mb-2">The following data will be permanently deleted:</p>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  <li>All household members (including children)</li>
+                  <li>All families you&apos;re praying for and their prayer requests</li>
+                  <li>All personal/household prayer requests</li>
+                  <li>All prayer journal entries</li>
+                  <li>All personal journal entries and AI reflections</li>
+                  <li>All kids discipleship annual plans</li>
+                  <li>All kids discipleship monthly visions</li>
+                </ul>
+              </AlertDescription>
+            </Alert>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                To confirm, type <span className="font-mono font-semibold text-foreground">DELETE</span> below:
+              </p>
+              <Input
+                placeholder="Type DELETE to confirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteHouseholdDialogOpen(false);
+                setDeleteConfirmText("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteHousehold}
+              disabled={isDeletingHousehold || deleteConfirmText !== "DELETE"}
+            >
+              {isDeletingHousehold ? "Deleting..." : "Delete Household"}
             </Button>
           </DialogFooter>
         </DialogContent>

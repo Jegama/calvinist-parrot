@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Separator } from "@/components/ui/separator";
 import { Family, UnifiedRequest } from "../types";
 import { formatRelative, formatTimeSince } from "../utils";
+import { FromSourceBadge } from "./FromSourceBadge";
 
 type FamilyDetailDialogProps = {
   isOpen: boolean;
@@ -90,6 +91,14 @@ export function FamilyDetailDialog({
                         <div className="flex-1 space-y-1">
                           <p className="text-sm font-semibold">{request.requestText}</p>
                           {request.notes && <p className="text-xs text-muted-foreground">{request.notes}</p>}
+                          {request.linkedJournalEntryId && (
+                            <div className="mt-1">
+                              <FromSourceBadge
+                                linkedJournalEntryId={request.linkedJournalEntryId}
+                                linkedEntryType={request.linkedEntryType}
+                              />
+                            </div>
+                          )}
                           <p className="text-xs text-muted-foreground">
                             Last prayed: {formatTimeSince(request.lastPrayedAt)} - Added{" "}
                             {formatRelative(request.dateAdded)}

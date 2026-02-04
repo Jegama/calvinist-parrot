@@ -17,28 +17,28 @@ export const AGE_BRACKET_CONFIG: Record<
     max: 3,
     label: "Infant/Toddler",
     description:
-      "Focus on authority, atmosphere, simple habits. Heavy parental input, low child output.",
+      "Input years. Heavy parental initiative, low child self-control. Focus on authority, atmosphere, simple habits, and immediate, simple responses.",
   },
   EARLY_CHILDHOOD: {
     min: 3,
     max: 6,
     label: "Early Childhood",
     description:
-      "Begin introducing responsibility, simple obedience explanations.",
+      "Training years. Establish first-time obedience, clear meaning of 'no', simple explanations, basic social and responsibility skills.",
   },
   MIDDLE_CHILDHOOD: {
     min: 7,
     max: 12,
     label: "Middle Childhood",
     description:
-      "Growing independence, more complex character work, academic competencies.",
+      "Discipleship prime. Invest heavily in heart conversations, character formation, growing independence, and age-appropriate competencies.",
   },
   ADOLESCENCE: {
     min: 13,
     max: 17,
     label: "Adolescence",
     description:
-      "Preparing for adulthood, increased autonomy, deeper theological discussions.",
+      "Coaching and transition. Prepare for adulthood with increasing autonomy, partnership, and deeper conversations about wisdom, faith, and responsibility.",
   },
 };
 

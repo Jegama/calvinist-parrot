@@ -180,6 +180,8 @@ Based on the above guidelines, your final answer should adhere to the following 
 - **Feature Routing & In‑App Links:** When the user's intent matches a built‑in feature, include one compact inline link to the relevant page so they can go directly. Use:
         - Find, evaluate, or check a church: [Church Finder](/church-finder).
         - Track or rotate prayer requests, families: [Prayer Tracker](/prayer-tracker).
+        - Daily personal reflections with pastoral insight: [Personal Journal](/journal).
+        - Discipleship planning and parenting logs: [Heritage Journal](/kids-discipleship).
         - Generate or read daily devotionals: [Devotional](/devotional).
         - Classic Q&A workflow: [Parrot QA](/parrot-qa).
         - Learn about the project: [About](/about).

@@ -1,0 +1,404 @@
+// app/kids-discipleship/components/PrayerFocusSection.tsx
+// Section D: Prayer Focus (derived from logs) + Section F: Annual Review
+// Phase 4: Now passes linkedJournalEntryId and subjectMemberId for cross-linking
+"use client";
+
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Heart,
+  HandHeart,
+  AlertCircle,
+  Plus,
+  BookOpen,
+  Check,
+  Loader2,
+  Cake,
+  Sparkles,
+  Calendar,
+} from "lucide-react";
+import { BibleVerse } from "@/components/BibleVerse";
+import { AGE_BRACKET_CONFIG } from "@/utils/ageUtils";
+
+interface PrayerFocusItem {
+  title: string;
+  notes: string;
+  linkedScripture: string | null;
+  sourceEntryId: string;
+  sourceEntryDate: string;
+  sourceCategory: "NURTURE" | "ADMONITION";
+  sourceSnippet: string;
+}
+
+interface Props {
+  userId: string;
+  memberId: string;
+  childName: string;
+  childBirthdate?: string | null;
+  onCreateNextYearPlan?: () => void;
+}
+
+async function fetchPrayerFocus(userId: string, memberId: string) {
+  const res = await fetch(
+    `/api/kids-discipleship/prayer-focus?userId=${userId}&memberId=${memberId}&daysBack=30`
+  );
+  if (!res.ok) throw new Error("Failed to fetch prayer focus");
+  return res.json();
+}
+
+async function addPrayerRequest(
+  userId: string,
+  requestText: string,
+  notes: string | null,
+  linkedScripture: string | null,
+  linkedJournalEntryId: string | null,
+  subjectMemberId: string
+): Promise<void> {
+  const res = await fetch("/api/prayer-tracker/requests", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId,
+      requestText,
+      notes,
+      linkedScripture,
+      familyId: null, // Household request
+      linkedJournalEntryId, // Phase 4: Cross-link to kids log
+      subjectMemberId, // Phase 4: Child this prayer is about
+    }),
+  });
+  if (!res.ok) throw new Error("Failed to add prayer request");
+}
+
+async function fetchAnnualPlans(userId: string, memberId: string) {
+  const res = await fetch(
+    `/api/kids-discipleship/annual-plan?userId=${userId}&memberId=${memberId}`
+  );
+  if (!res.ok) throw new Error("Failed to fetch annual plans");
+  return res.json();
+}
+
+export function PrayerFocusSection({
+  userId,
+  memberId,
+  childName,
+  childBirthdate,
+  onCreateNextYearPlan,
+}: Props) {
+  const queryClient = useQueryClient();
+  const [addedRequests, setAddedRequests] = useState<Set<string>>(new Set());
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["kids-discipleship", "prayer-focus", memberId],
+    queryFn: () => fetchPrayerFocus(userId, memberId),
+    enabled: !!userId && !!memberId,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const prayerNeeds: PrayerFocusItem[] = data?.prayerNeeds || [];
+  const praises: PrayerFocusItem[] = data?.praises || [];
+  const nurtureCount: number = data?.stats?.nurtureCount || 0;
+  const admonitionCount: number = data?.stats?.admonitionCount || 0;
+
+  // Fetch annual plan to check if one exists for current year
+  const { data: annualPlanData } = useQuery({
+    queryKey: ["kids-discipleship", "annual-plan", memberId],
+    queryFn: () => fetchAnnualPlans(userId, memberId),
+    enabled: !!userId && !!memberId,
+  });
+
+  const currentYear = new Date().getFullYear();
+  const childPlans = annualPlanData?.children?.find(
+    (c: { memberId: string }) => c.memberId === memberId
+  )?.plans || [];
+  const hasCurrentYearPlan = childPlans.some(
+    (p: { year: number }) => p.year === currentYear
+  );
+
+  const addMutation = useMutation({
+    mutationFn: (params: { title: string; notes: string; linkedScripture: string | null; sourceEntryId: string | null; key: string }) =>
+      addPrayerRequest(
+        userId,
+        params.title,
+        params.notes,
+        params.linkedScripture,
+        params.sourceEntryId,
+        memberId // Child this prayer is about
+      ),
+    onSuccess: (_, variables) => {
+      setAddedRequests((prev) => new Set(prev).add(variables.key));
+      queryClient.invalidateQueries({ queryKey: ["prayer-requests"] });
+    },
+  });
+
+  // Annual Review calculations
+  const now = new Date();
+  const currentMonth = now.getMonth(); // 0-11
+  const isYearEnd = currentMonth >= 10; // November or December
+
+  let isBirthdayMonth = false;
+  let upcomingBirthday: Date | null = null;
+  let nextAgeBracket: string | null = null;
+
+  if (childBirthdate) {
+    const birthDate = new Date(childBirthdate);
+    isBirthdayMonth = birthDate.getMonth() === currentMonth;
+
+    // Calculate next birthday
+    upcomingBirthday = new Date(birthDate);
+    upcomingBirthday.setFullYear(now.getFullYear());
+    if (upcomingBirthday < now) {
+      upcomingBirthday.setFullYear(now.getFullYear() + 1);
+    }
+
+    // Check if approaching new age bracket
+    const ageInMonths = Math.floor((now.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+
+    // Get bracket boundaries from AGE_BRACKET_CONFIG
+    const bracketBoundaries = Object.values(AGE_BRACKET_CONFIG).map(b => b.min).filter(min => min > 0);
+    
+    // Check if within 6 months of a bracket boundary
+    for (const boundary of bracketBoundaries) {
+      const monthsToNextBracket = (boundary * 12) - ageInMonths;
+      if (monthsToNextBracket > 0 && monthsToNextBracket <= 6) {
+        const nextBracketInfo = Object.values(AGE_BRACKET_CONFIG).find(b => b.min === boundary);
+        if (nextBracketInfo) {
+          nextAgeBracket = nextBracketInfo.label;
+        }
+        break;
+      }
+    }
+  }
+
+  const showAnnualReview = (isYearEnd || isBirthdayMonth) && hasCurrentYearPlan;
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-32 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const totalLogs = nurtureCount + admonitionCount;
+  const hasData = totalLogs > 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Annual Review Banner - Section F */}
+      {showAnnualReview && (
+        <Alert className="border-accent/50 bg-accent/5">
+          <Sparkles className="h-5 w-5 text-accent" />
+          <AlertTitle className="flex items-center gap-2">
+            {isBirthdayMonth ? (
+              <>
+                <Cake className="h-4 w-4" />
+                Birthday Time — Annual Review for {childName}
+              </>
+            ) : (
+              <>
+                <Calendar className="h-4 w-4" />
+                Year-End Review for {childName}
+              </>
+            )}
+          </AlertTitle>
+          <AlertDescription className="mt-2 space-y-3">
+            <p>
+              {isBirthdayMonth
+                ? `It's ${childName}'s birthday month! This is a wonderful time to reflect on the past year's growth and set new goals.`
+                : `As the year comes to a close, take time to reflect on ${childName}'s growth and prepare next year's plan.`}
+            </p>
+
+            {nextAgeBracket && (
+              <div className="p-3 rounded-lg bg-primary/10 text-sm">
+                <strong>Bracket Transition Coming:</strong> {childName} will soon be entering the{" "}
+                <Badge variant="secondary">{nextAgeBracket}</Badge> stage. Consider adjusting your
+                approach to match this new developmental phase.
+              </div>
+            )}
+
+            <div className="space-y-2 text-sm">
+              <p className="font-medium">Reflect on this year:</p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                <li>Did you see growth in the Character goal you set?</li>
+                <li>How did the Competency focus go?</li>
+                <li>What patterns emerged in your nurture and admonition moments?</li>
+                <li>What would you do differently next year?</li>
+              </ul>
+            </div>
+
+            {onCreateNextYearPlan && (
+              <Button onClick={onCreateNextYearPlan} className="mt-2">
+                <Plus className="h-4 w-4 mr-2" />
+                Create {new Date().getFullYear() + 1} Plan
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Prayer Focus Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <HandHeart className="h-5 w-5 text-accent" />
+            Prayer Focus
+          </CardTitle>
+          <CardDescription>
+            Derived from the last 30 days of logs for {childName}
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          {!hasData ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <HandHeart className="h-8 w-8 mx-auto mb-3 opacity-50" />
+              <p>No logs yet from the last 30 days.</p>
+              <p className="text-sm">Start logging parenting moments to generate prayer focus.</p>
+            </div>
+          ) : (
+            <Tabs defaultValue="needs" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="needs" className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 status-text--warning" />
+                  Prayer Needs ({prayerNeeds.length})
+                </TabsTrigger>
+                <TabsTrigger value="praises" className="flex items-center gap-2">
+                  <Heart className="h-4 w-4 text-success" />
+                  Praises ({praises.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="needs" className="space-y-3">
+                {prayerNeeds.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No prayer needs identified from recent logs.
+                  </p>
+                ) : (
+                  prayerNeeds.map((item, i) => {
+                    const key = `need-${i}`;
+                    const isAdded = addedRequests.has(key);
+                    const isAdding = addMutation.isPending && addMutation.variables?.key === key;
+                    return (
+                      <PrayerFocusCard
+                        key={i}
+                        item={item}
+                        type="need"
+                        isAdded={isAdded}
+                        isAdding={isAdding}
+                        onAdd={() => addMutation.mutate({ title: item.title, notes: item.notes, linkedScripture: item.linkedScripture, sourceEntryId: item.sourceEntryId, key })}
+                      />
+                    );
+                  })
+                )}
+              </TabsContent>
+
+              <TabsContent value="praises" className="space-y-3">
+                {praises.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No praises identified from recent logs.
+                  </p>
+                ) : (
+                  praises.map((item, i) => {
+                    const key = `praise-${i}`;
+                    const isAdded = addedRequests.has(key);
+                    const isAdding = addMutation.isPending && addMutation.variables?.key === key;
+                    return (
+                      <PrayerFocusCard
+                        key={i}
+                        item={item}
+                        type="praise"
+                        isAdded={isAdded}
+                        isAdding={isAdding}
+                        onAdd={() => addMutation.mutate({ title: item.title, notes: item.notes, linkedScripture: item.linkedScripture, sourceEntryId: item.sourceEntryId, key })}
+                      />
+                    );
+                  })
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Prayer Focus Item Card
+function PrayerFocusCard({
+  item,
+  type,
+  isAdded,
+  isAdding,
+  onAdd,
+}: {
+  item: PrayerFocusItem;
+  type: "need" | "praise";
+  isAdded: boolean;
+  isAdding: boolean;
+  onAdd: () => void;
+}) {
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  return (
+    <div
+      className={`p-3 rounded-lg border ${type === "need"
+          ? "bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800"
+          : "bg-green-50/50 dark:bg-green-950/10 border-green-200 dark:border-green-800"
+        }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1">
+          <p className="text-sm font-medium">{item.title}</p>
+          <p className="text-sm text-muted-foreground mt-1">{item.notes}</p>
+        </div>
+        <Button
+          variant={isAdded ? "ghost" : "outline"}
+          size="sm"
+          disabled={isAdded || isAdding}
+          onClick={onAdd}
+          className="shrink-0"
+        >
+          {isAdding ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : isAdded ? (
+            <>
+              <Check className="h-4 w-4 mr-1" />
+              Added
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4 mr-1" />
+              Add
+            </>
+          )}
+        </Button>
+      </div>
+      {item.linkedScripture && (
+        <p className="text-xs text-accent mt-1 flex items-center gap-1">
+          <BookOpen className="h-3 w-3" />
+          <BibleVerse reference={item.linkedScripture} />
+        </p>
+      )}
+      <p className="text-xs text-muted-foreground mt-2 line-clamp-1">
+        From {formatDate(item.sourceEntryDate)}: {item.sourceSnippet}
+      </p>
+    </div>
+  );
+}

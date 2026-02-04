@@ -1,5 +1,5 @@
 // utils/journal/llm.ts
-// AI pipeline for Coram Deo Journal (Phase 2)
+// AI pipeline for Personal Journal (Phase 2)
 // Handles pastoral reflection (Call 1a/1b/1c) and tags/suggestions (Call 2)
 // Uses parallel execution for faster UX
 
@@ -20,10 +20,29 @@ import {
   JOURNAL_CALL2_SYSTEM_PROMPT,
   buildCall2UserMessage,
   flattenTags,
+  type RecentEntryContext,
 } from "@/lib/prompts/journal";
 
 const MODEL = "gpt-5-mini";
+const LARGER_MODEL = "gpt-5.2-2025-12-11";
 const PROMPT_VERSION = "1.0.0";
+
+function countWords(text: string): number {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+const JOURNAL_LARGER_MODEL_MIN_WORDS = (() => {
+  const raw = process.env.JOURNAL_LARGER_MODEL_MIN_WORDS;
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 250;
+})();
+
+function selectJournalReasoningModel(entryText: string): string {
+  return countWords(entryText) >= JOURNAL_LARGER_MODEL_MIN_WORDS ? LARGER_MODEL : MODEL;
+}
 
 /**
  * Run Call 1a: Quick Overview (title, summary, situation)
@@ -31,7 +50,8 @@ const PROMPT_VERSION = "1.0.0";
  */
 export async function runCall1a(params: {
   entryText: string;
-  recentSummaries: string[];
+  recentContext?: RecentEntryContext;
+  recentSummaries?: string[]; // @deprecated - use recentContext
   preferredDepth: string;
 }): Promise<Call1aOutput> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -39,6 +59,7 @@ export async function runCall1a(params: {
   const systemPrompt = buildCall1SystemPrompt("a", params.preferredDepth);
   const userMessage = buildCall1aUserMessage({
     entryText: params.entryText,
+    recentContext: params.recentContext,
     recentSummaries: params.recentSummaries,
   });
 
@@ -83,7 +104,7 @@ export async function runCall1b(params: {
   });
 
   const response = await openai.responses.parse({
-    model: MODEL,
+    model: selectJournalReasoningModel(params.entryText),
     input: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
@@ -123,7 +144,7 @@ export async function runCall1c(params: {
   });
 
   const response = await openai.responses.parse({
-    model: MODEL,
+    model: selectJournalReasoningModel(params.entryText),
     input: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
@@ -187,6 +208,7 @@ export async function runTagsAndSuggestions(params: {
 
 /**
  * Get recent entry summaries for context in Call 1a
+ * @deprecated Use getRecentEntryContext for richer context including keywords
  */
 export async function getRecentEntrySummaries(
   authorProfileId: string,
@@ -213,6 +235,74 @@ export async function getRecentEntrySummaries(
   } catch {
     // Table might not exist yet during migration
     return [];
+  }
+}
+
+// Re-export RecentEntryContext from prompts for convenience
+export type { RecentEntryContext };
+
+/**
+ * Get rich context from recent journal entries for Call 1a
+ * Includes summaries, keywords, and recurring themes for better pattern recognition
+ */
+export async function getRecentEntryContext(
+  authorProfileId: string,
+  limit: number
+): Promise<RecentEntryContext> {
+  try {
+    const recentEntries = await prisma.journalEntry.findMany({
+      where: { authorProfileId },
+      orderBy: { entryDate: "desc" },
+      take: limit,
+      include: {
+        aiOutput: {
+          select: { call1: true, call2: true },
+        },
+      },
+    });
+
+    const summaries: string[] = [];
+    const keywordCounts = new Map<string, number>();
+    const themeCounts = new Map<string, number>();
+
+    for (const entry of recentEntries) {
+      // Extract summary
+      const call1 = entry.aiOutput?.call1 as Call1Output | null;
+      if (call1?.oneSentenceSummary) {
+        summaries.push(call1.oneSentenceSummary);
+      }
+
+      // Extract and count keywords
+      const call2 = entry.aiOutput?.call2 as Call2Output | null;
+      if (call2?.searchKeywords) {
+        for (const keyword of call2.searchKeywords) {
+          keywordCounts.set(keyword, (keywordCounts.get(keyword) || 0) + 1);
+        }
+      }
+
+      // Extract recurring themes
+      if (call2?.dashboardSignals?.recurringTheme) {
+        const theme = call2.dashboardSignals.recurringTheme;
+        themeCounts.set(theme, (themeCounts.get(theme) || 0) + 1);
+      }
+    }
+
+    // Get top 10 keywords by frequency
+    const keywords = [...keywordCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([keyword]) => keyword);
+
+    // Get recurring themes (those that appear more than once)
+    const recurringThemes = [...themeCounts.entries()]
+      .filter(([, count]) => count > 1)
+      .sort((a, b) => b[1] - a[1])
+      .map(([theme]) => theme);
+
+    return { summaries, keywords, recurringThemes };
+  } catch {
+    // Table might not exist yet during migration
+    return { summaries: [], keywords: [], recurringThemes: [] };
   }
 }
 

@@ -1,5 +1,5 @@
 // app/journal/page.tsx
-// Coram Deo Journal - Main page with entry list, composer, and dashboard
+// Personal Journal - Main page with entry list, composer, and dashboard
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ProtectedView } from "@/components/ProtectedView";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +19,7 @@ import { Loader2, Plus, Search, MessageSquare, BookOpen, Calendar, ChevronRight 
 import { ReflectionCard } from "./components/ReflectionCard";
 import { SuggestedRequestsPanel } from "./components/SuggestedRequestsPanel";
 import { JournalEntryCard } from "./components/JournalEntryCard";
+import { RecentFocusSection } from "./components/RecentFocusSection";
 import type { Call1Output, Call2Output, Call1aOutput, Call1bOutput, Call1cOutput } from "@/types/journal";
 
 // Types for journal entries
@@ -96,10 +98,10 @@ async function reprocessEntry(userId: string, entryId: string): Promise<Readable
 }
 
 export default function JournalPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(1024);
 
   // State
   const [page, setPage] = useState(1);
@@ -384,12 +386,7 @@ export default function JournalPage() {
     if (isMobile) setMobileDetailOpen(true);
   }, [isMobile]);
 
-  const handleTagClick = useCallback((tag: string) => {
-    setSelectedTags(prev =>
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-    );
-    setPage(1);
-  }, []);
+
 
   useEffect(() => {
     if (!isMobile) {
@@ -412,14 +409,14 @@ export default function JournalPage() {
     return (
       <>
         {!activeEntry.aiOutput && !streamProgress && (
-          <Card className="border-yellow-200 dark:border-yellow-900 bg-yellow-50 dark:bg-yellow-950/20">
+          <Card className="status--warning">
             <CardContent className="pt-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-medium text-yellow-900 dark:text-yellow-200 text-sm mb-1">
+                  <p className="font-medium text-sm mb-1">
                     AI Reflection Unavailable
                   </p>
-                  <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                  <p className="text-xs opacity-90">
                     Processing failed for this entry. Click the retry button to regenerate your AI reflection.
                   </p>
                 </div>
@@ -497,6 +494,7 @@ export default function JournalPage() {
             call2={activeEntry.aiOutput.call2}
             userId={user!.$id}
             hasHousehold={householdStatus?.hasHousehold ?? false}
+            entryId={activeEntry.id}
           />
         ) : streamProgress ? (
           <Card>
@@ -516,38 +514,19 @@ export default function JournalPage() {
     );
   };
 
-  // Loading state
-  if (authLoading) {
-    return (
-      <div className="flex flex-col min-h-[calc(100vh-var(--app-header-height))] bg-background">
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      </div>
-    );
-  }
+  const authFallback = (
+    <Card className="max-w-2xl mx-auto mt-8 mb-8">
+      <CardHeader>
+        <CardTitle>Personal Journal</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>Checking your session… redirecting to login if needed.</p>
+      </CardContent>
+    </Card>
+  );
 
-  // Not logged in
   if (!user) {
-    return (
-      <div className="flex flex-col min-h-[calc(100vh-var(--app-header-height))] bg-background">
-        <div className="flex-1 flex items-center justify-center p-4">
-          <Card className="max-w-md w-full">
-            <CardHeader>
-              <CardTitle className="font-serif text-2xl text-center">Coram Deo Journal</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center space-y-4">
-              <p className="text-muted-foreground">
-                Reflect on your life before God with pastoral guidance rooted in Scripture.
-              </p>
-              <Button onClick={() => router.push("/login")} className="w-full">
-                Sign in to start journaling
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
+    return <ProtectedView fallback={authFallback} />;
   }
 
   return (
@@ -557,8 +536,8 @@ export default function JournalPage() {
         <header className="mb-8">
           <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-3xl font-serif font-bold text-foreground mb-2">Coram Deo Journal</h1>
-              <p className="text-muted-foreground">Living before the face of God</p>
+              <h1 className="text-3xl font-serif font-bold text-foreground mb-2">Personal Journal</h1>
+              <p className="text-muted-foreground">Daily reflections with pastoral insight</p>
             </div>
             <Button
               onClick={() => setIsComposerOpen(true)}
@@ -566,7 +545,7 @@ export default function JournalPage() {
               className="gap-2 w-full sm:w-auto"
             >
               <Plus className="h-4 w-4" />
-              New Entry
+              Write Today&apos;s Entry
             </Button>
           </div>
         </header>
@@ -579,7 +558,11 @@ export default function JournalPage() {
                 <BookOpen className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Total Entries</span>
               </div>
-              <p className="text-2xl font-semibold mt-1">{data?.total || 0}</p>
+              {data?.total === 0 ? (
+                <p className="text-sm text-muted-foreground italic mt-1">Start your first entry above</p>
+              ) : (
+                <p className="text-2xl font-semibold mt-1">{data?.total || 0}</p>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -597,28 +580,8 @@ export default function JournalPage() {
               </p>
             </CardContent>
           </Card>
-          <Card className="col-span-2">
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm text-muted-foreground">Common Tags</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {getTopTags(data?.entries || []).slice(0, 5).map(tag => (
-                  <Badge
-                    key={tag}
-                    variant={selectedTags.includes(tag) ? "default" : "secondary"}
-                    className="cursor-pointer text-xs"
-                    onClick={() => handleTagClick(tag)}
-                  >
-                    {formatTagLabel(tag)}
-                  </Badge>
-                ))}
-                {(!data?.entries || data.entries.length === 0) && (
-                  <span className="text-sm text-muted-foreground italic">No tags yet</span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Recent Focus - Keywords and themes from LLM analysis */}
+          <RecentFocusSection userId={user.$id} />
         </div>
 
         {/* Search and Filters */}
@@ -632,7 +595,7 @@ export default function JournalPage() {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="pl-10"
+              className="pl-10 bg-card border-border shadow-sm"
             />
           </div>
           {selectedTags.length > 0 && (
@@ -665,9 +628,13 @@ export default function JournalPage() {
             ) : data?.entries.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center">
-                  <p className="text-muted-foreground mb-4">No journal entries yet</p>
-                  <Button onClick={() => setIsComposerOpen(true)} variant="outline">
-                    Write your first entry
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-sm font-medium mb-2">No journal entries yet</p>
+                  <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
+                    Write about your day, struggles, or growth—get gentle, pastoral reflection to help you see your heart and grow in grace.
+                  </p>
+                  <Button onClick={() => setIsComposerOpen(true)} variant="default">
+                    Start Your First Entry
                   </Button>
                 </CardContent>
               </Card>
@@ -744,13 +711,31 @@ export default function JournalPage() {
                   What is on your heart today? Reflect on circumstances, emotions, struggles, or thanksgivings.
                   Consider: What happened? How did you respond? What might God be teaching you?
                 </p>
-                <Textarea
-                  placeholder="Write your journal entry..."
-                  value={newEntryText}
-                  onChange={(e) => setNewEntryText(e.target.value)}
-                  className="min-h-[200px]"
-                  disabled={isSubmitting}
-                />
+                <div>
+                  <Textarea
+                    placeholder="Write your journal entry..."
+                    value={newEntryText}
+                    onChange={(e) => setNewEntryText(e.target.value)}
+                    className="min-h-[200px]"
+                    disabled={isSubmitting}
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Tip: Reflect on what happened, how you responded, and what God might be teaching you
+                  </p>
+                </div>
+                {newEntryText.length === 0 && (
+                  <details className="text-sm">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
+                      Need help getting started?
+                    </summary>
+                    <ul className="mt-2 space-y-1 text-muted-foreground ml-4 list-disc">
+                      <li>What happened today that stood out?</li>
+                      <li>How did you feel or respond?</li>
+                      <li>Where did you see God&apos;s hand?</li>
+                      <li>What are you struggling with?</li>
+                    </ul>
+                  </details>
+                )}
                 <div className="flex justify-end gap-2">
                   <Button
                     variant="outline"
@@ -789,18 +774,6 @@ export default function JournalPage() {
 }
 
 // Helper functions
-function getTopTags(entries: JournalEntry[]): string[] {
-  const tagCounts = new Map<string, number>();
-  for (const entry of entries) {
-    for (const tag of entry.tags) {
-      tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-    }
-  }
-  return [...tagCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([tag]) => tag);
-}
-
 function formatTagLabel(tag: string): string {
   // Convert "category:Value" to just "Value"
   const parts = tag.split(":");
