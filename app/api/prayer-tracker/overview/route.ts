@@ -32,9 +32,10 @@ interface OverviewStats {
     childrenCount: number;
     lastLogAt: string | null;
   };
-  // Household-wide tag aggregation for "Consider praying for" section
+  // Household-wide recurring themes for "Consider praying for" section
+  // Uses LLM-identified recurring themes (dashboardSignals.recurringTheme) not raw tag counts
   householdPrayerFocus: {
-    topTags: Array<{ tag: string; count: number; category: string }>;
+    recurringThemes: Array<{ theme: string; count: number; category: string }>;
     periodDays: number; // How many days this aggregates (e.g., 90)
   };
 }
@@ -242,36 +243,41 @@ export async function GET() {
     .slice(0, 5)
     .map(([tag, count]) => ({ tag, count }));
 
-  // Calculate household-wide tag aggregation (last 90 days, all members, both PERSONAL and DISCIPLESHIP)
+  // Calculate household-wide recurring themes (last 90 days, all members, both PERSONAL and DISCIPLESHIP)
+  // Uses LLM-identified recurring themes from dashboardSignals.recurringTheme
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-  const householdTags = await prisma.journalEntry.findMany({
+  const householdRecurringThemes = await prisma.journalEntryAI.findMany({
     where: {
-      spaceId,
-      entryDate: { gte: ninetyDaysAgo },
+      entry: {
+        spaceId,
+        entryDate: { gte: ninetyDaysAgo },
+      },
     },
-    select: { tags: true },
+    select: { call2: true },
   });
 
-  // Aggregate household tags with category detection
-  const householdTagCounts: Record<string, { count: number; category: string }> = {};
-  for (const entry of householdTags) {
-    for (const tag of entry.tags) {
-      if (!householdTagCounts[tag]) {
-        householdTagCounts[tag] = { count: 0, category: detectTagCategory(tag) };
+  // Aggregate recurring themes with category detection
+  const themeCounts: Record<string, { count: number; category: string }> = {};
+  for (const aiOutput of householdRecurringThemes) {
+    const call2 = aiOutput.call2 as { dashboardSignals?: { recurringTheme?: string | null } } | null;
+    const theme = call2?.dashboardSignals?.recurringTheme;
+    if (theme) {
+      if (!themeCounts[theme]) {
+        themeCounts[theme] = { count: 0, category: detectTagCategory(theme) };
       }
-      householdTagCounts[tag].count++;
+      themeCounts[theme].count++;
     }
   }
 
-  // Filter to prayer-relevant tags and get top 6
+  // Filter to prayer-relevant categories and get top 6
   const prayerRelevantCategories = ["heartIssue", "rulingDesire", "virtue", "circumstance", "theologicalTheme"];
-  const householdTopTags = Object.entries(householdTagCounts)
+  const householdTopThemes = Object.entries(themeCounts)
     .filter(([, data]) => prayerRelevantCategories.includes(data.category))
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 6)
-    .map(([tag, data]) => ({ tag, count: data.count, category: data.category }));
+    .map(([theme, data]) => ({ theme, count: data.count, category: data.category }));
 
   // Calculate journal streak (consecutive days with entries)
   const streakDays = await calculateJournalStreak(spaceId, profileId);
@@ -302,7 +308,7 @@ export async function GET() {
       lastLogAt: lastKidsLog?.entryDate?.toISOString() || null,
     },
     householdPrayerFocus: {
-      topTags: householdTopTags,
+      recurringThemes: householdTopThemes,
       periodDays: 90,
     },
   };
@@ -315,7 +321,18 @@ export async function GET() {
 
 /**
  * Calculate the current streak of consecutive days with journal entries.
- * Starts from today and counts backwards.
+ * 
+ * Behavior:
+ * - Counts consecutive days with at least one PERSONAL journal entry
+ * - Starts checking from today and works backwards
+ * - "Forgiveness" logic: If there's no entry today (i === 0), we skip and check
+ *   yesterday. This allows the streak to persist throughout the day until midnight.
+ * - If there's no entry today AND no entry yesterday, the streak is 0
+ * - Maximum lookback is 90 days
+ * 
+ * @param spaceId - The household space ID
+ * @param userId - The user's profile ID (userProfile.id)
+ * @returns The number of consecutive days with entries
  */
 async function calculateJournalStreak(spaceId: string, userId: string): Promise<number> {
   // Get entries from the last 90 days, sorted by date

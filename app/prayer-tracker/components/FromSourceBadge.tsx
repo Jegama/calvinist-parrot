@@ -12,8 +12,7 @@ import { BookOpen, Baby } from "lucide-react";
 interface FromSourceBadgeProps {
   linkedJournalEntryId: string | null | undefined;
   linkedEntryType: "PERSONAL" | "DISCIPLESHIP" | null | undefined;
-  subjectMemberId?: string | null;
-  childName?: string | null; // For display when subjectMemberId is set
+  childName?: string | null; // For display when source is a kids log
 }
 
 /**

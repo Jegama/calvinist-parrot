@@ -278,7 +278,6 @@ export function RequestsSection({
                           <FromSourceBadge
                             linkedJournalEntryId={item.linkedJournalEntryId}
                             linkedEntryType={item.linkedEntryType}
-                            subjectMemberId={item.subjectMemberId}
                           />
                           {isAnswered && item.answeredAt && (
                             <span className="inline-flex items-center rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">

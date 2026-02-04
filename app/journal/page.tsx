@@ -19,6 +19,7 @@ import { Loader2, Plus, Search, MessageSquare, BookOpen, Calendar, ChevronRight 
 import { ReflectionCard } from "./components/ReflectionCard";
 import { SuggestedRequestsPanel } from "./components/SuggestedRequestsPanel";
 import { JournalEntryCard } from "./components/JournalEntryCard";
+import { RecentFocusSection } from "./components/RecentFocusSection";
 import type { Call1Output, Call2Output, Call1aOutput, Call1bOutput, Call1cOutput } from "@/types/journal";
 
 // Types for journal entries
@@ -385,12 +386,7 @@ export default function JournalPage() {
     if (isMobile) setMobileDetailOpen(true);
   }, [isMobile]);
 
-  const handleTagClick = useCallback((tag: string) => {
-    setSelectedTags(prev =>
-      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
-    );
-    setPage(1);
-  }, []);
+
 
   useEffect(() => {
     if (!isMobile) {
@@ -584,28 +580,8 @@ export default function JournalPage() {
               </p>
             </CardContent>
           </Card>
-          <Card className="col-span-2">
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm text-muted-foreground">Common Tags</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {getTopTags(data?.entries || []).slice(0, 5).map(({ tag, count }) => (
-                  <Badge
-                    key={tag}
-                    variant={selectedTags.includes(tag) ? "default" : "secondary"}
-                    className="cursor-pointer text-xs"
-                    onClick={() => handleTagClick(tag)}
-                  >
-                    {formatTagLabel(tag)} ({count})
-                  </Badge>
-                ))}
-                {(!data?.entries || data.entries.length === 0) && (
-                  <span className="text-sm text-muted-foreground italic">No tags yet</span>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Recent Focus - Keywords and themes from LLM analysis */}
+          <RecentFocusSection userId={user.$id} />
         </div>
 
         {/* Search and Filters */}
@@ -798,18 +774,6 @@ export default function JournalPage() {
 }
 
 // Helper functions
-function getTopTags(entries: JournalEntry[]): Array<{ tag: string; count: number }> {
-  const tagCounts = new Map<string, number>();
-  for (const entry of entries) {
-    for (const tag of entry.tags) {
-      tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-    }
-  }
-  return [...tagCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([tag, count]) => ({ tag, count }));
-}
-
 function formatTagLabel(tag: string): string {
   // Convert "category:Value" to just "Value"
   const parts = tag.split(":");

@@ -96,7 +96,6 @@ export function FamilyDetailDialog({
                               <FromSourceBadge
                                 linkedJournalEntryId={request.linkedJournalEntryId}
                                 linkedEntryType={request.linkedEntryType}
-                                subjectMemberId={request.subjectMemberId}
                               />
                             </div>
                           )}

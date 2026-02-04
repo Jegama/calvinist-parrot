@@ -11,7 +11,7 @@ import {
   runCall1c,
   runTagsAndSuggestions,
   getPreferredDepth,
-  getRecentEntrySummaries,
+  getRecentEntryContext,
   storeJournalAIOutput,
 } from "@/utils/journal/llm";
 import type { Call1Output, Call2Output, Call1aOutput, Call1bOutput, Call1cOutput } from "@/types/journal";
@@ -176,8 +176,8 @@ export async function POST(request: Request) {
     // Get preferred depth for AI reflection
     const preferredDepth = await getPreferredDepth(profile.id);
 
-    // Get recent summaries for context
-    const recentSummaries = await getRecentEntrySummaries(profile.id, 3);
+    // Get rich context from recent entries (summaries, keywords, recurring themes)
+    const recentContext = await getRecentEntryContext(profile.id, 5);
 
     // Stream the response as JSONL with parallel calls
     const encoder = new TextEncoder();
@@ -212,7 +212,7 @@ export async function POST(request: Request) {
           // STEP 1: Run Call 1a first (title, summary, situation)
           const call1a: Call1aOutput = await runCall1a({
             entryText,
-            recentSummaries,
+            recentContext,
             preferredDepth,
           });
 

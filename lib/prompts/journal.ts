@@ -183,20 +183,53 @@ Provide:
 // Helper Functions for Call 1 variants
 // ===========================================
 
+/**
+ * Context from recent journal entries for enhanced prompts
+ * Imported from utils/journal/llm.ts but defined here for type reference
+ */
+export interface RecentEntryContext {
+  /** One-sentence summaries from recent entries */
+  summaries: string[];
+  /** Top keywords extracted from recent entries (LLM-curated phrases) */
+  keywords: string[];
+  /** Recurring themes the LLM identified across entries */
+  recurringThemes: string[];
+}
+
 export function buildCall1aUserMessage(params: {
   entryText: string;
   recentSummaries?: string[];
+  recentContext?: RecentEntryContext;
 }): string {
-  const { entryText, recentSummaries } = params;
+  const { entryText, recentSummaries, recentContext } = params;
 
-  let recentContext = "";
-  if (recentSummaries && recentSummaries.length > 0) {
-    recentContext = `\nFor context, here are summaries of recent journal entries:\n${recentSummaries.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`;
+  let contextSection = "";
+
+  // Use rich context if available, otherwise fall back to simple summaries
+  if (recentContext && (recentContext.summaries.length > 0 || recentContext.keywords.length > 0)) {
+    const parts: string[] = [];
+
+    if (recentContext.summaries.length > 0) {
+      parts.push(`Recent entry summaries:\n${recentContext.summaries.map((s, i) => `${i + 1}. ${s}`).join("\n")}`);
+    }
+
+    if (recentContext.keywords.length > 0) {
+      parts.push(`Recurring topics in recent entries: ${recentContext.keywords.join(", ")}`);
+    }
+
+    if (recentContext.recurringThemes.length > 0) {
+      parts.push(`Identified patterns: ${recentContext.recurringThemes.join(", ")}`);
+    }
+
+    contextSection = `\nFor context from recent journal entries:\n${parts.join("\n\n")}\n`;
+  } else if (recentSummaries && recentSummaries.length > 0) {
+    // Backwards compatibility with old API
+    contextSection = `\nFor context, here are summaries of recent journal entries:\n${recentSummaries.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`;
   }
 
   return JOURNAL_CALL1A_USER_TEMPLATE
     .replace("{{entryText}}", entryText)
-    .replace("{{recentContext}}", recentContext);
+    .replace("{{recentContext}}", contextSection);
 }
 
 export function buildCall1bUserMessage(params: {

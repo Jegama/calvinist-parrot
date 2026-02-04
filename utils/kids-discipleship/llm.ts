@@ -25,7 +25,25 @@ import {
 import type { LogCategory } from "@prisma/client";
 
 const MODEL = "gpt-5-mini";
+const LARGER_MODEL = "gpt-5.2-2025-12-11";
 const PROMPT_VERSION = "1.0.0";
+
+function countWords(text: string): number {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+const KIDS_LARGER_MODEL_MIN_WORDS = (() => {
+  const raw = process.env.KIDS_LARGER_MODEL_MIN_WORDS;
+  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 200;
+})();
+
+function selectKidsShepherdingModel(entryText: string): string {
+  return countWords(entryText) >= KIDS_LARGER_MODEL_MIN_WORDS ? LARGER_MODEL : MODEL;
+}
 
 /**
  * Type guard to validate KidsCall1Output structure
@@ -110,7 +128,7 @@ export async function runKidsCall1(
   const userMessage = buildKidsCall1UserMessage(context);
 
   const response = await openai.responses.parse({
-    model: MODEL,
+    model: selectKidsShepherdingModel(context.entryText),
     input: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },

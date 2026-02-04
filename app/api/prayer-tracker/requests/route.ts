@@ -12,6 +12,12 @@ export async function GET() {
   const { errorResponse, userId } = await requireAuthenticatedUser();
   if (errorResponse || !userId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Get user profile for privacy checks (authorProfileId uses profile.id, not appwrite userId)
+  const profile = await prisma.userProfile.findUnique({
+    where: { appwriteUserId: userId },
+    select: { id: true },
+  });
+
   const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: userId } });
   if (!membership) return NextResponse.json([]);
 
@@ -59,8 +65,8 @@ export async function GET() {
     if (!entry) return false;
     // DISCIPLESHIP entries are household-shared
     if (entry.entryType === "DISCIPLESHIP") return true;
-    // PERSONAL entries are only visible to the author
-    return entry.authorProfileId === userId;
+    // PERSONAL entries are only visible to the author (compare profile.id, not appwrite userId)
+    return profile ? entry.authorProfileId === profile.id : false;
   };
 
   // Transform to unified format

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -42,10 +42,14 @@ function PrayerTrackerContent() {
   const [familyDetailDialogOpen, setFamilyDetailDialogOpen] = useState(false);
   const [selectedFamilyForDetail, setSelectedFamilyForDetail] = useState<Family | null>(null);
 
-  // Tab state from URL or default to "overview"
+  // Tab state synced with URL for proper browser history support
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const initialTab = searchParams.get("tab") || "overview";
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const activeTab = searchParams.get("tab") || "overview";
+
+  const handleTabChange = useCallback((value: string) => {
+    router.push(`/prayer-tracker?tab=${value}`, { scroll: false });
+  }, [router]);
 
   const memberNames = useMemo(() => {
     const names = members.map((member) => member.displayName).join(" & ");
@@ -160,7 +164,7 @@ function PrayerTrackerContent() {
             onConfirmRotation={rotationWorkflow.confirmRotation}
           />
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-3 bg-primary/5 dark:bg-muted/50 p-1">
               <TabsTrigger 
                 value="overview" 

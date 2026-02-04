@@ -9,7 +9,7 @@ import {
   runCall1c,
   runTagsAndSuggestions,
   getPreferredDepth,
-  getRecentEntrySummaries,
+  getRecentEntryContext,
   storeJournalAIOutput,
 } from "@/utils/journal/llm";
 import type { Call1Output, Call2Output, Call1aOutput, Call1bOutput, Call1cOutput } from "@/types/journal";
@@ -54,9 +54,9 @@ export async function POST(
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
     }
 
-    // Get preferred depth and recent summaries
+    // Get preferred depth and rich context from recent entries
     const preferredDepth = await getPreferredDepth(profile.id);
-    const recentSummaries = await getRecentEntrySummaries(profile.id, 3);
+    const recentContext = await getRecentEntryContext(profile.id, 5);
 
     // Stream the response as JSONL with parallel calls
     const encoder = new TextEncoder();
@@ -77,7 +77,7 @@ export async function POST(
           // STEP 1: Run Call 1a first (title, summary, situation)
           const call1a: Call1aOutput = await runCall1a({
             entryText: entry.entryText,
-            recentSummaries,
+            recentContext,
             preferredDepth,
           });
 

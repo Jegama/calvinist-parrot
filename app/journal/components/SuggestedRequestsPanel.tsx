@@ -34,7 +34,7 @@ async function addPrayerRequest(
       requestText,
       notes,
       linkedScripture,
-      familyId: null, // Household request
+      linkedToFamily: "household", // API expects "household" or a familyId
       linkedJournalEntryId, // Phase 4: Cross-link to journal entry
     }),
   });
@@ -139,28 +139,6 @@ export function SuggestedRequestsPanel({ call2, userId, hasHousehold, entryId }:
             </div>
           );
         })}
-
-        {/* Tags Display */}
-        {Object.values(call2.tags).some(arr => arr.length > 0) && (
-          <div className="pt-4 border-t">
-            <h4 className="text-sm font-medium mb-2 text-muted-foreground">
-              Extracted Tags
-            </h4>
-            <div className="flex flex-wrap gap-1">
-              {Object.entries(call2.tags).map(([category, values]) =>
-                values.map((value, i) => (
-                  <Badge
-                    key={`${category}-${value}-${i}`}
-                    variant="secondary"
-                    className="text-xs"
-                  >
-                    {value}
-                  </Badge>
-                ))
-              )}
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

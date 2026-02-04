@@ -45,8 +45,10 @@ interface OverviewStats {
     childrenCount: number;
     lastLogAt: string | null;
   };
+  // Household-wide recurring themes for "Consider praying for" section
+  // Uses LLM-identified recurring themes (dashboardSignals.recurringTheme) not raw tag counts
   householdPrayerFocus: {
-    topTags: Array<{ tag: string; count: number; category: string }>;
+    recurringThemes: Array<{ theme: string; count: number; category: string }>;
     periodDays: number;
   };
 }
@@ -127,6 +129,7 @@ export function OverviewSection() {
       virtue: "Virtue",
       circumstance: "Life",
       theologicalTheme: "Theme",
+      meansOfGrace: "Means",
     };
     return labels[category] || category;
   };
@@ -134,11 +137,12 @@ export function OverviewSection() {
   // Helper to get category color
   const getCategoryColor = (category: string): string => {
     const colors: Record<string, string> = {
-      heartIssue: "text-amber-700 dark:text-amber-400",
+      heartIssue: "text-warning-foreground",
       rulingDesire: "text-destructive",
-      virtue: "text-emerald-700 dark:text-emerald-400",
+      virtue: "text-success",
       circumstance: "text-primary",
-      theologicalTheme: "text-[hsl(var(--chart-3))]",
+      theologicalTheme: "text-chart-3",
+      meansOfGrace: "text-chart-2",
     };
     return colors[category] || "text-muted-foreground";
   };
@@ -152,8 +156,8 @@ export function OverviewSection() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Household Prayer Focus */}
-        {householdPrayerFocus.topTags.length > 0 && (
+        {/* Household Recurring Themes - LLM-identified patterns */}
+        {householdPrayerFocus.recurringThemes.length > 0 && (
           <div className="space-y-3 rounded-2xl border border-primary/10 bg-muted/30 p-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -161,17 +165,17 @@ export function OverviewSection() {
                 <h3 className="text-sm font-medium text-foreground">Consider Praying For</h3>
               </div>
               <p className="text-xs text-muted-foreground">
-                Common themes from your household&apos;s reflections over the past {householdPrayerFocus.periodDays} days
+                Recurring patterns from your household&apos;s reflections over the past {householdPrayerFocus.periodDays} days
               </p>
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
-              {householdPrayerFocus.topTags.map(({ tag, count, category }) => (
+              {householdPrayerFocus.recurringThemes.map(({ theme, count, category }) => (
                 <Badge
-                  key={tag}
+                  key={theme}
                   variant="secondary"
                   className="px-3 py-1.5 text-sm border border-border/50"
                 >
-                  <span className={getCategoryColor(category)}>{formatTagLabel(tag)}</span>
+                  <span className={getCategoryColor(category)}>{formatTagLabel(theme)}</span>
                   <span className="ml-1.5 text-xs text-muted-foreground">
                     ({count})
                   </span>
@@ -278,7 +282,7 @@ export function OverviewSection() {
 
               {journal.topTags.length > 0 && (
                 <div className="pt-2 border-t mt-auto">
-                  <p className="text-xs text-muted-foreground mb-2">Top themes:</p>
+                  <p className="text-xs text-muted-foreground mb-2">Top tags:</p>
                   <div className="flex flex-wrap gap-1">
                     {journal.topTags.map(({ tag, count }) => (
                       <Badge key={tag} variant="secondary" className="text-xs border border-border/50">
