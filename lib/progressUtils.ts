@@ -9,7 +9,8 @@ type DataEvent =
   | { type: "parrot"; content: string }
   | { type: "calvin"; content: string }
   | { type: "gotQuestions"; content: string }
-  | { type: "CCEL"; content: string };
+  | { type: "CCEL"; content: string }
+  | { type: "conversationNameUpdated"; chatId: string; name: string };
 
 // Shared function for streaming progress messages.
 export function sendProgress(data: DataEvent, controller?: ReadableStreamDefaultController<Uint8Array>) {

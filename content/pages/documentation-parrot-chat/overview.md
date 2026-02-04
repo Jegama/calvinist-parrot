@@ -84,6 +84,7 @@ Send a JSON payload with these possible fields:
   - *pentecostal* (Pentecostal/Charismatic perspective)
   - *non-denom* (Non-Denominational Evangelical perspective)
 - *isAutoTrigger* (boolean, optional): Indicates if the message is auto-triggered (for conversation continuity).
+- *clientChatId* (string, optional): Client-provided chatId for optimistic UI updates. If provided when creating a new chat, this ID will be used instead of a server-generated one.
 
 
 ### Response Stream Format
@@ -100,17 +101,32 @@ The API streams different event types as JSON objects:
   {"type": "parrot", "content": "The doctrine of predestination..."}
   ```
 
-3. **Calvin's Review** - Theological review feedback
+3. **Tool Progress** - Ephemeral status messages during tool execution (not persisted)
   ```json
-  {"type": "calvin", "content": "This explanation aligns with Reformed theology..."}
+  {"type": "tool_progress", "toolName": "supplementalArticleSearch", "message": "Searching for articles on predestination..."}
   ```
 
-4. **Reference Materials** - Related articles and resources
+4. **Tool Summary** - Persistent tool results (saved to database)
   ```json
-  {"type": "gotQuestions", "content": "* [What is predestination?](https://www.gotquestions.org/predestination.html)"}
+  {"type": "tool_summary", "toolName": "supplementalArticleSearch", "content": "Found 3 relevant articles..."}
   ```
 
-5. **Stream Completion**
+5. **Reference Materials** - Related articles from GotQuestions and Monergism
+  ```json
+  {"type": "gotQuestions", "content": "- [What is predestination?](https://www.gotquestions.org/predestination.html) _(GotQuestions)_"}
+  ```
+
+6. **CCEL Results** - Christian Classics Ethereal Library sources
+  ```json
+  {"type": "CCEL", "content": "- [Calvin's Institutes, Book III](https://ccel.org/...)"}
+  ```
+
+7. **Conversation Name Updated** - Sent when the conversation name is generated (for sidebar updates)
+  ```json
+  {"type": "conversationNameUpdated", "chatId": "chat123", "name": "Understanding Predestination"}
+  ```
+
+8. **Stream Completion**
   ```json
   {"type": "done"}
   ```
@@ -264,15 +280,23 @@ Response:
    {
     "id": "cm7p6rqc0001imqp0h9gywt2x",
     "chatId": "cm7p6rik1001emqp0slgxgu1j",
+    "sender": "tool_summary",
+    "toolName": "supplementalArticleSearch",
+    "content": "Found 3 relevant theological articles on predestination from trusted sources.",
+    "timestamp": "2025-02-28T19:48:30.401Z"
+   },
+   {
+    "id": "cm7p6rqd0001jmqp0abc12345",
+    "chatId": "cm7p6rik1001emqp0slgxgu1j",
     "sender": "gotQuestions",
-    "content": "* [Providence and Predestination - Monergism](https://www.monergism.com/reformation-theology/blog/providence-and-predestination)\n* [What is predestination? - GotQuestions.org](https://www.gotquestions.org/predestination.html)\n* [Predestination and the Work of Jesus Considered | Monergism](https://www.monergism.com/predestination-and-work-jesus-considered)\n* [What is Predestination? - Monergism](https://www.monergism.com/what-predestination)\n* [What does the Bible say about predestination vs. free will?](https://www.gotquestions.org/predestination-vs-free-will.html)",
+    "content": "- [Providence and Predestination - Monergism](https://www.monergism.com/reformation-theology/blog/providence-and-predestination) _(Monergism)_\n- [What is predestination? - GotQuestions.org](https://www.gotquestions.org/predestination.html) _(GotQuestions)_\n- [What is Predestination? - Monergism](https://www.monergism.com/what-predestination) _(Monergism)_",
     "timestamp": "2025-02-28T19:48:32.401Z"
    },
    {
     "id": "cm7p6rxq0001kmqp0kdxt3qvt",
     "chatId": "cm7p6rik1001emqp0slgxgu1j",
-    "sender": "calvin",
-    "content": "Your summary of predestination captures...",
+    "sender": "CCEL",
+    "content": "- [Calvin's Institutes, Book III, Chapter 21](https://ccel.org/ccel/calvin/institutes/institutes.v.xxii.html) - On Eternal Election",
     "timestamp": "2025-02-28T19:48:41.938Z"
    },
    {
@@ -285,6 +309,8 @@ Response:
   ]
 }
 ```
+
+> **Note**: The `tool_summary` messages include a `toolName` field that is parsed from the stored JSON content. This allows the frontend to display tool-specific UI components.
 
 ## Implementation Guide
 
@@ -316,11 +342,23 @@ const handleStream = async (chatId: string, message: string) => {
       case 'parrot':
        appendParrotMessage(event.content);
        break;
-      case 'calvin':
-       showCalvinReview(event.content);
+      case 'tool_progress':
+       // Ephemeral - show but don't persist
+       showToolProgress(event.toolName, event.message);
+       break;
+      case 'tool_summary':
+       // Persistent - show and will be in chat history
+       showToolSummary(event.toolName, event.content);
        break;
       case 'gotQuestions':
        showReferences(event.content);
+       break;
+      case 'CCEL':
+       showCCELReferences(event.content);
+       break;
+      case 'conversationNameUpdated':
+       // Update sidebar with new conversation name
+       updateSidebarChatName(event.chatId, event.name);
        break;
       case 'done':
        finishStream();

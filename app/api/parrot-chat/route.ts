@@ -457,37 +457,41 @@ export async function POST(request: Request) {
             }
           }
 
-          // TTFT Optimization: Send "done" immediately, then handle background tasks
-          // This ensures the user sees completion as fast as possible
+          // Handle conversation naming BEFORE closing stream so client can update sidebar
+          // This runs inline (not fire-and-forget) to ensure the event reaches the client
+          try {
+            const currentChat = await prisma.chatHistory.findUnique({
+              where: { id: capturedChatId },
+              select: { conversationName: true },
+            });
+
+            if (currentChat && currentChat.conversationName === "New Conversation") {
+              const allMessagesStr = conversationMessages.map((m) => `${m.sender}: ${m.content}`).join("\n");
+              const conversationName = await generateConversationName(allMessagesStr);
+              const finalName = conversationName || "New Conversation";
+
+              await prisma.chatHistory.update({
+                where: { id: capturedChatId },
+                data: { conversationName: finalName },
+              });
+
+              // Send name update event so client can update sidebar immediately
+              sendProgress(
+                { type: "conversationNameUpdated", chatId: capturedChatId, name: finalName },
+                controller
+              );
+            }
+          } catch (error) {
+            console.error("Conversation naming failed:", error);
+            // Non-fatal: continue to close stream even if naming fails
+          }
+
+          // Send "done" and close stream
           sendProgress({ type: "done" }, controller);
           controller.close();
 
           // === Background tasks (fire-and-forget, don't block response) ===
-          // These run after the stream is closed and don't affect user experience
-
-          // 1. Handle conversation naming asynchronously
-          (async () => {
-            try {
-              const currentChat = await prisma.chatHistory.findUnique({
-                where: { id: capturedChatId },
-                select: { conversationName: true },
-              });
-
-              if (currentChat && currentChat.conversationName === "New Conversation") {
-                const allMessagesStr = conversationMessages.map((m) => `${m.sender}: ${m.content}`).join("\n");
-                const conversationName = await generateConversationName(allMessagesStr);
-
-                await prisma.chatHistory.update({
-                  where: { id: capturedChatId },
-                  data: {
-                    conversationName: conversationName || "New Conversation",
-                  },
-                });
-              }
-            } catch (error) {
-              console.error("Background conversation naming failed:", error);
-            }
-          })();
+          // Memory extraction runs after stream closes since client doesn't need this data
 
           // 2. Extract and update user memories asynchronously
           if (capturedUserId) {
