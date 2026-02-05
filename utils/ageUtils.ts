@@ -20,7 +20,7 @@ export const AGE_BRACKET_CONFIG: Record<
       "Input years. Heavy parental initiative, low child self-control. Focus on authority, atmosphere, simple habits, and immediate, simple responses.",
   },
   EARLY_CHILDHOOD: {
-    min: 3,
+    min: 4,
     max: 6,
     label: "Early Childhood",
     description:

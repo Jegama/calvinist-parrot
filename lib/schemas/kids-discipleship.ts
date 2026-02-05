@@ -79,7 +79,7 @@ export const KIDS_CALL1_SCHEMA = {
         type: "array",
         items: { type: "string" },
         description:
-          "Safety codes for urgent concerns only. Allowed: URGENT_CHILD_SAFETY, URGENT_ABUSE_CONCERN, URGENT_MENTAL_HEALTH",
+          "Safety codes for urgent concerns only. Allowed: URGENT_SELF_HARM, URGENT_CHILD_SAFETY, URGENT_VIOLENCE_OR_ABUSE, URGENT_MEDICAL_EMERGENCY, URGENT_OTHER_IMMEDIATE_DANGER",
       },
     },
     required: [

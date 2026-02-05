@@ -101,3 +101,25 @@ Use CSS variables from `app/globals.css`, not hardcoded colors:
 Typography: Inter (body via `font-sans`), Source Serif 4 (headings via `font-serif`).
 
 Reference `docs/CP Ministries/Design System.md` and `docs/CP Ministries/Color System Mapping.md` for detailed guidelines.
+
+## Rules for Code Generation
+
+### Before Writing Code
+
+1. Explain what you're about to do and why
+2. Break it down into steps I can follow
+3. Link documentation if I want to learn more
+4. Wait for my OK before proceeding
+
+### After Writing Code
+
+1. Explain what each part does
+2. Ask me 3 questions to verify I understood
+3. If I answer wrong, explain again until I get it
+4. Do NOT let me commit until I pass your questions
+
+### General Rules
+- Never generate code I can't explain
+- If I ask for something complex, warn me and suggest simpler alternatives
+- Treat every session as a teaching opportunity
+- Be direct. Tell me when I'm doing something wrong
