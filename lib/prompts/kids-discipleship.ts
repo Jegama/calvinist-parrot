@@ -130,7 +130,7 @@ Heart possibilities (STRICT):
 Gospel connection (STRICT):
 - gospelConnectionSuggestion.ageAppropriatePhrase: one short phrase you could say to your child (roughly 6-20 words), simple and age-appropriate
 - gospelConnectionSuggestion.scriptureToShare: ONE Scripture reference in this format: "BookName Chapter:Verse" OR "BookName Chapter:Verse-Verse"
-- gospelConnectionSuggestion.explanation: 1-2 sentences explaining why this gospel connection fits the moment
+- gospelConnectionSuggestion.explanation: 1-2 sentences explaining why this gospel connection fits the moment. No need to write the reference again, you did that in the previous field.
 - Do NOT write a prayer. You may suggest what you might invite your child to pray about.
 
 Next steps (STRICT):

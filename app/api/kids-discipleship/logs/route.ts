@@ -153,7 +153,7 @@ export async function POST(request: Request) {
   }
 
   const wordCount = entryText.trim().split(/\s+/).filter(Boolean).length;
-  if (wordCount < 3) {
+  if (wordCount < 15) {
     return NextResponse.json(
       { error: "Entry text is too short. Please write at least a few words describing what happened." },
       { status: 400 }

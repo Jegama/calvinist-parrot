@@ -3,6 +3,7 @@
 // Handles pastoral reflection (Call 1a/1b/1c) and tags/suggestions (Call 2)
 // Uses parallel execution for faster UX
 
+import { createHash } from "crypto";
 import OpenAI from "openai";
 import prisma from "@/lib/prisma";
 import type { Call1aOutput, Call1bOutput, Call1cOutput, Call1Output, Call2Output } from "@/types/journal";
@@ -17,7 +18,14 @@ import {
   buildCall1aUserMessage,
   buildCall1bUserMessage,
   buildCall1cUserMessage,
+  JOURNAL_CALL1A_SYSTEM_PROMPT,
+  JOURNAL_CALL1A_USER_TEMPLATE,
+  JOURNAL_CALL1B_SYSTEM_PROMPT,
+  JOURNAL_CALL1B_USER_TEMPLATE,
+  JOURNAL_CALL1C_SYSTEM_PROMPT,
+  JOURNAL_CALL1C_USER_TEMPLATE,
   JOURNAL_CALL2_SYSTEM_PROMPT,
+  JOURNAL_CALL2_USER_TEMPLATE,
   buildCall2UserMessage,
   flattenTags,
   type RecentEntryContext,
@@ -25,7 +33,19 @@ import {
 
 const MODEL = "gpt-5-mini";
 const LARGER_MODEL = "gpt-5.2-2025-12-11";
-const PROMPT_VERSION = "1.0.0";
+
+const PROMPT_HASH = createHash("sha256")
+  .update(JOURNAL_CALL1A_SYSTEM_PROMPT)
+  .update(JOURNAL_CALL1A_USER_TEMPLATE)
+  .update(JOURNAL_CALL1B_SYSTEM_PROMPT)
+  .update(JOURNAL_CALL1B_USER_TEMPLATE)
+  .update(JOURNAL_CALL1C_SYSTEM_PROMPT)
+  .update(JOURNAL_CALL1C_USER_TEMPLATE)
+  .update(JOURNAL_CALL2_SYSTEM_PROMPT)
+  .update(JOURNAL_CALL2_USER_TEMPLATE)
+  .digest("hex")
+  .slice(0, 8);
+const PROMPT_VERSION = `1.0.0-${PROMPT_HASH}`;
 
 function countWords(text: string): number {
   return text
@@ -43,6 +63,79 @@ const JOURNAL_LARGER_MODEL_MIN_WORDS = (() => {
 function selectJournalReasoningModel(entryText: string): string {
   return countWords(entryText) >= JOURNAL_LARGER_MODEL_MIN_WORDS ? LARGER_MODEL : MODEL;
 }
+
+// ===========================================
+// Runtime Type Guards
+// ===========================================
+
+function isCall1aOutput(value: unknown): value is Call1aOutput {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.title === "string" &&
+    typeof v.oneSentenceSummary === "string" &&
+    typeof v.situationSummary === "string"
+  );
+}
+
+function isCall1bOutput(value: unknown): value is Call1bOutput {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    Array.isArray(v.heartReflection) &&
+    Array.isArray(v.putOffPutOn)
+  );
+}
+
+function isCall1cOutput(value: unknown): value is Call1cOutput {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    Array.isArray(v.scripture) &&
+    Array.isArray(v.practicalNextSteps) &&
+    Array.isArray(v.safetyFlags)
+  );
+}
+
+function isCall2Output(value: unknown): value is Call2Output {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.tags === "object" &&
+    v.tags !== null &&
+    Array.isArray(v.suggestedPrayerRequests) &&
+    typeof v.dashboardSignals === "object" &&
+    v.dashboardSignals !== null
+  );
+}
+
+// ===========================================
+// Default outputs for partial-result handling
+// ===========================================
+
+export const DEFAULT_CALL1B: Call1bOutput = {
+  heartReflection: [],
+  putOffPutOn: [],
+};
+
+export const DEFAULT_CALL1C: Call1cOutput = {
+  scripture: [],
+  practicalNextSteps: [],
+  safetyFlags: [],
+};
+
+export const DEFAULT_CALL2: Call2Output = {
+  tags: {
+    circumstance: [],
+    heartIssue: [],
+    rulingDesire: [],
+    virtue: [],
+    theologicalTheme: [],
+    meansOfGrace: [],
+  },
+  suggestedPrayerRequests: [],
+  dashboardSignals: { recurringTheme: null },
+};
 
 /**
  * Run Call 1a: Quick Overview (title, summary, situation)
@@ -79,7 +172,11 @@ export async function runCall1a(params: {
     throw new Error("No response from Call 1a LLM");
   }
 
-  return response.output_parsed as unknown as Call1aOutput;
+  if (!isCall1aOutput(response.output_parsed)) {
+    throw new Error("Invalid Call 1a response structure");
+  }
+
+  return response.output_parsed;
 }
 
 /**
@@ -89,7 +186,7 @@ export async function runCall1b(params: {
   entryText: string;
   situationSummary: string;
   recentContext?: RecentEntryContext;
-}): Promise<Call1bOutput> {
+}): Promise<{ output: Call1bOutput; model: string }> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const systemPrompt = buildCall1SystemPrompt("b");
@@ -98,9 +195,10 @@ export async function runCall1b(params: {
     situationSummary: params.situationSummary,
     recentContext: params.recentContext,
   });
+  const model = selectJournalReasoningModel(params.entryText);
 
   const response = await openai.responses.parse({
-    model: selectJournalReasoningModel(params.entryText),
+    model,
     input: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
@@ -120,7 +218,11 @@ export async function runCall1b(params: {
     throw new Error("No response from Call 1b LLM");
   }
 
-  return response.output_parsed as unknown as Call1bOutput;
+  if (!isCall1bOutput(response.output_parsed)) {
+    throw new Error("Invalid Call 1b response structure");
+  }
+
+  return { output: response.output_parsed, model };
 }
 
 /**
@@ -130,7 +232,7 @@ export async function runCall1c(params: {
   entryText: string;
   situationSummary: string;
   recentContext?: RecentEntryContext;
-}): Promise<Call1cOutput> {
+}): Promise<{ output: Call1cOutput; model: string }> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const systemPrompt = buildCall1SystemPrompt("c");
@@ -139,9 +241,10 @@ export async function runCall1c(params: {
     situationSummary: params.situationSummary,
     recentContext: params.recentContext,
   });
+  const model = selectJournalReasoningModel(params.entryText);
 
   const response = await openai.responses.parse({
-    model: selectJournalReasoningModel(params.entryText),
+    model,
     input: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
@@ -161,7 +264,11 @@ export async function runCall1c(params: {
     throw new Error("No response from Call 1c LLM");
   }
 
-  return response.output_parsed as unknown as Call1cOutput;
+  if (!isCall1cOutput(response.output_parsed)) {
+    throw new Error("Invalid Call 1c response structure");
+  }
+
+  return { output: response.output_parsed, model };
 }
 
 /**
@@ -200,39 +307,11 @@ export async function runTagsAndSuggestions(params: {
     throw new Error("No response from Call 2 LLM");
   }
 
-  return response.output_parsed as unknown as Call2Output;
-}
-
-/**
- * Get recent entry summaries for context in Call 1a
- * @deprecated Use getRecentEntryContext for richer context including keywords
- */
-export async function getRecentEntrySummaries(
-  authorProfileId: string,
-  limit: number
-): Promise<string[]> {
-  try {
-    const recentEntries = await prisma.journalEntry.findMany({
-      where: { authorProfileId },
-      orderBy: { entryDate: "desc" },
-      take: limit,
-      include: {
-        aiOutput: {
-          select: { call1: true },
-        },
-      },
-    });
-
-    return recentEntries
-      .map((entry) => {
-        const call1 = entry.aiOutput?.call1 as Call1Output | null;
-        return call1?.oneSentenceSummary || null;
-      })
-      .filter((summary): summary is string => summary !== null);
-  } catch {
-    // Table might not exist yet during migration
-    return [];
+  if (!isCall2Output(response.output_parsed)) {
+    throw new Error("Invalid Call 2 response structure");
   }
+
+  return response.output_parsed;
 }
 
 // Re-export RecentEntryContext from prompts for convenience
@@ -249,7 +328,7 @@ export async function getRecentEntryContext(
   try {
     // Fetch only PERSONAL journal entries (excludes DISCIPLESHIP entries)
     const recentEntries = await prisma.journalEntry.findMany({
-      where: { 
+      where: {
         authorProfileId,
         entryType: "PERSONAL", // Only Personal Journal entries, not Kids Discipleship
         aiOutput: {
@@ -296,8 +375,8 @@ export async function getRecentEntryContext(
       .map(([theme]) => theme);
 
     return { summaries, recurringThemes };
-  } catch {
-    // Table might not exist yet during migration
+  } catch (error) {
+    console.warn("Failed to fetch recent entry context:", error);
     return { summaries: [], recurringThemes: [] };
   }
 }
@@ -310,9 +389,21 @@ export async function storeJournalAIOutput(params: {
   entryId: string;
   call1: Call1Output;
   call2: Call2Output;
+  models: {
+    call1bModel: string;
+    call1cModel: string;
+  };
 }): Promise<void> {
   const { entryId, call1, call2 } = params;
   const flatTags = flattenTags(call2.tags);
+
+  const modelInfo = {
+    call1aModel: MODEL,
+    call1bModel: params.models.call1bModel,
+    call1cModel: params.models.call1cModel,
+    call2Model: MODEL,
+    promptVersion: PROMPT_VERSION,
+  };
 
   // Retry configuration
   const maxRetries = 3;
@@ -338,20 +429,12 @@ export async function storeJournalAIOutput(params: {
             entryId,
             call1: call1 as object,
             call2: call2 as object,
-            modelInfo: {
-              model: MODEL,
-              version: "1.0",
-              promptVersion: PROMPT_VERSION,
-            },
+            modelInfo,
           },
           update: {
             call1: call1 as object,
             call2: call2 as object,
-            modelInfo: {
-              model: MODEL,
-              version: "1.0",
-              promptVersion: PROMPT_VERSION,
-            },
+            modelInfo,
           },
         });
 
