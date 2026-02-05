@@ -50,17 +50,12 @@ function selectJournalReasoningModel(entryText: string): string {
  */
 export async function runCall1a(params: {
   entryText: string;
-  recentContext?: RecentEntryContext;
-  recentSummaries?: string[]; // @deprecated - use recentContext
-  preferredDepth: string;
 }): Promise<Call1aOutput> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  const systemPrompt = buildCall1SystemPrompt("a", params.preferredDepth);
+  const systemPrompt = buildCall1SystemPrompt("a");
   const userMessage = buildCall1aUserMessage({
     entryText: params.entryText,
-    recentContext: params.recentContext,
-    recentSummaries: params.recentSummaries,
   });
 
   const response = await openai.responses.parse({
@@ -93,14 +88,15 @@ export async function runCall1a(params: {
 export async function runCall1b(params: {
   entryText: string;
   situationSummary: string;
-  preferredDepth: string;
+  recentContext?: RecentEntryContext;
 }): Promise<Call1bOutput> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  const systemPrompt = buildCall1SystemPrompt("b", params.preferredDepth);
+  const systemPrompt = buildCall1SystemPrompt("b");
   const userMessage = buildCall1bUserMessage({
     entryText: params.entryText,
     situationSummary: params.situationSummary,
+    recentContext: params.recentContext,
   });
 
   const response = await openai.responses.parse({
@@ -133,14 +129,15 @@ export async function runCall1b(params: {
 export async function runCall1c(params: {
   entryText: string;
   situationSummary: string;
-  preferredDepth: string;
+  recentContext?: RecentEntryContext;
 }): Promise<Call1cOutput> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  const systemPrompt = buildCall1SystemPrompt("c", params.preferredDepth);
+  const systemPrompt = buildCall1SystemPrompt("c");
   const userMessage = buildCall1cUserMessage({
     entryText: params.entryText,
     situationSummary: params.situationSummary,
+    recentContext: params.recentContext,
   });
 
   const response = await openai.responses.parse({
@@ -242,16 +239,23 @@ export async function getRecentEntrySummaries(
 export type { RecentEntryContext };
 
 /**
- * Get rich context from recent journal entries for Call 1a
- * Includes summaries, keywords, and recurring themes for better pattern recognition
+ * Get rich context from recent journal entries for Call 1b and 1c
+ * Includes situation summaries with dates and recurring themes for better pattern recognition
  */
 export async function getRecentEntryContext(
   authorProfileId: string,
   limit: number
 ): Promise<RecentEntryContext> {
   try {
+    // Fetch only PERSONAL journal entries (excludes DISCIPLESHIP entries)
     const recentEntries = await prisma.journalEntry.findMany({
-      where: { authorProfileId },
+      where: { 
+        authorProfileId,
+        entryType: "PERSONAL", // Only Personal Journal entries, not Kids Discipleship
+        aiOutput: {
+          isNot: null, // Only get entries that have been processed
+        }
+      },
       orderBy: { entryDate: "desc" },
       take: limit,
       include: {
@@ -262,47 +266,39 @@ export async function getRecentEntryContext(
     });
 
     const summaries: string[] = [];
-    const keywordCounts = new Map<string, number>();
     const themeCounts = new Map<string, number>();
 
     for (const entry of recentEntries) {
-      // Extract summary
+      // Extract situationSummary with formatted date (all entries should have this since we filtered by entryType)
       const call1 = entry.aiOutput?.call1 as Call1Output | null;
-      if (call1?.oneSentenceSummary) {
-        summaries.push(call1.oneSentenceSummary);
+      if (call1?.situationSummary) {
+        const date = new Date(entry.entryDate);
+        const formattedDate = date.toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+        summaries.push(`${formattedDate}: ${call1.situationSummary}`);
       }
 
-      // Extract and count keywords
+      // Extract themes and count occurrences
       const call2 = entry.aiOutput?.call2 as Call2Output | null;
-      if (call2?.searchKeywords) {
-        for (const keyword of call2.searchKeywords) {
-          keywordCounts.set(keyword, (keywordCounts.get(keyword) || 0) + 1);
-        }
-      }
-
-      // Extract recurring themes
       if (call2?.dashboardSignals?.recurringTheme) {
         const theme = call2.dashboardSignals.recurringTheme;
         themeCounts.set(theme, (themeCounts.get(theme) || 0) + 1);
       }
     }
 
-    // Get top 10 keywords by frequency
-    const keywords = [...keywordCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([keyword]) => keyword);
-
-    // Get recurring themes (those that appear more than once)
+    // Get all themes sorted by frequency (most common first)
     const recurringThemes = [...themeCounts.entries()]
-      .filter(([, count]) => count > 1)
       .sort((a, b) => b[1] - a[1])
       .map(([theme]) => theme);
 
-    return { summaries, keywords, recurringThemes };
+    return { summaries, recurringThemes };
   } catch {
     // Table might not exist yet during migration
-    return { summaries: [], keywords: [], recurringThemes: [] };
+    return { summaries: [], recurringThemes: [] };
   }
 }
 

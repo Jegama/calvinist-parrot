@@ -42,7 +42,8 @@ type DataEvent =
   | { type: "tool_summary"; toolName: string; content: string }
   | { type: "parrot"; content: string }
   | { type: "calvin"; content: string }
-  | { type: "gotQuestions"; content: string };
+  | { type: "gotQuestions"; content: string }
+  | { type: "conversationNameUpdated"; chatId: string; name: string };
 
 export default function ChatPage() {
   const params = useParams() as { chatId: string };
@@ -296,6 +297,13 @@ export default function ChatPage() {
             case "gotQuestions":
               setMessages((msgs) => [...msgs, { sender: "gotQuestions", content: data.content }]);
               break;
+            case "conversationNameUpdated":
+              // Update sidebar immediately with new conversation name
+              upsertChat({ id: data.chatId, conversationName: data.name });
+              if (chat?.id === data.chatId) {
+                setChat((prev) => prev ? { ...prev, conversationName: data.name } : prev);
+              }
+              break;
             case "done":
               setProgress(null);
               // Refresh chat data once after completion
@@ -315,7 +323,7 @@ export default function ChatPage() {
         }
       }
     },
-    [input, params.chatId, fetchChat, invalidateChatList, initialQuestionParam, router]
+    [input, params.chatId, fetchChat, invalidateChatList, initialQuestionParam, router, chat?.id, upsertChat]
   );
 
   // --- Auto-trigger sending if only the initial user message exists ---

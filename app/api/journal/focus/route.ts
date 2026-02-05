@@ -8,8 +8,6 @@ import { requireAuthenticatedUser } from "@/lib/auth";
 import type { Call2Output } from "@/types/journal";
 
 interface FocusResponse {
-  /** Top keywords from recent entries (verbatim phrases) */
-  keywords: Array<{ keyword: string; count: number }>;
   /** Recurring themes identified by LLM */
   recurringThemes: Array<{ theme: string; count: number; category: string }>;
   /** Number of days this data covers */
@@ -41,7 +39,6 @@ export async function GET(request: Request) {
 
   if (!profile) {
     return NextResponse.json({
-      keywords: [],
       recurringThemes: [],
       periodDays: days,
       entriesAnalyzed: 0,
@@ -67,18 +64,11 @@ export async function GET(request: Request) {
   });
 
   // Aggregate keywords and themes
-  const keywordCounts = new Map<string, number>();
+  // Aggregate themes from recent entries
   const themeCounts = new Map<string, number>();
 
   for (const entry of entries) {
     const call2 = entry.aiOutput?.call2 as Call2Output | null;
-    
-    // Count keywords
-    if (call2?.searchKeywords) {
-      for (const keyword of call2.searchKeywords) {
-        keywordCounts.set(keyword, (keywordCounts.get(keyword) || 0) + 1);
-      }
-    }
 
     // Count recurring themes
     if (call2?.dashboardSignals?.recurringTheme) {
@@ -86,12 +76,6 @@ export async function GET(request: Request) {
       themeCounts.set(theme, (themeCounts.get(theme) || 0) + 1);
     }
   }
-
-  // Get top 15 keywords by frequency
-  const keywords = [...keywordCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 15)
-    .map(([keyword, count]) => ({ keyword, count }));
 
   // Get recurring themes sorted by frequency
   const recurringThemes = [...themeCounts.entries()]
@@ -103,7 +87,6 @@ export async function GET(request: Request) {
     }));
 
   return NextResponse.json({
-    keywords,
     recurringThemes,
     periodDays: days,
     entriesAnalyzed: entries.length,

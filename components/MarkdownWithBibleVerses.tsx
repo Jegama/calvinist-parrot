@@ -91,13 +91,17 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
       </a>
     ),
     code: ({ className, children, ...props }) => {
-      // Check if this is a code block (has className) vs inline code
-      const isCodeBlock = /language-(\w+)/.test(className || '');
+      // Check if this is a code block:
+      // 1. Has a language class (```language), OR
+      // 2. Contains newlines (plain ``` block without language)
+      const hasLanguageClass = /language-(\w+)/.test(className || '');
+      const hasNewlines = typeof children === 'string' && children.includes('\n');
+      const isCodeBlock = hasLanguageClass || hasNewlines;
       
       if (isCodeBlock) {
-        // Block-level code (from ```language)
+        // Block-level code (from ```language or plain ```)
         return (
-          <pre className="overflow-auto max-h-[500px] bg-secondary text-secondary-foreground p-4 rounded text-sm mb-4">
+          <pre className="overflow-x-auto max-h-[500px] bg-secondary text-secondary-foreground p-4 rounded text-sm mb-4 whitespace-pre">
             <code className={className} {...props}>
               {children}
             </code>

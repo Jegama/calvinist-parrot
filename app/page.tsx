@@ -13,7 +13,7 @@ import { AppSidebar } from "@/components/chat-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useUserIdentifier } from "@/hooks/use-user-identifier";
 import { useChatList } from "@/hooks/use-chat-list";
-import { BookOpen, Church } from "lucide-react";
+import { BookOpen, Church, Sprout } from "lucide-react";
 
 export default function MainChatPage() {
   const [initialQuestion, setInitialQuestion] = useState("");
@@ -58,20 +58,30 @@ export default function MainChatPage() {
           removeChat(id);
         }}
       />
-      <SidebarInset className="flex h-[calc(100vh-var(--app-header-height))] flex-col overflow-hidden">
-        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <SidebarInset className="flex h-[calc(100vh-var(--app-header-height))] flex-col overflow-hidden relative">
+        <header className="absolute top-0 left-0 z-20 flex h-16 items-center px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
         <div className="relative flex flex-1 flex-col overflow-y-auto px-4">
           <div
             className="flex min-h-0 flex-1 items-start justify-center pb-10"
-            style={{ paddingTop: "clamp(2rem, calc((100vh - var(--app-header-height)) * 0.12), 10rem)" }}
+            style={{ paddingTop: "clamp(0.5rem, calc((100vh - var(--app-header-height)) * 0.12), 10rem)" }}
           >
             <Card className="w-full max-w-3xl">
               <CardHeader>
-                <div className="flex items-center space-x-4">
-                  <Image src="/Logo.png" alt="Calvinist Parrot" width={100} height={100} priority unoptimized={true} />
-                  <CardTitle className="w-full justify-center text-3xl font-bold">Calvinist Parrot</CardTitle>
+                <div className="flex items-center space-x-4 landscape:hidden md:landscape:flex">
+                  <Image
+                    src="/Logo.png"
+                    alt="Calvinist Parrot"
+                    width={100}
+                    height={100}
+                    priority
+                    unoptimized={true}
+                    className="landscape:h-16 landscape:w-16"
+                  />
+                  <CardTitle className="w-full justify-center text-3xl font-bold landscape:text-2xl">
+                    Calvinist Parrot
+                  </CardTitle>
                 </div>
                 <CardDescription>What theological question do you have?</CardDescription>
               </CardHeader>
@@ -91,17 +101,8 @@ export default function MainChatPage() {
             </Card>
           </div>
 
-          {/* Feature shortcuts - positioned at bottom */}
-          <div className="flex flex-wrap justify-center gap-2 pb-6 pt-4 md:hidden">
-            <Link
-              href="/journal"
-              prefetch={false}
-              className="badge--neutral inline-flex items-center gap-1.5 px-3 py-2 text-sm transition-all hover:opacity-80"
-            >
-              <BookOpen className="h-4 w-4" />
-              <span>Journal</span>
-            </Link>
-
+          {/* Feature shortcuts */}
+          <div className="flex flex-wrap justify-center gap-2 pb-6 pt-4 lg:hidden landscape:hidden">
             <Link
               href="/devotional"
               prefetch={false}
@@ -112,12 +113,30 @@ export default function MainChatPage() {
             </Link>
 
             <Link
+              href="/journal"
+              prefetch={false}
+              className="badge--neutral inline-flex items-center gap-1.5 px-3 py-2 text-sm transition-all hover:opacity-80"
+            >
+              <BookOpen className="h-4 w-4" />
+              <span>Journal</span>
+            </Link>
+
+            <Link
               href="/prayer-tracker"
               prefetch={false}
               className="badge--neutral inline-flex items-center gap-1.5 px-3 py-2 text-sm transition-all hover:opacity-80"
             >
               <span className="material-symbols-outlined" style={{ fontSize: '1rem', lineHeight: 1 }}>folded_hands</span>
               <span>Prayer Tracker</span>
+            </Link>
+
+            <Link
+              href="/kids-discipleship"
+              prefetch={false}
+              className="badge--neutral inline-flex items-center gap-1.5 px-3 py-2 text-sm transition-all hover:opacity-80"
+            >
+              <Sprout className="h-4 w-4" />
+              <span>Heritage</span>
             </Link>
 
             <Link

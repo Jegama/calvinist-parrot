@@ -61,17 +61,13 @@ Voice reminder: Use second person ("you," "your") in all output fields, never th
 Output format (STRICT):
 - Return ONLY valid JSON
 - Use EXACTLY these keys: title, oneSentenceSummary, situationSummary
-- Do not include markdown, commentary, or extra keys
-
-Response depth: {{preferredDepth}} (concise | moderate | detailed)`;
+- Do not include markdown, commentary, or extra keys`;
 
 export const JOURNAL_CALL1A_USER_TEMPLATE = `Please provide a quick overview of this journal entry:
 
 ---
 {{entryText}}
 ---
-
-{{recentContext}}
 
 Provide:
 1. A short title (3-7 words)
@@ -108,9 +104,7 @@ Tone matching for put off / put on:
 Output format (STRICT):
 - Return ONLY valid JSON
 - Use EXACTLY these keys: heartReflection, putOffPutOn
-- Do not include markdown, commentary, or extra keys
-
-Response depth: {{preferredDepth}} (concise | moderate | detailed)`;
+- Do not include markdown, commentary, or extra keys`;
 
 export const JOURNAL_CALL1B_USER_TEMPLATE = `Analyze the heart and behavior patterns in this journal entry:
 
@@ -119,6 +113,8 @@ export const JOURNAL_CALL1B_USER_TEMPLATE = `Analyze the heart and behavior patt
 ---
 
 Context: {{situationSummary}}
+
+{{recentContext}}
 
 Provide:
 1. Heart reflection (2-3 concise possibilities of what might be going on in the heart, one sentence each)
@@ -162,9 +158,7 @@ STRICT LIMITS:
 Output format (STRICT):
 - Return ONLY valid JSON
 - Use EXACTLY these keys: scripture, practicalNextSteps, safetyFlags
-- Do not include markdown, commentary, or extra keys
-
-Response depth: {{preferredDepth}} (concise | moderate | detailed)`;
+- Do not include markdown, commentary, or extra keys`;
 
 export const JOURNAL_CALL1C_USER_TEMPLATE = `Provide biblical guidance for this journal entry:
 
@@ -173,6 +167,8 @@ export const JOURNAL_CALL1C_USER_TEMPLATE = `Provide biblical guidance for this 
 ---
 
 Context: {{situationSummary}}
+
+{{recentContext}}
 
 Provide:
 1. Scripture references (2-3 passages with one-sentence explanation each)
@@ -188,75 +184,72 @@ Provide:
  * Imported from utils/journal/llm.ts but defined here for type reference
  */
 export interface RecentEntryContext {
-  /** One-sentence summaries from recent entries */
+  /** Situation summaries with dates from recent entries */
   summaries: string[];
-  /** Top keywords extracted from recent entries (LLM-curated phrases) */
-  keywords: string[];
-  /** Recurring themes the LLM identified across entries */
+  /** Themes that appeared across recent entries (all unique themes, sorted by frequency) */
   recurringThemes: string[];
 }
 
 export function buildCall1aUserMessage(params: {
   entryText: string;
-  recentSummaries?: string[];
-  recentContext?: RecentEntryContext;
 }): string {
-  const { entryText, recentSummaries, recentContext } = params;
-
-  let contextSection = "";
-
-  // Use rich context if available, otherwise fall back to simple summaries
-  if (recentContext && (recentContext.summaries.length > 0 || recentContext.keywords.length > 0)) {
-    const parts: string[] = [];
-
-    if (recentContext.summaries.length > 0) {
-      parts.push(`Recent entry summaries:\n${recentContext.summaries.map((s, i) => `${i + 1}. ${s}`).join("\n")}`);
-    }
-
-    if (recentContext.keywords.length > 0) {
-      parts.push(`Recurring topics in recent entries: ${recentContext.keywords.join(", ")}`);
-    }
-
-    if (recentContext.recurringThemes.length > 0) {
-      parts.push(`Identified patterns: ${recentContext.recurringThemes.join(", ")}`);
-    }
-
-    contextSection = `\nFor context from recent journal entries:\n${parts.join("\n\n")}\n`;
-  } else if (recentSummaries && recentSummaries.length > 0) {
-    // Backwards compatibility with old API
-    contextSection = `\nFor context, here are summaries of recent journal entries:\n${recentSummaries.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`;
-  }
-
   return JOURNAL_CALL1A_USER_TEMPLATE
-    .replace("{{entryText}}", entryText)
-    .replace("{{recentContext}}", contextSection);
+    .replace("{{entryText}}", params.entryText);
 }
 
 export function buildCall1bUserMessage(params: {
   entryText: string;
   situationSummary: string;
+  recentContext?: RecentEntryContext;
 }): string {
+  const { entryText, situationSummary, recentContext } = params;
+
+  let contextSection = "";
+
+  if (recentContext && recentContext.summaries.length > 0) {
+    contextSection = `\nFor context from recent journal entries:\n${recentContext.summaries.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`;
+
+    if (recentContext.recurringThemes.length > 0) {
+      contextSection += `\nRecent themes: ${recentContext.recurringThemes.join(", ")}\n`;
+    }
+  }
+
   return JOURNAL_CALL1B_USER_TEMPLATE
-    .replace("{{entryText}}", params.entryText)
-    .replace("{{situationSummary}}", params.situationSummary);
+    .replace("{{entryText}}", entryText)
+    .replace("{{situationSummary}}", situationSummary)
+    .replace("{{recentContext}}", contextSection);
 }
 
 export function buildCall1cUserMessage(params: {
   entryText: string;
   situationSummary: string;
+  recentContext?: RecentEntryContext;
 }): string {
+  const { entryText, situationSummary, recentContext } = params;
+
+  let contextSection = "";
+
+  if (recentContext && recentContext.summaries.length > 0) {
+    contextSection = `\nFor context from recent journal entries:\n${recentContext.summaries.map((s, i) => `${i + 1}. ${s}`).join("\n")}\n`;
+
+    if (recentContext.recurringThemes.length > 0) {
+      contextSection += `\nRecent themes: ${recentContext.recurringThemes.join(", ")}\n`;
+    }
+  }
+
   return JOURNAL_CALL1C_USER_TEMPLATE
-    .replace("{{entryText}}", params.entryText)
-    .replace("{{situationSummary}}", params.situationSummary);
+    .replace("{{entryText}}", entryText)
+    .replace("{{situationSummary}}", situationSummary)
+    .replace("{{recentContext}}", contextSection);
 }
 
-export function buildCall1SystemPrompt(variant: "a" | "b" | "c", preferredDepth: string): string {
+export function buildCall1SystemPrompt(variant: "a" | "b" | "c"): string {
   const prompts = {
     a: JOURNAL_CALL1A_SYSTEM_PROMPT,
     b: JOURNAL_CALL1B_SYSTEM_PROMPT,
     c: JOURNAL_CALL1C_SYSTEM_PROMPT,
   };
-  return prompts[variant].replace("{{preferredDepth}}", preferredDepth);
+  return prompts[variant];
 }
 
 // ===========================================
@@ -272,7 +265,7 @@ Voice and address:
 
 Output format (STRICT):
 - Return ONLY valid JSON (no markdown, no extra keys)
-- Top-level keys MUST be: tags, suggestedPrayerRequests, searchKeywords, dashboardSignals
+- Top-level keys MUST be: tags, suggestedPrayerRequests, dashboardSignals
 - tags MUST be an object with EXACTLY these keys (all lowercase):
   - circumstance, heartIssue, rulingDesire, virtue, theologicalTheme, meansOfGrace
 - Each tags[key] MUST be an array of strings (allowed values only). If none match, return an EMPTY array []
@@ -309,10 +302,6 @@ Prayer requests (STRICT):
 - If you are unsure about a correct linkedScripture reference, set linkedScripture to null
 - Every Scripture reference must be Book Chapter:Verse-range. Never cite only a book name or chapter
 - Choose passages whose main point clearly applies. Prefer straightforward, context-clear texts over clever connections
-
-searchKeywords (STRICT):
-- Provide 3-8 short phrases copied VERBATIM from the entry text (exact substrings)
-- Do not paraphrase or summarize in searchKeywords
 
 dashboardSignals (STRICT):
 - dashboardSignals must be an object with key: recurringTheme

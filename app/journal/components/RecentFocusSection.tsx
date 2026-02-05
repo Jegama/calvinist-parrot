@@ -1,5 +1,5 @@
 // app/journal/components/RecentFocusSection.tsx
-// Displays aggregated keywords and themes from user's recent journal entries
+// Displays recurring themes from user's recent journal entries
 // Shows what topics the user has been writing about
 
 "use client";
@@ -11,7 +11,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Lightbulb } from "lucide-react";
 
 interface FocusResponse {
-  keywords: Array<{ keyword: string; count: number }>;
   recurringThemes: Array<{ theme: string; count: number; category: string }>;
   periodDays: number;
   entriesAnalyzed: number;
