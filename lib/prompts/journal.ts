@@ -265,7 +265,7 @@ Voice and address:
 
 Output format (STRICT):
 - Return ONLY valid JSON (no markdown, no extra keys)
-- Top-level keys MUST be: tags, suggestedPrayerRequests, searchKeywords, dashboardSignals
+- Top-level keys MUST be: tags, suggestedPrayerRequests, dashboardSignals
 - tags MUST be an object with EXACTLY these keys (all lowercase):
   - circumstance, heartIssue, rulingDesire, virtue, theologicalTheme, meansOfGrace
 - Each tags[key] MUST be an array of strings (allowed values only). If none match, return an EMPTY array []
