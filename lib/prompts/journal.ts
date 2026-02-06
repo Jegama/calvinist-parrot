@@ -1,6 +1,6 @@
 // lib/prompts/journal.ts
 // LLM prompt templates for Personal Journal (Phase 2)
-// Reference: docs/Master prompt.md for tone and doctrinal guardrails
+// Reference: docs/theology/Master prompt.md for tone and doctrinal guardrails
 
 import type { Call1Output, Call2Output } from "@/types/journal";
 

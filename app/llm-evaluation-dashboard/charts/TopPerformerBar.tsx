@@ -8,11 +8,11 @@ interface TopPerformerBarProps {
 
 export function TopPerformerBar({ data }: TopPerformerBarProps) {
   return (
-    <div className="h-72 w-full min-w-0">
+    <div className="h-80 w-full min-w-0">
       <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
         <BarChart data={data} layout="vertical" margin={{ left: 20, right: 30, bottom: 10 }}>
           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
-          <XAxis type="number" domain={[4.6, 5]} />
+          <XAxis type="number" domain={[4.5, 5]} />
           <YAxis
             type="category"
             dataKey="provider"
@@ -22,10 +22,14 @@ export function TopPerformerBar({ data }: TopPerformerBarProps) {
                 ? `${PROVIDER_LABELS[val]}` +
                     `\n${item.model
                       .replace("-preview-09-2025", "")
+                      .replace("-preview", "")
                       .replace("-reasoning", "")
+                      .replace("-20251001", "")
                       .replace("gpt-5-mini", "GPT-5 Mini")
                       .replace("gemini-2.5-flash", "Gemini 2.5 Flash")
-                      .replace("grok-4-1-fast", "Grok 4.1 Fast")}`
+                      .replace("gemini-3-flash", "Gemini 3 Flash")
+                      .replace("grok-4-1-fast", "Grok 4.1 Fast")
+                      .replace("claude-haiku-4-5", "Claude Haiku 4.5")}`
                 : PROVIDER_LABELS[val];
             }}
             width={200}
@@ -48,10 +52,14 @@ export function TopPerformerBar({ data }: TopPerformerBarProps) {
               const item = payload?.[0]?.payload;
               const model = item?.model
                 ?.replace("-preview-09-2025", "")
+                .replace("-preview", "")
                 .replace("-reasoning", "")
+                .replace("-20251001", "")
                 .replace("gpt-5-mini", "GPT-5 Mini")
                 .replace("gemini-2.5-flash", "Gemini 2.5 Flash")
-                .replace("grok-4-1-fast", "Grok 4.1 Fast");
+                .replace("gemini-3-flash", "Gemini 3 Flash")
+                .replace("grok-4-1-fast", "Grok 4.1 Fast")
+                .replace("claude-haiku-4-5", "Claude Haiku 4.5");
               return model ? `${PROVIDER_LABELS[provider]} — ${model}` : PROVIDER_LABELS[provider];
             }}
             labelStyle={{ fontWeight: "bold", color: "hsl(var(--foreground))" }}

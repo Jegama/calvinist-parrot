@@ -1,6 +1,6 @@
 // lib/prompts/kids-discipleship.ts
 // LLM prompt templates for Kids Discipleship (Heritage Journal) - Phase 3
-// Reference: docs/Master prompt.md for tone and doctrinal guardrails
+// Reference: docs/theology/Master prompt.md for tone and doctrinal guardrails
 
 import type { AgeBracket } from "@/utils/ageUtils";
 

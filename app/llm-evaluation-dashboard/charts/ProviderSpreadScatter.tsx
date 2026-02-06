@@ -76,14 +76,14 @@ export function ProviderSpreadScatter({ data }: ProviderSpreadScatterProps) {
                         <span className="font-semibold">{point.max.toFixed(2)}</span>
                       </p>
                       <p className="text-xs text-muted-foreground mb-2">
-                        {point.maxModel.replace("-preview-09-2025", "").replace("-reasoning", "").replace("-fast", "")}
+                        {point.maxModel.replace("-preview-09-2025", "").replace("-preview", "").replace("-reasoning", "").replace("-fast", "").replace("-20251001", "")}
                       </p>
                       <p className="flex justify-between gap-4">
                         <span className="text-muted-foreground">Worst Model:</span>
                         <span className="font-semibold">{point.min.toFixed(2)}</span>
                       </p>
                       <p className="text-xs text-muted-foreground mb-2">
-                        {point.minModel.replace("-preview-09-2025", "").replace("-reasoning", "").replace("-fast", "")}
+                        {point.minModel.replace("-preview-09-2025", "").replace("-preview", "").replace("-reasoning", "").replace("-fast", "").replace("-20251001", "")}
                       </p>
                       <div className="pt-2 mt-2 border-t border-border">
                         <p className="flex justify-between gap-4">
