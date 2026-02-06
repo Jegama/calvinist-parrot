@@ -2,8 +2,9 @@
 // AI pipeline for Kids Discipleship (Heritage Journal) - Phase 3
 // Handles parent shepherding reflection (Call 1) and tags/prayer suggestions (Call 2)
 
-import OpenAI from "openai";
+import { createHash } from "crypto";
 import prisma from "@/lib/prisma";
+import { parrotAI, DEFAULT_MODEL, LARGER_MODEL, type ModelSpec } from "@/lib/parrot-ai";
 import {
   type KidsCall1Output,
   type KidsCall2Output,
@@ -11,7 +12,10 @@ import {
   buildKidsCall1SystemPrompt,
   buildKidsCall1UserMessage,
   buildKidsCall2UserMessage,
+  KIDS_CALL1_SYSTEM_PROMPT,
+  KIDS_CALL1_USER_TEMPLATE,
   KIDS_CALL2_SYSTEM_PROMPT,
+  KIDS_CALL2_USER_TEMPLATE,
 } from "@/lib/prompts/kids-discipleship";
 import {
   KIDS_CALL1_SCHEMA,
@@ -24,9 +28,14 @@ import {
 } from "@/utils/ageUtils";
 import type { LogCategory } from "@prisma/client";
 
-const MODEL = "gpt-5-mini";
-const LARGER_MODEL = "gpt-5.2-2025-12-11";
-const PROMPT_VERSION = "1.0.0";
+const PROMPT_HASH = createHash("sha256")
+  .update(KIDS_CALL1_SYSTEM_PROMPT)
+  .update(KIDS_CALL1_USER_TEMPLATE)
+  .update(KIDS_CALL2_SYSTEM_PROMPT)
+  .update(KIDS_CALL2_USER_TEMPLATE)
+  .digest("hex")
+  .slice(0, 8);
+const PROMPT_VERSION = `1.0.0-${PROMPT_HASH}`;
 
 function countWords(text: string): number {
   return text
@@ -41,8 +50,8 @@ const KIDS_LARGER_MODEL_MIN_WORDS = (() => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 200;
 })();
 
-function selectKidsShepherdingModel(entryText: string): string {
-  return countWords(entryText) >= KIDS_LARGER_MODEL_MIN_WORDS ? LARGER_MODEL : MODEL;
+function selectKidsShepherdingModel(entryText: string): ModelSpec {
+  return countWords(entryText) >= KIDS_LARGER_MODEL_MIN_WORDS ? LARGER_MODEL : DEFAULT_MODEL;
 }
 
 /**
@@ -121,38 +130,26 @@ export function buildPromptContext(ctx: KidsLogContext): KidsPromptContext {
  */
 export async function runKidsCall1(
   context: KidsPromptContext
-): Promise<KidsCall1Output> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
+): Promise<{ output: KidsCall1Output; model: string }> {
   const systemPrompt = buildKidsCall1SystemPrompt(context);
   const userMessage = buildKidsCall1UserMessage(context);
+  const modelSpec = selectKidsShepherdingModel(context.entryText);
 
-  const response = await openai.responses.parse({
-    model: selectKidsShepherdingModel(context.entryText),
-    input: [
+  const result = await parrotAI.generateStructured<KidsCall1Output>({
+    modelSpec,
+    messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
     ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: KIDS_CALL1_SCHEMA.name,
-        strict: true,
-        schema: KIDS_CALL1_SCHEMA.schema,
-      },
-    },
-    reasoning: { effort: "low" },
+    schema: KIDS_CALL1_SCHEMA,
+    thinking: "low",
   });
 
-  if (!response.output_parsed) {
-    throw new Error("No response from Kids Call 1 LLM");
-  }
-
-  if (!isKidsCall1Output(response.output_parsed)) {
+  if (!isKidsCall1Output(result.data)) {
     throw new Error("Invalid Kids Call 1 response structure");
   }
 
-  return response.output_parsed;
+  return { output: result.data, model: result.model };
 }
 
 /**
@@ -162,36 +159,22 @@ export async function runKidsCall1(
 export async function runKidsCall2(
   context: KidsPromptContext & { call1Summary: string }
 ): Promise<KidsCall2Output> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
   const userMessage = buildKidsCall2UserMessage(context);
 
-  const response = await openai.responses.parse({
-    model: MODEL,
-    input: [
+  const result = await parrotAI.generateStructured<KidsCall2Output>({
+    messages: [
       { role: "system", content: KIDS_CALL2_SYSTEM_PROMPT },
       { role: "user", content: userMessage },
     ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: KIDS_CALL2_SCHEMA.name,
-        strict: true,
-        schema: KIDS_CALL2_SCHEMA.schema,
-      },
-    },
-    reasoning: { effort: "low" },
+    schema: KIDS_CALL2_SCHEMA,
+    thinking: "low",
   });
 
-  if (!response.output_parsed) {
-    throw new Error("No response from Kids Call 2 LLM");
-  }
-
-  if (!isKidsCall2Output(response.output_parsed)) {
+  if (!isKidsCall2Output(result.data)) {
     throw new Error("Invalid Kids Call 2 response structure");
   }
 
-  return response.output_parsed;
+  return result.data;
 }
 
 /**
@@ -243,28 +226,26 @@ export async function getCurrentMonthlyVision(memberId: string) {
 export async function storeKidsAIOutput(
   entryId: string,
   call1: KidsCall1Output,
-  call2: KidsCall2Output
+  call2: KidsCall2Output,
+  call1Model: string
 ): Promise<void> {
+  const modelInfo = {
+    call1Model,
+    call2Model: DEFAULT_MODEL.model,
+    promptVersion: PROMPT_VERSION,
+  };
   await prisma.journalEntryAI.upsert({
     where: { entryId },
     create: {
       entryId,
       call1: JSON.parse(JSON.stringify(call1)),
       call2: JSON.parse(JSON.stringify(call2)),
-      modelInfo: {
-        model: MODEL,
-        version: "1.0",
-        promptVersion: PROMPT_VERSION,
-      },
+      modelInfo,
     },
     update: {
       call1: JSON.parse(JSON.stringify(call1)),
       call2: JSON.parse(JSON.stringify(call2)),
-      modelInfo: {
-        model: MODEL,
-        version: "1.0",
-        promptVersion: PROMPT_VERSION,
-      },
+      modelInfo,
     },
   });
 }

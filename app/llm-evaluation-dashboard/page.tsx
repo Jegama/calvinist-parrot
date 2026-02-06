@@ -1,6 +1,7 @@
 import React from "react";
 import { getEvaluationData } from "./lib";
 import { DashboardShell } from "./dashboard-shell";
+import { DisableShrinkingHeader } from "./disable-shrinking-header";
 
 export const metadata = {
   title: "AI Model Performance Dashboard | Calvinist Parrot",
@@ -11,5 +12,10 @@ export const metadata = {
 export default async function DashboardPage() {
   const data = await getEvaluationData();
 
-  return <DashboardShell data={data} />;
+  return (
+    <>
+      <DisableShrinkingHeader />
+      <DashboardShell data={data} />
+    </>
+  );
 }

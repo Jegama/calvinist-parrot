@@ -1,17 +1,14 @@
 // utils/generateConversationName.ts
 
-import OpenAI from 'openai';
+import { parrotAI } from '@/lib/parrot-ai';
 import {
     CATEGORIZING_SYS_PROMPT,
     n_shot_examples,
   } from '@/lib/prompts/parrot-qa';
+import type { ChatMessage } from '@/lib/parrot-ai';
 
 // Helper: generate conversation name
 export async function generateConversationName(currentConversation: string): Promise<string> {
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-
   const promptCreateName = `I have this conversation:
 
 ---------------------
@@ -21,11 +18,6 @@ ${currentConversation}
 What would you like to name this conversation? It can be a short name to remember this conversation.
 
 **Note:** The output should strictly adhere to the predefined JSON schema.`;
-
-  const getNamePrompt: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: "system", content: 'You are a helpful assistant that can create short names for conversations.' },
-    { role: "user", content: promptCreateName },
-  ];
 
   const conversationNameSchema = {
     name: "conversation_name_schema",
@@ -39,34 +31,29 @@ What would you like to name this conversation? It can be a short name to remembe
     },
   };
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-5-mini',
-    messages: getNamePrompt,
-    response_format: {
-      type: "json_schema",
-      json_schema: conversationNameSchema,
-    },
-  });
+  try {
+    const result = await parrotAI.generateStructured<{ name: string }>({
+      messages: [
+        { role: "system", content: 'You are a helpful assistant that can create short names for conversations.' },
+        { role: "user", content: promptCreateName },
+      ],
+      schema: conversationNameSchema,
+    });
 
-  const conversationNameContent = response.choices[0].message.content;
-
-  if (conversationNameContent) {
-    try {
-      const conversationName = JSON.parse(conversationNameContent).name;
-      return conversationName;
-    } catch {
-      return await generateConversationName(currentConversation);
-    }
-  } else {
+    return result.data.name;
+  } catch {
     return await generateConversationName(currentConversation);
   }
 }
 
 // Build categorization messages
-export function buildCategorizationMessages(userMessage: string): OpenAI.Chat.ChatCompletionMessageParam[] {
+export function buildCategorizationMessages(userMessage: string): ChatMessage[] {
   return [
     { role: 'system', content: CATEGORIZING_SYS_PROMPT },
-    ...n_shot_examples,
+    ...n_shot_examples.map((msg) => ({
+      role: msg.role as 'system' | 'user' | 'assistant',
+      content: msg.content as string,
+    })),
     { role: 'user', content: userMessage },
   ];
 }

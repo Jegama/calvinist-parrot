@@ -3,6 +3,7 @@
 import { ReactQueryProvider } from "./react-query-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/hooks/use-auth";
+import { HeaderConfigProvider } from "./header-config-provider";
 import type { ReactNode } from "react";
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -15,7 +16,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <HeaderConfigProvider>
+            {children}
+          </HeaderConfigProvider>
         </ThemeProvider>
       </ReactQueryProvider>
     </AuthProvider>

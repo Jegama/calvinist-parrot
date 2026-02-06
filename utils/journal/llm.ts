@@ -3,8 +3,9 @@
 // Handles pastoral reflection (Call 1a/1b/1c) and tags/suggestions (Call 2)
 // Uses parallel execution for faster UX
 
-import OpenAI from "openai";
+import { createHash } from "crypto";
 import prisma from "@/lib/prisma";
+import { parrotAI, DEFAULT_MODEL, LARGER_MODEL, type ModelSpec } from "@/lib/parrot-ai";
 import type { Call1aOutput, Call1bOutput, Call1cOutput, Call1Output, Call2Output } from "@/types/journal";
 import {
   JOURNAL_CALL1A_SCHEMA,
@@ -17,15 +18,31 @@ import {
   buildCall1aUserMessage,
   buildCall1bUserMessage,
   buildCall1cUserMessage,
+  JOURNAL_CALL1A_SYSTEM_PROMPT,
+  JOURNAL_CALL1A_USER_TEMPLATE,
+  JOURNAL_CALL1B_SYSTEM_PROMPT,
+  JOURNAL_CALL1B_USER_TEMPLATE,
+  JOURNAL_CALL1C_SYSTEM_PROMPT,
+  JOURNAL_CALL1C_USER_TEMPLATE,
   JOURNAL_CALL2_SYSTEM_PROMPT,
+  JOURNAL_CALL2_USER_TEMPLATE,
   buildCall2UserMessage,
   flattenTags,
   type RecentEntryContext,
 } from "@/lib/prompts/journal";
 
-const MODEL = "gpt-5-mini";
-const LARGER_MODEL = "gpt-5.2-2025-12-11";
-const PROMPT_VERSION = "1.0.0";
+const PROMPT_HASH = createHash("sha256")
+  .update(JOURNAL_CALL1A_SYSTEM_PROMPT)
+  .update(JOURNAL_CALL1A_USER_TEMPLATE)
+  .update(JOURNAL_CALL1B_SYSTEM_PROMPT)
+  .update(JOURNAL_CALL1B_USER_TEMPLATE)
+  .update(JOURNAL_CALL1C_SYSTEM_PROMPT)
+  .update(JOURNAL_CALL1C_USER_TEMPLATE)
+  .update(JOURNAL_CALL2_SYSTEM_PROMPT)
+  .update(JOURNAL_CALL2_USER_TEMPLATE)
+  .digest("hex")
+  .slice(0, 8);
+const PROMPT_VERSION = `1.0.0-${PROMPT_HASH}`;
 
 function countWords(text: string): number {
   return text
@@ -40,9 +57,82 @@ const JOURNAL_LARGER_MODEL_MIN_WORDS = (() => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 250;
 })();
 
-function selectJournalReasoningModel(entryText: string): string {
-  return countWords(entryText) >= JOURNAL_LARGER_MODEL_MIN_WORDS ? LARGER_MODEL : MODEL;
+function selectJournalReasoningModel(entryText: string): ModelSpec {
+  return countWords(entryText) >= JOURNAL_LARGER_MODEL_MIN_WORDS ? LARGER_MODEL : DEFAULT_MODEL;
 }
+
+// ===========================================
+// Runtime Type Guards
+// ===========================================
+
+function isCall1aOutput(value: unknown): value is Call1aOutput {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.title === "string" &&
+    typeof v.oneSentenceSummary === "string" &&
+    typeof v.situationSummary === "string"
+  );
+}
+
+function isCall1bOutput(value: unknown): value is Call1bOutput {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    Array.isArray(v.heartReflection) &&
+    Array.isArray(v.putOffPutOn)
+  );
+}
+
+function isCall1cOutput(value: unknown): value is Call1cOutput {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    Array.isArray(v.scripture) &&
+    Array.isArray(v.practicalNextSteps) &&
+    Array.isArray(v.safetyFlags)
+  );
+}
+
+function isCall2Output(value: unknown): value is Call2Output {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.tags === "object" &&
+    v.tags !== null &&
+    Array.isArray(v.suggestedPrayerRequests) &&
+    typeof v.dashboardSignals === "object" &&
+    v.dashboardSignals !== null
+  );
+}
+
+// ===========================================
+// Default outputs for partial-result handling
+// ===========================================
+
+export const DEFAULT_CALL1B: Call1bOutput = {
+  heartReflection: [],
+  putOffPutOn: [],
+};
+
+export const DEFAULT_CALL1C: Call1cOutput = {
+  scripture: [],
+  practicalNextSteps: [],
+  safetyFlags: [],
+};
+
+export const DEFAULT_CALL2: Call2Output = {
+  tags: {
+    circumstance: [],
+    heartIssue: [],
+    rulingDesire: [],
+    virtue: [],
+    theologicalTheme: [],
+    meansOfGrace: [],
+  },
+  suggestedPrayerRequests: [],
+  dashboardSignals: { recurringTheme: null },
+};
 
 /**
  * Run Call 1a: Quick Overview (title, summary, situation)
@@ -51,35 +141,25 @@ function selectJournalReasoningModel(entryText: string): string {
 export async function runCall1a(params: {
   entryText: string;
 }): Promise<Call1aOutput> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
   const systemPrompt = buildCall1SystemPrompt("a");
   const userMessage = buildCall1aUserMessage({
     entryText: params.entryText,
   });
 
-  const response = await openai.responses.parse({
-    model: MODEL,
-    input: [
+  const result = await parrotAI.generateStructured<Call1aOutput>({
+    messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
     ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: JOURNAL_CALL1A_SCHEMA.name,
-        strict: true,
-        schema: JOURNAL_CALL1A_SCHEMA.schema,
-      },
-    },
-    reasoning: { effort: "low" },
+    schema: JOURNAL_CALL1A_SCHEMA,
+    thinking: "low",
   });
 
-  if (!response.output_parsed) {
-    throw new Error("No response from Call 1a LLM");
+  if (!isCall1aOutput(result.data)) {
+    throw new Error("Invalid Call 1a response structure");
   }
 
-  return response.output_parsed as unknown as Call1aOutput;
+  return result.data;
 }
 
 /**
@@ -89,38 +169,30 @@ export async function runCall1b(params: {
   entryText: string;
   situationSummary: string;
   recentContext?: RecentEntryContext;
-}): Promise<Call1bOutput> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
+}): Promise<{ output: Call1bOutput; model: string }> {
   const systemPrompt = buildCall1SystemPrompt("b");
   const userMessage = buildCall1bUserMessage({
     entryText: params.entryText,
     situationSummary: params.situationSummary,
     recentContext: params.recentContext,
   });
+  const modelSpec = selectJournalReasoningModel(params.entryText);
 
-  const response = await openai.responses.parse({
-    model: selectJournalReasoningModel(params.entryText),
-    input: [
+  const result = await parrotAI.generateStructured<Call1bOutput>({
+    modelSpec,
+    messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
     ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: JOURNAL_CALL1B_SCHEMA.name,
-        strict: true,
-        schema: JOURNAL_CALL1B_SCHEMA.schema,
-      },
-    },
-    reasoning: { effort: "low" },
+    schema: JOURNAL_CALL1B_SCHEMA,
+    thinking: "low",
   });
 
-  if (!response.output_parsed) {
-    throw new Error("No response from Call 1b LLM");
+  if (!isCall1bOutput(result.data)) {
+    throw new Error("Invalid Call 1b response structure");
   }
 
-  return response.output_parsed as unknown as Call1bOutput;
+  return { output: result.data, model: result.model };
 }
 
 /**
@@ -130,38 +202,30 @@ export async function runCall1c(params: {
   entryText: string;
   situationSummary: string;
   recentContext?: RecentEntryContext;
-}): Promise<Call1cOutput> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
+}): Promise<{ output: Call1cOutput; model: string }> {
   const systemPrompt = buildCall1SystemPrompt("c");
   const userMessage = buildCall1cUserMessage({
     entryText: params.entryText,
     situationSummary: params.situationSummary,
     recentContext: params.recentContext,
   });
+  const modelSpec = selectJournalReasoningModel(params.entryText);
 
-  const response = await openai.responses.parse({
-    model: selectJournalReasoningModel(params.entryText),
-    input: [
+  const result = await parrotAI.generateStructured<Call1cOutput>({
+    modelSpec,
+    messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
     ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: JOURNAL_CALL1C_SCHEMA.name,
-        strict: true,
-        schema: JOURNAL_CALL1C_SCHEMA.schema,
-      },
-    },
-    reasoning: { effort: "low" },
+    schema: JOURNAL_CALL1C_SCHEMA,
+    thinking: "low",
   });
 
-  if (!response.output_parsed) {
-    throw new Error("No response from Call 1c LLM");
+  if (!isCall1cOutput(result.data)) {
+    throw new Error("Invalid Call 1c response structure");
   }
 
-  return response.output_parsed as unknown as Call1cOutput;
+  return { output: result.data, model: result.model };
 }
 
 /**
@@ -172,67 +236,25 @@ export async function runTagsAndSuggestions(params: {
   entryText: string;
   call1Summary: string;
 }): Promise<Call2Output> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
   const userMessage = buildCall2UserMessage({
     entryText: params.entryText,
     call1Summary: params.call1Summary,
   });
 
-  const response = await openai.responses.parse({
-    model: MODEL,
-    input: [
+  const result = await parrotAI.generateStructured<Call2Output>({
+    messages: [
       { role: "system", content: JOURNAL_CALL2_SYSTEM_PROMPT },
       { role: "user", content: userMessage },
     ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: JOURNAL_CALL2_SCHEMA.name,
-        strict: true,
-        schema: JOURNAL_CALL2_SCHEMA.schema,
-      },
-    },
-    reasoning: { effort: "low" },
+    schema: JOURNAL_CALL2_SCHEMA,
+    thinking: "low",
   });
 
-  if (!response.output_parsed) {
-    throw new Error("No response from Call 2 LLM");
+  if (!isCall2Output(result.data)) {
+    throw new Error("Invalid Call 2 response structure");
   }
 
-  return response.output_parsed as unknown as Call2Output;
-}
-
-/**
- * Get recent entry summaries for context in Call 1a
- * @deprecated Use getRecentEntryContext for richer context including keywords
- */
-export async function getRecentEntrySummaries(
-  authorProfileId: string,
-  limit: number
-): Promise<string[]> {
-  try {
-    const recentEntries = await prisma.journalEntry.findMany({
-      where: { authorProfileId },
-      orderBy: { entryDate: "desc" },
-      take: limit,
-      include: {
-        aiOutput: {
-          select: { call1: true },
-        },
-      },
-    });
-
-    return recentEntries
-      .map((entry) => {
-        const call1 = entry.aiOutput?.call1 as Call1Output | null;
-        return call1?.oneSentenceSummary || null;
-      })
-      .filter((summary): summary is string => summary !== null);
-  } catch {
-    // Table might not exist yet during migration
-    return [];
-  }
+  return result.data;
 }
 
 // Re-export RecentEntryContext from prompts for convenience
@@ -249,7 +271,7 @@ export async function getRecentEntryContext(
   try {
     // Fetch only PERSONAL journal entries (excludes DISCIPLESHIP entries)
     const recentEntries = await prisma.journalEntry.findMany({
-      where: { 
+      where: {
         authorProfileId,
         entryType: "PERSONAL", // Only Personal Journal entries, not Kids Discipleship
         aiOutput: {
@@ -296,8 +318,8 @@ export async function getRecentEntryContext(
       .map(([theme]) => theme);
 
     return { summaries, recurringThemes };
-  } catch {
-    // Table might not exist yet during migration
+  } catch (error) {
+    console.warn("Failed to fetch recent entry context:", error);
     return { summaries: [], recurringThemes: [] };
   }
 }
@@ -310,9 +332,21 @@ export async function storeJournalAIOutput(params: {
   entryId: string;
   call1: Call1Output;
   call2: Call2Output;
+  models: {
+    call1bModel: string;
+    call1cModel: string;
+  };
 }): Promise<void> {
   const { entryId, call1, call2 } = params;
   const flatTags = flattenTags(call2.tags);
+
+  const modelInfo = {
+    call1aModel: DEFAULT_MODEL.model,
+    call1bModel: params.models.call1bModel,
+    call1cModel: params.models.call1cModel,
+    call2Model: DEFAULT_MODEL.model,
+    promptVersion: PROMPT_VERSION,
+  };
 
   // Retry configuration
   const maxRetries = 3;
@@ -338,20 +372,12 @@ export async function storeJournalAIOutput(params: {
             entryId,
             call1: call1 as object,
             call2: call2 as object,
-            modelInfo: {
-              model: MODEL,
-              version: "1.0",
-              promptVersion: PROMPT_VERSION,
-            },
+            modelInfo,
           },
           update: {
             call1: call1 as object,
             call2: call2 as object,
-            modelInfo: {
-              model: MODEL,
-              version: "1.0",
-              promptVersion: PROMPT_VERSION,
-            },
+            modelInfo,
           },
         });
 

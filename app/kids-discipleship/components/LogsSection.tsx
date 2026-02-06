@@ -645,7 +645,7 @@ function ReflectionCard({ call1, call2 }: { call1: KidsCall1Output; call2?: Kids
           <h4 className="text-sm font-medium mb-2">Gospel Connection Suggestion</h4>
           <p className="text-sm italic mb-2">&quot;{call1.gospelConnectionSuggestion.ageAppropriatePhrase}&quot;</p>
           <p className="text-xs text-muted-foreground">
-            {call1.gospelConnectionSuggestion.scriptureToShare} — {call1.gospelConnectionSuggestion.explanation}
+            {call1.gospelConnectionSuggestion.scriptureToShare}: {call1.gospelConnectionSuggestion.explanation}
           </p>
         </div>
       )}
@@ -670,7 +670,7 @@ function ReflectionCard({ call1, call2 }: { call1: KidsCall1Output; call2?: Kids
                 <span className="font-medium text-accent">
                   <BibleVerse reference={s.reference} />
                 </span>
-                <span className="text-muted-foreground"> — {s.whyItApplies}</span>
+                <span className="text-muted-foreground">: {s.whyItApplies}</span>
               </div>
             ))}
           </div>

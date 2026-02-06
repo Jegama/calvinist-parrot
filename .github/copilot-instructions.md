@@ -106,10 +106,10 @@ Examples: `/journal`, `/prayer-tracker`, `/church-finder`, `/llm-evaluation-dash
 
 ## Brand Colors & Design System
 - **Always use CSS variables** defined in `app/globals.css` instead of hardcoded colors—enables theme switching and maintains brand consistency.
-- Reference `docs/CP Ministries/Design System.md` for end-to-end foundations, tokens, and component patterns.
-- Reference `docs/CP Ministries/Color System Mapping.md` for comprehensive color usage guidelines and semantic meaning.
+- Reference `docs/design/Design System.md` for end-to-end foundations, tokens, and component patterns.
+- Reference `docs/design/Color System Mapping.md` for comprehensive color usage guidelines and semantic meaning.
 - Key brand colors: Deep Teal (`--accent`) for headers/links, Deep Blue (`--primary`) for actions, Sage Green (`--user-message`) for user content, Cream (`--background`) for warmth.
-- Consult `docs/CP Ministries/Brand Identity.md` for overall brand voice, color psychology, and visual style guidelines.
+- Consult `docs/design/Brand Identity.md` for overall brand voice, color psychology, and visual style guidelines.
 - Use semantic Tailwind classes (`bg-primary`, `text-accent`) rather than arbitrary hex utility classes to maintain theme consistency.
 - Light mode uses warm Cream backgrounds; dark mode uses pure white text for readability—both automatically adjust via CSS variables.
 
@@ -119,7 +119,7 @@ Examples: `/journal`, `/prayer-tracker`, `/church-finder`, `/llm-evaluation-dash
 - Prefer Tailwind classes `font-sans` and `font-serif` when overriding in components; these map to the CSS variables.
 
 ## Content & Prompt Style
-- When writing or editing prompts, UI copy, or any website text, always consult the doctrinal and voice guide in `docs/Master prompt.md` to ensure alignment with tone, citations, and theological boundaries.
+- When writing or editing prompts, UI copy, or any website text, always consult the doctrinal and voice guide in `docs/theology/Master prompt.md` to ensure alignment with tone, citations, and theological boundaries.
 - Keep content consistent with the essentials/secondary/tertiary distinctions, pastoral tone, safety guardrails, and Scripture citation format described there.
 - If a requested change appears to conflict with those guidelines, note the concern in your PR or ask for clarification before proceeding.
 

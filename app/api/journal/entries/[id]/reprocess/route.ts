@@ -10,8 +10,11 @@ import {
   runTagsAndSuggestions,
   getRecentEntryContext,
   storeJournalAIOutput,
+  DEFAULT_CALL1B,
+  DEFAULT_CALL1C,
+  DEFAULT_CALL2,
 } from "@/utils/journal/llm";
-import type { Call1Output, Call2Output, Call1aOutput, Call1bOutput, Call1cOutput } from "@/types/journal";
+import type { Call1Output, Call2Output, Call1aOutput } from "@/types/journal";
 import { requireAuthenticatedUser } from "@/lib/auth";
 
 /**
@@ -91,40 +94,50 @@ export async function POST(
           });
 
           // STEP 2: Run Call 1b, 1c, and Call 2 in parallel
-          const [call1b, call1c, call2] = await Promise.all([
+          // Each call catches its own errors so one failure doesn't lose the others
+          const [call1bResult, call1cResult, call2Result] = await Promise.all([
             runCall1b({
               entryText: entry.entryText,
               situationSummary: call1a.situationSummary,
               recentContext,
-            }).then((result: Call1bOutput) => {
-              sendEvent({
-                type: "call1b_complete",
-                call1b: result,
-              });
-              return result;
+            }).then(({ output, model }) => {
+              sendEvent({ type: "call1b_complete", call1b: output });
+              return { output, model };
+            }).catch((err) => {
+              console.error("Call 1b failed:", err);
+              sendEvent({ type: "call1b_error", message: "Heart analysis unavailable" });
+              return null;
             }),
             runCall1c({
               entryText: entry.entryText,
               situationSummary: call1a.situationSummary,
               recentContext,
-            }).then((result: Call1cOutput) => {
-              sendEvent({
-                type: "call1c_complete",
-                call1c: result,
-              });
-              return result;
+            }).then(({ output, model }) => {
+              sendEvent({ type: "call1c_complete", call1c: output });
+              return { output, model };
+            }).catch((err) => {
+              console.error("Call 1c failed:", err);
+              sendEvent({ type: "call1c_error", message: "Biblical guidance unavailable" });
+              return null;
             }),
             runTagsAndSuggestions({
               entryText: entry.entryText,
               call1Summary: call1a.oneSentenceSummary,
             }).then((result: Call2Output) => {
-              sendEvent({
-                type: "call2_complete",
-                call2: result,
-              });
+              sendEvent({ type: "call2_complete", call2: result });
               return result;
+            }).catch((err) => {
+              console.error("Call 2 failed:", err);
+              sendEvent({ type: "call2_error", message: "Tags and prayer suggestions unavailable" });
+              return null;
             }),
           ]);
+
+          const call1b = call1bResult?.output ?? DEFAULT_CALL1B;
+          const call1c = call1cResult?.output ?? DEFAULT_CALL1C;
+          const call2 = call2Result ?? DEFAULT_CALL2;
+          const call1bModel = call1bResult?.model ?? "unknown";
+          const call1cModel = call1cResult?.model ?? "unknown";
 
           // Combine Call 1 results
           const fullCall1: Call1Output = {
@@ -133,18 +146,22 @@ export async function POST(
             ...call1c,
           };
 
-          // Store final AI output (with automatic retry)
+          // Store AI output (with whatever succeeded)
           await storeJournalAIOutput({
             entryId: entry.id,
             call1: fullCall1,
             call2,
+            models: { call1bModel, call1cModel },
           });
+
+          const hasFailures = !call1bResult || !call1cResult || !call2Result;
 
           // Send done event
           sendEvent({
             type: "done",
             call1: fullCall1,
             call2,
+            ...(hasFailures && { partial: true }),
           });
         } catch (aiError) {
           console.error("AI reprocessing failed:", aiError);

@@ -77,6 +77,15 @@
     --chart-4: 82 21% 62%;
     /* Brand: Mint Green #5ABFB1 */
     --chart-5: 172 43% 55%;
+    /* Semantic Chart Mappings (Providers) - Option 3 Palette */
+    /* Google Blue */
+    --chart-google: 217 91% 60%;
+    /* OpenAI Teal */
+    --chart-openai: 160 84% 39%;
+    /* xAI Cosmic Purple */
+    --chart-xai: 270 67% 45%;
+    /* Claude Terracotta */
+    --chart-anthropic: 18 80% 60%;
     --radius: 1rem;
     /* Success messages - bright green */
     --success: 142 50% 45%;

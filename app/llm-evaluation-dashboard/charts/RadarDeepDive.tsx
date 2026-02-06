@@ -16,6 +16,8 @@ interface RadarDeepDiveProps {
 }
 
 export function RadarDeepDive({ data }: RadarDeepDiveProps) {
+  const hasAnthropic = data.some((d) => "anthropic" in d);
+
   return (
     <div className="h-96 w-full min-w-0">
       <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
@@ -24,12 +26,12 @@ export function RadarDeepDive({ data }: RadarDeepDiveProps) {
           <PolarAngleAxis dataKey="subject" tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontWeight: 500 }} />
           <PolarRadiusAxis
             angle={30}
-            domain={[4.5, 5]}
+            domain={[4, 5]}
             tick={{ fill: "hsl(var(--foreground))", fontSize: 10 }}
             tickCount={6}
           />
           <Radar
-            name="Google Gemini 2.5 Flash"
+            name="Google Gemini 3 Flash"
             dataKey="google"
             stroke={COLORS.google}
             fill={COLORS.google}
@@ -52,6 +54,16 @@ export function RadarDeepDive({ data }: RadarDeepDiveProps) {
             fillOpacity={0.2}
             strokeWidth={2}
           />
+          {hasAnthropic && (
+            <Radar
+              name="Anthropic Claude Haiku 4.5"
+              dataKey="anthropic"
+              stroke={COLORS.anthropic}
+              fill={COLORS.anthropic}
+              fillOpacity={0.2}
+              strokeWidth={2}
+            />
+          )}
           <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="circle" />
           <Tooltip
             contentStyle={{

@@ -16,14 +16,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/use-auth";
+import { useHeaderConfig } from "@/components/providers/header-config-provider";
 
 export function Header() {
   const { user, loading } = useAuth();
+  const { config } = useHeaderConfig();
   const [isScrolled, setIsScrolled] = useState(false);
   const lastScrolledRef = useRef<boolean>(false);
 
   useEffect(() => {
     const handleScroll = () => {
+      // Skip shrinking if disabled via context
+      if (config.disableShrinking) {
+        if (lastScrolledRef.current) {
+          lastScrolledRef.current = false;
+          setIsScrolled(false);
+          document.body.style.setProperty("--app-header-height", "4.6rem");
+        }
+        return;
+      }
+
       // Shrink header when scrolled down more than 50px
       const scrolled = window.scrollY > 50;
       if (scrolled !== lastScrolledRef.current) {
@@ -41,7 +53,7 @@ export function Header() {
     // Initialize once on mount
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [config.disableShrinking]);
 
   return (
     <header

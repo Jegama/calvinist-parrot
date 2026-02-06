@@ -1,13 +1,14 @@
 // utils/langChainAgents/mainAgent.ts
 
 import { createAgent } from "langchain";
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { toolsArray } from "./tools";
 import { getMemoryStore } from "@/lib/langGraphStore";
 
-const model = new ChatOpenAI({
-    model: "gpt-5-mini",
+const model = new ChatGoogleGenerativeAI({
+    model: "gemini-3-flash-preview",
     streaming: true,
+    apiKey: process.env.GEMINI_API_KEY || "",
 });
 
 // Get the shared memory store for long-term cross-thread memories

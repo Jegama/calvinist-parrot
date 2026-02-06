@@ -63,6 +63,7 @@ export async function GET(
       entryDate: log.entryDate.toISOString(),
       entryText: log.entryText,
       category: log.category,
+      gospelConnection: log.gospelConnection,
       tags: log.tags,
       createdAt: log.createdAt.toISOString(),
       updatedAt: log.updatedAt.toISOString(),

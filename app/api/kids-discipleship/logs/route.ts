@@ -152,6 +152,20 @@ export async function POST(request: Request) {
     );
   }
 
+  const wordCount = entryText.trim().split(/\s+/).filter(Boolean).length;
+  if (wordCount < 15) {
+    return NextResponse.json(
+      { error: "Entry text is too short. Please write at least a few words describing what happened." },
+      { status: 400 }
+    );
+  }
+  if (wordCount > 2000) {
+    return NextResponse.json(
+      { error: "Entry text is too long. Please keep it under 2,000 words." },
+      { status: 400 }
+    );
+  }
+
   const { errorResponse } = await requireAuthenticatedUser(userId);
   if (errorResponse) return errorResponse;
 
@@ -242,7 +256,7 @@ export async function POST(request: Request) {
         });
 
         // Run Call 1
-        const call1 = await runKidsCall1(promptContext);
+        const { output: call1, model: call1Model } = await runKidsCall1(promptContext);
 
         streamEvent(controller, {
           type: "call1_complete",
@@ -267,7 +281,7 @@ export async function POST(request: Request) {
         });
 
         // Store AI output
-        await storeKidsAIOutput(entry.id, call1, call2);
+        await storeKidsAIOutput(entry.id, call1, call2, call1Model);
 
         // Update entry tags
         const tags = flattenKidsTags(call2);
@@ -304,7 +318,7 @@ export async function POST(request: Request) {
 
   return new Response(stream, {
     headers: {
-      "Content-Type": "text/event-stream",
+      "Content-Type": "application/x-ndjson",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
     },

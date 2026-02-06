@@ -9,7 +9,7 @@ export interface BestImprovementRecord {
   v1Label: string;
 }
 
-type JudgeComparisonEntry = { model: string; gptJudge: number; geminiJudge: number };
+type JudgeComparisonEntry = { model: string; gptJudge: number; geminiJudge: number; claudeJudge: number };
 
 export function useDashboardMetrics(data: EvaluationRecord[]) {
   const bestPerProvider = useMemo(() => {
@@ -59,32 +59,44 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
   }, [data]);
 
   const promptDelta = useMemo(() => {
-    const modelMapping = {
-      google: "gemini-2.5-flash-preview-09-2025",
-      xai: "grok-4-1-fast-reasoning",
-      openai: "gpt-5-mini",
-    };
+    const overallScores = data.filter(
+      (d) => d.Judge_Model === "gpt-5-mini" && d.subCriterion === "Overall"
+    );
 
-    return Object.entries(modelMapping).map(([provider, genModel]) => {
-      const calcAvg = (gm: string, prompt: string) => {
-        const scores = data.filter(
-          (d) =>
-            d.Judge_Model === "gpt-5-mini" &&
-            d.Gen_Model === gm &&
-            d.System_Prompt_Label === prompt &&
-            d.subCriterion === "Overall"
+    const models = Array.from(new Set(overallScores.map((d) => d.Gen_Model)));
+
+    return models
+      .reduce<Array<{ model: string; provider: string; v1: number; baseline: number }>>((acc, model) => {
+        const v1Scores = overallScores.filter(
+          (d) => d.Gen_Model === model && d.System_Prompt_Label === "v1_0"
         );
-        if (scores.length === 0) return 0;
-        const total = scores.reduce((sum, curr) => sum + curr.value, 0);
-        return (total / scores.length).toFixed(2);
-      };
+        const baselineScores = overallScores.filter(
+          (d) => d.Gen_Model === model && d.System_Prompt_Label === "baseline"
+        );
 
-      return {
-        provider,
-        v1: parseFloat(calcAvg(genModel, "v1_0") as string),
-        baseline: parseFloat(calcAvg(genModel, "baseline") as string),
-      };
-    });
+        if (v1Scores.length === 0 || baselineScores.length === 0) return acc;
+
+        const v1Avg = v1Scores.reduce((sum, d) => sum + d.value, 0) / v1Scores.length;
+        const baselineAvg = baselineScores.reduce((sum, d) => sum + d.value, 0) / baselineScores.length;
+
+        acc.push({
+          model: model
+            .replace("-preview-09-2025", "")
+            .replace("-preview", "")
+            .replace("-reasoning", "")
+            .replace("-20251001", ""),
+          provider: v1Scores[0].Provider,
+          v1: parseFloat(v1Avg.toFixed(2)),
+          baseline: parseFloat(baselineAvg.toFixed(2)),
+        });
+
+        return acc;
+      }, [])
+      .sort((a, b) => {
+        const deltaA = (a.v1 - a.baseline) / a.baseline;
+        const deltaB = (b.v1 - b.baseline) / b.baseline;
+        return deltaB - deltaA;
+      });
   }, [data]);
 
   const bestImprovement = useMemo<BestImprovementRecord | null>(() => {
@@ -140,22 +152,33 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
 
     const comparisonData = models.reduce<JudgeComparisonEntry[]>((acc, model) => {
       const gptJudgeScores = data.filter(
-        (d) => d.Gen_Model === model && d.Judge_Model === "gpt-5-mini" && d.subCriterion === "Overall"
+        (d) => d.Gen_Model === model && d.Judge_Model === "gpt-5-mini" && d.System_Prompt_Label === "v1_0" && d.subCriterion === "Overall"
       );
       const geminiJudgeScores = data.filter(
         (d) =>
-          d.Gen_Model === model && d.Judge_Model === "gemini-2.5-flash-preview-09-2025" && d.subCriterion === "Overall"
+          d.Gen_Model === model && d.Judge_Model === "gemini-2.5-flash-preview-09-2025" && d.System_Prompt_Label === "v1_0" && d.subCriterion === "Overall"
+      );
+      const claudeJudgeScores = data.filter(
+        (d) =>
+          d.Gen_Model === model && d.Judge_Model === "claude-haiku-4-5-20251001" && d.System_Prompt_Label === "v1_0" && d.subCriterion === "Overall"
       );
 
-      if (gptJudgeScores.length === 0 || geminiJudgeScores.length === 0) return acc;
+      // Require at least two judges to include the model
+      const hasGpt = gptJudgeScores.length > 0;
+      const hasGemini = geminiJudgeScores.length > 0;
+      const hasClaude = claudeJudgeScores.length > 0;
+      if ([hasGpt, hasGemini, hasClaude].filter(Boolean).length < 2) return acc;
 
-      const gptAvg = gptJudgeScores.reduce((accum, curr) => accum + curr.value, 0) / gptJudgeScores.length;
-      const geminiAvg = geminiJudgeScores.reduce((accum, curr) => accum + curr.value, 0) / geminiJudgeScores.length;
+      const avg = (scores: typeof gptJudgeScores) =>
+        scores.length > 0
+          ? parseFloat((scores.reduce((sum, curr) => sum + curr.value, 0) / scores.length).toFixed(2))
+          : 0;
 
       acc.push({
-        model: model.replace("-preview-09-2025", "").replace("-reasoning", ""),
-        gptJudge: parseFloat(gptAvg.toFixed(2)),
-        geminiJudge: parseFloat(geminiAvg.toFixed(2)),
+        model: model.replace("-preview-09-2025", "").replace("-reasoning", "").replace("-20251001", ""),
+        gptJudge: avg(gptJudgeScores),
+        geminiJudge: avg(geminiJudgeScores),
+        claudeJudge: avg(claudeJudgeScores),
       });
 
       return acc;
@@ -182,7 +205,7 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
       score: m.total / m.count,
     }));
 
-    const result = ["google", "openai", "xai"]
+    const result = ["google", "openai", "xai", "anthropic"]
       .map((p) => {
         const pScores = scores.filter((s) => s.provider === p);
         if (pScores.length === 0) return null;
