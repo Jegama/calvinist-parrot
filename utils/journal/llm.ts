@@ -4,8 +4,8 @@
 // Uses parallel execution for faster UX
 
 import { createHash } from "crypto";
-import OpenAI from "openai";
 import prisma from "@/lib/prisma";
+import { parrotAI, DEFAULT_MODEL, LARGER_MODEL, type ModelSpec } from "@/lib/parrot-ai";
 import type { Call1aOutput, Call1bOutput, Call1cOutput, Call1Output, Call2Output } from "@/types/journal";
 import {
   JOURNAL_CALL1A_SCHEMA,
@@ -30,9 +30,6 @@ import {
   flattenTags,
   type RecentEntryContext,
 } from "@/lib/prompts/journal";
-
-const MODEL = "gpt-5-mini";
-const LARGER_MODEL = "gpt-5.2-2025-12-11";
 
 const PROMPT_HASH = createHash("sha256")
   .update(JOURNAL_CALL1A_SYSTEM_PROMPT)
@@ -60,8 +57,8 @@ const JOURNAL_LARGER_MODEL_MIN_WORDS = (() => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 250;
 })();
 
-function selectJournalReasoningModel(entryText: string): string {
-  return countWords(entryText) >= JOURNAL_LARGER_MODEL_MIN_WORDS ? LARGER_MODEL : MODEL;
+function selectJournalReasoningModel(entryText: string): ModelSpec {
+  return countWords(entryText) >= JOURNAL_LARGER_MODEL_MIN_WORDS ? LARGER_MODEL : DEFAULT_MODEL;
 }
 
 // ===========================================
@@ -144,39 +141,25 @@ export const DEFAULT_CALL2: Call2Output = {
 export async function runCall1a(params: {
   entryText: string;
 }): Promise<Call1aOutput> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
   const systemPrompt = buildCall1SystemPrompt("a");
   const userMessage = buildCall1aUserMessage({
     entryText: params.entryText,
   });
 
-  const response = await openai.responses.parse({
-    model: MODEL,
-    input: [
+  const result = await parrotAI.generateStructured<Call1aOutput>({
+    messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
     ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: JOURNAL_CALL1A_SCHEMA.name,
-        strict: true,
-        schema: JOURNAL_CALL1A_SCHEMA.schema,
-      },
-    },
-    reasoning: { effort: "low" },
+    schema: JOURNAL_CALL1A_SCHEMA,
+    thinking: "low",
   });
 
-  if (!response.output_parsed) {
-    throw new Error("No response from Call 1a LLM");
-  }
-
-  if (!isCall1aOutput(response.output_parsed)) {
+  if (!isCall1aOutput(result.data)) {
     throw new Error("Invalid Call 1a response structure");
   }
 
-  return response.output_parsed;
+  return result.data;
 }
 
 /**
@@ -187,42 +170,29 @@ export async function runCall1b(params: {
   situationSummary: string;
   recentContext?: RecentEntryContext;
 }): Promise<{ output: Call1bOutput; model: string }> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
   const systemPrompt = buildCall1SystemPrompt("b");
   const userMessage = buildCall1bUserMessage({
     entryText: params.entryText,
     situationSummary: params.situationSummary,
     recentContext: params.recentContext,
   });
-  const model = selectJournalReasoningModel(params.entryText);
+  const modelSpec = selectJournalReasoningModel(params.entryText);
 
-  const response = await openai.responses.parse({
-    model,
-    input: [
+  const result = await parrotAI.generateStructured<Call1bOutput>({
+    modelSpec,
+    messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
     ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: JOURNAL_CALL1B_SCHEMA.name,
-        strict: true,
-        schema: JOURNAL_CALL1B_SCHEMA.schema,
-      },
-    },
-    reasoning: { effort: "low" },
+    schema: JOURNAL_CALL1B_SCHEMA,
+    thinking: "low",
   });
 
-  if (!response.output_parsed) {
-    throw new Error("No response from Call 1b LLM");
-  }
-
-  if (!isCall1bOutput(response.output_parsed)) {
+  if (!isCall1bOutput(result.data)) {
     throw new Error("Invalid Call 1b response structure");
   }
 
-  return { output: response.output_parsed, model };
+  return { output: result.data, model: result.model };
 }
 
 /**
@@ -233,42 +203,29 @@ export async function runCall1c(params: {
   situationSummary: string;
   recentContext?: RecentEntryContext;
 }): Promise<{ output: Call1cOutput; model: string }> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
   const systemPrompt = buildCall1SystemPrompt("c");
   const userMessage = buildCall1cUserMessage({
     entryText: params.entryText,
     situationSummary: params.situationSummary,
     recentContext: params.recentContext,
   });
-  const model = selectJournalReasoningModel(params.entryText);
+  const modelSpec = selectJournalReasoningModel(params.entryText);
 
-  const response = await openai.responses.parse({
-    model,
-    input: [
+  const result = await parrotAI.generateStructured<Call1cOutput>({
+    modelSpec,
+    messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
     ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: JOURNAL_CALL1C_SCHEMA.name,
-        strict: true,
-        schema: JOURNAL_CALL1C_SCHEMA.schema,
-      },
-    },
-    reasoning: { effort: "low" },
+    schema: JOURNAL_CALL1C_SCHEMA,
+    thinking: "low",
   });
 
-  if (!response.output_parsed) {
-    throw new Error("No response from Call 1c LLM");
-  }
-
-  if (!isCall1cOutput(response.output_parsed)) {
+  if (!isCall1cOutput(result.data)) {
     throw new Error("Invalid Call 1c response structure");
   }
 
-  return { output: response.output_parsed, model };
+  return { output: result.data, model: result.model };
 }
 
 /**
@@ -279,39 +236,25 @@ export async function runTagsAndSuggestions(params: {
   entryText: string;
   call1Summary: string;
 }): Promise<Call2Output> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
   const userMessage = buildCall2UserMessage({
     entryText: params.entryText,
     call1Summary: params.call1Summary,
   });
 
-  const response = await openai.responses.parse({
-    model: MODEL,
-    input: [
+  const result = await parrotAI.generateStructured<Call2Output>({
+    messages: [
       { role: "system", content: JOURNAL_CALL2_SYSTEM_PROMPT },
       { role: "user", content: userMessage },
     ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: JOURNAL_CALL2_SCHEMA.name,
-        strict: true,
-        schema: JOURNAL_CALL2_SCHEMA.schema,
-      },
-    },
-    reasoning: { effort: "low" },
+    schema: JOURNAL_CALL2_SCHEMA,
+    thinking: "low",
   });
 
-  if (!response.output_parsed) {
-    throw new Error("No response from Call 2 LLM");
-  }
-
-  if (!isCall2Output(response.output_parsed)) {
+  if (!isCall2Output(result.data)) {
     throw new Error("Invalid Call 2 response structure");
   }
 
-  return response.output_parsed;
+  return result.data;
 }
 
 // Re-export RecentEntryContext from prompts for convenience
@@ -398,10 +341,10 @@ export async function storeJournalAIOutput(params: {
   const flatTags = flattenTags(call2.tags);
 
   const modelInfo = {
-    call1aModel: MODEL,
+    call1aModel: DEFAULT_MODEL.model,
     call1bModel: params.models.call1bModel,
     call1cModel: params.models.call1cModel,
-    call2Model: MODEL,
+    call2Model: DEFAULT_MODEL.model,
     promptVersion: PROMPT_VERSION,
   };
 

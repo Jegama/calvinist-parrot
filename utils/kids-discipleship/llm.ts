@@ -3,8 +3,8 @@
 // Handles parent shepherding reflection (Call 1) and tags/prayer suggestions (Call 2)
 
 import { createHash } from "crypto";
-import OpenAI from "openai";
 import prisma from "@/lib/prisma";
+import { parrotAI, DEFAULT_MODEL, LARGER_MODEL, type ModelSpec } from "@/lib/parrot-ai";
 import {
   type KidsCall1Output,
   type KidsCall2Output,
@@ -28,9 +28,6 @@ import {
 } from "@/utils/ageUtils";
 import type { LogCategory } from "@prisma/client";
 
-const MODEL = "gpt-5-mini";
-const LARGER_MODEL = "gpt-5.2-2025-12-11";
-
 const PROMPT_HASH = createHash("sha256")
   .update(KIDS_CALL1_SYSTEM_PROMPT)
   .update(KIDS_CALL1_USER_TEMPLATE)
@@ -53,8 +50,8 @@ const KIDS_LARGER_MODEL_MIN_WORDS = (() => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 200;
 })();
 
-function selectKidsShepherdingModel(entryText: string): string {
-  return countWords(entryText) >= KIDS_LARGER_MODEL_MIN_WORDS ? LARGER_MODEL : MODEL;
+function selectKidsShepherdingModel(entryText: string): ModelSpec {
+  return countWords(entryText) >= KIDS_LARGER_MODEL_MIN_WORDS ? LARGER_MODEL : DEFAULT_MODEL;
 }
 
 /**
@@ -134,38 +131,25 @@ export function buildPromptContext(ctx: KidsLogContext): KidsPromptContext {
 export async function runKidsCall1(
   context: KidsPromptContext
 ): Promise<{ output: KidsCall1Output; model: string }> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
   const systemPrompt = buildKidsCall1SystemPrompt(context);
   const userMessage = buildKidsCall1UserMessage(context);
-  const model = selectKidsShepherdingModel(context.entryText);
+  const modelSpec = selectKidsShepherdingModel(context.entryText);
 
-  const response = await openai.responses.parse({
-    model,
-    input: [
+  const result = await parrotAI.generateStructured<KidsCall1Output>({
+    modelSpec,
+    messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
     ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: KIDS_CALL1_SCHEMA.name,
-        strict: true,
-        schema: KIDS_CALL1_SCHEMA.schema,
-      },
-    },
-    reasoning: { effort: "low" },
+    schema: KIDS_CALL1_SCHEMA,
+    thinking: "low",
   });
 
-  if (!response.output_parsed) {
-    throw new Error("No response from Kids Call 1 LLM");
-  }
-
-  if (!isKidsCall1Output(response.output_parsed)) {
+  if (!isKidsCall1Output(result.data)) {
     throw new Error("Invalid Kids Call 1 response structure");
   }
 
-  return { output: response.output_parsed, model };
+  return { output: result.data, model: result.model };
 }
 
 /**
@@ -175,36 +159,22 @@ export async function runKidsCall1(
 export async function runKidsCall2(
   context: KidsPromptContext & { call1Summary: string }
 ): Promise<KidsCall2Output> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
   const userMessage = buildKidsCall2UserMessage(context);
 
-  const response = await openai.responses.parse({
-    model: MODEL,
-    input: [
+  const result = await parrotAI.generateStructured<KidsCall2Output>({
+    messages: [
       { role: "system", content: KIDS_CALL2_SYSTEM_PROMPT },
       { role: "user", content: userMessage },
     ],
-    text: {
-      format: {
-        type: "json_schema",
-        name: KIDS_CALL2_SCHEMA.name,
-        strict: true,
-        schema: KIDS_CALL2_SCHEMA.schema,
-      },
-    },
-    reasoning: { effort: "low" },
+    schema: KIDS_CALL2_SCHEMA,
+    thinking: "low",
   });
 
-  if (!response.output_parsed) {
-    throw new Error("No response from Kids Call 2 LLM");
-  }
-
-  if (!isKidsCall2Output(response.output_parsed)) {
+  if (!isKidsCall2Output(result.data)) {
     throw new Error("Invalid Kids Call 2 response structure");
   }
 
-  return response.output_parsed;
+  return result.data;
 }
 
 /**
@@ -261,7 +231,7 @@ export async function storeKidsAIOutput(
 ): Promise<void> {
   const modelInfo = {
     call1Model,
-    call2Model: MODEL,
+    call2Model: DEFAULT_MODEL.model,
     promptVersion: PROMPT_VERSION,
   };
   await prisma.journalEntryAI.upsert({

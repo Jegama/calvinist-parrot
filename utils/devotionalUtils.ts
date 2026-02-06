@@ -1,19 +1,12 @@
 // utils/devotionalUtils.ts
 
-import OpenAI from "openai";
 import { tavily } from "@tavily/core";
 import prisma from "@/lib/prisma";
 import * as prompts from "@/lib/prompts/core";
+import { parrotAI } from "@/lib/parrot-ai";
 
 // Initialize clients
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
-
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
-
-// Constants
-const MAIN_MODEL = "gpt-5-mini";
 
 // Schema definition
 const devotionalSchema = {
@@ -145,29 +138,19 @@ export async function generateDevotional(date: Date) {
     // System prompt
     const coreSysPrompt = prompts.CORE_SYS_PROMPT.replace("{denomination}", prompts.secondary_reformed_baptist);
     
-    // Call OpenAI API
-    const response = await openai.chat.completions.create({
-        model: MAIN_MODEL,
+    // Call LLM via ParrotAI
+    const result = await parrotAI.generateStructured<{
+        title: string;
+        bible_verse: string;
+        devotional: string;
+    }>({
         messages: [
             { role: "system", content: coreSysPrompt },
             { role: "user", content: userPrompt },
         ],
-        response_format: {
-            type: "json_schema",
-            json_schema: devotionalSchema,
-        },
+        schema: devotionalSchema,
     });
 
-    if (!response.choices?.[0]?.message?.content) {
-        throw new Error("Failed to generate devotional");
-    }
-
-    // Parse the response
-    try {
-        return JSON.parse(response.choices[0].message.content);
-    } catch (jsonError) {
-        console.error("Error parsing JSON:", jsonError);
-        throw new Error("Failed to parse devotional response");
-    }
+    return result.data;
 }
 
