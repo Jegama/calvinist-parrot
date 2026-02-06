@@ -78,7 +78,7 @@ Prisma schema in `prisma/schema.prisma`. Key tables:
 
 ## Theological Guidelines
 
-All AI content must align with `docs/Master prompt.md`:
+All AI content must align with `docs/theology/Master prompt.md`:
 
 **Core Doctrines (non-negotiable):** Trinity, Scripture authority, Christ's deity, Gospel, Justification by faith, Resurrection
 

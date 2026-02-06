@@ -119,7 +119,7 @@ Examples: `/journal`, `/prayer-tracker`, `/church-finder`, `/llm-evaluation-dash
 - Prefer Tailwind classes `font-sans` and `font-serif` when overriding in components; these map to the CSS variables.
 
 ## Content & Prompt Style
-- When writing or editing prompts, UI copy, or any website text, always consult the doctrinal and voice guide in `docs/Master prompt.md` to ensure alignment with tone, citations, and theological boundaries.
+- When writing or editing prompts, UI copy, or any website text, always consult the doctrinal and voice guide in `docs/theology/Master prompt.md` to ensure alignment with tone, citations, and theological boundaries.
 - Keep content consistent with the essentials/secondary/tertiary distinctions, pastoral tone, safety guardrails, and Scripture citation format described there.
 - If a requested change appears to conflict with those guidelines, note the concern in your PR or ask for clarification before proceeding.
 
