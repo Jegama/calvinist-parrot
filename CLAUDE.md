@@ -100,7 +100,7 @@ Use CSS variables from `app/globals.css`, not hardcoded colors:
 
 Typography: Inter (body via `font-sans`), Source Serif 4 (headings via `font-serif`).
 
-Reference `docs/CP Ministries/Design System.md` and `docs/CP Ministries/Color System Mapping.md` for detailed guidelines.
+Reference `docs/design/Design System.md` and `docs/design/Color System Mapping.md` for detailed guidelines.
 
 ## Rules for Code Generation
 
