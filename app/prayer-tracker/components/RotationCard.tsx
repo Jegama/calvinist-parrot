@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { BibleVerse } from "@/components/BibleVerse";
 import { Rotation, Member } from "../types";
 import { formatRelative, formatTimeSince } from "../utils";
 
@@ -47,35 +48,44 @@ export function RotationCard({
   onCancelRotation,
   onConfirmRotation,
 }: RotationCardProps) {
+  // Check if user has other household members (assuming current user is always 1)
+  const hasHouseholdMembers = members.length > 1;
+
   return (
     <Card>
       <CardHeader className="space-y-2">
         <CardTitle className="text-2xl font-serif">Tonight&apos;s Rotation</CardTitle>
-        <CardDescription>
-          We lean on this rotation during family worship, keeping our prayers intentional and making sure each household
-          we love is lifted before the Lord together (Deuteronomy 6:6-7; Psalm 78:4-7).
-        </CardDescription>
+        {/* Hide description in active mode to save mobile space and reduce cognitive load */}
+        {!rotation && (
+          <CardDescription>
+            We use this rotation to ensure every household is lifted before the Lord on a regular basis, keeping our prayers intentional (<BibleVerse reference="Deuteronomy 6:6-7" />; <BibleVerse reference="Psalm 78:4-7" />).
+          </CardDescription>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="space-y-3 rounded-2xl border border-primary/10 bg-muted/30 p-4">
-          <p className="text-sm text-muted-foreground">
-            {rotation
-              ? "Confirm the assignments below, then mark the night complete when you finish praying."
-              : "Generate a rotation to see suggested families and prayer requests for tonight."}
-          </p>
-        </div>
+        {/* Helper layout for empty state */}
+        {!rotation && (
+          <div className="space-y-3 rounded-2xl border border-primary/10 bg-muted/30 p-4">
+            <p className="text-sm text-muted-foreground">
+              Tap <strong>Prepare Tonight&apos;s Rotation</strong> above to bring forward families and requests for this evening.
+            </p>
+          </div>
+        )}
 
         {!rotation ? (
-          <p className="text-sm text-muted-foreground">
-            Invite your spouse or household members from the profile page so everyone can share the load.
-          </p>
+          // Conditional instruction: only prompt to invite if they are alone
+          !hasHouseholdMembers && (
+            <p className="text-sm text-muted-foreground italic">
+              Tip: Family worship is sweeter together. Invite your spouse or household members from the Profile page to share the load.
+            </p>
+          )
         ) : (
           <>
             <div className="space-y-4">
+              {/* Simplified header for active state */}
               <div className="space-y-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Families</p>
-                <h3 className="text-base font-serif text-foreground">Intercede for each household</h3>
-                <p className="text-sm text-muted-foreground">Select who will lead prayer for each family tonight.</p>
+                <h3 className="text-lg font-serif font-medium text-foreground">Family Intercession</h3>
+                <p className="text-sm text-muted-foreground">Confirm the assignments below, then mark as prayed when you finish.</p>
               </div>
               {rotation.families.length === 0 ? (
                 <p className="text-sm text-muted-foreground">You don&apos;t have any family cards yet.</p>
@@ -93,10 +103,10 @@ export function RotationCard({
                         style={
                           memberColor
                             ? {
-                                borderLeftColor: memberColor,
-                                borderLeftWidth: 4,
-                                borderLeftStyle: "solid",
-                              }
+                              borderLeftColor: memberColor,
+                              borderLeftWidth: 4,
+                              borderLeftStyle: "solid",
+                            }
                             : undefined
                         }
                       >
@@ -139,7 +149,7 @@ export function RotationCard({
                             onValueChange={(value) => onFamilyAssignmentChange(family.id, value)}
                           >
                             <SelectTrigger className="w-full md:w-[220px]">
-                              <SelectValue placeholder="Who will pray tonight?" />
+                              <SelectValue placeholder="Who is leading?" />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="skip">Skip tonight</SelectItem>
@@ -162,11 +172,8 @@ export function RotationCard({
 
             <div className="space-y-4">
               <div className="space-y-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                  Personal Requests
-                </p>
-                <h3 className="text-base font-serif text-foreground">Our household petitions</h3>
-                <p className="text-sm text-muted-foreground">Deselect any requests you&apos;re postponing tonight.</p>
+                <h3 className="text-lg font-serif font-medium text-foreground">Our Household Requests</h3>
+                <p className="text-sm text-muted-foreground">Uncheck any petitions you wish to postpone.</p>
               </div>
               {rotation.personal.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No active personal requests yet.</p>

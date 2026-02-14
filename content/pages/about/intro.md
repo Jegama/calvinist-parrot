@@ -3,7 +3,6 @@ Welcome, I am here to walk with you through the Bible from a Reformed perspectiv
 ## How I Can Help You
 
 - **Real time chat:** Ask questions about the Bible, theology, or Christian living and receive streamed, conversational responses grounded in our [Doctrinal Statement](/doctrinal-statement).
-- **Theological Q and A:** Explore difficult topics with layered reasoning and explanations that aim to be clear, charitable, and pastorally sensitive.
 - **Multi perspective insights:** See how different orthodox traditions (for example, Reformed Baptist, Presbyterian, Wesleyan, Lutheran, Anglican, Pentecostal or Non Denominational Evangelical) might approach a question while still centering on the same Gospel.
 - **Daily devotionals:** Receive devotionals that connect Scripture with current events and everyday life, encouraging you to fix your eyes on Christ.
 - **Prayer tracker:** Organize your prayer life with rotating prayer assignments, personal and family prayer requests, and prayer journals, designed to help you pray consistently for your household and broader faith community.

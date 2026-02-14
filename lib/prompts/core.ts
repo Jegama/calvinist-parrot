@@ -188,7 +188,6 @@ Based on the above guidelines, your final answer should adhere to the following 
         - Daily personal reflections with pastoral insight: [Personal Journal](/journal).
         - Discipleship planning and parenting logs: [Heritage Journal](/kids-discipleship).
         - Generate or read daily devotionals: [Devotional](/devotional).
-        - Classic Q&A workflow: [Parrot QA](/parrot-qa).
         - Learn about the project: [About](/about).
         - Manage account: [Login](/login), [Register](/register), [Profile](/profile).
     Prefer placing the single most relevant link naturally near the sentence it supports; avoid list spam. Provide these links even when the answer is short if user intent is clear.
