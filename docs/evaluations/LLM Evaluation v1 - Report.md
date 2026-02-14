@@ -2,8 +2,8 @@
 
 **Date:** February 2026
 **Eval Framework:** v1
-**Dashboard:** [/llm-evaluation-dashboard](/llm-evaluation-dashboard)
-**Framework:** [/llm-evaluation-dashboard/framework](/llm-evaluation-dashboard/framework)
+**Status:** Archived (Replaced by v2)
+**Framework:** [v1 Framework Document](evaluation-framework-v1.md)
 
 ---
 
@@ -266,9 +266,9 @@ If curious whether Gemini 3 Flash is a better cross-validator than Gemini 2.5 Fl
 | Phase | Timing | Runs | What It Answers |
 |---|---|:---:|---|
 | ~~v1 completion~~ | ~~Done~~ | ~~3~~ | ~~Fill remaining v1 gaps~~ **Complete** |
-| v2 Phase 1 | After v2 rubric | 8 | Does the new rubric break the ceiling? What are v1.0 prompt scores under v2? |
+| ~~v2 Phase 1~~ | ~~Done~~ | ~~8~~ | ~~Does the new rubric break the ceiling?~~ **Complete** |
 | v2 Phase 2 | After v1.1 prompt | 4+ | How much did v1.1 improve things? |
-| Judge spot-check | Optional | 2 | Is Gemini 3 Flash a better cross-validator? |
+| ~~Judge spot-check~~ | ~~Done~~ | ~~2~~ | ~~Is Gemini 3 Flash a better cross-validator?~~ **Complete** |
 | **Total** | | **17+** | |
 
 ### Dashboard Update Plan
@@ -289,4 +289,4 @@ The dashboard will **not be updated until v1.1 prompt results are in**. At that 
 
 ## Raw Data
 
-The full evaluation data is available at `content/data/api_evals_comparison.csv`. The interactive dashboard is at [/llm-evaluation-dashboard](/llm-evaluation-dashboard).
+The archived v1 evaluation data is available at `content/data/api_evals_comparison_v1.csv`.
