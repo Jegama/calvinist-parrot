@@ -15,6 +15,10 @@ interface PromptDeltaBarProps {
 }
 
 export function PromptDeltaBar({ data }: PromptDeltaBarProps) {
+  const allValues = data.flatMap((d) => [d.v1, d.baseline]);
+  const minVal = allValues.length > 0 ? Math.min(...allValues) : 0;
+  const domainMin = Math.floor(minVal ) - 0.1;
+
   return (
     <div className="h-80 w-full min-w-0">
       <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
@@ -29,7 +33,7 @@ export function PromptDeltaBar({ data }: PromptDeltaBarProps) {
             height={60}
           />
           <YAxis
-            domain={[3.5, 5]}
+            domain={[domainMin, 5]}
             tick={{ fill: "hsl(var(--foreground))" }}
             label={{
               value: "Score (out of 5)",

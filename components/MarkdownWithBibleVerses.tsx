@@ -2,6 +2,8 @@
 
 import React from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import { BibleVerse } from './BibleVerse';
 import { extractReferences } from '@/utils/bibleUtils';
 
@@ -80,6 +82,30 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
       </li>
     ),
     strong: ({ ...props }) => <strong className="font-semibold" {...props} />,
+    table: ({ children, ...props }) => (
+      <div className="my-6 w-full overflow-x-auto">
+        <table className="w-full text-sm" {...props}>
+          {children}
+        </table>
+      </div>
+    ),
+    thead: ({ ...props }) => <thead className="[&_tr]:border-b" {...props} />,
+    tbody: ({ ...props }) => <tbody className="[&_tr:last-child]:border-0" {...props} />,
+    tr: ({ ...props }) => <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted" {...props} />,
+    th: ({ children, ...props }) => (
+      <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0" {...props}>
+        {React.Children.map(children, (child, index) => (
+          <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
+        ))}
+      </th>
+    ),
+    td: ({ children, ...props }) => (
+      <td className="p-2 align-middle [&:has([role=checkbox])]:pr-0" {...props}>
+        {React.Children.map(children, (child, index) => (
+          <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
+        ))}
+      </td>
+    ),
   };
   
   const customComponents: Components = {
@@ -118,6 +144,14 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
     },
   };
 
-  return <ReactMarkdown components={customComponents}>{sanitizedContent}</ReactMarkdown>;
+  return (
+        <ReactMarkdown 
+          remarkPlugins={[remarkGfm]} 
+          rehypePlugins={[rehypeRaw]}
+          components={customComponents}
+        >
+          {sanitizedContent}
+        </ReactMarkdown>
+      );
 }
 
