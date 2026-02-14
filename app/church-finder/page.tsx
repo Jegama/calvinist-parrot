@@ -49,10 +49,20 @@ function ChurchFinderClient() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [discoveryOpen, setDiscoveryOpen] = useState(false);
   const filtersContainerRef = useRef<HTMLDivElement | null>(null);
+  const discoveryRef = useRef<HTMLDivElement | null>(null);
   const [mapHeight, setMapHeight] = useState<number | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+
+  const handleScrollToDiscovery = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setDiscoveryOpen(true);
+    // Slight delay to ensure the collapsible has started opening before scrolling
+    setTimeout(() => {
+      discoveryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  }, []);
 
   const updateMapHeight = useCallback((next: number) => {
     if (!Number.isFinite(next) || next <= 0) {
@@ -298,8 +308,14 @@ function ChurchFinderClient() {
         <h1 className="text-3xl font-serif font-bold text-foreground mb-2">Church Finder</h1>
         <p className="text-muted-foreground mb-4">
           We&apos;re building a community-maintained directory to help believers find churches anchored in the Gospel
-          and the essentials of the faith. Filter by location and denominational distinctives, and contribute by adding
-          churches so others can benefit.
+          and the essentials of the faith. Filter by location and denominational distinctives, and contribute by{" "}
+          <button
+            onClick={handleScrollToDiscovery}
+            className="text-primary font-medium underline underline-offset-4 hover:text-primary/80 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-sm"
+          >
+            adding churches
+          </button>{" "}
+          so others can benefit.
         </p>
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
           <Button variant="outline" asChild className="w-full sm:w-auto">
@@ -392,7 +408,7 @@ function ChurchFinderClient() {
       </div>
 
       {/* Discovery Panel - moved to bottom for crowd-sourced contribution */}
-      <div className="mt-8">
+      <div className="mt-8" ref={discoveryRef}>
         <Collapsible open={discoveryOpen} onOpenChange={setDiscoveryOpen} className="lg:open">
           <CollapsibleTrigger asChild className="lg:hidden">
             <Button variant="outline" className="w-full flex items-center justify-between mb-4">

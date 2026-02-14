@@ -2,8 +2,8 @@
 
 **Date:** February 2026
 **Eval Framework:** v1
-**Dashboard:** [/llm-evaluation-dashboard](/llm-evaluation-dashboard)
-**Framework:** [/llm-evaluation-dashboard/framework](/llm-evaluation-dashboard/framework)
+**Status:** Archived (Replaced by v2)
+**Framework:** [v1 Framework Document](evaluation-framework-v1.md)
 
 ---
 
@@ -200,93 +200,6 @@ A **v2 evaluation framework** is planned to address this by:
 
 ---
 
-## Current Eval Coverage Matrix (v1)
-
-| Gen Model | GPT-5 Mini Judge | Gemini 2.5 Flash Judge | Claude Haiku Judge | Baseline |
-|---|:---:|:---:|:---:|:---:|
-| Gemini 2.5 Flash | v1 | v1 | v1 | v1 |
-| Gemini 3 Flash | v1 | v1 | v1 | v1 |
-| GPT-5 Mini | v1 | v1 | v1 | v1 |
-| Grok 4.1 Fast | v1 | v1 | v1 | v1 |
-| Claude Haiku 4.5 | v1 | v1 | v1 | v1 |
-| Gemini 2.0 Flash | v1 | — | — | — |
-| GPT-4.1 Mini | v1 | — | — | — |
-| Grok 3 Mini | v1 | — | — | — |
-
----
-
-## v2 Evaluation Roadmap
-
-### Key Decision: Single Judge for v2
-
-The v1 multi-judge experiment answered its question: **GPT-5 Mini is the best judge.** Gemini 2.5 Flash inflates by ~0.15-0.20, Claude Haiku 4.5 inflates by ~0.10-0.15, and the relative ranking of models never changes across judges. Continuing to triple-judge every run provides diminishing returns at 3x the cost.
-
-**v2 will use GPT-5 Mini as the sole judge.** If desired, a one-time spot-check with Gemini 3 Flash as judge (2 runs) can verify the pattern still holds under the new rubric.
-
-### v2 Eval Plan
-
-The v2 framework focuses on the **latest model per provider** only. Older models (Gemini 2.0/2.5 Flash, GPT-4.1 Mini, Grok 3 Mini) are already proven weaker under v1 and will likely be superseded by the time prompt v1.1 is ready.
-
-**Phase 1: v2 Rubric Validation** — Run immediately after v2 framework is designed.
-
-| Gen Model | v2 + v1.0 Prompt | v2 Baseline (no prompt) |
-|---|:---:|:---:|
-| Gemini 3 Flash | GPT-5 Mini judge | GPT-5 Mini judge |
-| GPT-5 Mini | GPT-5 Mini judge | GPT-5 Mini judge |
-| Claude Haiku 4.5 | GPT-5 Mini judge | GPT-5 Mini judge |
-| Grok 4.1 Fast | GPT-5 Mini judge | GPT-5 Mini judge |
-
-**Phase 1 total: 8 runs**
-
-Purpose: Establish v2 scores for current v1.0 prompt AND vanilla baselines. This creates the reference points for measuring v1.1 improvement. Also serves as a rubric validation — if Adherence/Kindness scores are still near-ceiling, the v2 rubric needs more iteration before investing in v1.1 testing.
-
-**Phase 2: v1.1 Prompt Evaluation** — Run after prompt v1.1 is designed (months later).
-
-| Gen Model | v2 + v1.1 Prompt |
-|---|:---:|
-| *Latest model per provider at that time* | GPT-5 Mini judge |
-
-Purpose: Measure v1.1 improvement. Compare against Phase 1 v1.0 scores. If new models have been released by providers, test those instead and add fresh baselines. The v2 framework carries over; the models are the variable.
-
-**Phase 2 total: 4 runs** (+ baselines for any new models)
-
-### Optional: Judge Spot-Check (one-time)
-
-If curious whether Gemini 3 Flash is a better cross-validator than Gemini 2.5 Flash:
-
-| Gen Model | Gemini 3 Flash Judge |
-|---|:---:|
-| GPT-5 Mini | v2 |
-| Grok 4.1 Fast | v2 |
-
-**Spot-check total: 2 runs**
-
-### Full Roadmap Summary
-
-| Phase | Timing | Runs | What It Answers |
-|---|---|:---:|---|
-| ~~v1 completion~~ | ~~Done~~ | ~~3~~ | ~~Fill remaining v1 gaps~~ **Complete** |
-| v2 Phase 1 | After v2 rubric | 8 | Does the new rubric break the ceiling? What are v1.0 prompt scores under v2? |
-| v2 Phase 2 | After v1.1 prompt | 4+ | How much did v1.1 improve things? |
-| Judge spot-check | Optional | 2 | Is Gemini 3 Flash a better cross-validator? |
-| **Total** | | **17+** | |
-
-### Dashboard Update Plan
-
-The dashboard will **not be updated until v1.1 prompt results are in**. At that point, the dashboard will show v2 framework scores with the full v1.0 → v1.1 progression story and whatever the latest models are per provider.
-
----
-
-## Score Reference
-
-| Score | Meaning |
-|:---:|---------|
-| **5.0** | Perfect — Strong doctrinal faithfulness, gentle pastoral tone, clear Gospel presentation |
-| **4.0-4.9** | Strong — Minor issues in nuance, tone, or interfaith sensitivity but generally reliable |
-| **Below 4.0** | Needs significant theological guidance |
-
----
-
 ## Raw Data
 
-The full evaluation data is available at `content/data/api_evals_comparison.csv`. The interactive dashboard is at [/llm-evaluation-dashboard](/llm-evaluation-dashboard).
+The archived v1 evaluation data is available at `content/data/api_evals_comparison_v1.csv`.

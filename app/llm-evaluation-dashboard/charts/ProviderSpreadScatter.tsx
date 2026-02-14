@@ -25,6 +25,13 @@ interface ProviderSpreadScatterProps {
 }
 
 export function ProviderSpreadScatter({ data }: ProviderSpreadScatterProps) {
+  // Compute domain from data with 0.2 padding
+  const allValues = data.flatMap((d) => [d.min, d.max]);
+  const dataMin = allValues.length > 0 ? Math.min(...allValues) + 0.2 : 3.5;
+  const dataMax = allValues.length > 0 ? Math.max(...allValues) - 0.2 : 5;
+  const domainLow = Math.floor((dataMin - 0.2) * 10) / 10;
+  const domainHigh = Math.ceil((dataMax + 0.2) * 10) / 10;
+
   return (
     <div className="w-full min-w-0">
       <div className="h-[320px] sm:h-[380px] md:h-[440px] lg:h-[500px]">
@@ -35,7 +42,7 @@ export function ProviderSpreadScatter({ data }: ProviderSpreadScatterProps) {
             type="number"
             dataKey="max"
             name="Best Model Score"
-            domain={[4.5, 4.9]}
+            domain={[domainLow, domainHigh]}
             tick={{ fill: "hsl(var(--foreground))" }}
             label={{
               value: "→ Best Model Score (Higher = Better)",
@@ -49,7 +56,7 @@ export function ProviderSpreadScatter({ data }: ProviderSpreadScatterProps) {
             type="number"
             dataKey="min"
             name="Worst Model Score"
-            domain={[4.5, 4.9]}
+            domain={[domainLow, domainHigh]}
             tick={{ fill: "hsl(var(--foreground))" }}
             tickFormatter={(val) => val.toFixed(2)}
             label={{

@@ -1,12 +1,13 @@
 import React from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { COLORS } from "../constants";
+import type { JudgeInfo } from "../hooks/use-dashboard-metrics";
 
 interface JudgeBiasBarProps {
-  data: Array<{ model: string; gptJudge: number; geminiJudge: number; claudeJudge: number }>;
+  data: Array<Record<string, string | number>>;
+  judges: JudgeInfo[];
 }
 
-export function JudgeBiasBar({ data }: JudgeBiasBarProps) {
+export function JudgeBiasBar({ data, judges }: JudgeBiasBarProps) {
   return (
     <div className="h-80 w-full min-w-0">
       <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
@@ -20,7 +21,7 @@ export function JudgeBiasBar({ data }: JudgeBiasBarProps) {
             height={80}
           />
           <YAxis
-            domain={[4, 5]}
+            domain={[3, 5]}
             tick={{ fill: "hsl(var(--foreground))" }}
             label={{
               value: "Score (out of 5)",
@@ -40,35 +41,22 @@ export function JudgeBiasBar({ data }: JudgeBiasBarProps) {
             cursor={{ fill: "transparent", stroke: "hsl(var(--border))", strokeWidth: 2 }}
             formatter={(value: number, _name, entry) => {
               const dataKey = (entry as { dataKey?: string })?.dataKey;
-              const judgeLabel =
-                dataKey === "gptJudge"
-                  ? "Graded by GPT-5 Mini (OpenAI)"
-                  : dataKey === "geminiJudge"
-                    ? "Graded by Gemini 2.5 Flash (Google)"
-                    : "Graded by Claude Haiku 4.5 (Anthropic)";
+              const judge = judges.find((j) => j.key === dataKey);
+              const judgeLabel = judge?.name ?? `Judge: ${dataKey}`;
               return [value > 0 ? `${value.toFixed(2)} / 5.0` : "N/A", judgeLabel];
             }}
             labelFormatter={(label) => `Model: ${label}`}
           />
           <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="circle" />
-          <Bar
-            name="Graded by GPT-5 Mini (OpenAI)"
-            dataKey="gptJudge"
-            fill={COLORS.openai}
-            radius={[4, 4, 0, 0]}
-          />
-          <Bar
-            name="Graded by Gemini 2.5 Flash (Google)"
-            dataKey="geminiJudge"
-            fill={COLORS.google}
-            radius={[4, 4, 0, 0]}
-          />
-          <Bar
-            name="Graded by Claude Haiku 4.5 (Anthropic)"
-            dataKey="claudeJudge"
-            fill={COLORS.anthropic}
-            radius={[4, 4, 0, 0]}
-          />
+          {judges.map((judge) => (
+            <Bar
+              key={judge.key}
+              name={judge.name}
+              dataKey={judge.key}
+              fill={judge.color}
+              radius={[4, 4, 0, 0]}
+            />
+          ))}
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -9,40 +9,73 @@ export interface BestImprovementRecord {
   v1Label: string;
 }
 
-type JudgeComparisonEntry = { model: string; gptJudge: number; geminiJudge: number; claudeJudge: number };
+export interface JudgeInfo {
+  key: string;
+  model: string;
+  name: string;
+  color: string;
+}
+
+export interface NarrativeStats {
+  winnerName: string;
+  winnerScore: string;
+  runnerUpName: string | null;
+  runnerUpScore: string | null;
+  improvementModel: string | null;
+  improvementPct: string | null;
+  modelCount: number;
+}
+
+const RADAR_LABELS: Record<string, string> = {
+  Core: "Core Doctrine",
+  Secondary: "Secondary Doctrine",
+  Tertiary_Handling: "Tertiary Handling",
+  Biblical_Basis: "Biblical Basis",
+  Consistency: "Consistency",
+  Core_Clarity_with_Kindness: "Clarity with Kindness",
+  Pastoral_Sensitivity: "Pastoral Sensitivity",
+  Secondary_Fairness: "Secondary Fairness",
+  Tertiary_Neutrality: "Tertiary Neutrality",
+  Tone: "Tone",
+  Respect_and_Handling_Objections: "Respect & Objections",
+  Objection_Acknowledgement: "Objection Awareness",
+  Evangelism: "Evangelism",
+  Gospel_Boldness: "Gospel Boldness",
+};
+
+function friendlyModelName(model: string): string {
+  return model
+    .replace("gemini-3-flash-preview", "Gemini 3 Flash")
+    .replace("gemini-2.5-flash-preview", "Gemini 2.5 Flash")
+    .replace("gpt-5-mini", "GPT-5 Mini")
+    .replace("grok-4-1-fast-reasoning", "Grok 4.1 Fast")
+    .replace("claude-haiku-4-5-20251001", "Claude Haiku 4.5")
+    .replace("claude-haiku-4-5", "Claude Haiku 4.5");
+}
+
+function shortModelName(model: string): string {
+  return model
+    .replace("-preview-09-2025", "")
+    .replace("-preview", "")
+    .replace("-reasoning", "")
+    .replace("-20251001", "");
+}
 
 export function useDashboardMetrics(data: EvaluationRecord[]) {
   const bestPerProvider = useMemo(() => {
-    const modelScores: Record<
-      string,
-      { Provider: string; Gen_Model: string; System_Prompt_Label: string; total: number; count: number }
-    > = {};
+    // Final_Overall is a single pre-computed score per model config — no averaging needed
+    const finalOveralls = data
+      .filter((d) => d.Judge_Model === "gpt-5-mini" && d.subCriterion === "Final_Overall")
+      .map((d) => ({
+        Provider: d.Provider,
+        Gen_Model: d.Gen_Model,
+        System_Prompt_Label: d.System_Prompt_Label,
+        score: d.value,
+      }));
 
-    data
-      .filter((d) => d.Judge_Model === "gpt-5-mini" && d.subCriterion === "Overall")
-      .forEach((d) => {
-        const key = `${d.Gen_Model}-${d.System_Prompt_Label}`;
-        if (!modelScores[key]) {
-          modelScores[key] = {
-            Provider: d.Provider,
-            Gen_Model: d.Gen_Model,
-            System_Prompt_Label: d.System_Prompt_Label,
-            total: 0,
-            count: 0,
-          };
-        }
-        modelScores[key].total += d.value;
-        modelScores[key].count += 1;
-      });
-
-    const trueOveralls = Object.values(modelScores).map((m) => ({
-      ...m,
-      avgScore: (m.total / m.count).toFixed(2),
-    }));
-
-    const maxes: Record<string, (typeof trueOveralls)[0]> = {};
-    trueOveralls.forEach((m) => {
-      if (!maxes[m.Provider] || parseFloat(m.avgScore) > parseFloat(maxes[m.Provider].avgScore)) {
+    const maxes: Record<string, (typeof finalOveralls)[0]> = {};
+    finalOveralls.forEach((m) => {
+      if (!maxes[m.Provider] || m.score > maxes[m.Provider].score) {
         maxes[m.Provider] = m;
       }
     });
@@ -51,7 +84,7 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
       provider: m.Provider,
       model: m.Gen_Model,
       promptLabel: m.System_Prompt_Label,
-      score: parseFloat(m.avgScore),
+      score: parseFloat(m.score.toFixed(2)),
       fill: COLORS[m.Provider],
     }));
 
@@ -59,35 +92,28 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
   }, [data]);
 
   const promptDelta = useMemo(() => {
-    const overallScores = data.filter(
-      (d) => d.Judge_Model === "gpt-5-mini" && d.subCriterion === "Overall"
+    const finalOveralls = data.filter(
+      (d) => d.Judge_Model === "gpt-5-mini" && d.subCriterion === "Final_Overall"
     );
 
-    const models = Array.from(new Set(overallScores.map((d) => d.Gen_Model)));
+    const models = Array.from(new Set(finalOveralls.map((d) => d.Gen_Model)));
 
     return models
       .reduce<Array<{ model: string; provider: string; v1: number; baseline: number }>>((acc, model) => {
-        const v1Scores = overallScores.filter(
+        const v1 = finalOveralls.find(
           (d) => d.Gen_Model === model && d.System_Prompt_Label === "v1_0"
         );
-        const baselineScores = overallScores.filter(
+        const baseline = finalOveralls.find(
           (d) => d.Gen_Model === model && d.System_Prompt_Label === "baseline"
         );
 
-        if (v1Scores.length === 0 || baselineScores.length === 0) return acc;
-
-        const v1Avg = v1Scores.reduce((sum, d) => sum + d.value, 0) / v1Scores.length;
-        const baselineAvg = baselineScores.reduce((sum, d) => sum + d.value, 0) / baselineScores.length;
+        if (!v1 || !baseline) return acc;
 
         acc.push({
-          model: model
-            .replace("-preview-09-2025", "")
-            .replace("-preview", "")
-            .replace("-reasoning", "")
-            .replace("-20251001", ""),
-          provider: v1Scores[0].Provider,
-          v1: parseFloat(v1Avg.toFixed(2)),
-          baseline: parseFloat(baselineAvg.toFixed(2)),
+          model: shortModelName(model),
+          provider: v1.Provider,
+          v1: parseFloat(v1.value.toFixed(2)),
+          baseline: parseFloat(baseline.value.toFixed(2)),
         });
 
         return acc;
@@ -100,42 +126,28 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
   }, [data]);
 
   const bestImprovement = useMemo<BestImprovementRecord | null>(() => {
-    const scoresByKey: Record<
-      string,
-      { Gen_Model: string; System_Prompt_Label: string; total: number; count: number }
-    > = {};
+    const finalOveralls = data
+      .filter((d) => d.Judge_Model === "gpt-5-mini" && d.subCriterion === "Final_Overall")
+      .map((d) => ({
+        model: d.Gen_Model,
+        prompt: d.System_Prompt_Label,
+        score: d.value,
+      }));
 
-    data
-      .filter((d) => d.Judge_Model === "gpt-5-mini" && d.subCriterion === "Overall")
-      .forEach((d) => {
-        const key = `${d.Gen_Model}-${d.System_Prompt_Label}`;
-        if (!scoresByKey[key]) {
-          scoresByKey[key] = { Gen_Model: d.Gen_Model, System_Prompt_Label: d.System_Prompt_Label, total: 0, count: 0 };
-        }
-        scoresByKey[key].total += d.value;
-        scoresByKey[key].count += 1;
-      });
-
-    const allScores = Object.values(scoresByKey).map((s) => ({
-      model: s.Gen_Model,
-      prompt: s.System_Prompt_Label,
-      score: s.total / s.count,
-    }));
-
-    const models = Array.from(new Set(allScores.map((s) => s.model)));
+    const models = Array.from(new Set(finalOveralls.map((s) => s.model)));
     let maxDelta = -1;
     let bestRecord: BestImprovementRecord | null = null;
 
     models.forEach((m) => {
-      const baseline = allScores.find((s) => s.model === m && s.prompt === "baseline");
-      const v1 = allScores.find((s) => s.model === m && s.prompt === "v1_0");
+      const baseline = finalOveralls.find((s) => s.model === m && s.prompt === "baseline");
+      const v1 = finalOveralls.find((s) => s.model === m && s.prompt === "v1_0");
 
       if (baseline && v1) {
         const delta = ((v1.score - baseline.score) / baseline.score) * 100;
         if (delta > maxDelta) {
           maxDelta = delta;
           bestRecord = {
-            model: m.replace("-preview-09-2025", "").replace("-reasoning", ""),
+            model: shortModelName(m),
             delta: delta.toFixed(0),
             baselineLabel: "baseline",
             v1Label: "v1_0",
@@ -147,63 +159,86 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
     return bestRecord;
   }, [data]);
 
-  const judgeComparison = useMemo(() => {
-    const models = Array.from(new Set(data.map((d) => d.Gen_Model)));
+  // Detect available judges from data
+  const availableJudges = useMemo<JudgeInfo[]>(() => {
+    const judges = Array.from(
+      new Set(
+        data
+          .filter((d) => d.subCriterion === "Final_Overall")
+          .map((d) => d.Judge_Model)
+      )
+    ).filter(Boolean);
 
-    const comparisonData = models.reduce<JudgeComparisonEntry[]>((acc, model) => {
-      const gptJudgeScores = data.filter(
-        (d) => d.Gen_Model === model && d.Judge_Model === "gpt-5-mini" && d.System_Prompt_Label === "v1_0" && d.subCriterion === "Overall"
-      );
-      const geminiJudgeScores = data.filter(
-        (d) =>
-          d.Gen_Model === model && d.Judge_Model === "gemini-2.5-flash-preview-09-2025" && d.System_Prompt_Label === "v1_0" && d.subCriterion === "Overall"
-      );
-      const claudeJudgeScores = data.filter(
-        (d) =>
-          d.Gen_Model === model && d.Judge_Model === "claude-haiku-4-5-20251001" && d.System_Prompt_Label === "v1_0" && d.subCriterion === "Overall"
-      );
-
-      // Require at least two judges to include the model
-      const hasGpt = gptJudgeScores.length > 0;
-      const hasGemini = geminiJudgeScores.length > 0;
-      const hasClaude = claudeJudgeScores.length > 0;
-      if ([hasGpt, hasGemini, hasClaude].filter(Boolean).length < 2) return acc;
-
-      const avg = (scores: typeof gptJudgeScores) =>
-        scores.length > 0
-          ? parseFloat((scores.reduce((sum, curr) => sum + curr.value, 0) / scores.length).toFixed(2))
-          : 0;
-
-      acc.push({
-        model: model.replace("-preview-09-2025", "").replace("-reasoning", "").replace("-20251001", ""),
-        gptJudge: avg(gptJudgeScores),
-        geminiJudge: avg(geminiJudgeScores),
-        claudeJudge: avg(claudeJudgeScores),
-      });
-
-      return acc;
-    }, []);
-
-    return comparisonData;
+    return judges.map((j) => ({
+      key:
+        j === "gpt-5-mini"
+          ? "gptJudge"
+          : j === "gemini-3-flash-preview"
+            ? "geminiJudge"
+            : j.replace(/[^a-zA-Z0-9]/g, "") + "Judge",
+      model: j,
+      name:
+        j === "gpt-5-mini"
+          ? "Graded by GPT-5 Mini (OpenAI)"
+          : j === "gemini-3-flash-preview"
+            ? "Graded by Gemini 3 Flash (Google)"
+            : `Graded by ${j}`,
+      color:
+        j === "gpt-5-mini"
+          ? COLORS.openai
+          : j === "gemini-3-flash-preview"
+            ? COLORS.google
+            : COLORS.anthropic,
+    }));
   }, [data]);
 
-  const providerSpread = useMemo(() => {
-    const modelScores: Record<string, { Provider: string; Gen_Model: string; total: number; count: number }> = {};
-    data
-      .filter((d) => d.Judge_Model === "gpt-5-mini" && d.System_Prompt_Label === "v1_0" && d.subCriterion === "Overall")
-      .forEach((d) => {
-        if (!modelScores[d.id]) {
-          modelScores[d.id] = { Provider: d.Provider, Gen_Model: d.Gen_Model, total: 0, count: 0 };
+  const judgeComparison = useMemo(() => {
+    const models = Array.from(
+      new Set(
+        data
+          .filter((d) => d.subCriterion === "Final_Overall" && d.System_Prompt_Label === "v1_0")
+          .map((d) => d.Gen_Model)
+      )
+    );
+
+    return models.reduce<Array<Record<string, string | number>>>((acc, model) => {
+      const entry: Record<string, string | number> = { model: shortModelName(model) };
+
+      let judgeCount = 0;
+      availableJudges.forEach((judge) => {
+        const record = data.find(
+          (d) =>
+            d.Gen_Model === model &&
+            d.Judge_Model === judge.model &&
+            d.System_Prompt_Label === "v1_0" &&
+            d.subCriterion === "Final_Overall"
+        );
+        if (record) {
+          entry[judge.key] = parseFloat(record.value.toFixed(2));
+          judgeCount++;
+        } else {
+          entry[judge.key] = 0;
         }
-        modelScores[d.id].total += d.value;
-        modelScores[d.id].count += 1;
       });
 
-    const scores = Object.values(modelScores).map((m) => ({
-      provider: m.Provider,
-      model: m.Gen_Model,
-      score: m.total / m.count,
-    }));
+      if (judgeCount >= 2) acc.push(entry);
+      return acc;
+    }, []);
+  }, [data, availableJudges]);
+
+  const providerSpread = useMemo(() => {
+    const scores = data
+      .filter(
+        (d) =>
+          d.Judge_Model === "gpt-5-mini" &&
+          d.System_Prompt_Label === "v1_0" &&
+          d.subCriterion === "Final_Overall"
+      )
+      .map((d) => ({
+        provider: d.Provider,
+        model: d.Gen_Model,
+        score: d.value,
+      }));
 
     const result = ["google", "openai", "xai", "anthropic"]
       .map((p) => {
@@ -228,36 +263,95 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
     return result;
   }, [data]);
 
-  const radarData = useMemo(() => {
-    const criteria = ["Adherence", "Kindness_and_Gentleness", "Interfaith_Sensitivity"];
-    const bestIds = bestPerProvider
-      .map((b) => {
-        const match = data.find(
-          (d) => d.Gen_Model === b.model && d.System_Prompt_Label === "v1_0" && d.Judge_Model === "gpt-5-mini"
-        );
-        return match ? match.id : null;
-      })
-      .filter(Boolean);
+  // --- 3 Radar datasets (one per evaluation category) ---
 
-    return criteria.map((crit) => {
-      const entry: Record<string, string | number> = { subject: crit.replace(/_/g, " ") };
-      bestIds.forEach((id) => {
-        if (!id) return;
-        const val = data.find((d) => d.id === id && d.criterion === crit && d.subCriterion === "Overall");
+  function buildRadarCategory(
+    criterion: string,
+    subCriteria: string[]
+  ): Array<Record<string, string | number>> {
+    return subCriteria.map((sub) => {
+      const entry: Record<string, string | number> = { subject: RADAR_LABELS[sub] || sub };
+      bestPerProvider.forEach((best) => {
+        const val = data.find(
+          (d) =>
+            d.Gen_Model === best.model &&
+            d.System_Prompt_Label === "v1_0" &&
+            d.Judge_Model === "gpt-5-mini" &&
+            d.criterion === criterion &&
+            d.subCriterion === sub
+        );
         if (val) {
-          entry[val.Provider] = val.value;
+          entry[best.provider] = val.value;
         }
       });
       return entry;
     });
-  }, [bestPerProvider, data]);
+  }
+
+  const radarAdherence = useMemo(
+    () => buildRadarCategory("Adherence", ["Core", "Secondary", "Tertiary_Handling", "Biblical_Basis", "Consistency"]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bestPerProvider, data]
+  );
+
+  const radarKindness = useMemo(
+    () =>
+      buildRadarCategory("Kindness_and_Gentleness", [
+        "Core_Clarity_with_Kindness",
+        "Pastoral_Sensitivity",
+        "Secondary_Fairness",
+        "Tertiary_Neutrality",
+        "Tone",
+      ]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bestPerProvider, data]
+  );
+
+  const radarInterfaith = useMemo(
+    () =>
+      buildRadarCategory("Interfaith_Sensitivity", [
+        "Respect_and_Handling_Objections",
+        "Objection_Acknowledgement",
+        "Evangelism",
+        "Gospel_Boldness",
+      ]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bestPerProvider, data]
+  );
+
+  // --- Narrative stats ---
+
+  const narrativeStats = useMemo<NarrativeStats | null>(() => {
+    if (bestPerProvider.length === 0) return null;
+
+    const winner = bestPerProvider[0];
+    const runnerUp = bestPerProvider.length > 1 ? bestPerProvider[1] : null;
+
+    const modelCount = new Set(
+      data.filter((d) => d.subCriterion === "Final_Overall").map((d) => d.Gen_Model)
+    ).size;
+
+    return {
+      winnerName: friendlyModelName(winner.model),
+      winnerScore: winner.score.toFixed(2),
+      runnerUpName: runnerUp ? friendlyModelName(runnerUp.model) : null,
+      runnerUpScore: runnerUp ? runnerUp.score.toFixed(2) : null,
+      improvementModel: bestImprovement ? friendlyModelName(bestImprovement.model) : null,
+      improvementPct: bestImprovement?.delta ?? null,
+      modelCount,
+    };
+  }, [bestPerProvider, bestImprovement, data]);
 
   return {
     bestPerProvider,
     promptDelta,
     bestImprovement,
+    availableJudges,
     judgeComparison,
     providerSpread,
-    radarData,
+    radarAdherence,
+    radarKindness,
+    radarInterfaith,
+    narrativeStats,
   };
 }

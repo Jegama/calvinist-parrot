@@ -13,9 +13,11 @@ import { COLORS } from "../constants";
 
 interface RadarDeepDiveProps {
   data: Array<Record<string, string | number>>;
+  title?: string;
+  domainMin?: number;
 }
 
-export function RadarDeepDive({ data }: RadarDeepDiveProps) {
+export function RadarDeepDive({ data, domainMin = 3.5 }: RadarDeepDiveProps) {
   const hasAnthropic = data.some((d) => "anthropic" in d);
 
   return (
@@ -26,9 +28,9 @@ export function RadarDeepDive({ data }: RadarDeepDiveProps) {
           <PolarAngleAxis dataKey="subject" tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontWeight: 500 }} />
           <PolarRadiusAxis
             angle={30}
-            domain={[4, 5]}
-            tick={{ fill: "hsl(var(--foreground))", fontSize: 10 }}
-            tickCount={6}
+            domain={[domainMin, 5]}
+            tick={false}
+            axisLine={{ stroke: "hsl(var(--border))" }}
           />
           <Radar
             name="Google Gemini 3 Flash"

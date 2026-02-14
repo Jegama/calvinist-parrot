@@ -138,7 +138,7 @@ function PrayerTrackerContent() {
                 disabled={rotationWorkflow.isComputing}
                 className="w-full sm:w-auto"
               >
-                {rotationWorkflow.isComputing ? "Computing..." : "Compute Tonight's Rotation"}
+                {rotationWorkflow.isComputing ? "Preparing..." : "Prepare Tonight's Rotation"}
               </Button>
             </div>
           </div>
