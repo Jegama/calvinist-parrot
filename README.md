@@ -95,7 +95,7 @@ npm run dev
 We welcome contributions! Please see our Contributing Guide for details.
 
 ## Acknowledgements
-Huge thanks to [AO Lab](https://helloaolab.my.canva.site/) for providing the Bible API with the Berean Standard Bible ([BSB](https://berean.bible/)) translation and Bible Commentaries.
+Huge thanks to [AO Lab](https://www.helloao.org/) for providing the Bible API with the Berean Standard Bible ([BSB](https://berean.bible/)) translation and Bible Commentaries.
 
 If you want to learn the legal restrictions to sharing God's word, click [here](https://copy.church/initiatives/bibles/).
 
