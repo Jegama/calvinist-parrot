@@ -1,42 +1,58 @@
 import React from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
-import { COLORS } from "../constants";
-
-const MODEL_DISPLAY_NAMES: Record<string, string> = {
-  "gemini-2.5-flash": "Gemini 2.5 Flash",
-  "gemini-3-flash": "Gemini 3 Flash",
-  "gpt-5-mini": "GPT-5 Mini",
-  "grok-4-1-fast": "Grok 4.1 Fast",
-  "claude-haiku-4-5": "Claude Haiku 4.5",
-};
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { formatModelLabel, formatPromptLabel, getProviderColor } from "../constants";
+import type { PromptDeltaRecord } from "../hooks/use-dashboard-metrics";
 
 interface PromptDeltaBarProps {
-  data: Array<{ model: string; provider: string; v1: number; baseline: number }>;
+  data: PromptDeltaRecord[];
+  promptLabels: string[];
 }
 
-export function PromptDeltaBar({ data }: PromptDeltaBarProps) {
-  const allValues = data.flatMap((d) => [d.v1, d.baseline]);
+type PromptChartDatum = {
+  provider: string;
+  model: string;
+  displayLabel: string;
+  modelLabel: string;
+} & Record<string, string | number>;
+
+function getPromptOpacity(index: number, total: number): number {
+  if (total <= 1) {
+    return 1;
+  }
+
+  return 0.35 + (index / (total - 1)) * 0.65;
+}
+
+export function PromptDeltaBar({ data, promptLabels }: PromptDeltaBarProps) {
+  const chartData: PromptChartDatum[] = data.map((entry) => ({
+    ...entry.scores,
+    provider: entry.provider,
+    model: entry.model,
+    displayLabel: entry.displayLabel,
+    modelLabel: formatModelLabel(entry.model),
+  }));
+  const allValues = chartData.flatMap((entry) => promptLabels.map((label) => entry[label]).filter((value): value is number => typeof value === "number"));
   const minVal = allValues.length > 0 ? Math.min(...allValues) : 0;
-  const domainMin = Math.floor(minVal ) - 0.1;
+  const domainMin = Math.max(0, Math.floor(minVal) - 0.1);
+  const chartHeight = Math.max(420, chartData.length * 140);
 
   return (
-    <div className="h-80 w-full min-w-0">
+    <div className="w-full min-w-0" style={{ height: chartHeight }}>
       <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
-        <BarChart data={data} barGap={8}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+        <BarChart data={chartData} layout="vertical" barGap={6} margin={{ top: 6, right: 24, bottom: 12, left: 8 }}>
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
           <XAxis
-            dataKey="model"
-            tickFormatter={(val) => MODEL_DISPLAY_NAMES[val] || val}
+            type="number"
+            domain={[domainMin, 5]}
             tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
-            angle={-30}
-            textAnchor="end"
-            height={60}
           />
           <YAxis
-            domain={[domainMin, 5]}
-            tick={{ fill: "hsl(var(--foreground))" }}
+            type="category"
+            dataKey="displayLabel"
+            width={140}
+            tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
             label={{
-              value: "Score (out of 5)",
+              value: "Provider",
               angle: -90,
               position: "insideLeft",
               style: { fill: "hsl(var(--foreground))", textAnchor: "middle" },
@@ -49,51 +65,30 @@ export function PromptDeltaBar({ data }: PromptDeltaBarProps) {
               borderColor: "hsl(var(--border))",
               color: "hsl(var(--popover-foreground))",
               borderRadius: "var(--radius)",
-              boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
+              boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
             }}
             itemStyle={{ color: "hsl(var(--popover-foreground))" }}
-            formatter={(value: number, name) => [`${value.toFixed(2)} / 5.0`, name]}
-            labelFormatter={(label) => MODEL_DISPLAY_NAMES[label] || label}
+            formatter={(value: number, name) => [`${value.toFixed(2)} / 5.0`, formatPromptLabel(String(name))]}
+            labelFormatter={(_label, payload) => payload?.[0]?.payload?.modelLabel ?? "Model"}
             cursor={{ fill: "transparent", stroke: "hsl(var(--border))", strokeWidth: 2 }}
           />
-          <Legend
-            content={() => (
-              <div className="flex justify-center gap-6 pt-5 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-muted-foreground" />
-                  <span className="text-muted-foreground">Without Instructions (Baseline)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-primary" />
-                  <span className="text-foreground">With Our Instructions (v1.0)</span>
-                </div>
-              </div>
-            )}
-          />
-          <Bar
-            name="Without Instructions (Baseline)"
-            dataKey="baseline"
-            radius={[4, 4, 0, 0]}
-          >
-            {data.map((entry, index) => (
-              <Cell
-                key={`cell-base-${index}`}
-                fill={COLORS[`${entry.provider}Light`] || "hsl(var(--muted-foreground))"}
-              />
-            ))}
-          </Bar>
-          <Bar
-            name="With Our Instructions (v1.0)"
-            dataKey="v1"
-            radius={[4, 4, 0, 0]}
-          >
-            {data.map((entry, index) => (
-              <Cell
-                key={`cell-v1-${index}`}
-                fill={COLORS[entry.provider] || "hsl(var(--primary))"}
-              />
-            ))}
-          </Bar>
+          {promptLabels.map((promptLabel, promptIndex) => (
+            <Bar
+              key={promptLabel}
+              name={formatPromptLabel(promptLabel)}
+              dataKey={promptLabel}
+              radius={[0, 4, 4, 0]}
+              barSize={20}
+            >
+              {chartData.map((entry, entryIndex) => (
+                <Cell
+                  key={`${promptLabel}-${entryIndex}`}
+                  fill={getProviderColor(entry.provider)}
+                  fillOpacity={getPromptOpacity(promptIndex, promptLabels.length)}
+                />
+              ))}
+            </Bar>
+          ))}
         </BarChart>
       </ResponsiveContainer>
     </div>

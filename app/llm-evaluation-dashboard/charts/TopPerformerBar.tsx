@@ -1,28 +1,16 @@
 import React from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, Cell } from "recharts";
-import { COLORS, PROVIDER_LABELS } from "../constants";
+import { formatModelLabel, formatPromptLabel, getProviderColor, getProviderLabel } from "../constants";
 
 interface TopPerformerBarProps {
   data: Array<{ provider: string; model: string; promptLabel: string; score: number; fill: string }>;
 }
 
 export function TopPerformerBar({ data }: TopPerformerBarProps) {
-  const getModelLabel = (model: string) =>
-    model
-      .replace("-preview-09-2025", "")
-      .replace("-preview", "")
-      .replace("-reasoning", "")
-      .replace("-20251001", "")
-      .replace("gpt-5-mini", "GPT-5 Mini")
-      .replace("gemini-2.5-flash", "Gemini 2.5 Flash")
-      .replace("gemini-3-flash", "Gemini 3 Flash")
-      .replace("grok-4-1-fast", "Grok 4.1 Fast")
-      .replace("claude-haiku-4-5", "Claude Haiku 4.5");
-
   const chartData = data.map((item) => ({
     ...item,
-    providerLabel: PROVIDER_LABELS[item.provider],
-    modelLabel: getModelLabel(item.model),
+    providerLabel: getProviderLabel(item.provider),
+    modelLabel: formatModelLabel(item.model),
   }));
 
   return (
@@ -54,13 +42,12 @@ export function TopPerformerBar({ data }: TopPerformerBarProps) {
             cursor={{ fill: "transparent", stroke: "hsl(var(--border))", strokeWidth: 2 }}
             formatter={(value: number, _name, props) => {
               const payload = props?.payload as { promptLabel?: string } | undefined;
-              const label = payload?.promptLabel ? payload.promptLabel : "Score";
+              const label = payload?.promptLabel ? formatPromptLabel(payload.promptLabel) : "Score";
               return [`${value.toFixed(2)} / 5.0`, label];
             }}
             labelFormatter={(provider, payload) => {
               const item = payload?.[0]?.payload;
-              const model = item?.modelLabel;
-              return model ? `${PROVIDER_LABELS[provider]} — ${model}` : PROVIDER_LABELS[provider];
+              return item?.modelLabel ?? provider;
             }}
             labelStyle={{ fontWeight: "bold", color: "hsl(var(--foreground))" }}
             itemStyle={{ color: "hsl(var(--foreground))" }}
@@ -74,7 +61,7 @@ export function TopPerformerBar({ data }: TopPerformerBarProps) {
               formatter={(value) => (typeof value === "number" ? value.toFixed(2) : value)}
             />
             {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.fill || COLORS[entry.provider]} />
+              <Cell key={`cell-${index}`} fill={entry.fill || getProviderColor(entry.provider)} />
             ))}
           </Bar>
         </BarChart>
