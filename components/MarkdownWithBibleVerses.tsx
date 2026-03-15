@@ -3,7 +3,6 @@
 import React from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
 import { BibleVerse } from './BibleVerse';
 import { extractReferences } from '@/utils/bibleUtils';
 
@@ -111,6 +110,7 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
   const customComponents: Components = {
     ...MarkdownComponents,
     p: ({ children }) => <p className="mb-4">{renderWithBibleVerses(children)}</p>,
+    strong: ({ children }) => <strong className="font-semibold">{renderWithBibleVerses(children)}</strong>,
     a: ({ href, children }) => (
       <a href={href} className="underline hover:text-primary break-all" target="_blank" rel="noopener noreferrer">
         {children}
@@ -147,7 +147,6 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
   return (
         <ReactMarkdown 
           remarkPlugins={[remarkGfm]} 
-          rehypePlugins={[rehypeRaw]}
           components={customComponents}
         >
           {sanitizedContent}

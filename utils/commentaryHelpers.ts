@@ -138,9 +138,13 @@ export const formatCommentary = (
     chapterIntro: string;
     verses: { range: string; content: string }[];
   },
-  reference: string
+  reference: string,
+  sourceName?: string
 ) => {
-  let formatted = `Commentary on ${reference}:\n\n`;
+  const header = sourceName
+    ? `[${sourceName}] Commentary on ${reference}`
+    : `Commentary on ${reference}`;
+  let formatted = `${header}:\n\n`;
 
   formatted += `Book Introduction:\n${data.bookIntro}\n\n`;
   formatted += `Chapter Introduction:\n${data.chapterIntro}\n\n`;
