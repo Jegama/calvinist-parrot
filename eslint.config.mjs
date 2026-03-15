@@ -10,6 +10,12 @@ const config = [
       "@typescript-eslint/triple-slash-reference": "off",
     },
   },
+  {
+    files: ["misc-scripts/**/*.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 ];
 
 export default config;

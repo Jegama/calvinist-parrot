@@ -21,6 +21,9 @@
 *.pem
 .vscode/
 
+# generated content data artifacts
+/content/data/*.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*

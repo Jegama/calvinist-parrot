@@ -541,7 +541,7 @@ export async function POST(request: Request) {
                 where: { id: capturedChatId },
                 data: { modifiedAt: new Date() },
               });
-            } catch (error) {
+            } catch {
               // One short retry for transient DB pressure (e.g. P2028 timeout).
               try {
                 await wait(300);
