@@ -7,7 +7,7 @@ import type { Prisma } from "@prisma/client";
 import { sendError, sendProgress } from "@/lib/progressUtils";
 import prisma from "@/lib/prisma";
 import { SystemMessage, HumanMessage, AIMessage } from "langchain";
-import { parrotWorkflow } from "@/utils/langChainAgents/mainAgent";
+import { getParrotWorkflow } from "@/utils/langChainAgents/mainAgent";
 import { toolsArray } from "@/utils/langChainAgents/tools";
 import { generateConversationName } from "@/utils/generateConversationName";
 import { updateUserMemoriesFromConversation } from "@/utils/memoryExtraction";
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const effectiveUserId = userId || authenticatedUserId;
+  const effectiveUserId = authenticatedUserId;
 
   // Handle new chat from Parrot QA
   if (effectiveUserId && initialQuestion && initialAnswer && !chatId) {
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
   }
 
   // If userId and initial message are provided but no chatId, start a new chat session. This is from `app/page.tsx`.
-  if (userId && initialQuestion && !chatId) {
+  if (effectiveUserId && initialQuestion && !chatId) {
     const chat = await prisma.$transaction(async (tx) => {
       const createdChat = await tx.chatHistory.create({
         data: {
@@ -119,15 +119,23 @@ export async function POST(request: Request) {
 
   // If chatID and message run main system <-- This continues the converation and is the main use case.
   if (chatId && message) {
-    // Fetch userId from chatHistory if not provided in request
-    let resolvedUserId = effectiveUserId;
-    if (!resolvedUserId) {
-      const chatRecord = await prisma.chatHistory.findUnique({
-        where: { id: chatId },
-        select: { userId: true },
-      });
-      resolvedUserId = chatRecord?.userId || "";
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const chatRecord = await prisma.chatHistory.findUnique({
+      where: { id: chatId },
+      select: { userId: true, denomination: true },
+    });
+
+    if (!chatRecord) {
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
+
+    if (chatRecord.userId !== authenticatedUserId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const resolvedUserId = chatRecord.userId;
+    const resolvedDenomination = chatRecord.denomination || denomination;
 
     type LangChainMessage =
       | InstanceType<typeof SystemMessage>
@@ -199,7 +207,7 @@ export async function POST(request: Request) {
     // Build system prompt with pastoral context & denomination mapping
     const newParrotSysPrompt = buildParrotSystemPrompt({
       userProfile,
-      denominationFallback: denomination,
+      denominationFallback: resolvedDenomination,
       effectiveUserId: resolvedUserId,
     });
 
@@ -226,7 +234,125 @@ export async function POST(request: Request) {
           content: msg.content,
         }));
         let hasAnnouncedDrafting = false;
-        const pendingWrites: Prisma.PrismaPromise<unknown>[] = [];
+        const toolsWithCustomProgress = new Set<string>();
+        const emittedToolSummaries = new Set<string>();
+        const customSummaryByTool = new Map<string, string>();
+        const pendingMessages: Prisma.chatMessageCreateManyInput[] = [];
+        const toolNodesForStream = new Set<string>(TOOL_NODE_NAMES);
+        let messageSequence = 0;
+        const baseTimestampMs = Date.now();
+
+        const enqueueMessage = (sender: string, content: string) => {
+          pendingMessages.push({
+            chatId: capturedChatId,
+            sender,
+            content,
+            // Ensure stable chronology even when createMany writes rows in one batch.
+            timestamp: new Date(baseTimestampMs + messageSequence++),
+          });
+        };
+
+        const canonicalToolKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+        const displayToolName = (name: string) => {
+          const explicitMap: Record<string, string> = {
+            BibleCommentary: "Bible Commentary",
+            bibleCrossReferences: "Cross References",
+            userMemoryRecall: "Memory Recall",
+            supplementalArticleSearch: "Theological Research",
+            ccelRetrieval: "CCEL Retrieval",
+            generalSearch: "Web Search",
+          };
+          if (explicitMap[name]) return explicitMap[name];
+          return name
+            .replace(/[_-]+/g, " ")
+            .replace(/([a-z])([A-Z])/g, "$1 $2")
+            .replace(/\s+/g, " ")
+            .trim()
+            .replace(/\b\w/g, (m) => m.toUpperCase());
+        };
+
+        const summarizeGenericToolOutput = (toolName: string, parsed: unknown) => {
+          if (typeof parsed === "string") {
+            const value = parsed.trim();
+
+            if (displayToolName(toolName) === "Lookup Verse") {
+              const lower = value.toLowerCase();
+              const hasNotFound = lower.includes("verse not found");
+              const hasMultiReferenceDelimiter = /;|,\s*[1-3]?[a-z]/i.test(value);
+              if (hasNotFound && hasMultiReferenceDelimiter) {
+                return "Verse lookup expects one reference per call (for example \"John 3:16\"). Multiple references were bundled together, so this lookup could not resolve them.";
+              }
+            }
+
+            return value.length > 0 ? value : `### ${displayToolName(toolName)}\n\nTool completed successfully.`;
+          }
+
+          if (Array.isArray(parsed)) {
+            return `### ${displayToolName(toolName)}\n\nReturned ${parsed.length} item${parsed.length === 1 ? "" : "s"}.`;
+          }
+
+          if (parsed && typeof parsed === "object") {
+            const record = parsed as Record<string, unknown>;
+
+            const directTextKeys = ["summary", "content", "text", "answer", "result", "message"];
+            for (const key of directTextKeys) {
+              const value = record[key];
+              if (typeof value === "string" && value.trim().length > 0) {
+                if (displayToolName(toolName) === "Lookup Verse") {
+                  const lower = value.toLowerCase();
+                  const hasNotFound = lower.includes("verse not found");
+                  const hasMultiReferenceDelimiter = /;|,\s*[1-3]?[a-z]/i.test(value);
+                  if (hasNotFound && hasMultiReferenceDelimiter) {
+                    return "Verse lookup expects one reference per call (for example \"John 3:16\"). Multiple references were bundled together, so this lookup could not resolve them.";
+                  }
+                }
+                return value.trim();
+              }
+            }
+
+            const results = record.results;
+            if (Array.isArray(results) && results.length > 0) {
+              const links = results
+                .slice(0, 8)
+                .map((item) => {
+                  if (!item || typeof item !== "object") return null;
+                  const row = item as Record<string, unknown>;
+                  const title = typeof row.title === "string" ? row.title : "Untitled";
+                  const url = typeof row.url === "string" ? row.url : null;
+                  if (url) return `- [${title}](${url})`;
+                  return `- ${title}`;
+                })
+                .filter((line): line is string => Boolean(line));
+
+              if (links.length > 0) {
+                return `### ${displayToolName(toolName)}\n\n${links.join("\n")}`;
+              }
+            }
+
+            const keys = Object.keys(record);
+            return `### ${displayToolName(toolName)}\n\nReturned data fields: ${keys.join(", ") || "(none)"}.`;
+          }
+
+          return `### ${displayToolName(toolName)}\n\nTool completed successfully.`;
+        };
+
+        const emitToolSummary = (toolName: string, content: string, raw?: unknown) => {
+          const normalizedToolName = displayToolName(toolName);
+          const canonical = canonicalToolKey(normalizedToolName);
+          if (emittedToolSummaries.has(canonical)) {
+            return;
+          }
+          emittedToolSummaries.add(canonical);
+
+          sendProgress({ type: "tool_summary", toolName, content, raw }, controller);
+          enqueueMessage("tool_summary", JSON.stringify({ toolName: normalizedToolName, content, raw }));
+          // Keep naming context lean and human-readable, avoid large raw payloads.
+          conversationMessages.push({
+            sender: "tool_summary",
+            content: `${normalizedToolName}: ${content}`,
+          });
+        };
 
         try {
 
@@ -234,15 +360,7 @@ export async function POST(request: Request) {
           if (!isAutoTrigger) {
             const userMessage = { sender: "user", content: message };
             conversationMessages.push(userMessage);
-            pendingWrites.push(
-              prisma.chatMessage.create({
-                data: {
-                  chatId: capturedChatId,
-                  sender: "user",
-                  content: message,
-                },
-              })
-            );
+            enqueueMessage("user", message);
           }
 
           // Parrot's answer
@@ -252,7 +370,8 @@ export async function POST(request: Request) {
             const parrotHistory = buildParrotHistory(conversationMessages, newParrotSysPrompt);
 
             // Start streaming LLM response using .stream() API with multiple modes
-            const eventStream = await parrotWorkflow.stream(
+            const workflow = await getParrotWorkflow();
+            const eventStream = await workflow.stream(
               { messages: parrotHistory },
               {
                 streamMode: ["updates", "messages", "custom"],
@@ -269,31 +388,15 @@ export async function POST(request: Request) {
                 const customData = chunk as { toolName?: string; message?: string; content?: string };
 
                 if (customData?.toolName && customData.message) {
+                  toolsWithCustomProgress.add(canonicalToolKey(customData.toolName));
                   // tool_progress event (ephemeral)
                   sendProgress(
-                    { type: "tool_progress", toolName: customData.toolName, message: customData.message },
+                    { type: "tool_progress", toolName: displayToolName(customData.toolName), message: customData.message },
                     controller
                   );
                 } else if (customData?.toolName && customData.content) {
-                  // tool_summary event (persistent) - save to DB and send to frontend
-                  sendProgress(
-                    { type: "tool_summary", toolName: customData.toolName, content: customData.content },
-                    controller
-                  );
-                  // Save tool summary to database for persistence across page reloads
-                  pendingWrites.push(
-                    prisma.chatMessage.create({
-                      data: {
-                        chatId: capturedChatId,
-                        sender: "tool_summary",
-                        content: JSON.stringify({ toolName: customData.toolName, content: customData.content }),
-                      },
-                    })
-                  );
-                  conversationMessages.push({
-                    sender: "tool_summary",
-                    content: JSON.stringify({ toolName: customData.toolName, content: customData.content }),
-                  });
+                  const key = canonicalToolKey(customData.toolName);
+                  customSummaryByTool.set(key, customData.content);
                 } else {
                   console.log("⚠️ Unknown custom event format:", customData);
                 }
@@ -306,7 +409,7 @@ export async function POST(request: Request) {
 
                 // LLM streaming tokens
                 const nodeName = metadata.langgraph_node;
-                if (nodeName && TOOL_NODE_NAMES.has(nodeName)) {
+                if (nodeName && toolNodesForStream.has(nodeName)) {
                   continue;
                 }
 
@@ -357,11 +460,20 @@ export async function POST(request: Request) {
                   for (const msg of messages) {
                     const toolName = msg.tool_name || msg.name;
                     if (!toolName) continue;
+                    const toolKey = canonicalToolKey(toolName);
+                    const readableToolName = displayToolName(toolName);
+                    toolNodesForStream.add(toolName);
 
                     const isSupplemental = toolName === "supplementalArticleSearch";
                     const isCcel = toolName === "ccelRetrieval";
-                    if (!isSupplemental && !isCcel) {
-                      continue;
+
+                    // For tools without custom writer events (MCP tools, etc.),
+                    // send a generic progress event so the user sees activity
+                    if (!isSupplemental && !isCcel && !toolsWithCustomProgress.has(toolKey)) {
+                      sendProgress(
+                        { type: "tool_progress", toolName: readableToolName, message: `Using ${readableToolName}...` },
+                        controller
+                      );
                     }
 
                     try {
@@ -381,46 +493,25 @@ export async function POST(request: Request) {
                             .join("\n");
 
                           if (articleLinks) {
-                            const content = `${articleLinks}`;
-                            sendProgress({ type: "gotQuestions", content }, controller);
-                            pendingWrites.push(
-                              prisma.chatMessage.create({
-                                data: {
-                                  chatId: capturedChatId,
-                                  sender: "gotQuestions",
-                                  content,
-                                },
-                              })
-                            );
-                            conversationMessages.push({
-                              sender: "gotQuestions",
-                              content,
-                            });
+                            const content = `### Additional Sources\n\n${articleLinks}`;
+                            emitToolSummary("Theological Research", content, parsed);
                           }
                         }
                       } else if (isCcel) {
                         const consultedMarkdown: unknown = parsed?.consultedSourcesMarkdown;
                         if (typeof consultedMarkdown === "string" && consultedMarkdown.trim().length > 0) {
-                          const content = consultedMarkdown.trim();
-                          sendProgress({ type: "CCEL", content }, controller);
-                          pendingWrites.push(
-                            prisma.chatMessage.create({
-                              data: {
-                                chatId: capturedChatId,
-                                sender: "CCEL",
-                                content,
-                              },
-                            })
-                          );
-                          conversationMessages.push({
-                            sender: "CCEL",
-                            content,
-                          });
+                          const content = `### CCEL Sources\n\n${consultedMarkdown.trim()}`;
+                          emitToolSummary("CCEL Retrieval", content, parsed);
                         }
+                      } else {
+                        const customSummary = customSummaryByTool.get(toolKey) || customSummaryByTool.get(canonicalToolKey(readableToolName));
+                        const summary = customSummary || summarizeGenericToolOutput(readableToolName, parsed);
+                        emitToolSummary(readableToolName, summary, parsed);
                       }
                     } catch {
-                      // Not JSON, which means it's the new human-readable format for supplemental tool
-                      // The tool_summary already contains the UI-ready content
+                      const customSummary = customSummaryByTool.get(toolKey) || customSummaryByTool.get(canonicalToolKey(readableToolName));
+                      const summary = customSummary || summarizeGenericToolOutput(readableToolName, msg.content);
+                      emitToolSummary(readableToolName, summary, msg.content);
                     }
                   }
                 }
@@ -430,15 +521,7 @@ export async function POST(request: Request) {
 
             // After streaming completes, save the full conversation
             if (parrotReply.trim()) {
-              pendingWrites.push(
-                prisma.chatMessage.create({
-                  data: {
-                    chatId: capturedChatId,
-                    sender: "parrot",
-                    content: parrotReply,
-                  },
-                })
-              );
+              enqueueMessage("parrot", parrotReply);
               conversationMessages.push({
                 sender: "parrot",
                 content: parrotReply,
@@ -449,11 +532,29 @@ export async function POST(request: Request) {
           }
 
           // Persist messages to database (without conversation naming - that's deferred)
-          if (pendingWrites.length > 0) {
+          if (pendingMessages.length > 0) {
             try {
-              await prisma.$transaction(pendingWrites);
-            } catch (error) {
-              sendError(error, "persist_messages", controller);
+              await prisma.chatMessage.createMany({
+                data: pendingMessages,
+              });
+              await prisma.chatHistory.update({
+                where: { id: capturedChatId },
+                data: { modifiedAt: new Date() },
+              });
+            } catch {
+              // One short retry for transient DB pressure (e.g. P2028 timeout).
+              try {
+                await wait(300);
+                await prisma.chatMessage.createMany({
+                  data: pendingMessages,
+                });
+                await prisma.chatHistory.update({
+                  where: { id: capturedChatId },
+                  data: { modifiedAt: new Date() },
+                });
+              } catch (retryError) {
+                sendError(retryError, "persist_messages", controller);
+              }
             }
           }
 
@@ -543,7 +644,7 @@ export async function GET(request: Request) {
   }
   const messages = await prisma.chatMessage.findMany({
     where: { chatId },
-    orderBy: { timestamp: "asc" },
+    orderBy: [{ timestamp: "asc" }, { id: "asc" }],
   });
 
   // Parse tool_summary messages from JSON strings
@@ -555,11 +656,28 @@ export async function GET(request: Request) {
           ...msg,
           toolName: parsed.toolName,
           content: parsed.content,
+          raw: parsed.raw,
         };
       } catch (e) {
         console.error("Failed to parse tool_summary message:", e);
         return msg;
       }
+    }
+    if (msg.sender === "gotQuestions") {
+      return {
+        ...msg,
+        sender: "tool_summary",
+        toolName: "Theological Research",
+        raw: null,
+      };
+    }
+    if (msg.sender === "CCEL") {
+      return {
+        ...msg,
+        sender: "tool_summary",
+        toolName: "CCEL Retrieval",
+        raw: null,
+      };
     }
     return msg;
   });

@@ -13,7 +13,7 @@ import { PromptDeltaBar } from "./charts/PromptDeltaBar";
 import { JudgeBiasBar } from "./charts/JudgeBiasBar";
 import { ProviderSpreadScatter } from "./charts/ProviderSpreadScatter";
 import { RadarDeepDive } from "./charts/RadarDeepDive";
-import { COLORS } from "./constants";
+import { formatModelLabel, formatPromptLabel, getProviderColor } from "./constants";
 
 const Stat = ({
   label,
@@ -43,10 +43,15 @@ interface DashboardClientProps {
 
 export default function DashboardClient({ data }: DashboardClientProps) {
   const {
+    activePromptLabel,
+    baselinePromptLabel,
     bestPerProvider,
+    comparisonJudges,
+    judgeComparisonPromptLabel,
+    progressionPromptLabels,
     promptDelta,
     bestImprovement,
-    availableJudges,
+    primaryJudge,
     judgeComparison,
     providerSpread,
     radarAdherence,
@@ -57,42 +62,32 @@ export default function DashboardClient({ data }: DashboardClientProps) {
 
   const ns = narrativeStats;
   const modelCount = ns?.modelCount ?? 0;
+  const activePromptLabelDisplay = activePromptLabel ? formatPromptLabel(activePromptLabel) : "Current";
+  const baselinePromptLabelDisplay = baselinePromptLabel ? formatPromptLabel(baselinePromptLabel) : "Baseline";
+  const judgeComparisonPromptDisplay = judgeComparisonPromptLabel
+    ? formatPromptLabel(judgeComparisonPromptLabel)
+    : activePromptLabelDisplay;
 
   // Build dynamic prompt delta improvement cards
-  const promptDeltaCards = promptDelta.map((d) => {
-    const pct = d.baseline > 0 ? (((d.v1 - d.baseline) / d.baseline) * 100).toFixed(0) : "0";
-    const friendlyName = d.model
-      .replace("gemini-3-flash", "Gemini 3 Flash")
-      .replace("gemini-2.5-flash", "Gemini 2.5 Flash")
-      .replace("gpt-5-mini", "GPT-5 Mini")
-      .replace("grok-4-1-fast", "Grok 4.1 Fast")
-      .replace("claude-haiku-4-5", "Claude Haiku 4.5");
-    return { name: friendlyName, pct };
-  });
+  const promptDeltaCards = promptDelta.map((d) => ({
+    name: formatModelLabel(d.model),
+    pct: d.deltaPct.toFixed(0),
+  }));
 
   // Build dynamic provider spread descriptions
   const spreadDescriptions = providerSpread.map((ps) => {
     const range = (ps.max - ps.min).toFixed(2);
-    const maxName = ps.maxModel
-      .replace("-preview-09-2025", "")
-      .replace("-preview", "")
-      .replace("-reasoning", "")
-      .replace("-20251001", "");
-    const minName = ps.minModel
-      .replace("-preview-09-2025", "")
-      .replace("-preview", "")
-      .replace("-reasoning", "")
-      .replace("-20251001", "");
+    const maxName = formatModelLabel(ps.maxModel);
+    const minName = formatModelLabel(ps.minModel);
     const isSingle = ps.min === ps.max;
     const description = isSingle
       ? `Single model tested (${maxName}) scoring ${ps.max.toFixed(2)}.`
-      : `${maxName} (${ps.max.toFixed(2)}) to ${minName} (${ps.min.toFixed(2)}) — ${range} range.`;
-    return { provider: ps.provider, label: ps.label, fill: COLORS[ps.provider], description };
+      : `${maxName} on ${formatPromptLabel(ps.maxPromptLabel)} (${ps.max.toFixed(2)}) to ${minName} on ${formatPromptLabel(ps.minPromptLabel)} (${ps.min.toFixed(2)}), ${range} range across ${ps.runCount} non-baseline runs.`;
+    return { provider: ps.provider, label: ps.label, fill: getProviderColor(ps.provider), description };
   });
 
   // Primary and cross-validator judge names for display
-  const primaryJudge = availableJudges.find((j) => j.key === "gptJudge");
-  const crossValidators = availableJudges.filter((j) => j.key !== "gptJudge");
+  const crossValidators = comparisonJudges.filter((j) => j.model !== primaryJudge?.model);
   const crossValidatorNames = crossValidators
     .map((j) => j.name.replace("Graded by ", ""))
     .join(", ");
@@ -149,7 +144,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                 <div className="font-semibold text-foreground mb-1">⚡ Biggest Impact</div>
                 <div className="text-muted-foreground">
                   {ns?.improvementModel
-                    ? `Custom instructions improved ${ns.improvementModel} by about +${ns.improvementPct}%`
+                    ? `${activePromptLabelDisplay} improved ${ns.improvementModel} by about +${ns.improvementPct}% over ${baselinePromptLabelDisplay}`
                     : "Loading..."}
                 </div>
               </div>
@@ -200,7 +195,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                   <CardTitle className="flex items-center gap-2">🏆 Top Performer by Provider</CardTitle>
                   <p className="text-sm text-muted-foreground mt-2">
                     The best model from each AI company, scored across doctrinal adherence, kindness and gentleness,
-                    and interfaith and worldview sensitivity (out of 5.0)
+                    and interfaith and worldview sensitivity (out of 5.0) using {activePromptLabelDisplay}
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -210,12 +205,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                     {bestPerProvider.length > 0 ? (
                       <>
                         {bestPerProvider.map((p, i) => {
-                          const name = p.model
-                            .replace("gemini-3-flash-preview", "Gemini 3 Flash")
-                            .replace("gpt-5-mini", "GPT-5 Mini")
-                            .replace("grok-4-1-fast-reasoning", "Grok 4.1 Fast")
-                            .replace("claude-haiku-4-5-20251001", "Claude Haiku 4.5")
-                            .replace("claude-haiku-4-5", "Claude Haiku 4.5");
+                          const name = formatModelLabel(p.model);
                           const sep = i === bestPerProvider.length - 1 ? "." : i === bestPerProvider.length - 2 ? ", and " : ", ";
                           return (
                             <span key={p.provider}>
@@ -225,7 +215,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                           );
                         })}
                         {" "}All are strong performers within our Reformed theological framework, confirmed by{" "}
-                        {availableJudges.length} independent judge{availableJudges.length !== 1 ? "s" : ""}.
+                        {comparisonJudges.length || 1} independent judge{comparisonJudges.length !== 1 ? "s" : ""}.
                       </>
                     ) : (
                       "Loading..."
@@ -238,25 +228,27 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">⚡ Does Our Custom Prompt Help?</CardTitle>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Comparing models with our custom instructions (v1.0) versus using them &quot;out of the
-                    box&quot; (Baseline)
+                    Comparing each provider across prompt progression, from {baselinePromptLabelDisplay} through {progressionPromptLabels
+                      .filter((label) => label !== baselinePromptLabel)
+                      .map((label) => formatPromptLabel(label))
+                      .join(" and ")}
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <PromptDeltaBar data={promptDelta} />
+                  <PromptDeltaBar data={promptDelta} promptLabels={progressionPromptLabels} />
                   <div className="mt-4 space-y-3">
                     <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
-                      <span className="font-semibold text-foreground">💡 What this means:</span> Our custom instructions
-                      make a<span className="text-primary font-bold"> noticeable difference</span> across all
-                      tested models. The biggest improvements are in evangelism and Gospel boldness, where baseline
-                      models tend to be generic and non-committal.
+                      <span className="font-semibold text-foreground">💡 What this means:</span> This chart shows the full prompt progression for each provider, so you can see whether gains were incremental from {baselinePromptLabelDisplay} to v1.0 and then to {activePromptLabelDisplay}, or whether the biggest jump came in a single revision. The percentages in the cards below are the total improvement from {baselinePromptLabelDisplay} to {activePromptLabelDisplay}, calculated as <span className="font-medium text-foreground">(({activePromptLabelDisplay} - {baselinePromptLabelDisplay}) / {baselinePromptLabelDisplay})</span>, not the step from v1.0 to {activePromptLabelDisplay}.
                     </div>
                     {promptDeltaCards.length > 0 && (
-                      <div className={`grid gap-2 text-xs`} style={{ gridTemplateColumns: `repeat(${Math.min(promptDeltaCards.length, 5)}, minmax(0, 1fr))` }}>
+                      <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2 xl:grid-cols-4">
                         {promptDeltaCards.map((card) => (
                           <div key={card.name} className="bg-background border border-border rounded p-2 text-center">
                             <div className="font-bold text-foreground">{card.name}</div>
                             <div className="text-primary text-lg font-bold">+{card.pct}%</div>
+                            <div className="mt-1 text-[11px] text-muted-foreground">
+                              {baselinePromptLabelDisplay} to {activePromptLabelDisplay}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -271,21 +263,21 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">⚖️ Are AI Judges Fair?</CardTitle>
                   <p className="text-sm text-muted-foreground mt-2">
-                    We used {availableJudges.length} different AIs to grade the same answers across our three categories.
-                    Do they generally agree?
+                    We used {comparisonJudges.length} different AIs to grade the same {judgeComparisonPromptDisplay} answers
+                    across our three categories. Do they generally agree?
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <JudgeBiasBar data={judgeComparison} judges={availableJudges} />
+                  <JudgeBiasBar data={judgeComparison} judges={comparisonJudges} />
                   <div className="mt-4 space-y-3">
                     <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border flex items-start gap-2">
                       <Info size={16} className="mt-0.5 flex-shrink-0 text-foreground" />
                       <div>
                         <span className="font-semibold text-foreground">💡 What this means:</span>{" "}
-                        In our tests, {crossValidatorNames || "the secondary judge"} tends to be a very generous grader,
+                        In our tests, {crossValidatorNames || "the secondary judge"} tends to be a more generous grader,
                         often giving models scores near 5.0.{" "}
                         {primaryJudge
-                          ? `${primaryJudge.name.replace("Graded by ", "")} is the most discerning and uses more of the 1–5 scale, making its feedback most helpful for seeing real differences between models.`
+                          ? `${primaryJudge.name.replace("Graded by ", "")} is the most discerning and uses more of the 1-5 scale, making its feedback most helpful for seeing real differences between models.`
                           : ""}
                       </div>
                     </div>
@@ -309,8 +301,8 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">📊 How Consistent is Each Company?</CardTitle>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Each provider&apos;s model performance plotted by their best and worst scores. Points on the diagonal
-                    have no spread (single model or consistent results).
+                    Each provider&apos;s non-baseline performance plotted by its best and worst scores. Points on the diagonal
+                    have no spread, which means either one non-baseline run or very consistent results across prompt revisions.
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -422,7 +414,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                     value={bestImprovement ? `+${bestImprovement.delta}%` : "N/A"}
                     subtext={
                       ns?.improvementModel
-                        ? `${ns.improvementModel} with our custom instructions`
+                        ? `${ns.improvementModel} from ${baselinePromptLabelDisplay} to ${activePromptLabelDisplay}`
                         : "Insufficient Data"
                     }
                     color="hsl(var(--success))"
@@ -454,7 +446,11 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                   </div>
                   <div className="flex justify-between items-start pb-3 border-b border-border">
                     <span className="text-muted-foreground">System Prompt:</span>
-                    <span className="font-medium text-foreground">v1.0</span>
+                    <span className="font-medium text-foreground">{activePromptLabelDisplay}</span>
+                  </div>
+                  <div className="flex justify-between items-start pb-3 border-b border-border">
+                    <span className="text-muted-foreground">Judge Fairness Prompt:</span>
+                    <span className="font-medium text-foreground text-right">{judgeComparisonPromptDisplay}</span>
                   </div>
                   <div className="flex justify-between items-start pb-3 border-b border-border">
                     <span className="text-muted-foreground">Eval Framework:</span>

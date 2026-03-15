@@ -30,25 +30,35 @@ export function BibleVerse({ reference }: BibleVerseProps) {
   const [verseText, setVerseText] = useState<string>('Loading...');
 
   useEffect(() => {
+    let isActive = true;
+
     const parsed = parseReference(reference);
 
     if (parsed) {
       const { book, chapter } = parsed;
       // Fetch the chapter data
-      fetchChapterData(book, chapter, parsed);
+      fetchChapterData(book, chapter, parsed, isActive);
     } else {
-      setVerseText('Invalid reference');
+      if (isActive) {
+        setVerseText('Invalid reference');
+      }
     }
+
+    return () => {
+      isActive = false;
+    };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reference]);
 
-  const fetchChapterData = async (bookName: string, chapter: number, parsed: ParsedReference) => {
+  const fetchChapterData = async (bookName: string, chapter: number, parsed: ParsedReference, isActive: boolean) => {
     try {
       // Map book names to IDs
       const bookId = getBookId(bookName);
       if (!bookId) {
-        setVerseText('Unknown book');
+        if (isActive) {
+          setVerseText('Unknown book');
+        }
         return;
       }
 
@@ -80,16 +90,22 @@ export function BibleVerse({ reference }: BibleVerseProps) {
           data = await promise;
         } catch (e) {
           console.error('Error fetching data', e);
-          setVerseText('Error fetching data');
+          if (isActive) {
+            setVerseText('Error fetching data');
+          }
           return;
         }
       }
 
       // Extract verses
-      extractVerses(data, parsed);
+      if (isActive) {
+        extractVerses(data, parsed);
+      }
     } catch (error) {
       console.error('Error fetching chapter data:', error);
-      setVerseText('Error loading verse');
+      if (isActive) {
+        setVerseText('Error loading verse');
+      }
     }
   };
 

@@ -15,6 +15,10 @@ type BibleVerseTextProps = {
   reference: string;
 };
 
+type ChapterKey = string;
+const chapterCache = new Map<ChapterKey, TranslationBookChapter>();
+const inflightCache = new Map<ChapterKey, Promise<TranslationBookChapter>>();
+
 export function BibleVerseText({ reference }: BibleVerseTextProps) {
   const [verseText, setVerseText] = useState<string>('Loading...');
 
@@ -41,16 +45,34 @@ export function BibleVerseText({ reference }: BibleVerseTextProps) {
           return;
         }
   
-        // Use the BSB translation
         const translation = 'BSB';
-  
-        const response = await fetch(`https://bible.helloao.org/api/${translation}/${bookId}/${chapter}.json`);
-        if (!response.ok) {
-          setVerseText('Error fetching data');
-          return;
+        const key: ChapterKey = `${translation}:${bookId}:${chapter}`;
+
+        let data: TranslationBookChapter | undefined = chapterCache.get(key);
+        if (!data) {
+          let promise = inflightCache.get(key);
+          if (!promise) {
+            promise = fetch(`https://bible.helloao.org/api/${translation}/${bookId}/${chapter}.json`)
+              .then((response) => {
+                if (!response.ok) {
+                  throw new Error('Error fetching data');
+                }
+                return response.json();
+              })
+              .then((json: TranslationBookChapter) => {
+                chapterCache.set(key, json);
+                inflightCache.delete(key);
+                return json;
+              })
+              .catch((error) => {
+                inflightCache.delete(key);
+                throw error;
+              });
+            inflightCache.set(key, promise);
+          }
+
+          data = await promise;
         }
-  
-        const data: TranslationBookChapter = await response.json();
   
         // Extract verses
         extractVerses(data, parsed);

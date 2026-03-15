@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const chats = await prisma.chatHistory.findMany({
     where: { userId: authenticatedUserId },
     select: { id: true, conversationName: true },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { modifiedAt: 'desc' },
   });
 
   // console.log(chats);

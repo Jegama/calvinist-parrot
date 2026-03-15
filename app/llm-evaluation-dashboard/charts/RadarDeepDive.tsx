@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { COLORS } from "../constants";
+import { getProviderColor, getProviderLabel } from "../constants";
 
 interface RadarDeepDiveProps {
   data: Array<Record<string, string | number>>;
@@ -18,7 +18,9 @@ interface RadarDeepDiveProps {
 }
 
 export function RadarDeepDive({ data, domainMin = 3.5 }: RadarDeepDiveProps) {
-  const hasAnthropic = data.some((d) => "anthropic" in d);
+  const providerKeys = Array.from(
+    new Set(data.flatMap((entry) => Object.keys(entry).filter((key) => key !== "subject")))
+  );
 
   return (
     <div className="h-96 w-full min-w-0">
@@ -32,40 +34,17 @@ export function RadarDeepDive({ data, domainMin = 3.5 }: RadarDeepDiveProps) {
             tick={false}
             axisLine={{ stroke: "hsl(var(--border))" }}
           />
-          <Radar
-            name="Google Gemini 3 Flash"
-            dataKey="google"
-            stroke={COLORS.google}
-            fill={COLORS.google}
-            fillOpacity={0.2}
-            strokeWidth={2}
-          />
-          <Radar
-            name="OpenAI GPT-5 Mini"
-            dataKey="openai"
-            stroke={COLORS.openai}
-            fill={COLORS.openai}
-            fillOpacity={0.2}
-            strokeWidth={2}
-          />
-          <Radar
-            name="xAI Grok 4.1 Fast"
-            dataKey="xai"
-            stroke={COLORS.xai}
-            fill={COLORS.xai}
-            fillOpacity={0.2}
-            strokeWidth={2}
-          />
-          {hasAnthropic && (
+          {providerKeys.map((providerKey) => (
             <Radar
-              name="Anthropic Claude Haiku 4.5"
-              dataKey="anthropic"
-              stroke={COLORS.anthropic}
-              fill={COLORS.anthropic}
+              key={providerKey}
+              name={getProviderLabel(providerKey)}
+              dataKey={providerKey}
+              stroke={getProviderColor(providerKey)}
+              fill={getProviderColor(providerKey)}
               fillOpacity={0.2}
               strokeWidth={2}
             />
-          )}
+          ))}
           <Legend wrapperStyle={{ paddingTop: "20px" }} iconType="circle" />
           <Tooltip
             contentStyle={{

@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import { formatModelLabel, formatPromptLabel } from "../constants";
 
 interface ProviderSpreadScatterProps {
   data: Array<{
@@ -18,6 +19,9 @@ interface ProviderSpreadScatterProps {
     max: number;
     minModel: string;
     maxModel: string;
+    minPromptLabel: string;
+    maxPromptLabel: string;
+    runCount: number;
     avg: string;
     fill: string;
     label: string;
@@ -83,16 +87,20 @@ export function ProviderSpreadScatter({ data }: ProviderSpreadScatterProps) {
                         <span className="font-semibold">{point.max.toFixed(2)}</span>
                       </p>
                       <p className="text-xs text-muted-foreground mb-2">
-                        {point.maxModel.replace("-preview-09-2025", "").replace("-preview", "").replace("-reasoning", "").replace("-fast", "").replace("-20251001", "")}
+                        {formatModelLabel(point.maxModel)} on {formatPromptLabel(point.maxPromptLabel)}
                       </p>
                       <p className="flex justify-between gap-4">
                         <span className="text-muted-foreground">Worst Model:</span>
                         <span className="font-semibold">{point.min.toFixed(2)}</span>
                       </p>
                       <p className="text-xs text-muted-foreground mb-2">
-                        {point.minModel.replace("-preview-09-2025", "").replace("-preview", "").replace("-reasoning", "").replace("-fast", "").replace("-20251001", "")}
+                        {formatModelLabel(point.minModel)} on {formatPromptLabel(point.minPromptLabel)}
                       </p>
                       <div className="pt-2 mt-2 border-t border-border">
+                        <p className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">Non-baseline runs:</span>
+                          <span className="font-semibold">{point.runCount}</span>
+                        </p>
                         <p className="flex justify-between gap-4">
                           <span className="text-muted-foreground">Range:</span>
                           <span className="font-bold text-primary">{(point.max - point.min).toFixed(2)}</span>

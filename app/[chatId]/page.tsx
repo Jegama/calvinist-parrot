@@ -16,10 +16,43 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/
 import { useUserIdentifier } from "@/hooks/use-user-identifier";
 import { useChatList } from "@/hooks/use-chat-list";
 
+// Keyed by the toolName string that arrives in tool_progress events.
+// Writer-based tools use display names (e.g. "Bible Commentary").
+// MCP/route-injected tools use LangChain names (e.g. "word_study").
 const TOOL_PROGRESS_TITLES: Record<string, string> = {
+  // Display names from writer events
+  "Theological Research": "Gathering supporting sources",
+  "CCEL Retrieval": "Consulting classic works",
+  "Memory Recall": "Recalling past context",
+  "Bible Commentary": "Retrieving commentaries",
+  "Cross References": "Finding cross-references",
+  "Web Search": "Searching the web",
+  // LangChain tool names (from route's tools step / MCP tools)
   supplementalArticleSearch: "Gathering supporting sources",
   ccelRetrieval: "Consulting classic works",
   userMemoryRecall: "Recalling past context",
+  BibleCommentary: "Retrieving commentaries",
+  bibleCrossReferences: "Finding cross-references",
+  generalSearch: "Searching the web",
+  // Study Bible MCP tools
+  lookup_verse: "Looking up verse",
+  word_study: "Analyzing word",
+  get_cross_references: "Finding cross-references",
+  get_study_notes: "Retrieving study notes",
+  search_lexicon: "Searching lexicon",
+  parse_morphology: "Parsing morphology",
+  explore_genealogy: "Exploring genealogy",
+  explore_person_events: "Exploring person",
+  explore_place: "Exploring place",
+  find_connection: "Finding connections",
+  find_similar_passages: "Finding similar passages",
+  get_ane_context: "Getting ancient context",
+  get_bible_dictionary: "Looking up dictionary",
+  get_key_terms: "Getting key terms",
+  graph_enriched_search: "Searching knowledge graph",
+  lookup_name: "Looking up name",
+  people_in_passage: "Finding people in passage",
+  search_by_strongs: "Searching by Strong's number",
 };
 
 type Message = {
@@ -36,13 +69,14 @@ type Chat = {
 
 type DataEvent =
   | { type: "info" | "done" }
+  | { type: "error"; stage: string; message: string }
   | { type: "progress"; title: string; content: string }
   | { type: "tool_progress"; toolName: string; message: string }
-  | { type: "reasoning"; content: string }
-  | { type: "tool_summary"; toolName: string; content: string }
+  | { type: "tool_summary"; toolName: string; content: string; raw?: unknown }
   | { type: "parrot"; content: string }
   | { type: "calvin"; content: string }
   | { type: "gotQuestions"; content: string }
+  | { type: "CCEL"; content: string }
   | { type: "conversationNameUpdated"; chatId: string; name: string };
 
 export default function ChatPage() {
@@ -113,7 +147,12 @@ export default function ChatPage() {
           return;
         }
         setChat(data.chat);
-        setMessages(data.messages);
+        setMessages((current) => {
+          const incoming = Array.isArray(data.messages) ? data.messages : [];
+          // Guard against transient backend lag right after streaming.
+          // Prefer the longer transcript so the just-streamed final answer is not dropped.
+          return incoming.length >= current.length ? incoming : current;
+        });
         upsertChat({
           id: data.chat.id,
           conversationName: data.chat.conversationName ?? "New Conversation",
@@ -295,7 +334,26 @@ export default function ChatPage() {
               appendToken("calvin", data.content);
               break;
             case "gotQuestions":
-              setMessages((msgs) => [...msgs, { sender: "gotQuestions", content: data.content }]);
+              setMessages((msgs) => [
+                ...msgs,
+                { sender: "tool_summary", toolName: "Theological Research", content: data.content },
+              ]);
+              break;
+            case "CCEL":
+              setMessages((msgs) => [
+                ...msgs,
+                { sender: "tool_summary", toolName: "CCEL Retrieval", content: data.content },
+              ]);
+              break;
+            case "error":
+              setProgress(null);
+              setMessages((msgs) => [
+                ...msgs,
+                {
+                  sender: "system_error",
+                  content: `An error occurred during ${data.stage}: ${data.message}`,
+                },
+              ]);
               break;
             case "conversationNameUpdated":
               // Update sidebar immediately with new conversation name
@@ -548,12 +606,52 @@ export default function ChatPage() {
                         "Bible Commentary": "📖",
                         "Memory Recall": "🧠",
                         "CCEL Retrieval": "📚",
+                        "Cross References": "🔗",
+                        "Web Search": "🌐",
+                        "Lookup Verse": "📜",
+                        "Word Study": "📘",
+                        "Get Cross References": "🔗",
+                        "Get Study Notes": "📝",
+                        "Search Lexicon": "📚",
+                        "Parse Morphology": "🔎",
+                        "Explore Genealogy": "🌿",
+                        "Explore Person Events": "👤",
+                        "Explore Place": "🗺️",
+                        "Find Connection": "🧩",
+                        "Find Similar Passages": "🧭",
+                        "Get Ane Context": "🏺",
+                        "Get Bible Dictionary": "📗",
+                        "Get Key Terms": "🏷️",
+                        "Graph Enriched Search": "🕸️",
+                        "Lookup Name": "🔤",
+                        "People In Passage": "👥",
+                        "Search By Strongs": "🔠",
                       };
                       const toolTitles: Record<string, string> = {
                         "Theological Research": "Research Notes",
                         "Bible Commentary": "Commentary References",
                         "Memory Recall": "Context Recalled",
                         "CCEL Retrieval": "CCEL Sources",
+                        "Cross References": "Cross-References",
+                        "Web Search": "Web Sources",
+                        "Lookup Verse": "Verse Lookup",
+                        "Word Study": "Word Study",
+                        "Get Cross References": "Cross-References",
+                        "Get Study Notes": "Study Notes",
+                        "Search Lexicon": "Lexicon Results",
+                        "Parse Morphology": "Morphology Analysis",
+                        "Explore Genealogy": "Genealogy",
+                        "Explore Person Events": "Person Events",
+                        "Explore Place": "Place Details",
+                        "Find Connection": "Passage Connections",
+                        "Find Similar Passages": "Similar Passages",
+                        "Get Ane Context": "Ancient Context",
+                        "Get Bible Dictionary": "Bible Dictionary",
+                        "Get Key Terms": "Key Terms",
+                        "Graph Enriched Search": "Knowledge Graph",
+                        "Lookup Name": "Name Lookup",
+                        "People In Passage": "People In Passage",
+                        "Search By Strongs": "Strong's Search",
                       };
                       const toolName = msg.toolName || "unknown";
                       const icon = toolIcons[toolName] || "🔧";
@@ -566,40 +664,28 @@ export default function ChatPage() {
                                 {icon} {title}
                               </AccordionTrigger>
                               <AccordionContent>
-                                <MarkdownWithBibleVerses content={msg.content} />
+                                <div className="max-h-72 overflow-y-auto rounded-md border border-border/60 bg-muted/20 p-3">
+                                  <MarkdownWithBibleVerses content={msg.content} />
+                                </div>
                               </AccordionContent>
                             </AccordionItem>
                           </Accordion>
                         </div>
                       );
-                    case "gotQuestions":
+                    case "system_error":
                       return (
-                        <div key={i} className="mr-auto mt-2 max-w-[80%]">
-                          <Accordion type="single" collapsible>
-                            <AccordionItem value={`gotQuestions-${i}`}>
-                              <AccordionTrigger>Additional Sources/Materials</AccordionTrigger>
-                              <AccordionContent>
-                                <MarkdownWithBibleVerses content={msg.content} />
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
-                        </div>
-                      );
-                    case "CCEL":
-                      return (
-                        <div key={i} className="mr-auto mt-2 max-w-[80%]">
-                          <Accordion type="single" collapsible>
-                            <AccordionItem value={`ccel-${i}`}>
-                              <AccordionTrigger>CCEL Sources</AccordionTrigger>
-                              <AccordionContent>
-                                <MarkdownWithBibleVerses content={msg.content} />
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
+                        <div key={i} className="mr-auto max-w-[80%] rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive">
+                          <div className="mb-1 text-sm font-bold">System</div>
+                          <p className="text-sm">{msg.content}</p>
                         </div>
                       );
                     default:
-                      return null;
+                      return (
+                        <div key={i} className="mr-auto max-w-[80%] rounded-md border border-border/60 bg-muted/20 p-3 text-foreground">
+                          <div className="mb-1 text-sm font-bold">Message</div>
+                          <MarkdownWithBibleVerses content={msg.content} />
+                        </div>
+                      );
                   }
                 })}
                 <div ref={messagesEndRef} />

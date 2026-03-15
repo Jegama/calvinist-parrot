@@ -202,7 +202,6 @@ If a sub-criterion is not applicable for a specific question (based on its flags
 * `applies_interfaith`: 100 (20.0%)
 * `applies_evangelism`: 100 (20.0%)
 
-
 # Soli Deo Gloria
 
 * Romans 11:36
