@@ -1,20 +1,25 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { Fragment, useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { AppSidebar } from "@/components/chat-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
-import { Loader2, Copy, Check } from "lucide-react";
+import { Loader2, Copy, Check, Info } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/hooks/use-auth";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { useUserIdentifier } from "@/hooks/use-user-identifier";
 import { useChatList } from "@/hooks/use-chat-list";
+import { useQuery } from "@tanstack/react-query";
+import { fetchProfileOverview } from "@/app/profile/api";
 
 // Keyed by the toolName string that arrives in tool_progress events.
 // Writer-based tools use display names (e.g. "Bible Commentary").
@@ -55,6 +60,11 @@ const TOOL_PROGRESS_TITLES: Record<string, string> = {
   search_by_strongs: "Searching by Strong's number",
 };
 
+const DEFAULT_DENOMINATION = "reformed-baptist";
+const DEFAULT_DENOMINATION_LABEL = "Reformed Baptist";
+const DEFAULT_DENOMINATION_REGEX = /\breformed[- ]baptist\b/i;
+const DENOMINATION_NOTICE_STORAGE_PREFIX = "chat-denomination-notice";
+
 type Message = {
   sender: string;
   content: string;
@@ -84,10 +94,13 @@ export default function ChatPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [hasShownDenominationNotice, setHasShownDenominationNotice] = useState(false);
+  const [showDenominationNotice, setShowDenominationNotice] = useState(false);
   const { userId } = useUserIdentifier();
   const { chats, invalidate: invalidateChatList, upsertChat, removeChat } = useChatList(userId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -108,6 +121,20 @@ export default function ChatPage() {
   const MAX_CHAT_FETCH_RETRIES = 5;
   const RETRY_DELAY_BASE_MS = 200;
   const COPY_FEEDBACK_DURATION = 2000;
+  const denominationNoticeStorageKey = `${DENOMINATION_NOTICE_STORAGE_PREFIX}:${params.chatId}`;
+
+  const profileOverview = useQuery({
+    queryKey: ["profile-overview", user?.$id ?? "guest"],
+    enabled: Boolean(user?.$id),
+    queryFn: () => fetchProfileOverview(user!.$id),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const currentDenomination = profileOverview.data?.profile?.denomination ?? DEFAULT_DENOMINATION;
+  const shouldInviteDenominationChoice = !user?.$id || currentDenomination === DEFAULT_DENOMINATION;
+  const denominationMentionIndex = messages.findIndex(
+    (message) => message.sender === "parrot" && DEFAULT_DENOMINATION_REGEX.test(message.content)
+  );
 
   // --- 1) Fetch Chat, User, and Chat List ---
 
@@ -180,6 +207,17 @@ export default function ChatPage() {
   }, [params.chatId]);
 
   useEffect(() => {
+    setHasShownDenominationNotice(false);
+    setShowDenominationNotice(false);
+
+    if (typeof window === "undefined") return;
+
+    if (window.localStorage.getItem(denominationNoticeStorageKey) === "shown") {
+      setHasShownDenominationNotice(true);
+    }
+  }, [denominationNoticeStorageKey]);
+
+  useEffect(() => {
     return () => {
       if (copyResetTimeoutRef.current !== null) {
         window.clearTimeout(copyResetTimeoutRef.current);
@@ -236,6 +274,27 @@ export default function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (showDenominationNotice) return;
+    if (hasShownDenominationNotice) return;
+    if (denominationMentionIndex < 0) return;
+    if (!shouldInviteDenominationChoice) return;
+    if (user?.$id && profileOverview.isPending) return;
+    if (typeof window === "undefined") return;
+
+    window.localStorage.setItem(denominationNoticeStorageKey, "shown");
+    setHasShownDenominationNotice(true);
+    setShowDenominationNotice(true);
+  }, [
+    hasShownDenominationNotice,
+    denominationMentionIndex,
+    denominationNoticeStorageKey,
+    profileOverview.isPending,
+    shouldInviteDenominationChoice,
+    showDenominationNotice,
+    user?.$id,
+  ]);
 
   // --- 2) Send Message ---
   const handleSendMessage = useCallback(
@@ -467,13 +526,12 @@ export default function ChatPage() {
       <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))] !bg-transparent">
         <div className="flex min-h-full flex-col">
           <header
-            className={`sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center transition-all duration-200 ease-in-out ${
-              isMobile && isScrolled
-                ? "!bg-transparent"
-                : isScrolled
+            className={`sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center transition-all duration-200 ease-in-out ${isMobile && isScrolled
+              ? "!bg-transparent"
+              : isScrolled
                 ? "!bg-transparent"
                 : "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-            } ${isMobile && !isScrolled ? "!bg-transparent !backdrop-blur-none" : ""}`}
+              } ${isMobile && !isScrolled ? "!bg-transparent !backdrop-blur-none" : ""}`}
             style={{
               height: isMobile ? (isScrolled ? "2.5rem" : "3.5rem") : isScrolled ? "3rem" : "4rem",
               justifyContent: isMobile && isScrolled ? "center" : "flex-start",
@@ -482,9 +540,8 @@ export default function ChatPage() {
             }}
           >
             <div
-              className={`flex items-center transition-all duration-700 ease-in-out ${
-                isMobile && isScrolled ? "liquid-glass-pill" : ""
-              }`}
+              className={`flex items-center transition-all duration-700 ease-in-out ${isMobile && isScrolled ? "liquid-glass-pill" : ""
+                }`}
               style={{
                 justifyContent: isMobile && isScrolled ? "center" : "flex-start",
                 background: isMobile && isScrolled ? "transparent" : "transparent",
@@ -553,39 +610,73 @@ export default function ChatPage() {
                       );
                     case "parrot":
                       return (
-                        <div
-                          key={i}
-                          className="group relative mr-auto max-w-[80%] rounded-md bg-parrot-message p-3 text-parrot-message-foreground shadow break-words overflow-wrap-anywhere"
-                        >
-                          <div className="mb-1 text-sm font-bold">Parrot</div>
-                          <div className="break-words overflow-wrap-anywhere">
-                            <MarkdownWithBibleVerses content={msg.content} />
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            aria-label={copiedMessageIndex === i ? "Markdown copied" : "Copy markdown"}
-                            className="absolute right-3 top-3 h-7 w-7 rounded-full bg-muted/30 text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-muted/40"
-                            onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(msg.content);
-                                setCopiedMessageIndex(i);
-                                if (copyResetTimeoutRef.current !== null) {
-                                  window.clearTimeout(copyResetTimeoutRef.current);
+                        <Fragment key={i}>
+                          <div className="group relative mr-auto max-w-[80%] rounded-md bg-parrot-message p-3 text-parrot-message-foreground shadow break-words overflow-wrap-anywhere">
+                            <div className="mb-1 text-sm font-bold">Parrot</div>
+                            <div className="break-words overflow-wrap-anywhere">
+                              <MarkdownWithBibleVerses content={msg.content} />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={copiedMessageIndex === i ? "Markdown copied" : "Copy markdown"}
+                              className="absolute right-3 top-3 h-7 w-7 rounded-full bg-muted/30 text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-muted/40"
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(msg.content);
+                                  setCopiedMessageIndex(i);
+                                  if (copyResetTimeoutRef.current !== null) {
+                                    window.clearTimeout(copyResetTimeoutRef.current);
+                                  }
+                                  copyResetTimeoutRef.current = window.setTimeout(() => {
+                                    setCopiedMessageIndex(null);
+                                    copyResetTimeoutRef.current = null;
+                                  }, COPY_FEEDBACK_DURATION);
+                                } catch (err) {
+                                  console.error("Failed to copy message:", err);
                                 }
-                                copyResetTimeoutRef.current = window.setTimeout(() => {
-                                  setCopiedMessageIndex(null);
-                                  copyResetTimeoutRef.current = null;
-                                }, COPY_FEEDBACK_DURATION);
-                              } catch (err) {
-                                console.error("Failed to copy message:", err);
-                              }
-                            }}
-                          >
-                            {copiedMessageIndex === i ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                          </Button>
-                        </div>
+                              }}
+                            >
+                              {copiedMessageIndex === i ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                            </Button>
+                          </div>
+
+                          {showDenominationNotice && denominationMentionIndex === i ? (
+                            <div className="mr-auto mt-2 max-w-[80%]">
+                              <Alert className="border-border/60 bg-muted/20">
+                                <Info className="h-4 w-4" />
+                                <AlertTitle>
+                                  {user?.$id ? "Prefer a different tradition?" : `Currently using ${DEFAULT_DENOMINATION_LABEL} mode`}
+                                </AlertTitle>
+                                <AlertDescription className="space-y-3">
+                                  <p>
+                                    {user?.$id
+                                      ? `Parrot is answering with ${DEFAULT_DENOMINATION_LABEL} distinctives. If you'd rather use another tradition, you can update your denomination in your profile.`
+                                      : `Parrot defaults to ${DEFAULT_DENOMINATION_LABEL} distinctives for guests. Create an account to choose another denomination, or sign in if you already have one.`}
+                                  </p>
+
+                                  <div className="flex flex-wrap gap-2">
+                                    {user?.$id ? (
+                                      <Button asChild size="sm">
+                                        <Link href="/profile">Choose denomination in profile</Link>
+                                      </Button>
+                                    ) : (
+                                      <>
+                                        <Button asChild size="sm">
+                                          <Link href="/register">Create account</Link>
+                                        </Button>
+                                        <Button asChild size="sm" variant="outline">
+                                          <Link href="/login">Sign in</Link>
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                </AlertDescription>
+                              </Alert>
+                            </div>
+                          ) : null}
+                        </Fragment>
                       );
                     case "calvin": // for backward compatibility
                       return (
