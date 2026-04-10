@@ -18,8 +18,8 @@ const main_model = "gpt-4.1"
 const mini_model = "gpt-4.1-mini"
 
 export async function POST(req: NextRequest) {
-  const { question, denomination = "reformed-baptist" } = await req.json();
-  const resolvedUserId = getChatActorId(await resolveChatActor());
+  const { question, denomination = "reformed-baptist", userId } = await req.json();
+  const resolvedUserId = getChatActorId(await resolveChatActor({ externalUserId: userId }));
   const encoder = new TextEncoder();
 
   // Map denomination to corresponding system prompt
