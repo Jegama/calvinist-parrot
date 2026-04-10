@@ -7,7 +7,7 @@ import prisma from '@/lib/prisma'
 import OpenAI from 'openai'
 import * as prompts from '@/lib/prompts/core'
 import * as qaPrompts from '@/lib/prompts/parrot-qa'
-import { requireAuthenticatedUser } from "@/lib/auth";
+import { getChatActorId, resolveChatActor } from "@/lib/guest";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -18,12 +18,8 @@ const main_model = "gpt-4.1"
 const mini_model = "gpt-4.1-mini"
 
 export async function POST(req: NextRequest) {
-  const { question, userId = null, denomination = "reformed-baptist" } = await req.json();
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId ?? undefined);
-  if (errorResponse || !authenticatedUserId)
-    return errorResponse ?? new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-
-  const resolvedUserId = userId || authenticatedUserId;
+  const { question, denomination = "reformed-baptist" } = await req.json();
+  const resolvedUserId = getChatActorId(await resolveChatActor());
   const encoder = new TextEncoder();
 
   // Map denomination to corresponding system prompt

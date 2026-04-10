@@ -20,14 +20,7 @@ export async function POST(
   const { id } = await params;
 
   try {
-    const body = await request.json();
-    const { userId } = body;
-
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-    }
-
-    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
     if (errorResponse || !authenticatedUserId)
       return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

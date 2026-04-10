@@ -41,23 +41,22 @@ interface Props {
   childBirthdate?: string | null;
 }
 
-async function fetchMonthlyVisions(userId: string, memberId: string) {
+async function fetchMonthlyVisions(memberId: string) {
   const res = await fetch(
-    `/api/kids-discipleship/monthly-vision?userId=${userId}&memberId=${memberId}`
+    `/api/kids-discipleship/monthly-vision?memberId=${memberId}`
   );
   if (!res.ok) throw new Error("Failed to fetch monthly visions");
   return res.json();
 }
 
 async function saveMonthlyVision(
-  userId: string,
   memberId: string,
   data: Partial<MonthlyVision>
 ) {
   const res = await fetch("/api/kids-discipleship/monthly-vision", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, memberId, ...data }),
+    body: JSON.stringify({ memberId, ...data }),
   });
   if (!res.ok) throw new Error("Failed to save vision");
   return res.json();
@@ -114,13 +113,13 @@ export function MonthlyVisionSection({ userId, memberId, childBirthdate }: Props
 
   const { data, isLoading } = useQuery({
     queryKey: ["kids-discipleship", "monthly-vision", memberId],
-    queryFn: () => fetchMonthlyVisions(userId, memberId),
+    queryFn: () => fetchMonthlyVisions(memberId),
     enabled: !!userId && !!memberId,
   });
 
   const mutation = useMutation({
     mutationFn: (visionData: Partial<MonthlyVision>) =>
-      saveMonthlyVision(userId, memberId, visionData),
+      saveMonthlyVision(memberId, visionData),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["kids-discipleship", "monthly-vision", memberId],

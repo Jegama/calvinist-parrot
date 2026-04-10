@@ -4,7 +4,6 @@
 
 import { useEffect, useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { useRouter } from "next/navigation";
 import { ProtectedView } from "@/components/ProtectedView";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
@@ -19,14 +18,13 @@ import { PreviousQuestionsCard } from "./components/previous-questions-card";
 
 export default function ProfilePage() {
   const { resetUi, setSpaceNameInput } = useProfileUiStore();
-  const router = useRouter();
   const { user, logout } = useAuth();
 
   const profileQueryKey = useMemo(() => ["profile-overview", user?.$id ?? "guest"], [user?.$id]);
   const profileOverview = useQuery({
     queryKey: profileQueryKey,
     enabled: Boolean(user?.$id),
-    queryFn: () => fetchProfileOverview(user!.$id),
+    queryFn: () => fetchProfileOverview(),
     staleTime: 1000 * 60 * 5,
   });
 
@@ -60,7 +58,6 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     try {
       await logout();
-      router.push("/login");
     } catch (error: unknown) {
       console.error("Logout failed:", error);
     }
@@ -92,7 +89,6 @@ export default function ProfilePage() {
       <FamilySpaceCard
         space={space}
         membership={membership}
-        userId={user.$id}
         userName={user.name || "Member"}
         onUpdate={() => profileOverview.refetch()}
       />

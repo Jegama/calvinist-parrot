@@ -25,7 +25,6 @@ import { requireAuthenticatedUser } from "@/lib/auth";
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
   const page = parseInt(searchParams.get("page") || "1", 10);
   const requestedLimit = parseInt(searchParams.get("limit") || "20", 10);
   const tags = searchParams.get("tags")?.split(",").filter(Boolean);
@@ -33,11 +32,7 @@ export async function GET(request: Request) {
   const startDate = searchParams.get("startDate");
   const endDate = searchParams.get("endDate");
 
-  if (!userId) {
-    return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-  }
-
-  const { errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse) return errorResponse;
 
   const limit = Number.isFinite(requestedLimit)
@@ -125,9 +120,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { userId, entryText, entryDate } = body;
+    const { entryText, entryDate } = body;
 
-    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
     if (errorResponse || !authenticatedUserId)
       return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

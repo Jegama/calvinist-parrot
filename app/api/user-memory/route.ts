@@ -12,30 +12,19 @@ import { requireAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
   const action = searchParams.get("action") || "get"; // 'get' or 'search'
   const query = searchParams.get("query");
 
-  if (!userId) {
-    return NextResponse.json(
-      {
-        error: "userId query parameter is required",
-        example: "/api/user-memory?userId=YOUR_USER_ID",
-      },
-      { status: 400 }
-    );
-  }
-
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId ?? undefined);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized - Please log in" }, { status: 401 });
 
   try {
     if (action === "search" && query) {
       // Search memories by query
-      const results = await searchUserMemories(userId, query, 10);
+      const results = await searchUserMemories(authenticatedUserId, query, 10);
       return NextResponse.json({
-        userId,
+        userId: authenticatedUserId,
         query,
         results: results.map((r) => ({
           key: r.key,
@@ -47,11 +36,11 @@ export async function GET(request: Request) {
       });
     } else {
       // Get full user profile
-      const profile = await getUserProfile(userId);
+      const profile = await getUserProfile(authenticatedUserId);
 
       if (!profile) {
         return NextResponse.json({
-          userId,
+          userId: authenticatedUserId,
           profile: null,
           message: "No profile found for this user. Have a conversation first!",
         });
@@ -59,7 +48,7 @@ export async function GET(request: Request) {
 
       // Format response for readability
       return NextResponse.json({
-        userId,
+        userId: authenticatedUserId,
         profile,
         summary: {
           totalTheologicalTopics: Object.keys(
@@ -77,7 +66,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Unknown error",
-        userId,
+        userId: authenticatedUserId,
       },
       { status: 500 }
     );
@@ -86,25 +75,14 @@ export async function GET(request: Request) {
 
 // DELETE endpoint to clear a user's memories (useful for testing)
 export async function DELETE(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-
-  if (!userId) {
-    return NextResponse.json(
-      {
-        error: "userId query parameter is required",
-      },
-      { status: 400 }
-    );
-  }
-
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId ?? undefined);
+  void request;
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized - Please log in" }, { status: 401 });
 
   try {
     const store = getMemoryStore();
-    const namespace = ["memories", userId];
+    const namespace = ["memories", authenticatedUserId];
 
     // Get all memories for this user
     const memories = await store.search(namespace, { limit: 100 });
@@ -116,7 +94,7 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Deleted ${memories.length} memories for user ${userId}`,
+      message: `Deleted ${memories.length} memories for user ${authenticatedUserId}`,
       deletedCount: memories.length,
     });
   } catch (error) {

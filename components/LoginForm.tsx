@@ -2,34 +2,57 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { account } from "@/utils/appwrite";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+
+type LoginResponse = {
+  error?: string;
+  user?: Parameters<ReturnType<typeof useAuth>["setUser"]>[0];
+};
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setUser } = useAuth();
+
+  useEffect(() => {
+    if (searchParams.get("oauth") === "failed") {
+      setErrorMessage("Google sign-in failed. Please try again.");
+      return;
+    }
+
+    if (searchParams.get("oauth") === "missing_credentials") {
+      setErrorMessage("Google sign-in could not be completed.");
+    }
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
+
     try {
-      await account.createEmailPasswordSession(email, password);
-      const currentUser = await account.get();
-      await fetch("/api/user-profile", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUser.$id, name: currentUser.name, email: currentUser.email }),
+        body: JSON.stringify({ email, password }),
       });
-      setUser(currentUser);
+
+      const payload = (await response.json()) as LoginResponse;
+
+      if (!response.ok || !payload.user) {
+        throw new Error(payload.error || "Login failed.");
+      }
+
+      setUser(payload.user);
       router.push("/");
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -38,6 +61,10 @@ export function LoginForm() {
         setErrorMessage("An unknown error occurred.");
       }
     }    
+  };
+
+  const handleGoogleLogin = () => {
+    window.location.href = "/api/auth/oauth/google/start?intent=login";
   };
 
   return (
@@ -79,11 +106,19 @@ export function LoginForm() {
               />
             </div>
             <Button type="submit" className="w-full">Login</Button>
+            <Button type="button" variant="outline" className="w-full" onClick={handleGoogleLogin}>
+              Continue with Google
+            </Button>
           </div>
           <div className="mt-4 text-center text-sm">
             Don&apos;t have an account?{" "}
             <Link href="/register" className="underline">
               Sign up
+            </Link>
+          </div>
+          <div className="mt-2 text-center text-xs text-muted-foreground">
+            <Link href="/privacy-policy" className="underline">
+              Privacy Policy
             </Link>
           </div>
         </CardContent>

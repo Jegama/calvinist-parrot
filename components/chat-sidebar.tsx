@@ -40,7 +40,7 @@ export function AppSidebar({ chats, currentChatId, onDeleted, className, style, 
     async (chatId: string) => {
       try {
         const params = new URLSearchParams({ chatId });
-        // userId is verified via cookie on the server; optional to include here
+        // Actor ownership is resolved on the server from the Appwrite session or guest cookie.
         const res = await fetch(`/api/user-chats?${params.toString()}`, { method: "DELETE" });
         if (!res.ok) throw new Error("Failed to delete chat");
         onDeleted?.(chatId);

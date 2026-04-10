@@ -41,7 +41,7 @@ export function TheologicalPreferencesCard({ stats, userId, onUpdate }: Theologi
     setDenominationSaved(false);
 
     try {
-      await updateDenomination(userId, selectedDenomination);
+      await updateDenomination(selectedDenomination);
       onUpdate();
       setDenominationSaved(true);
       // Hide success message after 5 seconds

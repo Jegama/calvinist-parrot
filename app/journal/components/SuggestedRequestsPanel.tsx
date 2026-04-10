@@ -14,13 +14,11 @@ import { BibleVerse } from "@/components/BibleVerse";
 
 interface SuggestedRequestsPanelProps {
   call2: Call2Output;
-  userId: string;
   hasHousehold: boolean;
   entryId: string; // Phase 4: Journal entry ID for cross-linking
 }
 
 async function addPrayerRequest(
-  userId: string,
   requestText: string,
   notes: string | null,
   linkedScripture: string | null,
@@ -30,7 +28,6 @@ async function addPrayerRequest(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      userId,
       requestText,
       notes,
       linkedScripture,
@@ -41,13 +38,13 @@ async function addPrayerRequest(
   if (!res.ok) throw new Error("Failed to add prayer request");
 }
 
-export function SuggestedRequestsPanel({ call2, userId, hasHousehold, entryId }: SuggestedRequestsPanelProps) {
+export function SuggestedRequestsPanel({ call2, hasHousehold, entryId }: SuggestedRequestsPanelProps) {
   const queryClient = useQueryClient();
   const [addedRequests, setAddedRequests] = useState<Set<string>>(new Set());
 
   const addMutation = useMutation({
     mutationFn: (params: { title: string; notes: string; linkedScripture: string | null; key: string }) =>
-      addPrayerRequest(userId, params.title, params.notes, params.linkedScripture, entryId),
+      addPrayerRequest(params.title, params.notes, params.linkedScripture, entryId),
     onSuccess: (_, variables) => {
       setAddedRequests(prev => new Set(prev).add(variables.key));
       queryClient.invalidateQueries({ queryKey: ["prayer-requests"] });

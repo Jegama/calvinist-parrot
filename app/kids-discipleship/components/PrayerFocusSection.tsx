@@ -44,16 +44,15 @@ interface Props {
   onCreateNextYearPlan?: () => void;
 }
 
-async function fetchPrayerFocus(userId: string, memberId: string) {
+async function fetchPrayerFocus(memberId: string) {
   const res = await fetch(
-    `/api/kids-discipleship/prayer-focus?userId=${userId}&memberId=${memberId}&daysBack=30`
+    `/api/kids-discipleship/prayer-focus?memberId=${memberId}&daysBack=30`
   );
   if (!res.ok) throw new Error("Failed to fetch prayer focus");
   return res.json();
 }
 
 async function addPrayerRequest(
-  userId: string,
   requestText: string,
   notes: string | null,
   linkedScripture: string | null,
@@ -64,11 +63,10 @@ async function addPrayerRequest(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      userId,
       requestText,
       notes,
       linkedScripture,
-      familyId: null, // Household request
+      linkedToFamily: "household",
       linkedJournalEntryId, // Phase 4: Cross-link to kids log
       subjectMemberId, // Phase 4: Child this prayer is about
     }),
@@ -76,9 +74,9 @@ async function addPrayerRequest(
   if (!res.ok) throw new Error("Failed to add prayer request");
 }
 
-async function fetchAnnualPlans(userId: string, memberId: string) {
+async function fetchAnnualPlans(memberId: string) {
   const res = await fetch(
-    `/api/kids-discipleship/annual-plan?userId=${userId}&memberId=${memberId}`
+    `/api/kids-discipleship/annual-plan?memberId=${memberId}`
   );
   if (!res.ok) throw new Error("Failed to fetch annual plans");
   return res.json();
@@ -96,7 +94,7 @@ export function PrayerFocusSection({
 
   const { data, isLoading } = useQuery({
     queryKey: ["kids-discipleship", "prayer-focus", memberId],
-    queryFn: () => fetchPrayerFocus(userId, memberId),
+    queryFn: () => fetchPrayerFocus(memberId),
     enabled: !!userId && !!memberId,
     staleTime: 1000 * 60 * 5,
   });
@@ -109,7 +107,7 @@ export function PrayerFocusSection({
   // Fetch annual plan to check if one exists for current year
   const { data: annualPlanData } = useQuery({
     queryKey: ["kids-discipleship", "annual-plan", memberId],
-    queryFn: () => fetchAnnualPlans(userId, memberId),
+    queryFn: () => fetchAnnualPlans(memberId),
     enabled: !!userId && !!memberId,
   });
 
@@ -124,7 +122,6 @@ export function PrayerFocusSection({
   const addMutation = useMutation({
     mutationFn: (params: { title: string; notes: string; linkedScripture: string | null; sourceEntryId: string | null; key: string }) =>
       addPrayerRequest(
-        userId,
         params.title,
         params.notes,
         params.linkedScripture,

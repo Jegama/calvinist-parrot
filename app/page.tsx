@@ -11,7 +11,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { useRouter } from "next/navigation";
 import { AppSidebar } from "@/components/chat-sidebar";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { useUserIdentifier } from "@/hooks/use-user-identifier";
+import { useAuth } from "@/hooks/use-auth";
 import { useChatList } from "@/hooks/use-chat-list";
 import { BookOpen, Church, Sprout } from "lucide-react";
 
@@ -19,8 +19,8 @@ export default function MainChatPage() {
   const [initialQuestion, setInitialQuestion] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
-  const { userId, ensureCookieId } = useUserIdentifier();
-  const { chats, createChat, upsertChat, removeChat } = useChatList(userId);
+  const { user } = useAuth();
+  const { chats, createChat, upsertChat, removeChat } = useChatList(user?.$id ?? "guest");
 
   const handleStartNewChat = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,10 +31,8 @@ export default function MainChatPage() {
 
     setErrorMessage("");
 
-    const activeUserId = userId ?? ensureCookieId();
-
     createChat.mutate(
-      { userId: activeUserId, initialQuestion: question, clientChatId: newChatId },
+      { initialQuestion: question, clientChatId: newChatId },
       {
         onSuccess: ({ chatId }) => {
           upsertChat({ id: chatId, conversationName: "New Conversation" });

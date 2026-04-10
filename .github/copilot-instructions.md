@@ -1,8 +1,10 @@
 # Calvinist Parrot – AI Agent Guide
 ## Overview & Entry Points
 - Next.js 16 App Router with TypeScript and Turbopack; route handlers under `app/api/**`, router pages/layouts under `app/**`.
-- Global providers live in `components/providers/app-providers.tsx`, wrapping `AuthProvider`, `ReactQueryProvider`, and the theme provider for every page.
-- Auth flows lean on Appwrite via `hooks/use-auth.tsx`; anonymous continuity now comes from `hooks/use-user-identifier.ts`, consumed in `app/page.tsx` and `app/[chatId]/page.tsx`.
+- Global providers live in `components/providers/app-providers.tsx`, wrapping `ReactQueryProvider` → `AuthProvider` → theme provider (React Query must wrap Auth so the logout hook can call `queryClient.clear()`).
+- Auth flows lean on Appwrite via `hooks/use-auth.tsx`; authenticated identity is resolved from the Appwrite session cookie on the server, and anonymous continuity uses the server-managed `guestId` flow in `lib/guest.ts`.
+- Logout performs a hard navigation (`window.location.href = "/"`) to avoid race conditions with `ProtectedView`'s redirect to `/login`. Do not use `router.push` for logout.
+- On login, guest chats are automatically transferred to the authenticated user via `transferGuestChatsToUser()` in the login route.
 - Prisma Postgres schema lives in `prisma/schema.prisma`; run `npx prisma migrate dev` after edits to keep migrations in sync.
 - Shared UI primitives follow the shadcn pattern in `components/ui/**`; compose them inside page-level components and feature modules.
 
@@ -129,4 +131,6 @@ Examples: `/journal`, `/prayer-tracker`, `/church-finder`, `/llm-evaluation-dash
 - Run `npm run lint` before commits—TypeScript strict mode enabled.
 - Streaming handlers: use `ReadableStream` + `sendProgress` to avoid backpressure.
 - Log cautiously; redact Scripture and user content.
-- **Auth for APIs:** All `app/api/**` handlers must use `requireAuthenticatedUser` or `getAuthenticatedUserId` from `lib/auth.ts` instead of manual cookie reads.
+- **Auth for APIs:** All `app/api/**` handlers must use `requireAuthenticatedUser` or `getAuthenticatedUserId` from `lib/auth.ts` instead of manual cookie reads. Client-side functions (in `app/*/api.ts`) must NOT accept `userId` as a parameter — identity is resolved server-side from the session cookie.
+- **Rate limiting:** Sensitive endpoints (e.g., password recovery) use `checkRateLimit()` from `lib/rate-limit.ts` (in-memory, per-key sliding window).
+- **Privacy policy:** Lives at `/privacy-policy` (content in `content/pages/privacy-policy.md`); linked from login, register, and about pages.

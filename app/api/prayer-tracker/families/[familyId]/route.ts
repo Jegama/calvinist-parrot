@@ -8,7 +8,6 @@ type RouteContext = { params: Promise<{ familyId: string }> };
 export async function PATCH(request: Request, context: RouteContext) {
   const { familyId } = await context.params;
   const body = (await request.json().catch(() => ({}))) as {
-    userId?: string;
     familyName?: string;
     parents?: string;
     children?: string[];
@@ -17,7 +16,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     archive?: boolean;
     unarchive?: boolean;
   };
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(body.userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { familyName, parents, children, categoryTag, lastPrayedAt, archive, unarchive } = body;
@@ -73,8 +72,8 @@ export async function DELETE(request: Request, context: RouteContext) {
   const { familyId } = await context.params;
   let userId: string | undefined;
   try {
-    const body = (await request.json()) as { userId?: string };
-    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(body?.userId);
+    await request.json();
+    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
     if (errorResponse || !authenticatedUserId)
       return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     userId = authenticatedUserId;

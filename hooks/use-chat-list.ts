@@ -8,8 +8,8 @@ export type ChatSummary = {
   conversationName: string;
 };
 
-async function loadChats(userId: string): Promise<ChatSummary[]> {
-  const response = await fetch(`/api/user-chats?userId=${encodeURIComponent(userId)}`);
+async function loadChats(): Promise<ChatSummary[]> {
+  const response = await fetch("/api/user-chats");
   if (!response.ok) {
     throw new Error("Failed to load chats");
   }
@@ -17,20 +17,19 @@ async function loadChats(userId: string): Promise<ChatSummary[]> {
   return Array.isArray(json.chats) ? json.chats : [];
 }
 
-export function useChatList(userId: string | null | undefined) {
+export function useChatList(actorKey: string) {
   const queryClient = useQueryClient();
-  const queryKey = useMemo(() => ["chat-list", userId ?? "anonymous"], [userId]);
+  const queryKey = useMemo(() => ["chat-list", actorKey], [actorKey]);
 
   const query = useQuery({
     queryKey,
-    enabled: Boolean(userId),
-    queryFn: () => loadChats(userId as string),
+    enabled: true,
+    queryFn: () => loadChats(),
     staleTime: 1000 * 60 * 10,
   });
 
   const upsertChat = useCallback(
     (chat: ChatSummary) => {
-      if (!userId) return;
       queryClient.setQueryData<ChatSummary[]>(queryKey, (current = []) => {
         const existingIndex = current.findIndex((item) => item.id === chat.id);
         if (existingIndex !== -1) {
@@ -41,28 +40,25 @@ export function useChatList(userId: string | null | undefined) {
         return [chat, ...current];
       });
     },
-    [queryClient, queryKey, userId],
+    [queryClient, queryKey],
   );
 
   const removeChat = useCallback(
     (chatId: string) => {
-      if (!userId) return;
       queryClient.setQueryData<ChatSummary[]>(queryKey, (current = []) =>
         current.filter((chat) => chat.id !== chatId),
       );
     },
-    [queryClient, queryKey, userId],
+    [queryClient, queryKey],
   );
 
   const invalidate = useCallback(() => {
-    if (!userId) return;
     queryClient.invalidateQueries({ queryKey });
-  }, [queryClient, queryKey, userId]);
+  }, [queryClient, queryKey]);
 
   const createMutation = useMutation({
     mutationFn: async (
       variables: {
-        userId: string;
         initialQuestion: string;
         clientChatId?: string;
       },

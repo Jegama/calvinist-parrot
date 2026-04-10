@@ -16,7 +16,7 @@ import type { AppwriteUser, Family, FamilySheetState, NewFamilyFormState } from 
 type UseFamilyManagerOptions = {
   user: AppwriteUser | null;
   families: Family[];
-  refreshLists: (userId: string) => Promise<void>;
+  refreshLists: () => Promise<void>;
 };
 
 type CategoryFilter = string;
@@ -108,8 +108,8 @@ export function useFamilyManager({ user, families, refreshLists }: UseFamilyMana
 
     setFamilyFormError(null);
 
-    const payload = buildFamilyPayload(user.$id, newFamily);
-    const result = await api.createFamily(user.$id, payload);
+    const payload = buildFamilyPayload(newFamily);
+    const result = await api.createFamily(payload);
 
     if (!result.success) {
       setFamilyFormError(result.error);
@@ -119,7 +119,7 @@ export function useFamilyManager({ user, families, refreshLists }: UseFamilyMana
     const resolvedCategory = resolveCategoryTag(newFamily.categorySelect, newFamily.customCategory);
     setNewFamily(resetFamilyForm(resolvedCategory || undefined));
 
-    await refreshLists(user.$id);
+    await refreshLists();
   }, [newFamily, refreshLists, user]);
 
   const openFamilySheet = useCallback((family: Family) => {
@@ -163,7 +163,7 @@ export function useFamilyManager({ user, families, refreshLists }: UseFamilyMana
     setFamilySheetLoading(true);
     setFamilySheetError(null);
 
-    const result = await api.updateFamily(user.$id, familySheet.id, {
+    const result = await api.updateFamily(familySheet.id, {
       familyName: trimmedName,
       parents: familySheet.parents.trim(),
       children: normalizeChildren(familySheet.children),
@@ -178,7 +178,7 @@ export function useFamilyManager({ user, families, refreshLists }: UseFamilyMana
     }
 
     closeFamilySheet();
-    await refreshLists(user.$id);
+    await refreshLists();
     setFamilySheetLoading(false);
   }, [closeFamilySheet, familySheet, refreshLists, user]);
 
@@ -187,7 +187,7 @@ export function useFamilyManager({ user, families, refreshLists }: UseFamilyMana
     setFamilySheetLoading(true);
     setFamilySheetError(null);
 
-    const result = await api.updateFamily(user.$id, familySheet.id, {
+    const result = await api.updateFamily(familySheet.id, {
       archive: true,
       categoryTag: ARCHIVED_CATEGORY,
     });
@@ -199,7 +199,7 @@ export function useFamilyManager({ user, families, refreshLists }: UseFamilyMana
     }
 
     closeFamilySheet();
-    await refreshLists(user.$id);
+    await refreshLists();
     setFamilySheetLoading(false);
   }, [closeFamilySheet, familySheet.id, refreshLists, user]);
 
@@ -208,7 +208,7 @@ export function useFamilyManager({ user, families, refreshLists }: UseFamilyMana
     setFamilySheetLoading(true);
     setFamilySheetError(null);
 
-    const result = await api.updateFamily(user.$id, familySheet.id, {
+    const result = await api.updateFamily(familySheet.id, {
       unarchive: true,
       categoryTag: null,
     });
@@ -220,7 +220,7 @@ export function useFamilyManager({ user, families, refreshLists }: UseFamilyMana
     }
 
     closeFamilySheet();
-    await refreshLists(user.$id);
+    await refreshLists();
     setFamilySheetLoading(false);
   }, [closeFamilySheet, familySheet.id, refreshLists, user]);
 
@@ -229,7 +229,7 @@ export function useFamilyManager({ user, families, refreshLists }: UseFamilyMana
     setFamilySheetLoading(true);
     setFamilySheetError(null);
 
-    const result = await api.deleteFamily(user.$id, familySheet.id);
+    const result = await api.deleteFamily(familySheet.id);
 
     if (!result.success) {
       setFamilySheetError(result.error);
@@ -238,7 +238,7 @@ export function useFamilyManager({ user, families, refreshLists }: UseFamilyMana
     }
 
     closeFamilySheet();
-    await refreshLists(user.$id);
+    await refreshLists();
     setFamilySheetLoading(false);
   }, [closeFamilySheet, familySheet.id, refreshLists, user]);
 

@@ -39,12 +39,11 @@ import {
 type FamilySpaceCardProps = {
   space: PrayerSpace | null;
   membership: MembershipInfo | null;
-  userId: string;
   userName: string;
   onUpdate: () => void;
 };
 
-export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilySpaceCardProps) {
+export function FamilySpaceCard({ space, membership, onUpdate }: FamilySpaceCardProps) {
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const regenerateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [newChildName, setNewChildName] = useState("");
@@ -158,7 +157,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
     setIsAddingChild(true);
     try {
       const birthdateStr = newChildBirthdate ? newChildBirthdate.toISOString() : undefined;
-      await addChildMember(userId, newChildName.trim(), newChildCapacity, birthdateStr);
+      await addChildMember(newChildName.trim(), newChildCapacity, birthdateStr);
       setNewChildName("");
       setNewChildCapacity(1);
       setNewChildBirthdate(undefined);
@@ -175,7 +174,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
     if (capacity === undefined) return;
     setSavingMemberId(memberId);
     try {
-      await updateMember(userId, memberId, { assignmentCapacity: capacity });
+      await updateMember(memberId, { assignmentCapacity: capacity });
       await onUpdate();
     } catch (error) {
       console.error("Failed to update member", error);
@@ -188,7 +187,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
     if (!space || membership?.role !== "OWNER") return;
     setIsRegenerating(true);
     try {
-      await regenerateShareCode(userId);
+      await regenerateShareCode();
       await onUpdate();
       setRegenerateSuccess(true);
       if (regenerateTimeoutRef.current) clearTimeout(regenerateTimeoutRef.current);
@@ -205,7 +204,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
   const handleCreateSpace = async () => {
     if (!spaceNameInput.trim()) return;
     try {
-      await createPrayerSpace(userId, spaceNameInput.trim());
+      await createPrayerSpace(spaceNameInput.trim());
       await onUpdate();
     } catch (error) {
       console.error("Failed to create space", error);
@@ -215,7 +214,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
   const handleJoinSpace = async () => {
     if (!pendingCode.trim()) return;
     try {
-      await joinPrayerSpace(userId, pendingCode.trim());
+      await joinPrayerSpace(pendingCode.trim());
       await onUpdate();
       setPendingCode("");
       setJoinError("");
@@ -229,7 +228,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
     if (!space || !pendingRename.trim()) return;
     setRenameSubmitting(true);
     try {
-      await renamePrayerSpace(userId, space.id, pendingRename.trim());
+      await renamePrayerSpace(space.id, pendingRename.trim());
       await onUpdate();
       setRenameDialogOpen(false);
       setPendingRename("");
@@ -244,7 +243,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
     if (!space || !memberToRemove) return;
     setIsRemovingMember(true);
     try {
-      await removeMemberFromSpace(userId, space.id, memberToRemove.id);
+      await removeMemberFromSpace(space.id, memberToRemove.id);
       await onUpdate();
       setRemoveDialogOpen(false);
       setMemberToRemove(null);
@@ -262,7 +261,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
     }
     setIsLeavingSpace(true);
     try {
-      await leavePrayerSpace(userId, space.id, transferOwnerId || undefined);
+      await leavePrayerSpace(space.id, transferOwnerId || undefined);
       setLeaveDialogOpen(false);
       setTransferOwnerId("");
       await onUpdate();
@@ -279,7 +278,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
 
     setIsDeletingHousehold(true);
     try {
-      await deleteHousehold(userId, space.id);
+      await deleteHousehold(space.id);
       setDeleteHouseholdDialogOpen(false);
       setDeleteConfirmText("");
       await onUpdate();
@@ -797,7 +796,7 @@ export function FamilySpaceCard({ space, membership, userId, onUpdate }: FamilyS
                 setIsUpdatingBirthdate(true);
                 try {
                   const birthdateStr = editBirthdate ? editBirthdate.toISOString() : null;
-                  await updateMember(userId, memberToEdit.id, { birthdate: birthdateStr });
+                  await updateMember(memberToEdit.id, { birthdate: birthdateStr });
                   await onUpdate();
                   setEditMemberDialogOpen(false);
                   setMemberToEdit(null);

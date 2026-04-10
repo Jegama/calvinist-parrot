@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-
-  const { errorResponse } = await requireAuthenticatedUser(userId);
-  if (errorResponse) return errorResponse;
+  void request;
+  const { userId, errorResponse } = await requireAuthenticatedUser();
+  if (errorResponse || !userId) {
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const profile = await prisma.userProfile.findUnique({ where: { appwriteUserId: userId } });
   return NextResponse.json(profile);
@@ -16,51 +16,41 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const { userId, name, email } = body as {
-    userId?: string;
+  const { name, email } = body as {
     name?: string;
     email?: string;
   };
 
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  const authenticatedUser = await getAuthenticatedUser();
+  if (!authenticatedUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const displayName = (name || email || "Family Member").toString();
 
   const profile = await prisma.userProfile.upsert({
-    where: { appwriteUserId: userId },
+    where: { appwriteUserId: authenticatedUser.$id },
     update: {
       displayName,
       email: email || null,
       lastSeenAt: new Date(),
     },
     create: {
-      appwriteUserId: userId,
+      appwriteUserId: authenticatedUser.$id,
       displayName,
       email: email || null,
     },
   });
 
-  const response = NextResponse.json(profile);
-  response.cookies.set("userId", userId, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
-
-  return response;
+  return NextResponse.json(profile);
 }
 
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { userId: userIdFromBody, denomination } = body as {
-      userId?: string;
-      denomination?: string;
-    };
+    const { denomination } = body as { denomination?: string };
 
-    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userIdFromBody);
+    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
     if (errorResponse || !authenticatedUserId)
       return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

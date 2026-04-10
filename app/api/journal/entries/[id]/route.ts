@@ -16,14 +16,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-
-  if (!userId) {
-    return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-  }
-
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  void request;
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -83,13 +77,9 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const { userId, tags } = body;
+    const { tags } = body;
 
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-    }
-
-    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
     if (errorResponse || !authenticatedUserId)
       return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -148,14 +138,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-
-  if (!userId) {
-    return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-  }
-
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  void request;
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

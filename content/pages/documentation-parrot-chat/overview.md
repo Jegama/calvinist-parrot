@@ -45,7 +45,7 @@ For simplicity, I created this other endpoint that focuses on quick QA. Please c
    - **Automatic Learning**: After each conversation, the system extracts and updates user memories in the background
    - **Pastoral Context**: Builds a profile including spiritual maturity, ministry context, theological preferences, and question history
    - **Smart Responses**: Future conversations are informed by this context for more personalized, pastorally-appropriate answers
-   - **Privacy**: Memory data is tied to `userId` and never exposed to other users
+  - **Privacy**: Memory data is tied to the resolved conversation actor and never exposed to other users
    - **No Interruption**: Memory extraction happens asynchronously and doesn't block responses
 
 4. **Denomination Handling**  
@@ -54,9 +54,9 @@ For simplicity, I created this other endpoint that focuses on quick QA. Please c
    - Affects how the AI interprets and responds to questions
    - Maintains core doctrinal consistency while respecting denominational distinctives
 
-## Why userId is Critical
+## Why Resolved Identity Is Critical
 
-The `userId` parameter enables:
+The resolved actor identity enables:
 - **Memory persistence** across conversations
 - **Spiritual journey tracking** (seeker → new believer → mature believer progression)
 - **Personalized depth** (concise vs. detailed responses based on learned preferences)
@@ -64,13 +64,14 @@ The `userId` parameter enables:
 - **Ministry context awareness** (tailors examples to user's roles)
 - **Doctrinal question history** (identifies areas needing more teaching)
 
-Without a `userId`, the system cannot learn or personalize—each conversation becomes isolated and generic.## API Reference
+For signed-in users, identity comes from the Appwrite session cookie. For guests, the app uses a server-managed `guestId` cookie for continuity.
+
+## API Reference
 
 ### Request Structure
 
 Send a JSON payload with these possible fields:
 
-- **userId** (string, **REQUIRED**): Unique identifier for the user. Critical for memory extraction and personalization. Without this, the system cannot learn user preferences or provide pastoral continuity across conversations.
 - *chatId* (string, optional): Identifier for an existing chat session.
 - *message* (string): The user's chat message.
 - *initialQuestion* (string, optional): For starting a new chat session.
@@ -154,7 +155,7 @@ After the response stream completes, the system automatically extracts and updat
 **Developer Notes:**
 - Memory extraction never blocks the response stream
 - Errors in memory extraction are logged but don't affect user experience
-- Memory data is scoped to `userId` only
+- Memory data is scoped to the resolved actor only
 - The system uses conservative updates (won't overwrite established preferences with weak signals)
 
 ### Usage Patterns
@@ -163,7 +164,6 @@ After the response stream completes, the system automatically extracts and updat
 ```json
 POST /api/parrot-chat
 {
-  "userId": "user123",
   "initialQuestion": "What is predestination?",
   "initialAnswer": "Predestination refers to...",
   "denomination": "reformed-baptist"
@@ -174,7 +174,6 @@ POST /api/parrot-chat
 ```json
 POST /api/parrot-chat
 {
-  "userId": "user123",
   "initialQuestion": "What is predestination?"
 }
 ```
@@ -198,7 +197,6 @@ Response:
      method: 'POST',
      headers: { 'Content-Type': 'application/json' },
      body: JSON.stringify({ 
-      userId: "user123", 
       initialQuestion: "What is predestination?" 
      }),
     });
@@ -247,7 +245,6 @@ Response:
 ```json
 POST /api/parrot-chat
 {
-  "userId": "user123",
   "chatId": "chat123",
   "message": "How does it relate to free will?"
 }

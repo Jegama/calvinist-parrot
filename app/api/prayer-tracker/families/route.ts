@@ -3,9 +3,8 @@ import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const providedUserId = searchParams.get("userId") ?? undefined;
-  const { userId, errorResponse } = await requireAuthenticatedUser(providedUserId);
+  void request;
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !userId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const membership = await prisma.prayerMember.findFirst({
@@ -31,14 +30,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const { userId, familyName, parents, children, categoryTag } = body as {
-    userId?: string;
+  const { familyName, parents, children, categoryTag } = body as {
     familyName?: string;
     parents?: string;
     children?: string[];
     categoryTag?: string;
   };
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

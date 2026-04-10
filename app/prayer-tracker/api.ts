@@ -1,4 +1,4 @@
-import { appendUserId, handleApiError } from "./utils";
+import { handleApiError } from "./utils";
 import type { Family, Member, PersonalRequest, UnifiedRequest } from "./types";
 
 /**
@@ -28,7 +28,6 @@ export type RotationData = {
  * Payload for confirming rotation
  */
 export type ConfirmRotationPayload = {
-  userId: string;
   familyAssignments: Array<{ familyId: string; prayedByMemberId: string }>;
   personalIds: string[];
 };
@@ -40,9 +39,9 @@ export type ConfirmRotationPayload = {
 /**
  * Fetches the user's prayer space including space name and members
  */
-export async function fetchSpace(userId: string): Promise<Result<SpaceData | null>> {
+export async function fetchSpace(): Promise<Result<SpaceData | null>> {
   try {
-    const res = await fetch(appendUserId(`/api/prayer-tracker/spaces`, userId));
+    const res = await fetch(`/api/prayer-tracker/spaces`);
 
     if (!res.ok) {
       return { success: true, data: null }; // No space exists yet
@@ -68,9 +67,9 @@ export async function fetchSpace(userId: string): Promise<Result<SpaceData | nul
 /**
  * Fetches all families for the user
  */
-export async function fetchFamilies(userId: string): Promise<Result<Family[]>> {
+export async function fetchFamilies(): Promise<Result<Family[]>> {
   try {
-    const res = await fetch(appendUserId(`/api/prayer-tracker/families`, userId));
+    const res = await fetch(`/api/prayer-tracker/families`);
 
     if (!res.ok) {
       const message = await handleApiError(res, "Unable to load families right now.");
@@ -90,7 +89,6 @@ export async function fetchFamilies(userId: string): Promise<Result<Family[]>> {
  * Creates a new family
  */
 export async function createFamily(
-  userId: string,
   payload: {
     familyName: string;
     parents: string;
@@ -102,7 +100,7 @@ export async function createFamily(
     const response = await fetch(`/api/prayer-tracker/families`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, ...payload }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -122,7 +120,6 @@ export async function createFamily(
  * Updates an existing family
  */
 export async function updateFamily(
-  userId: string,
   familyId: string,
   payload: {
     familyName?: string;
@@ -135,10 +132,10 @@ export async function updateFamily(
   }
 ): Promise<Result<Family>> {
   try {
-    const response = await fetch(appendUserId(`/api/prayer-tracker/families/${familyId}`, userId), {
+    const response = await fetch(`/api/prayer-tracker/families/${familyId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, ...payload }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -157,12 +154,12 @@ export async function updateFamily(
 /**
  * Deletes a family
  */
-export async function deleteFamily(userId: string, familyId: string): Promise<Result<void>> {
+export async function deleteFamily(familyId: string): Promise<Result<void>> {
   try {
-    const response = await fetch(appendUserId(`/api/prayer-tracker/families/${familyId}`, userId), {
+    const response = await fetch(`/api/prayer-tracker/families/${familyId}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify({}),
     });
 
     if (!response.ok) {
@@ -184,9 +181,9 @@ export async function deleteFamily(userId: string, familyId: string): Promise<Re
 /**
  * Fetches all requests (both household and family-specific) in unified format
  */
-export async function fetchUnifiedRequests(userId: string): Promise<Result<UnifiedRequest[]>> {
+export async function fetchUnifiedRequests(): Promise<Result<UnifiedRequest[]>> {
   try {
-    const res = await fetch(appendUserId(`/api/prayer-tracker/requests`, userId));
+    const res = await fetch(`/api/prayer-tracker/requests`);
 
     if (!res.ok) {
       const message = await handleApiError(res, "Unable to load requests right now.");
@@ -206,7 +203,6 @@ export async function fetchUnifiedRequests(userId: string): Promise<Result<Unifi
  * Creates a new request (either household or family-specific)
  */
 export async function createUnifiedRequest(
-  userId: string,
   payload: {
     requestText: string;
     notes?: string;
@@ -217,7 +213,7 @@ export async function createUnifiedRequest(
     const response = await fetch(`/api/prayer-tracker/requests`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, ...payload }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -238,7 +234,6 @@ export async function createUnifiedRequest(
  * Supports moving requests between tables when linkedToFamily changes
  */
 export async function updateUnifiedRequest(
-  userId: string,
   requestId: string,
   payload: {
     requestText?: string;
@@ -252,10 +247,10 @@ export async function updateUnifiedRequest(
   }
 ): Promise<Result<UnifiedRequest>> {
   try {
-    const response = await fetch(appendUserId(`/api/prayer-tracker/requests/${requestId}`, userId), {
+    const response = await fetch(`/api/prayer-tracker/requests/${requestId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, ...payload }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -275,15 +270,14 @@ export async function updateUnifiedRequest(
  * Deletes a request (handles both types)
  */
 export async function deleteUnifiedRequest(
-  userId: string,
   requestId: string,
   isHouseholdRequest: boolean
 ): Promise<Result<void>> {
   try {
-    const response = await fetch(appendUserId(`/api/prayer-tracker/requests/${requestId}`, userId), {
+    const response = await fetch(`/api/prayer-tracker/requests/${requestId}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, isHouseholdRequest }),
+      body: JSON.stringify({ isHouseholdRequest }),
     });
 
     if (!response.ok) {
@@ -301,9 +295,9 @@ export async function deleteUnifiedRequest(
 /**
  * Fetches family-specific requests for a single family
  */
-export async function fetchFamilyRequests(userId: string, familyId: string): Promise<Result<UnifiedRequest[]>> {
+export async function fetchFamilyRequests(familyId: string): Promise<Result<UnifiedRequest[]>> {
   try {
-    const res = await fetch(appendUserId(`/api/prayer-tracker/families/${familyId}/requests`, userId));
+    const res = await fetch(`/api/prayer-tracker/families/${familyId}/requests`);
 
     if (!res.ok) {
       const message = await handleApiError(res, "Unable to load family requests right now.");
@@ -328,9 +322,9 @@ export async function fetchFamilyRequests(userId: string, familyId: string): Pro
 /**
  * Computes tonight's rotation
  */
-export async function computeRotation(userId: string): Promise<Result<RotationData>> {
+export async function computeRotation(): Promise<Result<RotationData>> {
   try {
-    const res = await fetch(appendUserId(`/api/prayer-tracker/rotation`, userId));
+    const res = await fetch(`/api/prayer-tracker/rotation`);
 
     if (!res.ok) {
       const message = await handleApiError(res, "Unable to compute rotation right now.");
@@ -355,9 +349,9 @@ export async function computeRotation(userId: string): Promise<Result<RotationDa
 /**
  * Confirms the rotation and marks items as prayed
  */
-export async function confirmRotation(userId: string, payload: ConfirmRotationPayload): Promise<Result<void>> {
+export async function confirmRotation(payload: ConfirmRotationPayload): Promise<Result<void>> {
   try {
-    const res = await fetch(appendUserId(`/api/prayer-tracker/rotation/confirm`, userId), {
+    const res = await fetch(`/api/prayer-tracker/rotation/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

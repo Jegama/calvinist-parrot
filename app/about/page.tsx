@@ -12,7 +12,7 @@ export default async function AboutPage() {
   const [introContent, footerContent] = await Promise.all([getIntroContent(), getFooterContent()]);
 
   return (
-    <Card className="max-w-2xl mx-auto mt-8 mb-8">
+    <Card className="max-w-4xl mx-auto mt-8 mb-8">
       <CardHeader>
         <CardTitle className="text-3xl font-bold mt-6 mb-4">About</CardTitle>
       </CardHeader>

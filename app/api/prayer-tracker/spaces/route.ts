@@ -11,9 +11,8 @@ function generateShareCode() {
 }
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const providedUserId = searchParams.get("userId") ?? undefined;
-  const { userId, errorResponse } = await requireAuthenticatedUser(providedUserId);
+  void request;
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !userId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const membership = await prisma.prayerMember.findFirst({
@@ -46,12 +45,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const { userId, displayName, spaceName } = body as {
-    userId?: string;
+  const { displayName, spaceName } = body as {
     displayName?: string;
     spaceName?: string;
   };
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -96,8 +94,8 @@ export async function POST(request: Request) {
 // PATCH: Rename space (owner only)
 export async function PATCH(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const { userId, spaceId, spaceName } = body as { userId?: string; spaceId?: string; spaceName?: string };
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  const { spaceId, spaceName } = body as { spaceId?: string; spaceName?: string };
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!spaceId || !spaceName)
@@ -117,13 +115,12 @@ export async function PATCH(request: Request) {
 // DELETE: Leave or remove member (with owner transfer if needed)
 export async function DELETE(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const { userId, spaceId, removeMemberId, transferToMemberId } = body as {
-    userId?: string;
+  const { spaceId, removeMemberId, transferToMemberId } = body as {
     spaceId?: string;
     removeMemberId?: string; // if owner is removing another member
     transferToMemberId?: string; // if owner is leaving, must transfer
   };
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!spaceId) return NextResponse.json({ error: "Missing spaceId" }, { status: 400 });

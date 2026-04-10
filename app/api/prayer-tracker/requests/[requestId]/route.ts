@@ -14,7 +14,6 @@ type RouteContext = { params: Promise<{ requestId: string }> };
 export async function PATCH(request: Request, context: RouteContext) {
   const { requestId } = await context.params;
   const body = (await request.json().catch(() => ({}))) as {
-    userId?: string;
     requestText?: string;
     notes?: string | null;
     lastPrayedAt?: string | null;
@@ -24,7 +23,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     linkedToFamily?: string; // New family assignment (if changed)
     originalLinkedToFamily?: string; // Original family assignment
   };
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(body.userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const {
@@ -37,8 +36,6 @@ export async function PATCH(request: Request, context: RouteContext) {
     linkedToFamily,
     originalLinkedToFamily,
   } = body;
-
-  if (!authenticatedUserId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 
   const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId } });
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
@@ -307,7 +304,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   const { requestId } = await context.params;
   const body = await request.json().catch(() => ({}));
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(body?.userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const isHouseholdRequest = body?.isHouseholdRequest;

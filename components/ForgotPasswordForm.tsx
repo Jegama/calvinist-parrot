@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { account } from "@/utils/appwrite";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
@@ -17,9 +16,22 @@ export function ForgotPasswordForm() {
 
   const handleRecovery = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
+    setMessage("");
+
     try {
-      // Replace "https://example.com" with your actual domain or route for recovery
-      await account.createRecovery(email, "https://example.com/reset-password");
+      const response = await fetch("/api/auth/password/recovery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to send recovery email.");
+      }
+
       setMessage("Recovery email sent! Check your inbox.");
     } catch (error: unknown) {
         if (error instanceof Error) {
