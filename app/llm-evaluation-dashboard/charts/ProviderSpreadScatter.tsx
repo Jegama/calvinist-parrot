@@ -22,6 +22,7 @@ interface ProviderSpreadScatterProps {
     minPromptLabel: string;
     maxPromptLabel: string;
     runCount: number;
+    modelCount: number;
     avg: string;
     fill: string;
     label: string;
@@ -100,6 +101,10 @@ export function ProviderSpreadScatter({ data }: ProviderSpreadScatterProps) {
                         <p className="flex justify-between gap-4">
                           <span className="text-muted-foreground">Non-baseline runs:</span>
                           <span className="font-semibold">{point.runCount}</span>
+                        </p>
+                        <p className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">Models tested:</span>
+                          <span className="font-semibold">{point.modelCount}</span>
                         </p>
                         <p className="flex justify-between gap-4">
                           <span className="text-muted-foreground">Range:</span>

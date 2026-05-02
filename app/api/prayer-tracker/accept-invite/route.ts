@@ -4,12 +4,11 @@ import { requireAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const { userId, shareCode, displayName } = body as {
-    userId?: string;
+  const { shareCode, displayName } = body as {
     shareCode?: string;
     displayName?: string;
   };
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!shareCode) return NextResponse.json({ error: "Missing shareCode" }, { status: 400 });

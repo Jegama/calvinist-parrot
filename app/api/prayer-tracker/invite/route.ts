@@ -11,8 +11,8 @@ function generateShareCode() {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const { userId, regenerate } = body as { userId?: string; regenerate?: boolean };
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  const { regenerate } = body as { regenerate?: boolean };
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

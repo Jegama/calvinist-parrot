@@ -20,8 +20,8 @@ interface RecentFocusSectionProps {
   userId: string;
 }
 
-async function fetchFocus(userId: string): Promise<FocusResponse> {
-  const res = await fetch(`/api/journal/focus?userId=${userId}&days=30`);
+async function fetchFocus(): Promise<FocusResponse> {
+  const res = await fetch(`/api/journal/focus?days=30`);
   if (!res.ok) throw new Error("Failed to fetch focus");
   return res.json();
 }
@@ -29,7 +29,7 @@ async function fetchFocus(userId: string): Promise<FocusResponse> {
 export function RecentFocusSection({ userId }: RecentFocusSectionProps) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["journal", "focus", userId],
-    queryFn: () => fetchFocus(userId),
+    queryFn: () => fetchFocus(),
     staleTime: 1000 * 60 * 5, // 5 minutes
     enabled: !!userId,
   });

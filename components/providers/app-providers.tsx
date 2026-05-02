@@ -8,8 +8,8 @@ import type { ReactNode } from "react";
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <AuthProvider>
-      <ReactQueryProvider>
+    <ReactQueryProvider>
+      <AuthProvider>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -20,7 +20,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
             {children}
           </HeaderConfigProvider>
         </ThemeProvider>
-      </ReactQueryProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </ReactQueryProvider>
   );
 }

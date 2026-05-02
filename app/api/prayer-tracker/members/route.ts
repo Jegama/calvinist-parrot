@@ -13,17 +13,15 @@ function parseIntOrFallback(value: unknown, fallback: number) {
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const {
-    userId,
     displayName,
     assignmentCapacity,
     isChild = true,
     birthdate,
-  }: { userId?: string; displayName?: string; assignmentCapacity?: number; isChild?: boolean; birthdate?: string } = body;
+  }: { displayName?: string; assignmentCapacity?: number; isChild?: boolean; birthdate?: string } = body;
 
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse) return errorResponse;
 
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
   if (!displayName || !displayName.trim())
     return NextResponse.json({ error: "Display name is required" }, { status: 400 });
 
@@ -62,19 +60,18 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const body = await request.json().catch(() => ({}));
   const {
-    userId,
     memberId,
     displayName,
     assignmentCapacity,
     isChild,
     birthdate,
-  }: { userId?: string; memberId?: string; displayName?: string; assignmentCapacity?: number; isChild?: boolean; birthdate?: string | null } =
+  }: { memberId?: string; displayName?: string; assignmentCapacity?: number; isChild?: boolean; birthdate?: string | null } =
     body;
 
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse) return errorResponse;
 
-  if (!userId || !memberId) return NextResponse.json({ error: "Missing userId or memberId" }, { status: 400 });
+  if (!memberId) return NextResponse.json({ error: "Missing memberId" }, { status: 400 });
 
   const actingMember = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId } });
   if (!actingMember) return NextResponse.json({ error: "No family space found" }, { status: 404 });

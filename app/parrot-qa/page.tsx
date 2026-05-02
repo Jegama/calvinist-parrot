@@ -2,7 +2,7 @@
 
 "use client"
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -26,11 +26,7 @@ import { BibleCommentary } from "@/components/BibleCommentary";
 import { extractReferences } from "@/utils/bibleUtils";
 import { BackToTop } from '@/components/BackToTop';
 
-import { account } from "@/utils/appwrite";
-import { Models } from "appwrite";
 import { useRouter } from 'next/navigation';
-
-type AppwriteUser = Models.User<Models.Preferences>;
 
 interface ChainReasoningResult {
   first_answer: string;
@@ -56,28 +52,6 @@ export default function Home() {
   const [isSynthesisStarted, setIsSynthesisStarted] = useState(false);
   const [isElaborating, setIsElaborating] = useState(false);
   const [commentaryTexts, setCommentaryTexts] = useState<{ [key: string]: string }>({});
-  const [user, setUser] = useState<AppwriteUser | null>(null);
-
-  useEffect(() => {
-    const getUser = async () => {
-      try {
-        const currentUser = await account.get();
-        setUser(currentUser);
-      } catch {
-        // Fallback to cookie if not logged in
-        const match = document.cookie.match(new RegExp('(^| )userId=([^;]+)'));
-        let guestId = match ? match[2] : null;
-        if (!guestId) {
-          guestId = crypto.randomUUID();
-          document.cookie = `userId=${guestId}; path=/; max-age=31536000`;
-        }
-        setUser({ $id: guestId } as AppwriteUser);
-      }
-    };
-    getUser();
-  }, []);
-
-  const userId = user?.$id;
 
   const handleReset = () => {
     setQuestion("");
@@ -111,7 +85,7 @@ export default function Home() {
       const response = await fetch("/api/parrot-qa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, userId }),
+        body: JSON.stringify({ question }),
       });
       if (!response.ok) throw new Error('Network response was not ok');
 
@@ -241,19 +215,12 @@ export default function Home() {
   const router = useRouter(); // Move this inside the component
 
   const handleContinueInChat = async () => {
-    // Remove userId check. Use cookie fallback if needed.
-    const getCookieUserId = () => {
-      const match = document.cookie.match(new RegExp('(^| )userId=([^;]+)'));
-      return match ? match[2] : null;
-    };
-    const effectiveUserId = userId || getCookieUserId();
     if (!question || !result?.reviewed_answer || !result?.categorization) return;
     try {
       const response = await fetch('/api/parrot-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: effectiveUserId,
           initialQuestion: question,
           initialAnswer: result.reviewed_answer,
           category: result.categorization.category,
@@ -392,7 +359,7 @@ export default function Home() {
 
                   {/* Add the "Please Elaborate" and "Continue in Chat" buttons */}
                   <CardFooter className="flex flex-col w-full gap-4 mt-8">
-                    {userId && !result?.elaborated_answer && !isElaborating && (
+                    {!result?.elaborated_answer && !isElaborating && (
                       <Button onClick={handleContinueInChat} className="bg-primary text-primary-foreground w-full hover:bg-primary/90">
                         Continue in Chat
                       </Button>

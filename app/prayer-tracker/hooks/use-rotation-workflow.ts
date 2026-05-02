@@ -7,7 +7,7 @@ type UseRotationWorkflowOptions = {
   user: AppwriteUser | null;
   members: Member[];
   onMembersUpdate: (nextMembers: Member[]) => void;
-  refreshAll: (userId: string) => Promise<void>;
+  refreshAll: () => Promise<void>;
 };
 
 type FamilyWithAssignment = {
@@ -85,7 +85,7 @@ export function useRotationWorkflow({ user, members, onMembersUpdate, refreshAll
     setIsComputing(true);
     setRotationError(null);
 
-    const result = await api.computeRotation(user.$id);
+    const result = await api.computeRotation();
 
     if (!result.success) {
       setRotationError(result.error);
@@ -158,8 +158,7 @@ export function useRotationWorkflow({ user, members, onMembersUpdate, refreshAll
     setIsConfirming(true);
     setRotationError(null);
 
-    const result = await api.confirmRotation(user.$id, {
-      userId: user.$id,
+    const result = await api.confirmRotation({
       familyAssignments: familiesPayload,
       personalIds: personalPayload,
     });
@@ -171,7 +170,7 @@ export function useRotationWorkflow({ user, members, onMembersUpdate, refreshAll
     }
 
     handleCancelRotation();
-    await refreshAll(user.$id);
+    await refreshAll();
     setIsConfirming(false);
   }, [familyAssignments, handleCancelRotation, personalSelections, refreshAll, rotation, user]);
 

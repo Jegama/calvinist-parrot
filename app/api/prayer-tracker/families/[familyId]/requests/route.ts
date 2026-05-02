@@ -5,9 +5,8 @@ import { requireAuthenticatedUser } from "@/lib/auth";
 type RouteContext = { params: Promise<{ familyId: string }> };
 
 export async function GET(request: Request, context: RouteContext) {
-  const { searchParams } = new URL(request.url);
-  const providedUserId = searchParams.get("userId") ?? undefined;
-  const { userId, errorResponse } = await requireAuthenticatedUser(providedUserId);
+  void request;
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !userId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { familyId } = await context.params;
@@ -36,7 +35,6 @@ export async function POST(request: Request, context: RouteContext) {
   const { familyId } = await context.params;
   const body = await request.json().catch(() => ({}));
   type CreateFamilyRequestPayload = {
-    userId?: string;
     requestText?: string;
     notes?: string | null;
     linkedScripture?: string | null;
@@ -44,12 +42,10 @@ export async function POST(request: Request, context: RouteContext) {
 
   const payload = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
   const {
-    userId,
     requestText,
     notes,
     linkedScripture,
   }: CreateFamilyRequestPayload = {
-    userId: typeof payload.userId === "string" ? payload.userId : undefined,
     requestText: typeof payload.requestText === "string" ? payload.requestText : undefined,
     notes:
       typeof payload.notes === "string"
@@ -64,7 +60,7 @@ export async function POST(request: Request, context: RouteContext) {
         ? null
         : undefined,
   };
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

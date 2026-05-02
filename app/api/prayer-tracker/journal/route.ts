@@ -3,9 +3,8 @@ import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const providedUserId = searchParams.get("userId") ?? undefined;
-  const { userId, errorResponse } = await requireAuthenticatedUser(providedUserId);
+  void request;
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !userId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: userId } });
@@ -21,18 +20,16 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   type CreateJournalEntryPayload = {
-    userId?: string;
     entryText?: string;
     tags?: unknown;
   };
 
   const payload = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
-  const { userId, entryText, tags }: CreateJournalEntryPayload = {
-    userId: typeof payload.userId === "string" ? payload.userId : undefined,
+  const { entryText, tags }: CreateJournalEntryPayload = {
     entryText: typeof payload.entryText === "string" ? payload.entryText : undefined,
     tags: payload.tags,
   };
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!entryText)

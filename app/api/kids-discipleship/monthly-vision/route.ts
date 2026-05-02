@@ -26,22 +26,21 @@ function isPastMonth(yearMonth: string): boolean {
 
 /**
  * GET /api/kids-discipleship/monthly-vision
- * Query params: userId (required), memberId (required), yearMonth (optional)
+ * Query params: memberId (required), yearMonth (optional)
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
   const memberId = searchParams.get("memberId");
   const yearMonth = searchParams.get("yearMonth");
 
-  if (!userId || !memberId) {
+  if (!memberId) {
     return NextResponse.json(
-      { error: "Missing userId or memberId" },
+      { error: "Missing memberId" },
       { status: 400 }
     );
   }
 
-  const { errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse) return errorResponse;
 
   // Verify the child belongs to user's household
@@ -123,7 +122,6 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const body = await request.json();
   const {
-    userId,
     memberId,
     yearMonth: providedYearMonth,
     memoryVerse,
@@ -136,14 +134,14 @@ export async function POST(request: Request) {
     reviewNotes,
   } = body;
 
-  if (!userId || !memberId) {
+  if (!memberId) {
     return NextResponse.json(
-      { error: "Missing userId or memberId" },
+      { error: "Missing memberId" },
       { status: 400 }
     );
   }
 
-  const { errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse) return errorResponse;
 
   // Verify the child belongs to user's household
@@ -225,16 +223,16 @@ export async function POST(request: Request) {
  */
 export async function PATCH(request: Request) {
   const body = await request.json();
-  const { userId, visionId, ...updates } = body;
+  const { visionId, ...updates } = body;
 
-  if (!userId || !visionId) {
+  if (!visionId) {
     return NextResponse.json(
-      { error: "Missing userId or visionId" },
+      { error: "Missing visionId" },
       { status: 400 }
     );
   }
 
-  const { errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse) return errorResponse;
 
   // Get the vision and verify access

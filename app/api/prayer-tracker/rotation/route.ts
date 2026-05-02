@@ -8,9 +8,8 @@ import {
 import { requireAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const providedUserId = searchParams.get("userId") ?? undefined;
-  const { userId, errorResponse } = await requireAuthenticatedUser(providedUserId);
+  void request;
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !userId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: userId } });

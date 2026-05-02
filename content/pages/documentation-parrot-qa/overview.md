@@ -30,8 +30,8 @@ If you would like to use the Calvinist Parrot for your chat app, we now recommen
 ### Request Body
 The API expects a JSON object with the following fields:
 - *question* (string, required): The question you want to ask.
-- *userId* (string, optional): The user ID for tracking the question history.
-- *mode* (string, optional): Specifies the theological perspective. Possible values:
+- *userId* (string, optional): Stable caller-supplied identity for external integrations. When this endpoint is called from the Calvinist Parrot web app, the server resolves identity from cookies automatically. When called from your own app or server, send the same `userId` for each request made on behalf of the same end user so question history stays grouped correctly.
+- *denomination* (string, optional): Specifies the theological perspective. Possible values:
   - *reformed-baptist* (Reformed Baptist perspective - default)
   - *presbyterian* (Presbyterian perspective)
   - *wesleyan* (Wesleyan perspective)
@@ -86,7 +86,8 @@ Content-Type: application/json
 
 {
     "question": "Who is God?",
-    "mode": "reformed-baptist"
+   "denomination": "reformed-baptist",
+   "userId": "my-app:user-42"
 }
 ```
 
@@ -118,9 +119,9 @@ You can look [here](https://github.com/Jegama/calvinist-parrot/blob/master/app/p
 
 ---
 
-## Modes
+## Denominations
 
-The endpoint supports the following modes:
+The endpoint supports the following denominations:
 
 1. **Reformed Baptist** (default)
 2. **Presbyterian**

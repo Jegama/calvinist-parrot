@@ -129,7 +129,6 @@ export async function GET() {
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   type CreateRequestPayload = {
-    userId?: string;
     requestText?: string;
     notes?: string | null;
     linkedScripture?: string | null;
@@ -140,8 +139,7 @@ export async function POST(request: Request) {
   };
 
   const payload = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
-  const { userId, requestText, notes, linkedScripture, linkedToFamily, linkedJournalEntryId, subjectMemberId }: CreateRequestPayload = {
-    userId: typeof payload.userId === "string" ? payload.userId : undefined,
+  const { requestText, notes, linkedScripture, linkedToFamily, linkedJournalEntryId, subjectMemberId }: CreateRequestPayload = {
     requestText: typeof payload.requestText === "string" ? payload.requestText : undefined,
     notes:
       typeof payload.notes === "string"
@@ -160,7 +158,7 @@ export async function POST(request: Request) {
     subjectMemberId: typeof payload.subjectMemberId === "string" ? payload.subjectMemberId : null,
   };
 
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

@@ -32,7 +32,8 @@ Copy `.env.template` to `.env` and fill in:
 - `DATABASE_URL` - Neon PostgreSQL connection string
 - `CCEL_URL` - Postgres connection for CCEL PGVector store
 - `TAVILY_API_KEY` - Web search for church evaluation and devotionals
-- `NEXT_PUBLIC_APPWRITE_ENDPOINT`, `NEXT_PUBLIC_APPWRITE_PROJECT_ID` - Auth
+- `APPWRITE_ENDPOINT` - Server-side Appwrite API endpoint
+- `NEXT_PUBLIC_APPWRITE_ENDPOINT`, `NEXT_PUBLIC_APPWRITE_PROJECT_ID` - Client-side Auth
 - `CRON_SECRET` - For scheduled devotional generation
 - `GEOAPIFY_API_KEY` - Maps/location API for church finder
 
@@ -56,7 +57,7 @@ Copy `.env.template` to `.env` and fill in:
 
 ### Key Patterns
 
-**Authentication:** All API handlers use `requireAuthenticatedUser` or `getAuthenticatedUserId` from `lib/auth.ts`. Anonymous users tracked via `hooks/use-user-identifier.ts`.
+**Authentication:** All API handlers use `requireAuthenticatedUser` or `getAuthenticatedUserId` from `lib/auth.ts`. Authenticated identity comes from the Appwrite session cookie; anonymous chat continuity uses the server-managed `guestId` cookie in `lib/guest.ts`. Client-side API functions must not accept `userId` — identity is always resolved server-side. On login, guest chats transfer automatically. On logout, `queryClient.clear()` wipes cached data and a hard navigation to `/` prevents race conditions with `ProtectedView`. Rate limiting for sensitive endpoints uses `lib/rate-limit.ts`.
 
 **Streaming:** JSONL/NDJSON events via `lib/progressUtils.sendProgress`. Chat UI keys on `{type}` values.
 
@@ -101,25 +102,3 @@ Use CSS variables from `app/globals.css`, not hardcoded colors:
 Typography: Inter (body via `font-sans`), Source Serif 4 (headings via `font-serif`).
 
 Reference `docs/design/Design System.md` and `docs/design/Color System Mapping.md` for detailed guidelines.
-
-## Rules for Code Generation
-
-### Before Writing Code
-
-1. Explain what you're about to do and why
-2. Break it down into steps I can follow
-3. Link documentation if I want to learn more
-4. Wait for my OK before proceeding
-
-### After Writing Code
-
-1. Explain what each part does
-2. Ask me 3 questions to verify I understood
-3. If I answer wrong, explain again until I get it
-4. Do NOT let me commit until I pass your questions
-
-### General Rules
-- Never generate code I can't explain
-- If I ask for something complex, warn me and suggest simpler alternatives
-- Treat every session as a teaching opportunity
-- Be direct. Tell me when I'm doing something wrong

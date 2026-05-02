@@ -22,14 +22,9 @@ interface FocusResponse {
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
   const days = parseInt(searchParams.get("days") || "30", 10);
 
-  if (!userId) {
-    return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-  }
-
-  const { errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse) return errorResponse;
 
   // Get user profile

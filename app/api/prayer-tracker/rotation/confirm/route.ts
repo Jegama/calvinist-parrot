@@ -7,11 +7,10 @@ type FamilyAssignment = { familyId: string; prayedByMemberId?: string | null };
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as {
-    userId?: string;
     familyAssignments?: FamilyAssignment[];
     personalIds?: string[];
   };
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(body.userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId)
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

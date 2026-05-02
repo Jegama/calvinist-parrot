@@ -1,23 +1,45 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { getAppwriteAccountFromSessionCookie } from "@/lib/appwrite/server";
+
+type AuthenticatedUser = NonNullable<Awaited<ReturnType<typeof getAuthenticatedUser>>>;
+
+type RequireAuthenticatedUserResult = {
+  user: AuthenticatedUser | null;
+  userId: string;
+  errorResponse: NextResponse | null;
+};
+
 export async function getAuthenticatedUserId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const rawUserId = cookieStore.get("userId")?.value;
-  if (!rawUserId) return null;
-  const trimmed = rawUserId.trim();
-  return trimmed.length ? trimmed : null;
+  const user = await getAuthenticatedUser();
+  return user?.$id ?? null;
 }
 
-export async function requireAuthenticatedUser(providedUserId?: string) {
-  const authenticatedUserId = await getAuthenticatedUserId();
-  if (!authenticatedUserId) {
-    return { userId: null as string | null, errorResponse: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+export async function getAuthenticatedUser() {
+  return getAppwriteAccountFromSessionCookie();
+}
+
+export async function requireAuthenticatedUser(providedUserId?: string): Promise<RequireAuthenticatedUserResult> {
+  const authenticatedUser = await getAuthenticatedUser();
+  if (!authenticatedUser) {
+    return {
+      user: null,
+      userId: "",
+      errorResponse: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
   }
 
-  if (providedUserId && providedUserId !== authenticatedUserId) {
-    return { userId: authenticatedUserId, errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  if (providedUserId && providedUserId !== authenticatedUser.$id) {
+    return {
+      user: authenticatedUser,
+      userId: authenticatedUser.$id,
+      errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
   }
 
-  return { userId: authenticatedUserId, errorResponse: null as NextResponse | null };
+  return {
+    user: authenticatedUser,
+    userId: authenticatedUser.$id,
+    errorResponse: null,
+  };
 }

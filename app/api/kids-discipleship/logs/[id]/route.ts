@@ -9,21 +9,15 @@ import { assertHouseholdAccess } from "@/lib/householdService";
 
 /**
  * GET /api/kids-discipleship/logs/[id]
- * Query params: userId
+ * Query params: none
  */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-
-  if (!userId) {
-    return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-  }
-
-  const { errorResponse } = await requireAuthenticatedUser(userId);
+  void request;
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse) return errorResponse;
 
   const log = await prisma.journalEntry.findUnique({
@@ -86,7 +80,7 @@ export async function GET(
 
 /**
  * PATCH /api/kids-discipleship/logs/[id]
- * Body: { userId, entryText?, category? }
+ * Body: { entryText?, category? }
  * Note: Changing entryText or category does NOT automatically re-run AI
  * Use POST to /reprocess if needed
  */
@@ -96,13 +90,9 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const body = await request.json();
-  const { userId, entryText, category } = body;
+  const { entryText, category } = body;
 
-  if (!userId) {
-    return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-  }
-
-  const { errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse) return errorResponse;
 
   const log = await prisma.journalEntry.findUnique({
@@ -187,21 +177,15 @@ export async function PATCH(
 
 /**
  * DELETE /api/kids-discipleship/logs/[id]
- * Query params: userId
+ * Query params: none
  */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-
-  if (!userId) {
-    return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-  }
-
-  const { errorResponse } = await requireAuthenticatedUser(userId);
+  void request;
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse) return errorResponse;
 
   const log = await prisma.journalEntry.findUnique({

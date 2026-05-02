@@ -8,7 +8,7 @@ https://calvinistparrot.com/api/parrot-chat
 ## Overview
 The Parrot Chat endpoint provides real-time conversational interactions by streaming responses. It handles creating chat sessions, processing user messages, maintaining context, and integrating multiple theological agents including a final review stage ("Calvin's Review").
 
-**Important**: The API now includes an intelligent memory extraction system that learns from conversations to provide personalized pastoral care. The `userId` is **required** for this feature to work properly—it enables the system to build a profile of each user's spiritual journey, theological questions, and ministry context over time.
+**Important**: The API includes an intelligent memory extraction system that learns from conversations to provide personalized pastoral care. When you call this API from the Calvinist Parrot web app, identity is resolved automatically from the request cookies. When you call it from an external app or server, you should send a stable `userId` in the request body so conversation memory, history, and personalization remain tied to the same end user over time.
 
 As with the [Parrot QA API](/documentation-parrot-qa), the Parrot Chat endpoint supports multiple denominational modes to cater to various theological traditions. However, we will not compromise on the following essential doctrines:
 
@@ -45,7 +45,7 @@ For simplicity, I created this other endpoint that focuses on quick QA. Please c
    - **Automatic Learning**: After each conversation, the system extracts and updates user memories in the background
    - **Pastoral Context**: Builds a profile including spiritual maturity, ministry context, theological preferences, and question history
    - **Smart Responses**: Future conversations are informed by this context for more personalized, pastorally-appropriate answers
-   - **Privacy**: Memory data is tied to `userId` and never exposed to other users
+  - **Privacy**: Memory data is tied to the resolved conversation actor and never exposed to other users
    - **No Interruption**: Memory extraction happens asynchronously and doesn't block responses
 
 4. **Denomination Handling**  
@@ -54,9 +54,9 @@ For simplicity, I created this other endpoint that focuses on quick QA. Please c
    - Affects how the AI interprets and responds to questions
    - Maintains core doctrinal consistency while respecting denominational distinctives
 
-## Why userId is Critical
+## Why Stable Identity Is Critical
 
-The `userId` parameter enables:
+The resolved actor identity enables:
 - **Memory persistence** across conversations
 - **Spiritual journey tracking** (seeker → new believer → mature believer progression)
 - **Personalized depth** (concise vs. detailed responses based on learned preferences)
@@ -64,17 +64,24 @@ The `userId` parameter enables:
 - **Ministry context awareness** (tailors examples to user's roles)
 - **Doctrinal question history** (identifies areas needing more teaching)
 
-Without a `userId`, the system cannot learn or personalize—each conversation becomes isolated and generic.## API Reference
+There are two supported identity modes:
+- **First-party Calvinist Parrot app**: The Appwrite session cookie is read automatically for signed-in users, and a server-managed `guestId` cookie is used for guests
+- **External public API consumers**: Send a stable `userId` in the request body for `POST` calls, and in the query string for `GET` history calls
+- **On login inside Calvinist Parrot**: Guest chats are automatically transferred to the authenticated user's account
+
+If an authenticated session cookie is present, it always takes priority over any supplied `userId`.
+
+## API Reference
 
 ### Request Structure
 
 Send a JSON payload with these possible fields:
 
-- **userId** (string, **REQUIRED**): Unique identifier for the user. Critical for memory extraction and personalization. Without this, the system cannot learn user preferences or provide pastoral continuity across conversations.
 - *chatId* (string, optional): Identifier for an existing chat session.
 - *message* (string): The user's chat message.
 - *initialQuestion* (string, optional): For starting a new chat session.
 - *initialAnswer* (string, optional): Initial answer for a new chat session.
+- *userId* (string, optional): Stable caller-supplied identity for external integrations. Use this when calling the API from your own app or server and you do not have Calvinist Parrot session cookies. Reuse the same value for every request made on behalf of the same end user.
 - *denomination* (string, optional): The theological perspective. **Note**: This parameter is now primarily stored in the user's profile. If provided, it will be used as a fallback when no profile denomination exists. Possible values:
   - *reformed-baptist* (Reformed Baptist perspective - default)
   - *presbyterian* (Presbyterian perspective)
@@ -154,7 +161,7 @@ After the response stream completes, the system automatically extracts and updat
 **Developer Notes:**
 - Memory extraction never blocks the response stream
 - Errors in memory extraction are logged but don't affect user experience
-- Memory data is scoped to `userId` only
+- Memory data is scoped to the resolved actor only
 - The system uses conservative updates (won't overwrite established preferences with weak signals)
 
 ### Usage Patterns
@@ -163,7 +170,6 @@ After the response stream completes, the system automatically extracts and updat
 ```json
 POST /api/parrot-chat
 {
-  "userId": "user123",
   "initialQuestion": "What is predestination?",
   "initialAnswer": "Predestination refers to...",
   "denomination": "reformed-baptist"
@@ -174,8 +180,16 @@ POST /api/parrot-chat
 ```json
 POST /api/parrot-chat
 {
-  "userId": "user123",
   "initialQuestion": "What is predestination?"
+}
+```
+
+#### 2b. Initialize from an External App
+```json
+POST /api/parrot-chat
+{
+  "initialQuestion": "What is predestination?",
+  "userId": "my-app:user-42"
 }
 ```
 
@@ -198,7 +212,6 @@ Response:
      method: 'POST',
      headers: { 'Content-Type': 'application/json' },
      body: JSON.stringify({ 
-      userId: "user123", 
       initialQuestion: "What is predestination?" 
      }),
     });
@@ -247,15 +260,31 @@ Response:
 ```json
 POST /api/parrot-chat
 {
-  "userId": "user123",
   "chatId": "chat123",
   "message": "How does it relate to free will?"
+}
+```
+
+External integrations should keep sending the same `userId`:
+
+```json
+POST /api/parrot-chat
+{
+  "chatId": "chat123",
+  "message": "How does it relate to free will?",
+  "userId": "my-app:user-42"
 }
 ```
 
 #### 4. Fetch Chat History
 ```
 GET /api/parrot-chat?chatId=chat123
+```
+
+External integrations should include the same `userId` in the query string:
+
+```
+GET /api/parrot-chat?chatId=chat123&userId=my-app:user-42
 ```
 
 Response:
@@ -311,6 +340,8 @@ Response:
 ```
 
 > **Note**: The `tool_summary` messages include a `toolName` field that is parsed from the stored JSON content. This allows the frontend to display tool-specific UI components.
+
+> **Note**: Treat the `chat.userId` value in the response as an internal actor identifier. External integrations should keep using their own original `userId` value for subsequent requests.
 
 ## Implementation Guide
 

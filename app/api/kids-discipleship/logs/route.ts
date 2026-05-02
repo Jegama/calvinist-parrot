@@ -28,11 +28,10 @@ function streamEvent(
 
 /**
  * GET /api/kids-discipleship/logs
- * Query params: userId, memberId, category?, startDate?, endDate?, page?, limit?
+ * Query params: memberId, category?, startDate?, endDate?, page?, limit?
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
   const memberId = searchParams.get("memberId");
   const category = searchParams.get("category") as LogCategory | null;
   const startDate = searchParams.get("startDate");
@@ -40,14 +39,14 @@ export async function GET(request: Request) {
   const page = parseInt(searchParams.get("page") || "1", 10);
   const requestedLimit = parseInt(searchParams.get("limit") || "20", 10);
 
-  if (!userId || !memberId) {
+  if (!memberId) {
     return NextResponse.json(
-      { error: "Missing userId or memberId" },
+      { error: "Missing memberId" },
       { status: 400 }
     );
   }
 
-  const { errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse) return errorResponse;
 
   // Verify the child belongs to user's household
@@ -136,11 +135,11 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   const body = await request.json();
-  const { userId, memberId, category, entryText, gospelConnection } = body;
+  const { memberId, category, entryText, gospelConnection } = body;
 
-  if (!userId || !memberId || !category || !entryText) {
+  if (!memberId || !category || !entryText) {
     return NextResponse.json(
-      { error: "Missing required fields: userId, memberId, category, entryText" },
+      { error: "Missing required fields: memberId, category, entryText" },
       { status: 400 }
     );
   }
@@ -166,7 +165,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse) return errorResponse;
 
   // Get user profile

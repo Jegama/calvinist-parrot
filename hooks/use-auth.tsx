@@ -1,6 +1,5 @@
 "use client";
 
-import { account } from "@/utils/appwrite";
 import type { Models } from "appwrite";
 import {
   createContext,
@@ -11,8 +10,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
-type AppwriteUser = Models.User<Models.Preferences>;
+export type AppwriteUser = Models.User<Models.Preferences>;
 
 type AuthContextValue = {
   user: AppwriteUser | null;
@@ -24,9 +24,15 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+type AuthMeResponse = {
+  authenticated: boolean;
+  user: AppwriteUser | null;
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<AppwriteUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   const setUser = useCallback((nextUser: AppwriteUser | null) => {
     setUserState(nextUser);
@@ -36,21 +42,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const currentUser = await account.get();
-      setUserState(currentUser);
-      
-      // Ensure user profile exists in database
-      await fetch("/api/user-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: currentUser.$id,
-          name: currentUser.name,
-          email: currentUser.email,
-        }),
-      }).catch((error) => {
-        console.warn("Failed to ensure user profile:", error);
+      const response = await fetch("/api/auth/me", {
+        method: "GET",
+        cache: "no-store",
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to load auth state.");
+      }
+
+      const payload = (await response.json()) as AuthMeResponse;
+      setUserState(payload.authenticated ? payload.user : null);
     } catch {
       setUserState(null);
     } finally {
@@ -64,14 +66,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await account.deleteSession("current");
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to log out.");
+      }
     } catch (error) {
       console.warn("Failed to delete session", error);
     } finally {
-      setUserState(null);
-      setLoading(false);
+      queryClient.clear();
+      window.location.href = "/";
     }
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo(
     () => ({ user, loading, refresh, setUser, logout }),

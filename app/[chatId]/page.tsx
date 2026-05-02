@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState, useRef, useCallback } from "react";
+import { Fragment, Suspense, useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppSidebar } from "@/components/chat-sidebar";
@@ -16,7 +16,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/hooks/use-auth";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { useUserIdentifier } from "@/hooks/use-user-identifier";
 import { useChatList } from "@/hooks/use-chat-list";
 import { useQuery } from "@tanstack/react-query";
 import { fetchProfileOverview } from "@/app/profile/api";
@@ -89,7 +88,7 @@ type DataEvent =
   | { type: "CCEL"; content: string }
   | { type: "conversationNameUpdated"; chatId: string; name: string };
 
-export default function ChatPage() {
+function ChatPageContent() {
   const params = useParams() as { chatId: string };
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -101,8 +100,7 @@ export default function ChatPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [hasShownDenominationNotice, setHasShownDenominationNotice] = useState(false);
   const [showDenominationNotice, setShowDenominationNotice] = useState(false);
-  const { userId } = useUserIdentifier();
-  const { chats, invalidate: invalidateChatList, upsertChat, removeChat } = useChatList(userId);
+  const { chats, invalidate: invalidateChatList, upsertChat, removeChat } = useChatList(user?.$id ?? "guest");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState<{ title: string; content: string } | null>(null);
   const autoSentRef = useRef(false);
@@ -126,7 +124,7 @@ export default function ChatPage() {
   const profileOverview = useQuery({
     queryKey: ["profile-overview", user?.$id ?? "guest"],
     enabled: Boolean(user?.$id),
-    queryFn: () => fetchProfileOverview(user!.$id),
+    queryFn: () => fetchProfileOverview(),
     staleTime: 1000 * 60 * 5,
   });
 
@@ -140,18 +138,13 @@ export default function ChatPage() {
 
   const fetchChat = useCallback(
     async (attempt = 0) => {
-      if (!userId) return;
       // Prevent duplicate fetch requests
       if (isFetchingChatRef.current) return;
 
       try {
         isFetchingChatRef.current = true;
-        const response = await fetch(`/api/parrot-chat?chatId=${params.chatId}&userId=${encodeURIComponent(userId)}`);
+        const response = await fetch(`/api/parrot-chat?chatId=${params.chatId}`);
         if (!response.ok) {
-          if (response.status === 401) {
-            setErrorMessage("Please sign in to view this chat.");
-            return;
-          }
           if (response.status === 403) {
             setErrorMessage("You do not have access to this chat.");
             return;
@@ -199,7 +192,7 @@ export default function ChatPage() {
         isFetchingChatRef.current = false;
       }
     },
-    [params.chatId, initialQuestionParam, router, upsertChat, userId]
+    [params.chatId, initialQuestionParam, router, upsertChat]
   );
 
   useEffect(() => {
@@ -822,5 +815,13 @@ export default function ChatPage() {
         </div>
       </SidebarInset>
     </SidebarProvider>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[calc(100vh-var(--app-header-height))]" />}>
+      <ChatPageContent />
+    </Suspense>
   );
 }

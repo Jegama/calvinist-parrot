@@ -46,14 +46,14 @@ interface HouseholdResponse {
 }
 
 // API functions
-async function fetchHousehold(userId: string): Promise<HouseholdResponse | null> {
-  const res = await fetch(`/api/prayer-tracker/spaces?userId=${userId}`);
+async function fetchHousehold(): Promise<HouseholdResponse | null> {
+  const res = await fetch(`/api/prayer-tracker/spaces`);
   if (!res.ok) return null;
   return res.json();
 }
 
-async function fetchProgressionState(userId: string, memberId: string) {
-  const res = await fetch(`/api/kids-discipleship/progression-state?userId=${userId}&memberId=${memberId}`);
+async function fetchProgressionState(memberId: string) {
+  const res = await fetch(`/api/kids-discipleship/progression-state?memberId=${memberId}`);
   if (!res.ok) return null;
   return res.json() as Promise<{
     hasAnnualPlan: boolean;
@@ -72,7 +72,7 @@ export default function KidsDiscipleshipPage() {
   // Fetch household data with children
   const { data: householdData, isLoading: householdLoading } = useQuery({
     queryKey: ["kids-discipleship", "household", user?.$id],
-    queryFn: () => fetchHousehold(user!.$id),
+    queryFn: () => fetchHousehold(),
     enabled: !!user?.$id,
     staleTime: 1000 * 60 * 5,
   });
@@ -94,7 +94,7 @@ export default function KidsDiscipleshipPage() {
   // Fetch progression state for the active child
   const { data: progressionState } = useQuery({
     queryKey: ["kids-discipleship", "progression", user?.$id, currentChildId],
-    queryFn: () => fetchProgressionState(user!.$id, currentChildId),
+    queryFn: () => fetchProgressionState(currentChildId),
     enabled: !!user?.$id && !!currentChildId,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });

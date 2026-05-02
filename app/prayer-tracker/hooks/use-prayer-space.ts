@@ -28,8 +28,8 @@ export function usePrayerSpace({ user, authLoading }: UsePrayerSpaceOptions) {
     setSpaceLoadState({ userId, ready: true });
   }, []);
 
-  const loadSpace = useCallback(async (userId: string) => {
-    const result = await api.fetchSpace(userId);
+  const loadSpace = useCallback(async () => {
+    const result = await api.fetchSpace();
 
     if (result.success && result.data) {
       setSpaceName(result.data.spaceName);
@@ -42,10 +42,10 @@ export function usePrayerSpace({ user, authLoading }: UsePrayerSpaceOptions) {
     return null;
   }, []);
 
-  const refreshLists = useCallback(async (userId: string) => {
+  const refreshLists = useCallback(async () => {
     const [familiesResult, requestsResult] = await Promise.all([
-      api.fetchFamilies(userId),
-      api.fetchUnifiedRequests(userId),
+      api.fetchFamilies(),
+      api.fetchUnifiedRequests(),
     ]);
 
     if (familiesResult.success) {
@@ -58,15 +58,15 @@ export function usePrayerSpace({ user, authLoading }: UsePrayerSpaceOptions) {
   }, []);
 
   const refreshAll = useCallback(
-    async (userId: string) => {
-      markSpaceLoading(userId);
+    async () => {
+      markSpaceLoading(user?.$id ?? "");
       try {
-        await Promise.all([loadSpace(userId), refreshLists(userId)]);
+        await Promise.all([loadSpace(), refreshLists()]);
       } finally {
-        markSpaceReady(userId);
+        markSpaceReady(user?.$id ?? "");
       }
     },
-    [loadSpace, markSpaceLoading, markSpaceReady, refreshLists]
+    [loadSpace, markSpaceLoading, markSpaceReady, refreshLists, user]
   );
 
   useEffect(() => {
@@ -87,7 +87,7 @@ export function usePrayerSpace({ user, authLoading }: UsePrayerSpaceOptions) {
 
     (async () => {
       try {
-        await refreshAll(user.$id);
+        await refreshAll();
       } catch (error) {
         console.error("Failed to load prayer tracker data", error);
       }

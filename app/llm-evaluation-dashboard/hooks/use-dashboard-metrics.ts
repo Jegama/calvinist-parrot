@@ -22,6 +22,12 @@ export interface JudgeInfo {
   color: string;
 }
 
+export interface JudgePromptComparison {
+  promptLabel: string;
+  judges: JudgeInfo[];
+  data: Array<Record<string, string | number>>;
+}
+
 export interface NarrativeStats {
   winnerName: string;
   winnerScore: string;
@@ -172,54 +178,102 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
     return judgeCandidates[0]?.judge ?? null;
   }, [activePromptLabel, finalOverallRecords]);
 
-  const judgeComparisonPromptLabel = useMemo(() => {
-    for (const promptLabel of nonBaselinePromptLabels) {
+  const judgeComparisons = useMemo<JudgePromptComparison[]>(() => {
+    return nonBaselinePromptLabels.flatMap((promptLabel) => {
       const promptRecords = finalOverallRecords.filter(
         (record) => record.System_Prompt_Label === promptLabel
       );
-      const judgeCount = new Set(promptRecords.map((record) => record.Judge_Model).filter(Boolean)).size;
-
-      if (judgeCount < 2) {
-        continue;
-      }
-
-      const overlappingModels = Array.from(new Set(promptRecords.map((record) => record.Gen_Model))).filter(
-        (model) => {
-          const modelJudgeCount = new Set(
-            promptRecords
-              .filter((record) => record.Gen_Model === model)
-              .map((record) => record.Judge_Model)
-              .filter(Boolean)
-          ).size;
-
-          return modelJudgeCount >= 2;
-        }
+      const judgeModels = Array.from(
+        new Set(promptRecords.map((record) => record.Judge_Model).filter(Boolean))
       );
 
-      if (overlappingModels.length > 0) {
-        return promptLabel;
+      if (judgeModels.length < 2) {
+        return [];
       }
-    }
 
-    return null;
+      const sortedJudges = judgeModels
+        .map((judgeModel) => buildJudgeInfo(judgeModel))
+        .sort((left, right) => left.name.localeCompare(right.name));
+
+      // When multiple judges share a provider (e.g. gpt-5-mini + gpt-5.4-mini),
+      // the brand-color default makes their bars indistinguishable. Switch
+      // every duplicate after the first to the light tone so the legend and
+      // bars stay readable.
+      const providerSeen = new Map<string, number>();
+      const judges = sortedJudges.map((judge) => {
+        const provider = inferProviderFromModel(judge.model);
+        if (!provider) {
+          return judge;
+        }
+        const seen = providerSeen.get(provider) ?? 0;
+        providerSeen.set(provider, seen + 1);
+        if (seen === 0) {
+          return judge;
+        }
+        return { ...judge, color: getProviderColor(provider, true) };
+      });
+
+      const models = Array.from(new Set(promptRecords.map((record) => record.Gen_Model)));
+
+      const data = models.reduce<Array<Record<string, string | number>>>((acc, model) => {
+        const entry: Record<string, string | number> = { model: formatModelLabel(model) };
+        let judgeCount = 0;
+
+        judges.forEach((judge) => {
+          const record = promptRecords.find(
+            (promptRecord) =>
+              promptRecord.Gen_Model === model && promptRecord.Judge_Model === judge.model
+          );
+
+          if (record) {
+            entry[judge.key] = parseFloat(record.value.toFixed(2));
+            judgeCount += 1;
+          } else {
+            entry[judge.key] = 0;
+          }
+        });
+
+        if (judgeCount >= 2) {
+          acc.push(entry);
+        }
+
+        return acc;
+      }, []);
+
+      if (data.length === 0) {
+        return [];
+      }
+
+      return [{ promptLabel, judges, data }];
+    });
   }, [finalOverallRecords, nonBaselinePromptLabels]);
 
-  const comparisonJudges = useMemo<JudgeInfo[]>(() => {
-    if (!judgeComparisonPromptLabel) {
-      return [];
+  const judgeComparisonPromptLabel = judgeComparisons[0]?.promptLabel ?? null;
+  const comparisonJudges = judgeComparisons[0]?.judges ?? [];
+
+  const allCrossValidators = useMemo<JudgeInfo[]>(() => {
+    if (!primaryJudge) {
+      return judgeComparisons.flatMap((jc) => jc.judges);
     }
 
-    return Array.from(
-      new Set(
-        finalOverallRecords
-          .filter((record) => record.System_Prompt_Label === judgeComparisonPromptLabel)
-          .map((record) => record.Judge_Model)
-          .filter(Boolean)
-      )
-    )
-      .map((judgeModel) => buildJudgeInfo(judgeModel))
-      .sort((left, right) => left.name.localeCompare(right.name));
-  }, [finalOverallRecords, judgeComparisonPromptLabel]);
+    const seen = new Set<string>();
+    const result: JudgeInfo[] = [];
+
+    judgeComparisons.forEach((jc) => {
+      jc.judges.forEach((judge) => {
+        if (judge.model === primaryJudge.model) {
+          return;
+        }
+        if (seen.has(judge.model)) {
+          return;
+        }
+        seen.add(judge.model);
+        result.push(judge);
+      });
+    });
+
+    return result;
+  }, [judgeComparisons, primaryJudge]);
 
   const bestPerProvider = useMemo(() => {
     if (!activePromptLabel || !primaryJudge) {
@@ -342,42 +396,6 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
     };
   }, [promptDelta]);
 
-  const judgeComparison = useMemo(() => {
-    if (!judgeComparisonPromptLabel || comparisonJudges.length < 2) {
-      return [];
-    }
-
-    const promptRecords = finalOverallRecords.filter(
-      (record) => record.System_Prompt_Label === judgeComparisonPromptLabel
-    );
-    const models = Array.from(new Set(promptRecords.map((record) => record.Gen_Model)));
-
-    return models.reduce<Array<Record<string, string | number>>>((acc, model) => {
-      const entry: Record<string, string | number> = { model: formatModelLabel(model) };
-      let judgeCount = 0;
-
-      comparisonJudges.forEach((judge) => {
-        const record = promptRecords.find(
-          (promptRecord) =>
-            promptRecord.Gen_Model === model && promptRecord.Judge_Model === judge.model
-        );
-
-        if (record) {
-          entry[judge.key] = parseFloat(record.value.toFixed(2));
-          judgeCount += 1;
-        } else {
-          entry[judge.key] = 0;
-        }
-      });
-
-      if (judgeCount >= 2) {
-        acc.push(entry);
-      }
-
-      return acc;
-    }, []);
-  }, [comparisonJudges, finalOverallRecords, judgeComparisonPromptLabel]);
-
   const providerSpread = useMemo(() => {
     if (!primaryJudge || nonBaselinePromptLabels.length === 0) {
       return [];
@@ -405,6 +423,7 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
 
         const minModel = providerScores.reduce((prev, curr) => (prev.score < curr.score ? prev : curr));
         const maxModel = providerScores.reduce((prev, curr) => (prev.score > curr.score ? prev : curr));
+        const modelCount = new Set(providerScores.map((score) => score.model)).size;
 
         return {
           provider,
@@ -415,6 +434,7 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
           minPromptLabel: minModel.promptLabel,
           maxPromptLabel: maxModel.promptLabel,
           runCount: providerScores.length,
+          modelCount,
           avg: (providerScores.reduce((sum, item) => sum + item.score, 0) / providerScores.length).toFixed(2),
           fill: getProviderColor(provider),
           label: getProviderLabel(provider),
@@ -502,15 +522,16 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
 
   return {
     activePromptLabel,
+    allCrossValidators,
     baselinePromptLabel,
     bestPerProvider,
     comparisonJudges,
+    judgeComparisons,
     judgeComparisonPromptLabel,
     progressionPromptLabels,
     promptDelta,
     bestImprovement,
     primaryJudge,
-    judgeComparison,
     providerSpread,
     radarAdherence,
     radarKindness,

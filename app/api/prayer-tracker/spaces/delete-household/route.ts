@@ -10,12 +10,11 @@ import { requireAuthenticatedUser } from "@/lib/auth";
  */
 export async function DELETE(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const { userId, spaceId } = body as {
-    userId?: string;
+  const { spaceId } = body as {
     spaceId?: string;
   };
 
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !authenticatedUserId) {
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

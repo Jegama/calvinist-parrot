@@ -52,11 +52,6 @@ export function normalizeChildren(input: string) {
     .filter(Boolean);
 }
 
-export function appendUserId(path: string, userId: string) {
-  const separator = path.includes("?") ? "&" : "?";
-  return `${path}${separator}userId=${encodeURIComponent(userId)}`;
-}
-
 export async function readErrorMessage(response: Response) {
   try {
     const data = await response.json();
@@ -154,10 +149,8 @@ export async function handleApiError(response: Response, fallbackMessage: string
  * Builds the payload for creating a new family.
  */
 export function buildFamilyPayload(
-  userId: string,
   form: NewFamilyFormState
 ): {
-  userId: string;
   familyName: string;
   parents: string;
   children: string[];
@@ -166,7 +159,6 @@ export function buildFamilyPayload(
   const resolvedCategory = resolveCategoryTag(form.categorySelect, form.customCategory);
 
   return {
-    userId,
     familyName: form.familyName.trim(),
     parents: form.parents.trim(),
     children: normalizeChildren(form.children),
@@ -178,16 +170,13 @@ export function buildFamilyPayload(
  * Builds the payload for creating a new request (household or family-specific).
  */
 export function buildPersonalRequestPayload(
-  userId: string,
   form: NewPersonalFormState
 ): {
-  userId: string;
   requestText: string;
   notes?: string;
   linkedToFamily: string;
 } {
   return {
-    userId,
     requestText: form.text.trim(),
     notes: form.notes.trim() || undefined,
     linkedToFamily: form.linkedToFamily,

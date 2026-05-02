@@ -9,22 +9,21 @@ import { derivePrayerFocus, getLogStats } from "@/utils/kids-discipleship/prayer
 
 /**
  * GET /api/kids-discipleship/prayer-focus
- * Query params: userId, memberId, daysBack? (default 30)
+ * Query params: memberId, daysBack? (default 30)
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
   const memberId = searchParams.get("memberId");
   const daysBack = Math.min(Math.max(parseInt(searchParams.get("daysBack") || "30", 10), 1), 365);
 
-  if (!userId || !memberId) {
+  if (!memberId) {
     return NextResponse.json(
-      { error: "Missing userId or memberId" },
+      { error: "Missing memberId" },
       { status: 400 }
     );
   }
 
-  const { errorResponse } = await requireAuthenticatedUser(userId);
+  const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse) return errorResponse;
 
   // Verify the child belongs to user's household

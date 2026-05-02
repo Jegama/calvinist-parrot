@@ -56,9 +56,8 @@ type StreamEvent =
   | { type: "error"; message: string };
 
 // API functions
-async function fetchEntries(userId: string, page: number, search?: string, tags?: string[]): Promise<JournalEntriesResponse> {
+async function fetchEntries(page: number, search?: string, tags?: string[]): Promise<JournalEntriesResponse> {
   const params = new URLSearchParams({
-    userId,
     page: String(page),
     limit: "10",
   });
@@ -70,28 +69,28 @@ async function fetchEntries(userId: string, page: number, search?: string, tags?
   return res.json();
 }
 
-async function continueInChat(userId: string, entryId: string): Promise<{ chatId: string }> {
+async function continueInChat(entryId: string): Promise<{ chatId: string }> {
   const res = await fetch(`/api/journal/entries/${entryId}/continue-chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId }),
+    body: JSON.stringify({}),
   });
   if (!res.ok) throw new Error("Failed to create chat");
   return res.json();
 }
 
-async function fetchHouseholdStatus(userId: string): Promise<{ hasHousehold: boolean; spaceId?: string }> {
-  const res = await fetch(`/api/prayer-tracker/spaces?userId=${userId}`);
+async function fetchHouseholdStatus(): Promise<{ hasHousehold: boolean; spaceId?: string }> {
+  const res = await fetch(`/api/prayer-tracker/spaces`);
   if (!res.ok) throw new Error("Failed to fetch household status");
   const data = await res.json();
   return { hasHousehold: !!data.space, spaceId: data.space?.id };
 }
 
-async function reprocessEntry(userId: string, entryId: string): Promise<ReadableStream<Uint8Array>> {
+async function reprocessEntry(entryId: string): Promise<ReadableStream<Uint8Array>> {
   const res = await fetch(`/api/journal/entries/${entryId}/reprocess`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId }),
+    body: JSON.stringify({}),
   });
   if (!res.ok || !res.body) throw new Error("Failed to reprocess entry");
   return res.body;
@@ -119,7 +118,7 @@ export default function JournalPage() {
   // Queries
   const { data, isLoading, error } = useQuery({
     queryKey: ["journal", "entries", user?.$id, page, search, selectedTags],
-    queryFn: () => fetchEntries(user!.$id, page, search || undefined, selectedTags.length > 0 ? selectedTags : undefined),
+    queryFn: () => fetchEntries(page, search || undefined, selectedTags.length > 0 ? selectedTags : undefined),
     enabled: !!user?.$id,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -127,7 +126,7 @@ export default function JournalPage() {
   // Household status query
   const { data: householdStatus } = useQuery({
     queryKey: ["household", "status", user?.$id],
-    queryFn: () => fetchHouseholdStatus(user!.$id),
+    queryFn: () => fetchHouseholdStatus(),
     enabled: !!user?.$id,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -144,7 +143,7 @@ export default function JournalPage() {
       const response = await fetch("/api/journal/entries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.$id, entryText: newEntryText }),
+        body: JSON.stringify({ entryText: newEntryText }),
       });
 
       if (!response.ok || !response.body) {
@@ -265,7 +264,7 @@ export default function JournalPage() {
   const handleContinueInChat = useCallback(async (entryId: string) => {
     if (!user?.$id) return;
     try {
-      const result = await continueInChat(user.$id, entryId);
+      const result = await continueInChat(entryId);
       queryClient.invalidateQueries({ queryKey: ["chat-list"] });
       router.push(`/${result.chatId}`);
     } catch (err) {
@@ -281,7 +280,7 @@ export default function JournalPage() {
     setStreamProgress({ stage: "call1a", message: "Reprocessing entry..." });
 
     try {
-      const stream = await reprocessEntry(user.$id, entryId);
+      const stream = await reprocessEntry(entryId);
       const reader = stream.getReader();
       const decoder = new TextDecoder("utf-8");
       let buffer = "";
@@ -492,7 +491,6 @@ export default function JournalPage() {
         {activeEntry.aiOutput?.call2 ? (
           <SuggestedRequestsPanel
             call2={activeEntry.aiOutput.call2}
-            userId={user!.$id}
             hasHousehold={householdStatus?.hasHousehold ?? false}
             entryId={activeEntry.id}
           />

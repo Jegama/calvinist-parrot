@@ -2,15 +2,19 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { account, ID } from "@/utils/appwrite";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+
+type RegisterResponse = {
+  error?: string;
+  user?: Parameters<ReturnType<typeof useAuth>["setUser"]>[0];
+};
 
 export function RegisterForm() {
   const [email, setEmail] = useState("");
@@ -18,30 +22,38 @@ export function RegisterForm() {
   const [name, setName] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setUser } = useAuth();
+
+  useEffect(() => {
+    if (searchParams.get("oauth") === "failed") {
+      setErrorMessage("Google signup failed. Please try again.");
+      return;
+    }
+
+    if (searchParams.get("oauth") === "missing_credentials") {
+      setErrorMessage("Google signup could not be completed.");
+    }
+  }, [searchParams]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage("");
+
     try {
-      // Use cookie-based ID if available, otherwise generate one.
-      const getCookieUserId = () => {
-        const match = document.cookie.match(new RegExp('(^| )userId=([^;]+)'));
-        return match ? match[2] : null;
-      };
-      let uniqueId = getCookieUserId();
-      if (!uniqueId) {
-        uniqueId = ID.unique();
-        document.cookie = `userId=${uniqueId}; path=/; max-age=31536000`;
-      }
-      await account.create(uniqueId, email, password, name);
-      await account.createEmailPasswordSession(email, password);
-      const currentUser = await account.get();
-      await fetch("/api/user-profile", {
+      const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUser.$id, name: currentUser.name || name, email: currentUser.email }),
+        body: JSON.stringify({ name, email, password }),
       });
-      setUser(currentUser);
+
+      const payload = (await response.json()) as RegisterResponse;
+
+      if (!response.ok || !payload.user) {
+        throw new Error(payload.error || "Registration failed.");
+      }
+
+      setUser(payload.user);
       router.push("/");
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -50,6 +62,10 @@ export function RegisterForm() {
         setErrorMessage("An unknown error occurred.");
       }
     }      
+  };
+
+  const handleGoogleSignup = () => {
+    window.location.href = "/api/auth/oauth/google/start?intent=signup";
   };
 
   return (
@@ -99,10 +115,19 @@ export function RegisterForm() {
             <Button type="submit" className="w-full">
               Register
             </Button>
+            <Button type="button" variant="outline" className="w-full" onClick={handleGoogleSignup}>
+              Sign up with Google
+            </Button>
             <div className="mt-4 text-center text-sm">
               Already have an account?{" "}
               <Link href="/login" className="underline">
                 Login
+              </Link>
+            </div>
+            <div className="mt-2 text-center text-xs text-muted-foreground">
+              By registering, you agree to our{" "}
+              <Link href="/privacy-policy" className="underline">
+                Privacy Policy
               </Link>
             </div>
           </div>

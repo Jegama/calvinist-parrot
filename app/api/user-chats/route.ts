@@ -2,12 +2,12 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { requireAuthenticatedUser } from '@/lib/auth';
+import { getChatActorId, resolveChatActor } from '@/lib/guest';
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(searchParams.get('userId') ?? undefined);
-  if (errorResponse || !authenticatedUserId) return errorResponse ?? NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  void request;
+  const actor = await resolveChatActor();
+  const authenticatedUserId = getChatActorId(actor);
 
   const chats = await prisma.chatHistory.findMany({
     where: { userId: authenticatedUserId },
@@ -23,11 +23,8 @@ export async function GET(request: Request) {
 export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const chatId = searchParams.get('chatId');
-  const { userId: effectiveUserId, errorResponse } = await requireAuthenticatedUser(searchParams.get('userId') ?? undefined);
-
-  if (errorResponse || !effectiveUserId) {
-    return errorResponse ?? NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const actor = await resolveChatActor();
+  const effectiveUserId = getChatActorId(actor);
 
   if (!chatId) {
     return NextResponse.json({ error: 'Missing chatId' }, { status: 400 });

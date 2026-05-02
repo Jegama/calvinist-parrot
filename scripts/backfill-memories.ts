@@ -296,7 +296,8 @@ async function backfillMemories(options: BackfillOptions = {}) {
 
     if (!dryRun && totalProcessed > 0) {
       console.log("\n💡 View extracted memories at:");
-      console.log(`   http://localhost:3000/api/user-memory?userId=<USER_ID>`);
+      console.log("   http://localhost:3000/api/user-memory");
+      console.log("   Use an authenticated browser session for the target account.");
     }
   } catch (error) {
     console.error("❌ Fatal error during backfill:", error);

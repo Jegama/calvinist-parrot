@@ -15,7 +15,7 @@ const EMPTY_REQUEST_SHEET: PersonalSheetState = {
 
 type UseRequestManagerOptions = {
   user: AppwriteUser | null;
-  refreshLists: (userId: string) => Promise<void>;
+  refreshLists: () => Promise<void>;
   queryClient: QueryClient;
 };
 
@@ -66,7 +66,7 @@ export function useRequestManager({ user, refreshLists, queryClient }: UseReques
       linkedToFamily: newRequest.linkedToFamily,
     };
 
-    const result = await api.createUnifiedRequest(user.$id, payload);
+    const result = await api.createUnifiedRequest(payload);
 
     if (!result.success) {
       setRequestFormError(result.error);
@@ -74,7 +74,7 @@ export function useRequestManager({ user, refreshLists, queryClient }: UseReques
     }
 
     setNewRequest(resetPersonalForm());
-    await refreshLists(user.$id);
+    await refreshLists();
   }, [newRequest, refreshLists, user]);
 
   const openRequestSheet = useCallback((item: UnifiedRequest) => {
@@ -118,7 +118,7 @@ export function useRequestManager({ user, refreshLists, queryClient }: UseReques
 
     const isHouseholdRequest = (requestSheet.originalLinkedToFamily || requestSheet.linkedToFamily) === "household";
 
-    const result = await api.updateUnifiedRequest(user.$id, requestSheet.id, {
+    const result = await api.updateUnifiedRequest(requestSheet.id, {
       requestText: trimmed,
       notes: requestSheet.notes.trim() || null,
       lastPrayedAt: lastPrayedAtIso,
@@ -135,7 +135,7 @@ export function useRequestManager({ user, refreshLists, queryClient }: UseReques
     }
 
     closeRequestSheet();
-    await refreshLists(user.$id);
+    await refreshLists();
     setRequestSheetLoading(false);
   }, [closeRequestSheet, refreshLists, requestSheet, user]);
 
@@ -144,7 +144,7 @@ export function useRequestManager({ user, refreshLists, queryClient }: UseReques
       if (!user) return;
       setRequestSheetError(null);
 
-      const result = await api.deleteUnifiedRequest(user.$id, requestId, isHouseholdRequest);
+      const result = await api.deleteUnifiedRequest(requestId, isHouseholdRequest);
 
       if (!result.success) {
         setRequestSheetError(result.error);
@@ -155,7 +155,7 @@ export function useRequestManager({ user, refreshLists, queryClient }: UseReques
         closeRequestSheet();
       }
 
-      await refreshLists(user.$id);
+      await refreshLists();
     },
     [closeRequestSheet, refreshLists, requestSheet.id, user]
   );
@@ -166,7 +166,7 @@ export function useRequestManager({ user, refreshLists, queryClient }: UseReques
       setRequestSheetLoading(true);
       setRequestSheetError(null);
 
-      const result = await api.updateUnifiedRequest(user.$id, requestId, {
+      const result = await api.updateUnifiedRequest(requestId, {
         status: "ACTIVE",
         isHouseholdRequest,
       });
@@ -184,7 +184,7 @@ export function useRequestManager({ user, refreshLists, queryClient }: UseReques
         }));
       }
 
-      await refreshLists(user.$id);
+      await refreshLists();
       setRequestSheetLoading(false);
     },
     [refreshLists, requestSheet.id, user]
@@ -196,7 +196,7 @@ export function useRequestManager({ user, refreshLists, queryClient }: UseReques
       setAnsweringRequestId(requestId);
       setRequestSheetError(null);
 
-      const result = await api.updateUnifiedRequest(user.$id, requestId, {
+      const result = await api.updateUnifiedRequest(requestId, {
         markAnswered: true,
         isHouseholdRequest,
       });
@@ -214,7 +214,7 @@ export function useRequestManager({ user, refreshLists, queryClient }: UseReques
         }));
       }
 
-      await refreshLists(user.$id);
+      await refreshLists();
       setAnsweringRequestId(null);
 
       queryClient.setQueryData(["profile-overview", user.$id], (oldData: unknown) => {

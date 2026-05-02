@@ -3,15 +3,11 @@ import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-
-  if (!userId) {
-    return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  void request;
+  const { userId, errorResponse } = await requireAuthenticatedUser();
+  if (errorResponse || !userId) {
+    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const { errorResponse } = await requireAuthenticatedUser(userId);
-  if (errorResponse) return errorResponse;
 
   const [questions, profile, membership] = await Promise.all([
     prisma.questionHistory.findMany({

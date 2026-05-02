@@ -44,15 +44,16 @@ interface DashboardClientProps {
 export default function DashboardClient({ data }: DashboardClientProps) {
   const {
     activePromptLabel,
+    allCrossValidators,
     baselinePromptLabel,
     bestPerProvider,
     comparisonJudges,
+    judgeComparisons,
     judgeComparisonPromptLabel,
     progressionPromptLabels,
     promptDelta,
     bestImprovement,
     primaryJudge,
-    judgeComparison,
     providerSpread,
     radarAdherence,
     radarKindness,
@@ -79,15 +80,25 @@ export default function DashboardClient({ data }: DashboardClientProps) {
     const range = (ps.max - ps.min).toFixed(2);
     const maxName = formatModelLabel(ps.maxModel);
     const minName = formatModelLabel(ps.minModel);
-    const isSingle = ps.min === ps.max;
-    const description = isSingle
-      ? `Single model tested (${maxName}) scoring ${ps.max.toFixed(2)}.`
-      : `${maxName} on ${formatPromptLabel(ps.maxPromptLabel)} (${ps.max.toFixed(2)}) to ${minName} on ${formatPromptLabel(ps.minPromptLabel)} (${ps.min.toFixed(2)}), ${range} range across ${ps.runCount} non-baseline runs.`;
+    const maxPrompt = formatPromptLabel(ps.maxPromptLabel);
+    const minPrompt = formatPromptLabel(ps.minPromptLabel);
+    let description: string;
+
+    if (ps.modelCount > 1) {
+      description = `${ps.modelCount} different models tested — ${maxName} on ${maxPrompt} (${ps.max.toFixed(2)}) is the ceiling, ${minName} on ${minPrompt} (${ps.min.toFixed(2)}) the floor. The ${range} spread reflects different models, not the same model varying across prompts.`;
+    } else if (ps.runCount === 1) {
+      description = `Single non-baseline run — ${maxName} scored ${ps.max.toFixed(2)} on ${maxPrompt}.`;
+    } else {
+      description = `${maxName} ranged from ${ps.min.toFixed(2)} on ${minPrompt} to ${ps.max.toFixed(2)} on ${maxPrompt} — ${range} spread across ${ps.runCount} prompt revisions.`;
+    }
+
     return { provider: ps.provider, label: ps.label, fill: getProviderColor(ps.provider), description };
   });
 
-  // Primary and cross-validator judge names for display
-  const crossValidators = comparisonJudges.filter((j) => j.model !== primaryJudge?.model);
+  // Primary and cross-validator judge names for display.
+  // `allCrossValidators` covers every prompt's judges (e.g., Gemini 3 Flash for v1.0,
+  // GPT-5.4 Mini for v1.4), not just the prompt currently rendered first.
+  const crossValidators = allCrossValidators;
   const crossValidatorNames = crossValidators
     .map((j) => j.name.replace("Graded by ", ""))
     .join(", ");
@@ -258,42 +269,51 @@ export default function DashboardClient({ data }: DashboardClientProps) {
               </Card>
             </TabsContent>
 
-            <TabsContent value="bias" className="mt-0">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">⚖️ Are AI Judges Fair?</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    We used {comparisonJudges.length} different AIs to grade the same {judgeComparisonPromptDisplay} answers
-                    across our three categories. Do they generally agree?
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <JudgeBiasBar data={judgeComparison} judges={comparisonJudges} />
-                  <div className="mt-4 space-y-3">
-                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border flex items-start gap-2">
-                      <Info size={16} className="mt-0.5 flex-shrink-0 text-foreground" />
-                      <div>
-                        <span className="font-semibold text-foreground">💡 What this means:</span>{" "}
-                        In our tests, {crossValidatorNames || "the secondary judge"} tends to be a more generous grader,
-                        often giving models scores near 5.0.{" "}
-                        {primaryJudge
-                          ? `${primaryJudge.name.replace("Graded by ", "")} is the most discerning and uses more of the 1-5 scale, making its feedback most helpful for seeing real differences between models.`
-                          : ""}
-                      </div>
-                    </div>
-                    <div className="bg-primary/10 border border-primary/20 p-3 rounded-lg text-sm">
-                      <div className="font-semibold text-foreground mb-1">📌 Why this matters:</div>
-                      <div className="text-muted-foreground">
-                        We use {primaryJudge ? primaryJudge.name.replace("Graded by ", "") : "the primary judge"} as
-                        our primary judge because it provides more detailed, nuanced scores in adherence, kindness,
-                        and interfaith and worldview sensitivity. We cross-validate with{" "}
-                        {crossValidatorNames || "a secondary judge"} to ensure consistency. This helps us see real
-                        differences instead of every model clustering at the top.
-                      </div>
+            <TabsContent value="bias" className="mt-0 space-y-8">
+              {judgeComparisons.map((jc) => {
+                const promptDisplay = formatPromptLabel(jc.promptLabel);
+                return (
+                  <Card key={jc.promptLabel}>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        ⚖️ Are AI Judges Fair? — {promptDisplay}
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        We used {jc.judges.length} different AIs to grade the same {promptDisplay} answers
+                        across our three categories. Do they generally agree?
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <JudgeBiasBar data={jc.data} judges={jc.judges} />
+                    </CardContent>
+                  </Card>
+                );
+              })}
+              {judgeComparisons.length > 0 && (
+                <div className="space-y-3">
+                  <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border flex items-start gap-2">
+                    <Info size={16} className="mt-0.5 flex-shrink-0 text-foreground" />
+                    <div>
+                      <span className="font-semibold text-foreground">💡 What this means:</span>{" "}
+                      In our tests, {crossValidatorNames || "the secondary judge"} tends to be a more generous grader,
+                      often giving models scores near 5.0.{" "}
+                      {primaryJudge
+                        ? `${primaryJudge.name.replace("Graded by ", "")} is the most discerning and uses more of the 1-5 scale, making its feedback most helpful for seeing real differences between models.`
+                        : ""}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="bg-primary/10 border border-primary/20 p-3 rounded-lg text-sm">
+                    <div className="font-semibold text-foreground mb-1">📌 Why this matters:</div>
+                    <div className="text-muted-foreground">
+                      We use {primaryJudge ? primaryJudge.name.replace("Graded by ", "") : "the primary judge"} as
+                      our primary judge because it provides more detailed, nuanced scores in adherence, kindness,
+                      and interfaith and worldview sensitivity. We cross-validate with{" "}
+                      {crossValidatorNames || "a secondary judge"} to ensure consistency. This helps us see real
+                      differences instead of every model clustering at the top.
+                    </div>
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="spread" className="mt-0">

@@ -34,24 +34,23 @@ interface Props {
   childName: string;
 }
 
-async function fetchPrayerFocus(userId: string, memberId: string) {
+async function fetchPrayerFocus(memberId: string) {
   const res = await fetch(
-    `/api/kids-discipleship/prayer-focus?userId=${userId}&memberId=${memberId}&daysBack=30`
+    `/api/kids-discipleship/prayer-focus?memberId=${memberId}&daysBack=30`
   );
   if (!res.ok) throw new Error("Failed to fetch stats");
   return res.json();
 }
 
-async function fetchMonthlyVision(userId: string, memberId: string) {
+async function fetchMonthlyVision(memberId: string) {
   const res = await fetch(
-    `/api/kids-discipleship/monthly-vision?userId=${userId}&memberId=${memberId}`
+    `/api/kids-discipleship/monthly-vision?memberId=${memberId}`
   );
   if (!res.ok) throw new Error("Failed to fetch monthly vision");
   return res.json();
 }
 
 async function updateReviewNotes(
-  userId: string,
   memberId: string,
   yearMonth: string,
   reviewNotes: string
@@ -60,7 +59,6 @@ async function updateReviewNotes(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      userId,
       memberId,
       yearMonth,
       reviewNotes,
@@ -99,7 +97,7 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
   // Fetch stats from prayer focus API
   const { data: focusData, isLoading: statsLoading } = useQuery({
     queryKey: ["kids-discipleship", "prayer-focus", memberId],
-    queryFn: () => fetchPrayerFocus(userId, memberId),
+    queryFn: () => fetchPrayerFocus(memberId),
     enabled: !!userId && !!memberId,
     staleTime: 1000 * 60 * 5,
   });
@@ -115,7 +113,7 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
   // Fetch monthly vision for review notes
   const { data: visionData, isLoading: visionLoading } = useQuery({
     queryKey: ["kids-discipleship", "monthly-vision", memberId],
-    queryFn: () => fetchMonthlyVision(userId, memberId),
+    queryFn: () => fetchMonthlyVision(memberId),
     enabled: !!userId && !!memberId,
   });
 
@@ -136,7 +134,7 @@ export function MonthlyReviewSection({ userId, memberId, childName }: Props) {
   };
 
   const saveNotesMutation = useMutation({
-    mutationFn: () => updateReviewNotes(userId, memberId, currentYearMonth, displayNotes),
+    mutationFn: () => updateReviewNotes(memberId, currentYearMonth, displayNotes),
     onSuccess: () => {
       setNotesSaved(true);
       setUserHasEdited(false); // Reset after save so future fetches can update

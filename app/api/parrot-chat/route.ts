@@ -12,17 +12,17 @@ import { toolsArray } from "@/utils/langChainAgents/tools";
 import { generateConversationName } from "@/utils/generateConversationName";
 import { updateUserMemoriesFromConversation } from "@/utils/memoryExtraction";
 import { buildParrotSystemPrompt } from "@/utils/buildParrotSystemPrompt";
-import { requireAuthenticatedUser } from "@/lib/auth";
+import { getChatActorId, resolveChatActor } from "@/lib/guest";
 
 export async function POST(request: Request) {
   const TOOL_NODE_NAMES = new Set(["tools", ...toolsArray.map((tool) => tool.name)]);
 
   interface ChatRequestBody {
-    userId: string;
     chatId?: string;
     message?: string;
     initialQuestion?: string;
     initialAnswer?: string;
+    userId?: string;
     category?: string;
     subcategory?: string;
     issue_type?: string;
@@ -32,11 +32,11 @@ export async function POST(request: Request) {
   }
 
   const {
-    userId,
     chatId,
     message,
     initialQuestion,
     initialAnswer,
+    userId,
     category,
     subcategory,
     issue_type,
@@ -45,11 +45,8 @@ export async function POST(request: Request) {
     clientChatId,
   }: ChatRequestBody = await request.json();
 
-  const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser(userId);
-  if (errorResponse || !authenticatedUserId)
-    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const effectiveUserId = authenticatedUserId;
+  const actor = await resolveChatActor({ externalUserId: userId });
+  const effectiveUserId = getChatActorId(actor);
 
   // Handle new chat from Parrot QA
   if (effectiveUserId && initialQuestion && initialAnswer && !chatId) {
@@ -88,7 +85,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ chatId: chat.id });
   }
 
-  // If userId and initial message are provided but no chatId, start a new chat session. This is from `app/page.tsx`.
+  // If identity and an initial message are provided but no chatId, start a new chat session.
   if (effectiveUserId && initialQuestion && !chatId) {
     const chat = await prisma.$transaction(async (tx) => {
       const createdChat = await tx.chatHistory.create({
@@ -130,7 +127,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
 
-    if (chatRecord.userId !== authenticatedUserId) {
+    if (chatRecord.userId !== effectiveUserId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -626,9 +623,8 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const chatId = searchParams.get("chatId");
-  const userIdFromQuery = searchParams.get("userId") ?? undefined;
-  const { userId: requesterUserId, errorResponse } = await requireAuthenticatedUser(userIdFromQuery);
-  if (errorResponse || !requesterUserId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await resolveChatActor({ externalUserId: searchParams.get("userId") });
+  const requesterUserId = getChatActorId(actor);
 
   if (!chatId) {
     return NextResponse.json({ error: "Missing chatId" }, { status: 400 });

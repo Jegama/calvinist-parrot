@@ -58,8 +58,8 @@ type StreamEvent =
   | { type: "done"; entry: Partial<LogEntry>; call1: KidsCall1Output; call2: KidsCall2Output }
   | { type: "error"; message: string };
 
-async function fetchLogs(userId: string, memberId: string, category?: string) {
-  const params = new URLSearchParams({ userId, memberId });
+async function fetchLogs(memberId: string, category?: string) {
+  const params = new URLSearchParams({ memberId });
   if (category) params.append("category", category);
   const res = await fetch(`/api/kids-discipleship/logs?${params}`);
   if (!res.ok) throw new Error("Failed to fetch logs");
@@ -83,7 +83,7 @@ export function LogsSection({ userId, memberId, childName }: Props) {
   // Fetch all logs once, filter client-side to avoid extra network calls
   const { data, isLoading } = useQuery({
     queryKey: ["kids-discipleship", "logs", memberId],
-    queryFn: () => fetchLogs(userId, memberId),
+    queryFn: () => fetchLogs(memberId),
     enabled: !!userId && !!memberId,
   });
 
@@ -196,7 +196,6 @@ export function LogsSection({ userId, memberId, childName }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId,
           memberId,
           category: selectedCategory,
           entryText,
@@ -307,7 +306,7 @@ export function LogsSection({ userId, memberId, childName }: Props) {
       setIsSubmitting(false);
       setStreamProgress(null);
     }
-  }, [userId, memberId, selectedCategory, entryText, gospelConnection, queryClient]);
+  }, [memberId, selectedCategory, entryText, gospelConnection, queryClient]);
 
   if (isLoading) {
     return (

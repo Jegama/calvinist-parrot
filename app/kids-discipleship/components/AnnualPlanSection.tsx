@@ -44,16 +44,15 @@ interface Props {
   onScrollHandled?: () => void;
 }
 
-async function fetchAnnualPlans(userId: string, memberId: string) {
+async function fetchAnnualPlans(memberId: string) {
   const res = await fetch(
-    `/api/kids-discipleship/annual-plan?userId=${userId}&memberId=${memberId}`
+    `/api/kids-discipleship/annual-plan?memberId=${memberId}`
   );
   if (!res.ok) throw new Error("Failed to fetch annual plans");
   return res.json();
 }
 
 async function createOrUpdatePlan(
-  userId: string,
   memberId: string,
   year: number,
   data: Partial<AnnualPlan>,
@@ -63,7 +62,7 @@ async function createOrUpdatePlan(
     const res = await fetch("/api/kids-discipleship/annual-plan", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, planId, ...data }),
+      body: JSON.stringify({ planId, ...data }),
     });
     if (!res.ok) throw new Error("Failed to update plan");
     return res.json();
@@ -71,7 +70,7 @@ async function createOrUpdatePlan(
     const res = await fetch("/api/kids-discipleship/annual-plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, memberId, year, ...data }),
+      body: JSON.stringify({ memberId, year, ...data }),
     });
     if (!res.ok) throw new Error("Failed to create plan");
     return res.json();
@@ -94,7 +93,7 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
 
   const { data, isLoading } = useQuery({
     queryKey: ["kids-discipleship", "annual-plan", memberId],
-    queryFn: () => fetchAnnualPlans(userId, memberId),
+    queryFn: () => fetchAnnualPlans(memberId),
     enabled: !!userId && !!memberId,
   });
 
@@ -133,7 +132,7 @@ export function AnnualPlanSection({ userId, memberId, childName, scrollToAndEdit
 
   const mutation = useMutation({
     mutationFn: (params: { data: Partial<AnnualPlan>; planId?: string }) =>
-      createOrUpdatePlan(userId, memberId, currentYear, params.data, params.planId),
+      createOrUpdatePlan(memberId, currentYear, params.data, params.planId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["kids-discipleship", "annual-plan", memberId],
