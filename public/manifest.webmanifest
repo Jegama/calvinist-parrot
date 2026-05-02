@@ -1,6 +1,6 @@
 {
   "name": "Calvinist Parrot",
-  "short_name": "Parrot",
+  "short_name": "Calvinist Parrot",
   "description": "An AI-powered theological assistant for chat, prayer tracking, and finding biblically sound churches.",
   "start_url": "/",
   "scope": "/",
