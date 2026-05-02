@@ -31,6 +31,7 @@ const MODEL_LABELS: Record<string, string> = {
   "gemini-3-flash": "Gemini 3 Flash",
   "gemini-3-flash-preview": "Gemini 3 Flash",
   "gpt-5-mini": "GPT-5 Mini",
+  "gpt-5.4-mini": "GPT-5.4 Mini",
   "grok-4-1-fast": "Grok 4.1 Fast",
   "grok-4-1-fast-reasoning": "Grok 4.1 Fast",
 };
