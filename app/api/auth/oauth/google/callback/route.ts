@@ -13,7 +13,7 @@ import {
 } from "@/lib/appwrite/server";
 import { transferGuestChatsToUser } from "@/lib/chat-transfer";
 import { getGuestId } from "@/lib/guest";
-import { getUserProfileByAppwriteId } from "@/lib/user-profile";
+import { getUserProfileByAppwriteId, upsertUserProfileFromAppwriteUser } from "@/lib/user-profile";
 
 function buildFailureRedirect(request: Request, destination: "login" | "register", reason: string) {
   const url = new URL(`${getAppUrl(request)}/${destination}`);
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
 
     const sessionAccount = new Account(createSessionAppwriteClient(session.secret, forwardedUserAgent));
     const user = await sessionAccount.get();
-    // const profile = await upsertUserProfileFromAppwriteUser(user);
+    await upsertUserProfileFromAppwriteUser(user);
 
     if (authIntent === "signup" && guestId && !existingProfile) {
       await transferGuestChatsToUser(guestId, user.$id);
