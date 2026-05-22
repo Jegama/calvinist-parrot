@@ -425,6 +425,17 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
         const maxModel = providerScores.reduce((prev, curr) => (prev.score > curr.score ? prev : curr));
         const modelCount = new Set(providerScores.map((score) => score.model)).size;
 
+        // Every non-baseline run for this provider (model × prompt revision),
+        // ordered by overall score so the consistency card can expand the full
+        // ranking — the top entry is the ceiling, the bottom entry the floor.
+        const runs = [...providerScores]
+          .sort((left, right) => right.score - left.score)
+          .map((item) => ({
+            model: item.model,
+            promptLabel: item.promptLabel,
+            score: parseFloat(item.score.toFixed(2)),
+          }));
+
         return {
           provider,
           min: minModel.score,
@@ -435,6 +446,7 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
           maxPromptLabel: maxModel.promptLabel,
           runCount: providerScores.length,
           modelCount,
+          runs,
           avg: (providerScores.reduce((sum, item) => sum + item.score, 0) / providerScores.length).toFixed(2),
           fill: getProviderColor(provider),
           label: getProviderLabel(provider),

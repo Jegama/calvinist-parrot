@@ -1,11 +1,13 @@
 "use client";
 
 import React from "react";
-import { TrendingUp, Scale, Activity, Award, Info, BookOpen } from "lucide-react";
+import { TrendingUp, Scale, Activity, Award, Info, BookOpen, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { EvaluationRecord } from "./lib";
 import { useDashboardMetrics } from "./hooks/use-dashboard-metrics";
 import { TopPerformerBar } from "./charts/TopPerformerBar";
@@ -92,7 +94,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
       description = `${maxName} ranged from ${ps.min.toFixed(2)} on ${minPrompt} to ${ps.max.toFixed(2)} on ${maxPrompt} — ${range} spread across ${ps.runCount} prompt revisions.`;
     }
 
-    return { provider: ps.provider, label: ps.label, fill: getProviderColor(ps.provider), description };
+    return { provider: ps.provider, label: ps.label, fill: getProviderColor(ps.provider), description, runs: ps.runs };
   });
 
   // Primary and cross-validator judge names for display.
@@ -335,16 +337,60 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                     </div>
                     <div className="grid gap-2 text-sm">
                       {spreadDescriptions.map((sd) => (
-                        <div key={sd.provider} className="flex items-start gap-2 p-2 rounded bg-background border border-border">
-                          <div
-                            className="w-3 h-3 rounded-full mt-1 flex-shrink-0"
-                            style={{ backgroundColor: sd.fill }}
-                          ></div>
-                          <div>
-                            <span className="font-bold text-foreground">{sd.label}:</span>
-                            <span className="text-muted-foreground"> {sd.description}</span>
+                        <Collapsible
+                          key={sd.provider}
+                          className="p-2 rounded bg-background border border-border"
+                        >
+                          <div className="flex items-start gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full mt-1 flex-shrink-0"
+                              style={{ backgroundColor: sd.fill }}
+                            ></div>
+                            <div className="min-w-0 flex-1">
+                              <span className="font-bold text-foreground">{sd.label}:</span>
+                              <span className="text-muted-foreground"> {sd.description}</span>
+                              {sd.runs.length > 1 && (
+                                <CollapsibleTrigger className="group mt-2 flex items-center gap-1 rounded text-xs font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                  <ChevronDown
+                                    size={14}
+                                    className="transition-transform duration-200 group-data-[state=open]:rotate-180"
+                                  />
+                                  <span className="group-data-[state=open]:hidden">
+                                    See all {sd.runs.length} runs by overall score
+                                  </span>
+                                  <span className="hidden group-data-[state=open]:inline">Hide runs</span>
+                                </CollapsibleTrigger>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                          {sd.runs.length > 1 && (
+                            <CollapsibleContent>
+                              <ol className="mt-2 space-y-1 pl-5">
+                                {sd.runs.map((run, index) => (
+                                  <li
+                                    key={`${run.model}-${run.promptLabel}-${index}`}
+                                    className="flex items-center justify-between gap-2 rounded bg-muted/60 px-2 py-1 text-xs"
+                                  >
+                                    <span className="flex min-w-0 items-center gap-2">
+                                      <span className="w-4 text-right tabular-nums text-muted-foreground">
+                                        {index + 1}.
+                                      </span>
+                                      <span className="truncate font-medium text-foreground">
+                                        {formatModelLabel(run.model)}
+                                      </span>
+                                      <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-normal">
+                                        {formatPromptLabel(run.promptLabel)}
+                                      </Badge>
+                                    </span>
+                                    <span className="font-bold tabular-nums text-foreground">
+                                      {run.score.toFixed(2)}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </CollapsibleContent>
+                          )}
+                        </Collapsible>
                       ))}
                     </div>
                   </div>
