@@ -13,7 +13,10 @@ export async function GET() {
     select: { spaceId: true },
   });
   if (!membership) {
-    return NextResponse.json({ version: null, spaceId: null });
+    return NextResponse.json(
+      { version: null, spaceId: null },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   }
 
   const { spaceId } = membership;
@@ -47,7 +50,7 @@ export async function GET() {
     }),
     prisma.prayerMember.aggregate({
       where: { spaceId },
-      _max: { joinedAt: true },
+      _max: { joinedAt: true, updatedAt: true },
     }),
     prisma.prayerFamily.count({ where: { spaceId } }),
     prisma.prayerFamilyRequest.count({ where: { family: { spaceId } } }),
@@ -71,6 +74,7 @@ export async function GET() {
     personalAgg._max.dateUpdated,
     personalAgg._max.lastPrayedAt,
     memberAgg._max.joinedAt,
+    memberAgg._max.updatedAt,
   ].filter((value): value is Date => value instanceof Date);
 
   const latest = timestamps.reduce<Date | null>(

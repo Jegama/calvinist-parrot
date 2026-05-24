@@ -43,26 +43,22 @@ function PrayerTrackerContent() {
   const [familyDetailDialogOpen, setFamilyDetailDialogOpen] = useState(false);
   const [selectedFamilyForDetail, setSelectedFamilyForDetail] = useState<Family | null>(null);
 
-  // Tab state synced with URL for browser history support. We also hold a
-  // short-lived local override so the click feels instant even if router.push
-  // is delayed by a Suspense boundary or in-flight render. The override is
-  // cleared during render whenever the URL changes (covers both our own push
-  // and back/forward navigation).
+  // Tab state synced with URL for browser history support. A short-lived
+  // local override makes clicks feel instant even if router.push is delayed
+  // by a Suspense boundary. We track the urlTab seen on the click so the
+  // override is automatically ignored once the URL moves to anything else
+  // (covers both our own push catching up and back/forward navigation),
+  // which lets us derive activeTab without an effect-driven reset.
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlTab = searchParams.get("tab") || "overview";
-  const [pendingTab, setPendingTab] = useState<string | null>(null);
-  const [prevUrlTab, setPrevUrlTab] = useState(urlTab);
-  if (urlTab !== prevUrlTab) {
-    setPrevUrlTab(urlTab);
-    setPendingTab(null);
-  }
-  const activeTab = pendingTab ?? urlTab;
+  const [pendingTab, setPendingTab] = useState<{ value: string; from: string } | null>(null);
+  const activeTab = pendingTab && pendingTab.from === urlTab ? pendingTab.value : urlTab;
 
   const handleTabChange = useCallback((value: string) => {
-    setPendingTab(value);
+    setPendingTab({ value, from: urlTab });
     router.push(`/prayer-tracker?tab=${value}`, { scroll: false });
-  }, [router]);
+  }, [router, urlTab]);
 
   // Rotation card lives in client-only state, so a refresh of the lists alone
   // would leave the other household member staring at a stale prepared
