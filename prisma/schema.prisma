@@ -87,12 +87,15 @@ model prayerMember {
   assignmentCapacity Int               @default(2)
   assignmentCount    Int               @default(0)
   joinedAt           DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
   lastPrayed         prayerFamily[]    @relation("LastPrayedBy")
   space              prayerFamilySpace @relation(fields: [spaceId], references: [id])
 
   // Kids Discipleship relations (Phase 3)
   annualPlans        discipleshipAnnualPlan[]    @relation("ChildAnnualPlans")
   monthlyVisions     discipleshipMonthlyVision[] @relation("ChildMonthlyVisions")
+
+  @@index([spaceId])
 }
 
 model prayerFamily {
@@ -112,6 +115,8 @@ model prayerFamily {
   lastPrayedBy         prayerMember?         @relation("LastPrayedBy", fields: [lastPrayedByMemberId], references: [id])
   space                prayerFamilySpace     @relation(fields: [spaceId], references: [id])
   requests             prayerFamilyRequest[]
+
+  @@index([spaceId])
 }
 
 model prayerFamilyRequest {
@@ -131,6 +136,7 @@ model prayerFamilyRequest {
   family               prayerFamily  @relation(fields: [familyId], references: [id])
   linkedEntry          journalEntry? @relation("FamilyRequestSource", fields: [linkedJournalEntryId], references: [id], onDelete: SetNull)
 
+  @@index([familyId])
   @@index([linkedJournalEntryId])
 }
 
@@ -153,6 +159,7 @@ model prayerPersonalRequest {
   space                prayerFamilySpace @relation(fields: [spaceId], references: [id])
   linkedEntry          journalEntry?     @relation("PersonalRequestSource", fields: [linkedJournalEntryId], references: [id], onDelete: SetNull)
 
+  @@index([spaceId])
   @@index([linkedJournalEntryId])
   @@index([subjectMemberId])
 }
