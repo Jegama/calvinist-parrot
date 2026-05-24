@@ -396,6 +396,55 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
     };
   }, [promptDelta]);
 
+  const categoryScoresByModel = useMemo(() => {
+    if (!activePromptLabel || !primaryJudge) {
+      return [];
+    }
+
+    const overallRecords = data.filter(
+      (record) =>
+        record.Judge_Model === primaryJudge.model &&
+        record.System_Prompt_Label === activePromptLabel &&
+        record.subCriterion === "Overall"
+    );
+
+    const models = Array.from(new Set(overallRecords.map((record) => record.Gen_Model)));
+
+    return models
+      .map((model) => {
+        const modelRecords = overallRecords.filter((record) => record.Gen_Model === model);
+        const adherence = modelRecords.find((record) => record.criterion === "Adherence")?.value;
+        const kindness = modelRecords.find(
+          (record) => record.criterion === "Kindness_and_Gentleness"
+        )?.value;
+        const interfaith = modelRecords.find(
+          (record) => record.criterion === "Interfaith_Sensitivity"
+        )?.value;
+        const provider = modelRecords[0]?.Provider;
+
+        if (
+          adherence === undefined ||
+          kindness === undefined ||
+          interfaith === undefined ||
+          !provider
+        ) {
+          return null;
+        }
+
+        return {
+          model,
+          provider,
+          adherence: parseFloat(adherence.toFixed(2)),
+          kindness: parseFloat(kindness.toFixed(2)),
+          interfaith: parseFloat(interfaith.toFixed(2)),
+          fill: getProviderColor(provider),
+          label: formatModelLabel(model),
+          providerLabel: getProviderLabel(provider),
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  }, [activePromptLabel, data, primaryJudge]);
+
   const providerSpread = useMemo(() => {
     if (!primaryJudge || nonBaselinePromptLabels.length === 0) {
       return [];
@@ -425,6 +474,17 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
         const maxModel = providerScores.reduce((prev, curr) => (prev.score > curr.score ? prev : curr));
         const modelCount = new Set(providerScores.map((score) => score.model)).size;
 
+        // Every non-baseline run for this provider (model × prompt revision),
+        // ordered by overall score so the consistency card can expand the full
+        // ranking — the top entry is the ceiling, the bottom entry the floor.
+        const runs = [...providerScores]
+          .sort((left, right) => right.score - left.score)
+          .map((item) => ({
+            model: item.model,
+            promptLabel: item.promptLabel,
+            score: parseFloat(item.score.toFixed(2)),
+          }));
+
         return {
           provider,
           min: minModel.score,
@@ -435,6 +495,7 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
           maxPromptLabel: maxModel.promptLabel,
           runCount: providerScores.length,
           modelCount,
+          runs,
           avg: (providerScores.reduce((sum, item) => sum + item.score, 0) / providerScores.length).toFixed(2),
           fill: getProviderColor(provider),
           label: getProviderLabel(provider),
@@ -531,6 +592,7 @@ export function useDashboardMetrics(data: EvaluationRecord[]) {
     progressionPromptLabels,
     promptDelta,
     bestImprovement,
+    categoryScoresByModel,
     primaryJudge,
     providerSpread,
     radarAdherence,

@@ -108,11 +108,10 @@ async function generalSearch(
 
 export const generalSearchTool = tool(generalSearch, {
   name: "generalSearch",
-  description: `Search the web for current events, factual lookups, science, health, general knowledge, practical questions, or when the user explicitly asks for web information.
+  description: `Search the web for current events, factual lookups, science, health, general knowledge, book recommendations, checking book availability/authors, practical questions, or when the user explicitly asks for web information. ALWAYS use this tool to find and verify book recommendations. Never rely on internal knowledge for books.
 
 IMPORTANT routing rules:
 - For Bible/doctrine/theology → prefer supplementalArticleSearch, BibleCommentary, or studyBible tools
-- For church history/classic theology → prefer ccelRetrieval
 - Only fall back to generalSearch for theology if specialized tools cannot answer
 - Do NOT use for inappropriate, explicit, or harmful queries`,
   schema: z.object({

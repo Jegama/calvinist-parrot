@@ -1,11 +1,13 @@
 "use client";
 
-import React from "react";
-import { TrendingUp, Scale, Activity, Award, Info, BookOpen } from "lucide-react";
+import React, { useMemo } from "react";
+import { TrendingUp, Scale, Activity, Award, Info, BookOpen, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { EvaluationRecord } from "./lib";
 import { useDashboardMetrics } from "./hooks/use-dashboard-metrics";
 import { TopPerformerBar } from "./charts/TopPerformerBar";
@@ -13,7 +15,57 @@ import { PromptDeltaBar } from "./charts/PromptDeltaBar";
 import { JudgeBiasBar } from "./charts/JudgeBiasBar";
 import { ProviderSpreadScatter } from "./charts/ProviderSpreadScatter";
 import { RadarDeepDive } from "./charts/RadarDeepDive";
+import { CategoryScatter } from "./charts/CategoryScatter";
 import { formatModelLabel, formatPromptLabel, getProviderColor } from "./constants";
+
+// Pearson correlation between x and y across the model landscape — used to
+// narrate whether the two categories rise together or trade off.
+const correlation = (points: Array<{ x: number; y: number }>) => {
+  if (points.length < 2) return 0;
+  const n = points.length;
+  const meanX = points.reduce((sum, p) => sum + p.x, 0) / n;
+  const meanY = points.reduce((sum, p) => sum + p.y, 0) / n;
+  let num = 0;
+  let denX = 0;
+  let denY = 0;
+  points.forEach((p) => {
+    const dx = p.x - meanX;
+    const dy = p.y - meanY;
+    num += dx * dy;
+    denX += dx * dx;
+    denY += dy * dy;
+  });
+  const denom = Math.sqrt(denX * denY);
+  return denom === 0 ? 0 : num / denom;
+};
+
+const describeCorrelation = (r: number): string => {
+  const abs = Math.abs(r);
+  if (abs < 0.2) return "little to no relationship";
+  if (abs < 0.5) return r > 0 ? "a weak positive relationship" : "a weak inverse relationship";
+  if (abs < 0.75) return r > 0 ? "a moderate positive relationship" : "a moderate trade-off";
+  return r > 0 ? "a strong positive relationship" : "a strong trade-off";
+};
+
+const buildPairNarrative = (
+  points: Array<{ label: string; providerLabel: string; x: number; y: number }>,
+  xName: string,
+  yName: string
+) => {
+  if (points.length === 0) return null;
+  const sortedByCombined = [...points].sort((a, b) => b.x + b.y - (a.x + a.y));
+  const leader = sortedByCombined[0];
+  const laggard = sortedByCombined[sortedByCombined.length - 1];
+  const r = correlation(points);
+  return {
+    leaderText: `${leader.label} (${leader.providerLabel}) sits closest to the top-right at ${leader.x.toFixed(2)} on ${xName} and ${leader.y.toFixed(2)} on ${yName}.`,
+    laggardText:
+      leader.label === laggard.label
+        ? null
+        : `${laggard.label} (${laggard.providerLabel}) trails in the bottom-left at ${laggard.x.toFixed(2)} and ${laggard.y.toFixed(2)}.`,
+    correlationText: `Across the ${points.length} models tested, there is ${describeCorrelation(r)} between the two categories (r = ${r.toFixed(2)}).`,
+  };
+};
 
 const Stat = ({
   label,
@@ -53,6 +105,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
     progressionPromptLabels,
     promptDelta,
     bestImprovement,
+    categoryScoresByModel,
     primaryJudge,
     providerSpread,
     radarAdherence,
@@ -92,8 +145,112 @@ export default function DashboardClient({ data }: DashboardClientProps) {
       description = `${maxName} ranged from ${ps.min.toFixed(2)} on ${minPrompt} to ${ps.max.toFixed(2)} on ${maxPrompt} — ${range} spread across ${ps.runCount} prompt revisions.`;
     }
 
-    return { provider: ps.provider, label: ps.label, fill: getProviderColor(ps.provider), description };
+    return { provider: ps.provider, label: ps.label, fill: getProviderColor(ps.provider), description, runs: ps.runs };
   });
+
+  // Three pair-wise views of per-model category scores for the Deep Dive scatters.
+  const { adherenceVsKindness, adherenceVsInterfaith, kindnessVsInterfaith } = useMemo(() => {
+    const toPoint = (
+      point: (typeof categoryScoresByModel)[number],
+      x: number,
+      y: number
+    ) => ({
+      model: point.model,
+      label: point.label,
+      provider: point.provider,
+      providerLabel: point.providerLabel,
+      fill: point.fill,
+      x,
+      y,
+    });
+    return {
+      adherenceVsKindness: categoryScoresByModel.map((p) => toPoint(p, p.adherence, p.kindness)),
+      adherenceVsInterfaith: categoryScoresByModel.map((p) => toPoint(p, p.adherence, p.interfaith)),
+      kindnessVsInterfaith: categoryScoresByModel.map((p) => toPoint(p, p.kindness, p.interfaith)),
+    };
+  }, [categoryScoresByModel]);
+
+  const adherenceKindnessNarrative = useMemo(
+    () => buildPairNarrative(adherenceVsKindness, "Adherence", "Kindness"),
+    [adherenceVsKindness]
+  );
+  const adherenceInterfaithNarrative = useMemo(
+    () => buildPairNarrative(adherenceVsInterfaith, "Adherence", "Interfaith"),
+    [adherenceVsInterfaith]
+  );
+  const kindnessInterfaithNarrative = useMemo(
+    () => buildPairNarrative(kindnessVsInterfaith, "Kindness", "Interfaith"),
+    [kindnessVsInterfaith]
+  );
+
+  // Per-provider averages across the models tested. The scatter shows per-model
+  // dots; this breakdown surfaces the provider-level signal the chart hides.
+  const providerAverages = useMemo(() => {
+    const groups = new Map<
+      string,
+      { providerLabel: string; fill: string; adherence: number[]; kindness: number[]; interfaith: number[] }
+    >();
+    categoryScoresByModel.forEach((point) => {
+      if (!groups.has(point.provider)) {
+        groups.set(point.provider, {
+          providerLabel: point.providerLabel,
+          fill: point.fill,
+          adherence: [],
+          kindness: [],
+          interfaith: [],
+        });
+      }
+      const bucket = groups.get(point.provider)!;
+      bucket.adherence.push(point.adherence);
+      bucket.kindness.push(point.kindness);
+      bucket.interfaith.push(point.interfaith);
+    });
+    const avg = (values: number[]) =>
+      values.length === 0 ? 0 : values.reduce((sum, v) => sum + v, 0) / values.length;
+    return Array.from(groups.entries())
+      .map(([provider, bucket]) => ({
+        provider,
+        providerLabel: bucket.providerLabel,
+        fill: bucket.fill,
+        modelCount: bucket.adherence.length,
+        adherence: avg(bucket.adherence),
+        kindness: avg(bucket.kindness),
+        interfaith: avg(bucket.interfaith),
+      }))
+      .sort((a, b) => b.adherence + b.kindness + b.interfaith - (a.adherence + a.kindness + a.interfaith));
+  }, [categoryScoresByModel]);
+
+  const renderProviderBreakdown = (
+    xKey: "adherence" | "kindness" | "interfaith",
+    yKey: "adherence" | "kindness" | "interfaith",
+    xName: string,
+    yName: string
+  ) => (
+    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      {providerAverages.map((p) => (
+        <div
+          key={p.provider}
+          className="flex items-center gap-2 rounded border border-border bg-background px-3 py-2 text-sm"
+        >
+          <span
+            className="h-3 w-3 flex-shrink-0 rounded-full"
+            style={{ backgroundColor: p.fill }}
+          />
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-semibold text-foreground">{p.providerLabel}</div>
+            <div className="text-xs text-muted-foreground">
+              {xName} <span className="font-bold text-foreground">{p[xKey].toFixed(2)}</span>
+              {" · "}
+              {yName} <span className="font-bold text-foreground">{p[yKey].toFixed(2)}</span>
+              <span className="ml-1 opacity-70">
+                ({p.modelCount} model{p.modelCount !== 1 ? "s" : ""})
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   // Primary and cross-validator judge names for display.
   // `allCrossValidators` covers every prompt's judges (e.g., Gemini 3 Flash for v1.0,
@@ -335,16 +492,60 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                     </div>
                     <div className="grid gap-2 text-sm">
                       {spreadDescriptions.map((sd) => (
-                        <div key={sd.provider} className="flex items-start gap-2 p-2 rounded bg-background border border-border">
-                          <div
-                            className="w-3 h-3 rounded-full mt-1 flex-shrink-0"
-                            style={{ backgroundColor: sd.fill }}
-                          ></div>
-                          <div>
-                            <span className="font-bold text-foreground">{sd.label}:</span>
-                            <span className="text-muted-foreground"> {sd.description}</span>
+                        <Collapsible
+                          key={sd.provider}
+                          className="p-2 rounded bg-background border border-border"
+                        >
+                          <div className="flex items-start gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full mt-1 flex-shrink-0"
+                              style={{ backgroundColor: sd.fill }}
+                            ></div>
+                            <div className="min-w-0 flex-1">
+                              <span className="font-bold text-foreground">{sd.label}:</span>
+                              <span className="text-muted-foreground"> {sd.description}</span>
+                              {sd.runs.length > 1 && (
+                                <CollapsibleTrigger className="group mt-2 flex items-center gap-1 rounded text-xs font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                  <ChevronDown
+                                    size={14}
+                                    className="transition-transform duration-200 group-data-[state=open]:rotate-180"
+                                  />
+                                  <span className="group-data-[state=open]:hidden">
+                                    See all {sd.runs.length} runs by overall score
+                                  </span>
+                                  <span className="hidden group-data-[state=open]:inline">Hide runs</span>
+                                </CollapsibleTrigger>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                          {sd.runs.length > 1 && (
+                            <CollapsibleContent>
+                              <ol className="mt-2 space-y-1 pl-5">
+                                {sd.runs.map((run, index) => (
+                                  <li
+                                    key={`${run.model}-${run.promptLabel}`}
+                                    className="flex items-center justify-between gap-2 rounded bg-muted/60 px-2 py-1 text-xs"
+                                  >
+                                    <span className="flex min-w-0 items-center gap-2">
+                                      <span className="w-4 text-right tabular-nums text-muted-foreground">
+                                        {index + 1}.
+                                      </span>
+                                      <span className="truncate font-medium text-foreground">
+                                        {formatModelLabel(run.model)}
+                                      </span>
+                                      <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-normal">
+                                        {formatPromptLabel(run.promptLabel)}
+                                      </Badge>
+                                    </span>
+                                    <span className="font-bold tabular-nums text-foreground">
+                                      {run.score.toFixed(2)}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </CollapsibleContent>
+                          )}
+                        </Collapsible>
                       ))}
                     </div>
                   </div>
@@ -411,6 +612,115 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                   </div>
                 </CardContent>
               </Card>
+
+              {categoryScoresByModel.length > 0 && (
+                <>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">📐 Adherence × Kindness</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Each point is one model on {activePromptLabelDisplay}, judged by{" "}
+                        {primaryJudge ? primaryJudge.name.replace("Graded by ", "") : "the primary judge"}.
+                        Points in the top-right corner score high on both categories; the diagonal would suggest
+                        the two categories rise and fall together.
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <CategoryScatter
+                        data={adherenceVsKindness}
+                        xLabel="Adherence to Doctrinal Statement"
+                        yLabel="Kindness and Gentleness"
+                      />
+                      {adherenceKindnessNarrative && (
+                        <div className="mt-4 space-y-3">
+                          <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
+                            <span className="font-semibold text-foreground">💡 What this means:</span>{" "}
+                            <span className="font-medium text-foreground">Adherence</span> measures faithfulness to the core, secondary, and tertiary doctrinal tiers along with biblical citation accuracy.{" "}
+                            <span className="font-medium text-foreground">Kindness</span> measures whether the model communicates that truth warmly — pastoral sensitivity, fair handling of disagreement, and an inviting tone. A tight diagonal here means doctrinal precision and pastoral care travel together; a wide spread would suggest a model has to choose between being clear and being kind. {adherenceKindnessNarrative.leaderText}{" "}
+                            {adherenceKindnessNarrative.laggardText}{" "}
+                            {adherenceKindnessNarrative.correlationText}
+                          </div>
+                          {renderProviderBreakdown(
+                            "adherence",
+                            "kindness",
+                            "Adherence",
+                            "Kindness"
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">📐 Adherence × Interfaith Sensitivity</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Does sticking closely to the doctrinal statement come at the cost of engaging other
+                        worldviews respectfully? Points scattered along the bottom-right would suggest a trade-off.
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <CategoryScatter
+                        data={adherenceVsInterfaith}
+                        xLabel="Adherence to Doctrinal Statement"
+                        yLabel="Interfaith and Worldview Sensitivity"
+                      />
+                      {adherenceInterfaithNarrative && (
+                        <div className="mt-4 space-y-3">
+                          <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
+                            <span className="font-semibold text-foreground">💡 What this means:</span>{" "}
+                            <span className="font-medium text-foreground">Adherence</span> rewards holding the line on Reformed doctrine.{" "}
+                            <span className="font-medium text-foreground">Interfaith Sensitivity</span> rewards engaging other worldviews respectfully — acknowledging objections, summarizing their views fairly, and still presenting Christ with gospel boldness. This is the classic tension between conviction and charity: a strong negative correlation would suggest faithful models become dismissive, while a positive one would suggest doctrinal clarity actually enables better cross-worldview conversation. {adherenceInterfaithNarrative.leaderText}{" "}
+                            {adherenceInterfaithNarrative.laggardText}{" "}
+                            {adherenceInterfaithNarrative.correlationText}
+                          </div>
+                          {renderProviderBreakdown(
+                            "adherence",
+                            "interfaith",
+                            "Adherence",
+                            "Interfaith"
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">📐 Kindness × Interfaith Sensitivity</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Pastoral warmth and respectful engagement with other worldviews often travel together.
+                        A tight diagonal cluster here would confirm that intuition across the model landscape.
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <CategoryScatter
+                        data={kindnessVsInterfaith}
+                        xLabel="Kindness and Gentleness"
+                        yLabel="Interfaith and Worldview Sensitivity"
+                      />
+                      {kindnessInterfaithNarrative && (
+                        <div className="mt-4 space-y-3">
+                          <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
+                            <span className="font-semibold text-foreground">💡 What this means:</span>{" "}
+                            Both axes share a common ingredient — relational warmth.{" "}
+                            <span className="font-medium text-foreground">Kindness</span> captures it inside the church (clarity with kindness, pastoral sensitivity, fair handling of secondary and tertiary issues), while{" "}
+                            <span className="font-medium text-foreground">Interfaith Sensitivity</span> captures it outside (respect for objections, evangelism, gospel boldness). We&apos;d expect these to move together: a model with pastoral tone for believers is usually charitable with skeptics too. A flat or scattered pattern would suggest models are tuned to one audience but not the other. {kindnessInterfaithNarrative.leaderText}{" "}
+                            {kindnessInterfaithNarrative.laggardText}{" "}
+                            {kindnessInterfaithNarrative.correlationText}
+                          </div>
+                          {renderProviderBreakdown(
+                            "kindness",
+                            "interfaith",
+                            "Kindness",
+                            "Interfaith"
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </TabsContent>
           </div>
 
