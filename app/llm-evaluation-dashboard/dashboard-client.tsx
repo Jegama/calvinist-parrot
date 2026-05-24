@@ -368,7 +368,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                               <ol className="mt-2 space-y-1 pl-5">
                                 {sd.runs.map((run, index) => (
                                   <li
-                                    key={`${run.model}-${run.promptLabel}-${index}`}
+                                    key={`${run.model}-${run.promptLabel}`}
                                     className="flex items-center justify-between gap-2 rounded bg-muted/60 px-2 py-1 text-xs"
                                   >
                                     <span className="flex min-w-0 items-center gap-2">
