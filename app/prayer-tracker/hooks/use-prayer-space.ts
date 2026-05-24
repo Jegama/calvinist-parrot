@@ -58,12 +58,13 @@ export function usePrayerSpace({ user, authLoading }: UsePrayerSpaceOptions) {
   }, []);
 
   const refreshAll = useCallback(
-    async () => {
-      markSpaceLoading(user?.$id ?? "");
+    async (options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      if (!silent) markSpaceLoading(user?.$id ?? "");
       try {
         await Promise.all([loadSpace(), refreshLists()]);
       } finally {
-        markSpaceReady(user?.$id ?? "");
+        if (!silent) markSpaceReady(user?.$id ?? "");
       }
     },
     [loadSpace, markSpaceLoading, markSpaceReady, refreshLists, user]
