@@ -40,6 +40,11 @@ export function CategoryScatter({ data, xLabel, yLabel }: CategoryScatterProps) 
     // a tick boundary (e.g. 4.71 + 0.1 = 4.81 was ceiling to 4.9).
     const low = Math.max(0, Math.round((min - padding) * 10) / 10);
     const high = Math.min(5, Math.round((max + padding) * 10) / 10);
+    // Guarantee a non-zero span — Recharts can't render a number axis when min === max
+    // (happens when every value lands on the same clamp, e.g. all 5.0).
+    if (low === high) {
+      return [Math.max(0, low - 0.1), Math.min(5, high + 0.1)];
+    }
     return [low, high];
   };
 

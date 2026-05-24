@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { TrendingUp, Scale, Activity, Award, Info, BookOpen, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,55 @@ import { ProviderSpreadScatter } from "./charts/ProviderSpreadScatter";
 import { RadarDeepDive } from "./charts/RadarDeepDive";
 import { CategoryScatter } from "./charts/CategoryScatter";
 import { formatModelLabel, formatPromptLabel, getProviderColor } from "./constants";
+
+// Pearson correlation between x and y across the model landscape — used to
+// narrate whether the two categories rise together or trade off.
+const correlation = (points: Array<{ x: number; y: number }>) => {
+  if (points.length < 2) return 0;
+  const n = points.length;
+  const meanX = points.reduce((sum, p) => sum + p.x, 0) / n;
+  const meanY = points.reduce((sum, p) => sum + p.y, 0) / n;
+  let num = 0;
+  let denX = 0;
+  let denY = 0;
+  points.forEach((p) => {
+    const dx = p.x - meanX;
+    const dy = p.y - meanY;
+    num += dx * dy;
+    denX += dx * dx;
+    denY += dy * dy;
+  });
+  const denom = Math.sqrt(denX * denY);
+  return denom === 0 ? 0 : num / denom;
+};
+
+const describeCorrelation = (r: number): string => {
+  const abs = Math.abs(r);
+  if (abs < 0.2) return "little to no relationship";
+  if (abs < 0.5) return r > 0 ? "a weak positive relationship" : "a weak inverse relationship";
+  if (abs < 0.75) return r > 0 ? "a moderate positive relationship" : "a moderate trade-off";
+  return r > 0 ? "a strong positive relationship" : "a strong trade-off";
+};
+
+const buildPairNarrative = (
+  points: Array<{ label: string; providerLabel: string; x: number; y: number }>,
+  xName: string,
+  yName: string
+) => {
+  if (points.length === 0) return null;
+  const sortedByCombined = [...points].sort((a, b) => b.x + b.y - (a.x + a.y));
+  const leader = sortedByCombined[0];
+  const laggard = sortedByCombined[sortedByCombined.length - 1];
+  const r = correlation(points);
+  return {
+    leaderText: `${leader.label} (${leader.providerLabel}) sits closest to the top-right at ${leader.x.toFixed(2)} on ${xName} and ${leader.y.toFixed(2)} on ${yName}.`,
+    laggardText:
+      leader.label === laggard.label
+        ? null
+        : `${laggard.label} (${laggard.providerLabel}) trails in the bottom-left at ${laggard.x.toFixed(2)} and ${laggard.y.toFixed(2)}.`,
+    correlationText: `Across the ${points.length} models tested, there is ${describeCorrelation(r)} between the two categories (r = ${r.toFixed(2)}).`,
+  };
+};
 
 const Stat = ({
   label,
@@ -100,102 +149,43 @@ export default function DashboardClient({ data }: DashboardClientProps) {
   });
 
   // Three pair-wise views of per-model category scores for the Deep Dive scatters.
-  const adherenceVsKindness = categoryScoresByModel.map((point) => ({
-    model: point.model,
-    label: point.label,
-    provider: point.provider,
-    providerLabel: point.providerLabel,
-    fill: point.fill,
-    x: point.adherence,
-    y: point.kindness,
-  }));
-  const adherenceVsInterfaith = categoryScoresByModel.map((point) => ({
-    model: point.model,
-    label: point.label,
-    provider: point.provider,
-    providerLabel: point.providerLabel,
-    fill: point.fill,
-    x: point.adherence,
-    y: point.interfaith,
-  }));
-  const kindnessVsInterfaith = categoryScoresByModel.map((point) => ({
-    model: point.model,
-    label: point.label,
-    provider: point.provider,
-    providerLabel: point.providerLabel,
-    fill: point.fill,
-    x: point.kindness,
-    y: point.interfaith,
-  }));
-
-  // Pearson correlation between x and y across the model landscape — used to
-  // narrate whether the two categories rise together or trade off.
-  const correlation = (points: Array<{ x: number; y: number }>) => {
-    if (points.length < 2) return 0;
-    const n = points.length;
-    const meanX = points.reduce((sum, p) => sum + p.x, 0) / n;
-    const meanY = points.reduce((sum, p) => sum + p.y, 0) / n;
-    let num = 0;
-    let denX = 0;
-    let denY = 0;
-    points.forEach((p) => {
-      const dx = p.x - meanX;
-      const dy = p.y - meanY;
-      num += dx * dy;
-      denX += dx * dx;
-      denY += dy * dy;
+  const { adherenceVsKindness, adherenceVsInterfaith, kindnessVsInterfaith } = useMemo(() => {
+    const toPoint = (
+      point: (typeof categoryScoresByModel)[number],
+      x: number,
+      y: number
+    ) => ({
+      model: point.model,
+      label: point.label,
+      provider: point.provider,
+      providerLabel: point.providerLabel,
+      fill: point.fill,
+      x,
+      y,
     });
-    const denom = Math.sqrt(denX * denY);
-    return denom === 0 ? 0 : num / denom;
-  };
-
-  const describeCorrelation = (r: number): string => {
-    const abs = Math.abs(r);
-    if (abs < 0.2) return "little to no relationship";
-    if (abs < 0.5) return r > 0 ? "a weak positive relationship" : "a weak inverse relationship";
-    if (abs < 0.75) return r > 0 ? "a moderate positive relationship" : "a moderate trade-off";
-    return r > 0 ? "a strong positive relationship" : "a strong trade-off";
-  };
-
-  const buildPairNarrative = (
-    points: Array<{ label: string; providerLabel: string; x: number; y: number }>,
-    xName: string,
-    yName: string
-  ) => {
-    if (points.length === 0) return null;
-    const sortedByCombined = [...points].sort((a, b) => b.x + b.y - (a.x + a.y));
-    const leader = sortedByCombined[0];
-    const laggard = sortedByCombined[sortedByCombined.length - 1];
-    const r = correlation(points);
     return {
-      leaderText: `${leader.label} (${leader.providerLabel}) sits closest to the top-right at ${leader.x.toFixed(2)} on ${xName} and ${leader.y.toFixed(2)} on ${yName}.`,
-      laggardText:
-        leader.label === laggard.label
-          ? null
-          : `${laggard.label} (${laggard.providerLabel}) trails in the bottom-left at ${laggard.x.toFixed(2)} and ${laggard.y.toFixed(2)}.`,
-      correlationText: `Across the ${points.length} models tested, there is ${describeCorrelation(r)} between the two categories (r = ${r.toFixed(2)}).`,
+      adherenceVsKindness: categoryScoresByModel.map((p) => toPoint(p, p.adherence, p.kindness)),
+      adherenceVsInterfaith: categoryScoresByModel.map((p) => toPoint(p, p.adherence, p.interfaith)),
+      kindnessVsInterfaith: categoryScoresByModel.map((p) => toPoint(p, p.kindness, p.interfaith)),
     };
-  };
+  }, [categoryScoresByModel]);
 
-  const adherenceKindnessNarrative = buildPairNarrative(
-    adherenceVsKindness,
-    "Adherence",
-    "Kindness"
+  const adherenceKindnessNarrative = useMemo(
+    () => buildPairNarrative(adherenceVsKindness, "Adherence", "Kindness"),
+    [adherenceVsKindness]
   );
-  const adherenceInterfaithNarrative = buildPairNarrative(
-    adherenceVsInterfaith,
-    "Adherence",
-    "Interfaith"
+  const adherenceInterfaithNarrative = useMemo(
+    () => buildPairNarrative(adherenceVsInterfaith, "Adherence", "Interfaith"),
+    [adherenceVsInterfaith]
   );
-  const kindnessInterfaithNarrative = buildPairNarrative(
-    kindnessVsInterfaith,
-    "Kindness",
-    "Interfaith"
+  const kindnessInterfaithNarrative = useMemo(
+    () => buildPairNarrative(kindnessVsInterfaith, "Kindness", "Interfaith"),
+    [kindnessVsInterfaith]
   );
 
   // Per-provider averages across the models tested. The scatter shows per-model
   // dots; this breakdown surfaces the provider-level signal the chart hides.
-  const providerAverages = (() => {
+  const providerAverages = useMemo(() => {
     const groups = new Map<
       string,
       { providerLabel: string; fill: string; adherence: number[]; kindness: number[]; interfaith: number[] }
@@ -228,7 +218,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
         interfaith: avg(bucket.interfaith),
       }))
       .sort((a, b) => b.adherence + b.kindness + b.interfaith - (a.adherence + a.kindness + a.interfaith));
-  })();
+  }, [categoryScoresByModel]);
 
   const renderProviderBreakdown = (
     xKey: "adherence" | "kindness" | "interfaith",
