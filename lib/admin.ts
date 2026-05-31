@@ -76,9 +76,17 @@ export function isClientAdminUserId(userId: string | null | undefined) {
 
 export function isServerAdminUser({ request, user, userId }: ServerAdminInput) {
   const adminId = getServerAdminUserId(request);
-  const explicitUserId = getExplicitUserId(user, userId);
+  const sessionUserId = user?.$id ?? null;
 
-  if (adminId && explicitUserId === adminId) return true;
+  // Production path: only an authenticated session user may match the admin id.
+  // A request-supplied `userId` is NEVER trusted here — otherwise an
+  // unauthenticated caller could pass the (publicly known) admin id and pass
+  // this gate without a session.
+  if (adminId && sessionUserId && sessionUserId === adminId) return true;
+
+  // Local-development convenience only: treat the seeded test@test.com user as
+  // admin. This branch can never run in production (see isLocalRuntime), so the
+  // body `userId` fallback it relies on is local-only.
   return isLocalRuntime(request) && isLocalAdminUser(user, userId);
 }
 

@@ -128,7 +128,6 @@ export function ChurchDetailDialog({
       const updatedChurch = await createChurch({
         website: church.website,
         forceReEvaluate: true,
-        userId: user?.$id,
       });
       return updatedChurch;
     },
@@ -142,7 +141,7 @@ export function ChurchDetailDialog({
   const deleteChurchMutation = useMutation({
     mutationFn: async () => {
       if (!church?.id) throw new Error("No church selected");
-      const result = await deleteChurch(church.id, { userId: user?.$id });
+      const result = await deleteChurch(church.id);
       return result.id;
     },
     onSuccess: (deletedId) => {

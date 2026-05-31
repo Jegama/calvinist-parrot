@@ -260,7 +260,6 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
           await createChurch({
             website: church.website,
             forceReEvaluate: true,
-            userId: user.$id,
           });
 
           setBulkProgress((prev) => ({

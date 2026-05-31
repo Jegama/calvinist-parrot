@@ -37,17 +37,9 @@ export async function DELETE(request: Request, context: RouteParams) {
     return NextResponse.json({ error: "Missing church id" }, { status: 400 });
   }
 
-  let payload: Record<string, unknown> = {};
-  try {
-    payload = (await request.json()) as Record<string, unknown>;
-  } catch {
-    // allow empty body
-  }
-
-  const userId = typeof payload.userId === "string" ? payload.userId : "";
   const authenticatedUser = await getAuthenticatedUser();
 
-  if (!isServerAdminUser({ request, user: authenticatedUser, userId })) {
+  if (!isServerAdminUser({ request, user: authenticatedUser })) {
     return NextResponse.json({ error: "Unauthorized: Only admins can delete churches" }, { status: 403 });
   }
 

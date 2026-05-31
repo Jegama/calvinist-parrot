@@ -265,7 +265,6 @@ export async function POST(request: Request) {
   }
 
   const forceReEvaluate = payload.forceReEvaluate === true;
-  const userId = typeof payload.userId === "string" ? payload.userId : "";
 
   let websiteUrl: string;
   try {
@@ -296,7 +295,7 @@ export async function POST(request: Request) {
   if (forceReEvaluate) {
     const authenticatedUser = await getAuthenticatedUser();
 
-    if (!isServerAdminUser({ request, user: authenticatedUser, userId })) {
+    if (!isServerAdminUser({ request, user: authenticatedUser })) {
       return NextResponse.json(
         { error: "Unauthorized: Only admins can re-evaluate churches" },
         { status: 403 }
