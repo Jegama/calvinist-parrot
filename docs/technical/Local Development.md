@@ -31,7 +31,7 @@ npm run dev:local
 
 The local seed adds a `test@test.com` app database profile, four starter journal entries with precomputed AI reflections, and starter Church Finder records. It is safe to rerun: fixture records are refreshed by stable IDs or unique websites instead of duplicated.
 
-In `next dev`, the seeded `test@test.com` Appwrite user is treated as a Church Finder admin so local developers can re-evaluate and delete church records. Production builds do not use that fallback; set `ADMIN_ID` and `NEXT_PUBLIC_ADMIN_ID` explicitly for real admin access.
+On localhost, the seeded `test@test.com` Appwrite user is treated as a Church Finder admin so local developers can re-evaluate and delete church records. Deployed environments do not use that fallback; set `ADMIN_ID` and `NEXT_PUBLIC_ADMIN_ID` explicitly for real admin access.
 
 The Docker compose setup creates three databases on port `54322`:
 

@@ -20,7 +20,7 @@ import badgesJson from "@/lib/references/badges.json";
 import { cn } from "@/lib/utils";
 import { createChurch, deleteChurch } from "@/app/church-finder/api";
 import { secondaryDifferenceBadges } from "@/lib/schemas/church-finder";
-import { isClientAdminUserId } from "@/lib/admin";
+import { isClientAdminUser } from "@/lib/admin";
 
 function normalizeDenomination(label: string): string {
   const trimmed = label.trim();
@@ -120,7 +120,7 @@ export function ChurchDetailDialog({
   const [otherDoctrinesOpen, setOtherDoctrinesOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const isAdmin = isClientAdminUserId(user?.$id);
+  const isAdmin = isClientAdminUser(user);
 
   const reEvaluateMutation = useMutation({
     mutationFn: async () => {
