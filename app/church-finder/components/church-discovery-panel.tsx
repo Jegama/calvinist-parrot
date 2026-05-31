@@ -14,6 +14,7 @@ import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import type { ChurchDetail, ChurchSearchResult } from "@/types/church";
 import { checkChurchExists, createChurch, fetchChurchDetail, searchChurches } from "@/app/church-finder/api";
+import { isClientAdminUserId } from "@/lib/admin";
 
 type EvaluationStatus = "idle" | "fetching" | "analyzing" | "complete";
 
@@ -49,7 +50,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
   const [isBulkReEvaluating, setIsBulkReEvaluating] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<BulkReEvaluationProgress | null>(null);
 
-  const isAdmin = user?.$id === process.env.NEXT_PUBLIC_ADMIN_ID;
+  const isAdmin = isClientAdminUserId(user?.$id);
 
   // Simulate progress through evaluation stages
   useEffect(() => {

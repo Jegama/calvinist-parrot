@@ -31,9 +31,10 @@ Calvinist Parrot delivers Biblical insights and deep theological responses by co
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18.18.0 or higher
+- Node.js 20.9.0 or higher. The repo includes an `.nvmrc`.
 - npm
 - Git
+- Docker, for the local Postgres database
 
 ### Environment Setup
 
@@ -55,17 +56,32 @@ cd calvinist-parrot
 npm install
 ```
 
-4. **Environment variables**
+4. **Environment variables and local database**
 
 * Copy `.env.template` to `.env`
+* Keep the local `DATABASE_URL` pointed at Docker
 * Fill in required credentials and API keys
-  * `CCEL_URL` should point to the Neon (or other Postgres) database that holds the `data_ccel_vector_store` PGVector table used for CCEL retrieval
+  * `CCEL_URL` is separate from the app database and should point to a PGVector store that holds the `data_ccel_vector_store` table used for CCEL retrieval
 
-5. **Run the development server**
+5. **Start the local database and apply migrations**
+
+```bash
+npm run db:up
+npm run db:migrate
+npm run db:seed
+```
+
+The seed adds the app database profile and starter journal fixtures for `test@test.com`, plus starter Church Finder records.
+
+6. **Run the development server**
 
 ```bash
 npm run dev
 ```
+
+You can also use `npm run dev:local` to start Docker, apply migrations, seed local fixtures, and launch Next.js in one command.
+
+For the database workflow, CI/CD notes, and testing recommendations, see [Local Development](./docs/technical/Local%20Development.md).
 
 ## API Endpoints
 

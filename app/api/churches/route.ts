@@ -11,6 +11,7 @@ import {
   toEvaluationStatusEnum,
 } from "@/utils/churchEvaluation";
 import { CORE_DOCTRINE_KEYS } from "@/lib/schemas/church-finder";
+import { isServerAdminUserId } from "@/lib/admin";
 import type { ChurchEvaluationRaw } from "@/types/church";
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -292,8 +293,7 @@ export async function POST(request: Request) {
 
   // If forcing re-evaluation, validate admin permission
   if (forceReEvaluate) {
-    const adminId = process.env.ADMIN_ID;
-    if (!adminId || !userId || userId !== adminId) {
+    if (!isServerAdminUserId(userId)) {
       return NextResponse.json(
         { error: "Unauthorized: Only admins can re-evaluate churches" },
         { status: 403 }
