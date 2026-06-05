@@ -2,6 +2,9 @@
   "name": "calvinist-parrot",
   "version": "0.8.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev",
     "dev:local": "npm run db:up && npm run db:migrate && npm run db:seed && next dev",
