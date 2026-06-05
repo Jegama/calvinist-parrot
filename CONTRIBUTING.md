@@ -1,4 +1,4 @@
-# Contribute to Conversify
+# Contribute to Calvinist Parrot
 
 ## How to set up the project
 
@@ -6,8 +6,9 @@
 
 You will need to have the following installed on your machine:
 
-- Node.js 18.18.0 or higher
+- Node.js 20.9.0 or higher
 - npm (comes with Node.js)
+- Docker, for the local Postgres database
 
 ### Environment Setup
 
@@ -29,10 +30,17 @@ cd calvinist-parrot
 npm install
 ```
 
-4. **Environment variables**
+4. **Environment variables and database**
 
 * Copy `.env.template` to `.env`
 * Fill in required credentials and API keys
+* Start the local database and apply migrations:
+
+```bash
+npm run db:up
+npm run db:migrate
+npm run db:seed
+```
 
 5. **Run the development server**
 

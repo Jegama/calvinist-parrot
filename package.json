@@ -2,11 +2,26 @@
   "name": "calvinist-parrot",
   "version": "0.8.0",
   "private": true,
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev",
+    "dev:local": "npm run db:up && npm run db:migrate && npm run db:seed && next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "typecheck": "prisma generate && tsc --noEmit",
+    "check": "npm run lint && npm run typecheck",
+    "ci": "npm run lint && npm run typecheck && npm run build",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "db:generate": "prisma generate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.73.0",

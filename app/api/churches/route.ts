@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 
 import prisma from "@/lib/prisma";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { mapChurchToDetail, mapChurchToListItem } from "@/lib/churchMapper";
 import {
   extractChurchEvaluation,
@@ -11,6 +12,7 @@ import {
   toEvaluationStatusEnum,
 } from "@/utils/churchEvaluation";
 import { CORE_DOCTRINE_KEYS } from "@/lib/schemas/church-finder";
+import { isServerAdminUser } from "@/lib/admin";
 import type { ChurchEvaluationRaw } from "@/types/church";
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -263,7 +265,6 @@ export async function POST(request: Request) {
   }
 
   const forceReEvaluate = payload.forceReEvaluate === true;
-  const userId = typeof payload.userId === "string" ? payload.userId : "";
 
   let websiteUrl: string;
   try {
@@ -292,8 +293,9 @@ export async function POST(request: Request) {
 
   // If forcing re-evaluation, validate admin permission
   if (forceReEvaluate) {
-    const adminId = process.env.ADMIN_ID;
-    if (!adminId || !userId || userId !== adminId) {
+    const authenticatedUser = await getAuthenticatedUser();
+
+    if (!isServerAdminUser({ request, user: authenticatedUser })) {
       return NextResponse.json(
         { error: "Unauthorized: Only admins can re-evaluate churches" },
         { status: 403 }

@@ -133,7 +133,6 @@ export async function checkChurchExists(website: string): Promise<{ exists: bool
 export async function createChurch(payload: {
   website: string;
   forceReEvaluate?: boolean;
-  userId?: string;
 }): Promise<ChurchDetail> {
   const response = await fetch(`/api/churches`, {
     method: "POST",
@@ -149,11 +148,9 @@ export async function createChurch(payload: {
   return (await response.json()) as ChurchDetail;
 }
 
-export async function deleteChurch(id: string, payload: { userId?: string } = {}): Promise<{ ok: true; id: string }> {
+export async function deleteChurch(id: string): Promise<{ ok: true; id: string }> {
   const response = await fetch(`/api/churches/${id}`, {
     method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {

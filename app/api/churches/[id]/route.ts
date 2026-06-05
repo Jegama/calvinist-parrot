@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { getAuthenticatedUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { mapChurchToDetail } from "@/lib/churchMapper";
+import { isServerAdminUser } from "@/lib/admin";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -35,16 +37,9 @@ export async function DELETE(request: Request, context: RouteParams) {
     return NextResponse.json({ error: "Missing church id" }, { status: 400 });
   }
 
-  let payload: Record<string, unknown> = {};
-  try {
-    payload = (await request.json()) as Record<string, unknown>;
-  } catch {
-    // allow empty body
-  }
+  const authenticatedUser = await getAuthenticatedUser();
 
-  const userId = typeof payload.userId === "string" ? payload.userId : "";
-  const adminId = process.env.ADMIN_ID;
-  if (!adminId || !userId || userId !== adminId) {
+  if (!isServerAdminUser({ request, user: authenticatedUser })) {
     return NextResponse.json({ error: "Unauthorized: Only admins can delete churches" }, { status: 403 });
   }
 

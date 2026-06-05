@@ -20,6 +20,7 @@ import badgesJson from "@/lib/references/badges.json";
 import { cn } from "@/lib/utils";
 import { createChurch, deleteChurch } from "@/app/church-finder/api";
 import { secondaryDifferenceBadges } from "@/lib/schemas/church-finder";
+import { isClientAdminUser } from "@/lib/admin";
 
 function normalizeDenomination(label: string): string {
   const trimmed = label.trim();
@@ -119,7 +120,7 @@ export function ChurchDetailDialog({
   const [otherDoctrinesOpen, setOtherDoctrinesOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const isAdmin = user?.$id === process.env.NEXT_PUBLIC_ADMIN_ID;
+  const isAdmin = isClientAdminUser(user);
 
   const reEvaluateMutation = useMutation({
     mutationFn: async () => {
@@ -127,7 +128,6 @@ export function ChurchDetailDialog({
       const updatedChurch = await createChurch({
         website: church.website,
         forceReEvaluate: true,
-        userId: user?.$id,
       });
       return updatedChurch;
     },
@@ -141,7 +141,7 @@ export function ChurchDetailDialog({
   const deleteChurchMutation = useMutation({
     mutationFn: async () => {
       if (!church?.id) throw new Error("No church selected");
-      const result = await deleteChurch(church.id, { userId: user?.$id });
+      const result = await deleteChurch(church.id);
       return result.id;
     },
     onSuccess: (deletedId) => {
