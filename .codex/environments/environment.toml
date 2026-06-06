@@ -14,7 +14,7 @@ fi
 npm ci
 [ -f .env ] || cp .env.template .env
 
-npm run db:up
+docker compose up -d --wait postgres
 npm run db:deploy
 npm run db:generate
 npm run db:seed
