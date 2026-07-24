@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { TrendingUp, Scale, Activity, Award, Info, BookOpen, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,15 +8,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import type { EvaluationRecord } from "./lib";
+import type { EvaluationRun } from "./evaluation-metrics";
 import { useDashboardMetrics } from "./hooks/use-dashboard-metrics";
 import { TopPerformerBar } from "./charts/TopPerformerBar";
 import { PromptDeltaBar } from "./charts/PromptDeltaBar";
-import { JudgeBiasBar } from "./charts/JudgeBiasBar";
 import { ProviderSpreadScatter } from "./charts/ProviderSpreadScatter";
 import { RadarDeepDive } from "./charts/RadarDeepDive";
 import { CategoryScatter } from "./charts/CategoryScatter";
 import { formatModelLabel, formatPromptLabel, getProviderColor } from "./constants";
+import { JudgeAnalysisPanel } from "./components/JudgeAnalysisPanel";
 
 // Pearson correlation between x and y across the model landscape — used to
 // narrate whether the two categories rise together or trade off.
@@ -90,18 +90,18 @@ const Stat = ({
 );
 
 interface DashboardClientProps {
-  data: EvaluationRecord[];
+  data: EvaluationRun[];
 }
 
 export default function DashboardClient({ data }: DashboardClientProps) {
+  const [activeTab, setActiveTab] = useState("compare");
   const {
     activePromptLabel,
     allCrossValidators,
     baselinePromptLabel,
     bestPerProvider,
-    comparisonJudges,
-    judgeComparisons,
-    judgeComparisonPromptLabel,
+    evalVersions,
+    latestEvaluatedAt,
     progressionPromptLabels,
     promptDelta,
     bestImprovement,
@@ -112,15 +112,20 @@ export default function DashboardClient({ data }: DashboardClientProps) {
     radarKindness,
     radarInterfaith,
     narrativeStats,
+    questionCountSummary,
   } = useDashboardMetrics(data);
 
   const ns = narrativeStats;
   const modelCount = ns?.modelCount ?? 0;
   const activePromptLabelDisplay = activePromptLabel ? formatPromptLabel(activePromptLabel) : "Current";
   const baselinePromptLabelDisplay = baselinePromptLabel ? formatPromptLabel(baselinePromptLabel) : "Baseline";
-  const judgeComparisonPromptDisplay = judgeComparisonPromptLabel
-    ? formatPromptLabel(judgeComparisonPromptLabel)
-    : activePromptLabelDisplay;
+  const evaluatedDateDisplay =
+    latestEvaluatedAt && Date.parse(latestEvaluatedAt) > 0
+      ? new Intl.DateTimeFormat("en-US", {
+          dateStyle: "medium",
+          timeZone: "UTC",
+        }).format(new Date(latestEvaluatedAt))
+      : "N/A";
 
   // Build dynamic prompt delta improvement cards
   const promptDeltaCards = promptDelta.map((d) => ({
@@ -252,12 +257,9 @@ export default function DashboardClient({ data }: DashboardClientProps) {
     </div>
   );
 
-  // Primary and cross-validator judge names for display.
-  // `allCrossValidators` covers every prompt's judges (e.g., Gemini 3 Flash for v1.0,
-  // GPT-5.4 Mini for v1.4), not just the prompt currently rendered first.
   const crossValidators = allCrossValidators;
   const crossValidatorNames = crossValidators
-    .map((j) => j.name.replace("Graded by ", ""))
+    .map((judge) => `${judge.name.replace("Graded by ", "")} (${judge.roleLabel})`)
     .join(", ");
 
   return (
@@ -287,7 +289,9 @@ export default function DashboardClient({ data }: DashboardClientProps) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mb-6">
-          <span className="bg-muted px-3 py-1 rounded-full">📊 500+ Questions Tested</span>
+          <span className="bg-muted px-3 py-1 rounded-full">
+            📊 {questionCountSummary.max}-Question Benchmark
+          </span>
           <span className="bg-muted px-3 py-1 rounded-full">🎯 3 Major Categories</span>
           <span className="bg-muted px-3 py-1 rounded-full">🤖 {modelCount} Models Compared</span>
         </div>
@@ -329,7 +333,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
         </div>
       </div>
 
-      <Tabs defaultValue="compare" className="w-full space-y-8">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-8">
         <TabsList className="grid h-auto w-full grid-cols-3 gap-1 p-1 md:grid-cols-4">
           <TabsTrigger value="compare" className="gap-2 py-2.5">
             <TrendingUp size={16} />
@@ -356,14 +360,15 @@ export default function DashboardClient({ data }: DashboardClientProps) {
         {/* Main Content Area */}
         <div className="grid grid-cols-12 gap-8">
           {/* Left Column: Visualizations */}
-          <div className="col-span-12 lg:col-span-8 space-y-8">
+          <div className="col-span-12 min-w-0 space-y-8 lg:col-span-8">
             <TabsContent value="compare" className="space-y-8 mt-0">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">🏆 Top Performer by Provider</CardTitle>
                   <p className="text-sm text-muted-foreground mt-2">
                     The best model from each AI company, scored across doctrinal adherence, kindness and gentleness,
-                    and interfaith and worldview sensitivity (out of 5.0) using {activePromptLabelDisplay}
+                    and interfaith and worldview sensitivity (out of 5.0) using {activePromptLabelDisplay}.
+                    Whiskers show the population SD of question-level Final Overall scores.
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -382,8 +387,9 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                             </span>
                           );
                         })}
-                        {" "}All are strong performers within our Reformed theological framework, confirmed by{" "}
-                        {comparisonJudges.length || 1} independent judge{comparisonJudges.length !== 1 ? "s" : ""}.
+                        {" "}All are strong performers within our Reformed theological framework. Rankings use{" "}
+                        {primaryJudge ? primaryJudge.name.replace("Graded by ", "") : "the primary judge"};{" "}
+                        {allCrossValidators.length} additional judge{allCrossValidators.length !== 1 ? "s are" : " is"} available for paired calibration.
                       </>
                     ) : (
                       "Loading..."
@@ -427,49 +433,12 @@ export default function DashboardClient({ data }: DashboardClientProps) {
             </TabsContent>
 
             <TabsContent value="bias" className="mt-0 space-y-8">
-              {judgeComparisons.map((jc) => {
-                const promptDisplay = formatPromptLabel(jc.promptLabel);
-                return (
-                  <Card key={jc.promptLabel}>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        ⚖️ Are AI Judges Fair? — {promptDisplay}
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        We used {jc.judges.length} different AIs to grade the same {promptDisplay} answers
-                        across our three categories. Do they generally agree?
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <JudgeBiasBar data={jc.data} judges={jc.judges} />
-                    </CardContent>
-                  </Card>
-                );
-              })}
-              {judgeComparisons.length > 0 && (
-                <div className="space-y-3">
-                  <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border flex items-start gap-2">
-                    <Info size={16} className="mt-0.5 flex-shrink-0 text-foreground" />
-                    <div>
-                      <span className="font-semibold text-foreground">💡 What this means:</span>{" "}
-                      In our tests, {crossValidatorNames || "the secondary judge"} tends to be a more generous grader,
-                      often giving models scores near 5.0.{" "}
-                      {primaryJudge
-                        ? `${primaryJudge.name.replace("Graded by ", "")} is the most discerning and uses more of the 1-5 scale, making its feedback most helpful for seeing real differences between models.`
-                        : ""}
-                    </div>
-                  </div>
-                  <div className="bg-primary/10 border border-primary/20 p-3 rounded-lg text-sm">
-                    <div className="font-semibold text-foreground mb-1">📌 Why this matters:</div>
-                    <div className="text-muted-foreground">
-                      We use {primaryJudge ? primaryJudge.name.replace("Graded by ", "") : "the primary judge"} as
-                      our primary judge because it provides more detailed, nuanced scores in adherence, kindness,
-                      and interfaith and worldview sensitivity. We cross-validate with{" "}
-                      {crossValidatorNames || "a secondary judge"} to ensure consistency. This helps us see real
-                      differences instead of every model clustering at the top.
-                    </div>
-                  </div>
-                </div>
+              {activeTab === "bias" && (
+                <JudgeAnalysisPanel
+                  runs={data}
+                  primaryJudge={primaryJudge}
+                  activePromptLabel={activePromptLabel}
+                />
               )}
             </TabsContent>
 
@@ -725,7 +694,7 @@ export default function DashboardClient({ data }: DashboardClientProps) {
           </div>
 
           {/* Right Column: Key Metrics (Sidebar) */}
-          <div className="col-span-12 lg:col-span-4 space-y-4">
+          <div className="col-span-12 min-w-0 space-y-4 lg:col-span-4">
             <div className="bg-card text-card-foreground border border-border p-6 rounded-lg shadow-sm">
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-foreground">
                 <TrendingUp size={20} className="text-primary" />
@@ -765,7 +734,9 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                   <div className="flex justify-between items-start pb-3 border-b border-border">
                     <span className="text-muted-foreground">Primary Judge:</span>
                     <span className="font-medium text-foreground text-right">
-                      {primaryJudge ? primaryJudge.name.replace("Graded by ", "") : "N/A"}
+                      {primaryJudge
+                        ? `${primaryJudge.name.replace("Graded by ", "")} (${primaryJudge.roleLabel})`
+                        : "N/A"}
                     </span>
                   </div>
                   <div className="flex justify-between items-start pb-3 border-b border-border">
@@ -779,16 +750,29 @@ export default function DashboardClient({ data }: DashboardClientProps) {
                     <span className="font-medium text-foreground">{activePromptLabelDisplay}</span>
                   </div>
                   <div className="flex justify-between items-start pb-3 border-b border-border">
-                    <span className="text-muted-foreground">Judge Fairness Prompt:</span>
-                    <span className="font-medium text-foreground text-right">{judgeComparisonPromptDisplay}</span>
-                  </div>
-                  <div className="flex justify-between items-start pb-3 border-b border-border">
                     <span className="text-muted-foreground">Eval Framework:</span>
-                    <span className="font-medium text-foreground">v2</span>
+                    <span className="font-medium text-foreground">
+                      {evalVersions.join(", ") || "N/A"}
+                    </span>
                   </div>
                   <div className="flex justify-between items-start pb-3 border-b border-border">
-                    <span className="text-muted-foreground">Questions per Model:</span>
-                    <span className="font-medium text-foreground">500</span>
+                    <span className="text-muted-foreground">Scored per Run:</span>
+                    <span className="font-medium text-foreground">
+                      {questionCountSummary.min === questionCountSummary.max
+                        ? questionCountSummary.max
+                        : `${questionCountSummary.min}–${questionCountSummary.max}`}{" "}
+                      questions
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start pb-3 border-b border-border">
+                    <span className="text-muted-foreground">Recorded Errors:</span>
+                    <span className="font-medium text-foreground">
+                      {questionCountSummary.totalErrors}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start">
+                    <span className="text-muted-foreground">Latest Evaluation:</span>
+                    <span className="font-medium text-foreground">{evaluatedDateDisplay}</span>
                   </div>
                 </div>
               </CardContent>

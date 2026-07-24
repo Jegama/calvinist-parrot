@@ -2,11 +2,13 @@ import { useMemo } from "react";
 import {
   formatJudgeLabel,
   formatModelLabel,
+  getJudgeRole,
   getProviderColor,
   getProviderLabel,
   inferProviderFromModel,
+  type JudgeRole,
 } from "../constants";
-import type { EvaluationRecord } from "../lib";
+import type { EvaluationRun, MetricKey } from "../evaluation-metrics";
 
 export interface BestImprovementRecord {
   model: string;
@@ -20,12 +22,9 @@ export interface JudgeInfo {
   model: string;
   name: string;
   color: string;
-}
-
-export interface JudgePromptComparison {
-  promptLabel: string;
-  judges: JudgeInfo[];
-  data: Array<Record<string, string | number>>;
+  role: JudgeRole;
+  roleLabel: string;
+  roleDescription: string;
 }
 
 export interface NarrativeStats {
@@ -48,21 +47,36 @@ export interface PromptDeltaRecord {
   deltaPct: number;
 }
 
-const RADAR_LABELS: Record<string, string> = {
-  Core: "Core Doctrine",
-  Secondary: "Secondary Doctrine",
-  Tertiary_Handling: "Tertiary Handling",
-  Biblical_Basis: "Biblical Basis",
-  Consistency: "Consistency",
-  Core_Clarity_with_Kindness: "Clarity with Kindness",
-  Pastoral_Sensitivity: "Pastoral Sensitivity",
-  Secondary_Fairness: "Secondary Fairness",
-  Tertiary_Neutrality: "Tertiary Neutrality",
-  Tone: "Tone",
-  Respect_and_Handling_Objections: "Respect & Objections",
-  Objection_Acknowledgement: "Objection Awareness",
-  Evangelism: "Evangelism",
-  Gospel_Boldness: "Gospel Boldness",
+const RADAR_METRICS: Record<
+  "adherence" | "kindness" | "interfaith",
+  Array<{ key: MetricKey; subject: string }>
+> = {
+  adherence: [
+    { key: "adherenceCore", subject: "Core Doctrine" },
+    { key: "adherenceSecondary", subject: "Secondary Doctrine" },
+    { key: "adherenceTertiaryHandling", subject: "Tertiary Handling" },
+    { key: "adherenceBiblicalBasis", subject: "Biblical Basis" },
+    { key: "adherenceConsistency", subject: "Consistency" },
+  ],
+  kindness: [
+    { key: "kindnessCoreClarityWithKindness", subject: "Clarity with Kindness" },
+    { key: "kindnessPastoralSensitivity", subject: "Pastoral Sensitivity" },
+    { key: "kindnessSecondaryFairness", subject: "Secondary Fairness" },
+    { key: "kindnessTertiaryNeutrality", subject: "Tertiary Neutrality" },
+    { key: "kindnessTone", subject: "Tone" },
+  ],
+  interfaith: [
+    {
+      key: "interfaithRespectAndHandlingObjections",
+      subject: "Respect & Objections",
+    },
+    {
+      key: "interfaithObjectionAcknowledgement",
+      subject: "Objection Awareness",
+    },
+    { key: "interfaithEvangelism", subject: "Evangelism" },
+    { key: "interfaithGospelBoldness", subject: "Gospel Boldness" },
+  ],
 };
 
 function isBaselinePrompt(label: string): boolean {
@@ -70,16 +84,9 @@ function isBaselinePrompt(label: string): boolean {
 }
 
 function parsePromptVersion(label: string): number[] {
-  if (isBaselinePrompt(label)) {
-    return [-1];
-  }
-
+  if (isBaselinePrompt(label)) return [-1];
   const match = label.match(/\d+/g);
-  if (!match) {
-    return [0];
-  }
-
-  return match.map((segment) => Number.parseInt(segment, 10));
+  return match ? match.map((segment) => Number.parseInt(segment, 10)) : [0];
 }
 
 function comparePromptLabels(left: string, right: string): number {
@@ -88,12 +95,9 @@ function comparePromptLabels(left: string, right: string): number {
   const maxLength = Math.max(leftParts.length, rightParts.length);
 
   for (let index = 0; index < maxLength; index += 1) {
-    const diff = (leftParts[index] ?? 0) - (rightParts[index] ?? 0);
-    if (diff !== 0) {
-      return diff;
-    }
+    const difference = (leftParts[index] ?? 0) - (rightParts[index] ?? 0);
+    if (difference !== 0) return difference;
   }
-
   return left.localeCompare(right);
 }
 
@@ -101,503 +105,325 @@ function buildJudgeKey(model: string): string {
   return `${model.replace(/[^a-zA-Z0-9]/g, "") || "judge"}Judge`;
 }
 
-function buildJudgeInfo(model: string): JudgeInfo {
+export function buildJudgeInfo(model: string): JudgeInfo {
   const provider = inferProviderFromModel(model) ?? model;
-
+  const role = getJudgeRole(model);
   return {
     key: buildJudgeKey(model),
     model,
     name: formatJudgeLabel(model),
     color: getProviderColor(provider),
+    role: role.role,
+    roleLabel: role.label,
+    roleDescription: role.description,
   };
 }
 
-export function useDashboardMetrics(data: EvaluationRecord[]) {
-  const finalOverallRecords = useMemo(
-    () => data.filter((record) => record.subCriterion === "Final_Overall"),
-    [data]
-  );
-
-  const baselinePromptLabel = useMemo(
-    () =>
-      finalOverallRecords.find((record) => isBaselinePrompt(record.System_Prompt_Label))
-        ?.System_Prompt_Label ?? null,
-    [finalOverallRecords]
-  );
-
-  const nonBaselinePromptLabels = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          finalOverallRecords
-            .map((record) => record.System_Prompt_Label)
-            .filter((label) => label && !isBaselinePrompt(label))
-        )
-      ).sort((left, right) => comparePromptLabels(right, left)),
-    [finalOverallRecords]
-  );
-
+export function buildDashboardMetrics(data: EvaluationRun[]) {
+  const finalOverallRuns = data;
+  const baselinePromptLabel =
+    finalOverallRuns.find((run) => isBaselinePrompt(run.systemPromptLabel))
+      ?.systemPromptLabel ?? null;
+  const nonBaselinePromptLabels = Array.from(
+    new Set(
+      finalOverallRuns
+        .map((run) => run.systemPromptLabel)
+        .filter((label) => label && !isBaselinePrompt(label))
+    )
+  ).sort((left, right) => comparePromptLabels(right, left));
   const activePromptLabel = nonBaselinePromptLabels[0] ?? null;
-  const progressionPromptLabels = useMemo(
-    () => [baselinePromptLabel, ...[...nonBaselinePromptLabels].sort(comparePromptLabels)].filter(Boolean) as string[],
-    [baselinePromptLabel, nonBaselinePromptLabels]
+  const progressionPromptLabels = [
+    baselinePromptLabel,
+    ...[...nonBaselinePromptLabels].sort(comparePromptLabels),
+  ].filter(Boolean) as string[];
+
+  const availableJudges = Array.from(new Set(data.map((run) => run.judgeModel)))
+    .map(buildJudgeInfo)
+    .sort(
+      (left, right) =>
+        getJudgeRole(left.model).order - getJudgeRole(right.model).order ||
+        left.name.localeCompare(right.name)
+    );
+  const primaryJudge =
+    availableJudges.find((judge) => judge.role === "primary") ?? null;
+  const allCrossValidators = availableJudges.filter(
+    (judge) => judge.model !== primaryJudge?.model
   );
 
-  const primaryJudge = useMemo<JudgeInfo | null>(() => {
-    if (!activePromptLabel) {
-      return null;
-    }
+  const bestPerProvider =
+    !activePromptLabel || !primaryJudge
+      ? []
+      : Object.values(
+          finalOverallRuns
+            .filter(
+              (run) =>
+                run.judgeModel === primaryJudge.model &&
+                run.systemPromptLabel === activePromptLabel
+            )
+            .reduce<
+              Record<
+                string,
+                {
+                  provider: string;
+                  model: string;
+                  promptLabel: string;
+                  score: number;
+                  stdev: number;
+                }
+              >
+            >((best, run) => {
+              const candidate = {
+                provider: run.provider,
+                model: run.genModel,
+                promptLabel: run.systemPromptLabel,
+                score: run.scores.finalOverall.mean,
+                stdev: run.scores.finalOverall.stdev,
+              };
+              if (!best[run.provider] || candidate.score > best[run.provider].score) {
+                best[run.provider] = candidate;
+              }
+              return best;
+            }, {})
+        )
+          .map((run) => ({
+            ...run,
+            score: Number(run.score.toFixed(2)),
+            fill: getProviderColor(run.provider),
+          }))
+          .sort((left, right) => right.score - left.score);
 
-    const promptRecords = finalOverallRecords.filter(
-      (record) => record.System_Prompt_Label === activePromptLabel
-    );
-    const judgeCandidates = Array.from(new Set(promptRecords.map((record) => record.Judge_Model).filter(Boolean)))
-      .map((judgeModel) => {
-        const judgeRecords = promptRecords.filter((record) => record.Judge_Model === judgeModel);
-        const scores = judgeRecords.map((record) => record.value);
-        const spread = scores.length > 0 ? Math.max(...scores) - Math.min(...scores) : 0;
-
-        return {
-          judge: buildJudgeInfo(judgeModel),
-          count: judgeRecords.length,
-          spread,
-        };
-      })
-      .sort((left, right) => {
-        if (right.count !== left.count) {
-          return right.count - left.count;
-        }
-
-        if (right.spread !== left.spread) {
-          return right.spread - left.spread;
-        }
-
-        return left.judge.name.localeCompare(right.judge.name);
-      });
-
-    return judgeCandidates[0]?.judge ?? null;
-  }, [activePromptLabel, finalOverallRecords]);
-
-  const judgeComparisons = useMemo<JudgePromptComparison[]>(() => {
-    return nonBaselinePromptLabels.flatMap((promptLabel) => {
-      const promptRecords = finalOverallRecords.filter(
-        (record) => record.System_Prompt_Label === promptLabel
-      );
-      const judgeModels = Array.from(
-        new Set(promptRecords.map((record) => record.Judge_Model).filter(Boolean))
-      );
-
-      if (judgeModels.length < 2) {
-        return [];
-      }
-
-      const sortedJudges = judgeModels
-        .map((judgeModel) => buildJudgeInfo(judgeModel))
-        .sort((left, right) => left.name.localeCompare(right.name));
-
-      // When multiple judges share a provider (e.g. gpt-5-mini + gpt-5.4-mini),
-      // the brand-color default makes their bars indistinguishable. Switch
-      // every duplicate after the first to the light tone so the legend and
-      // bars stay readable.
-      const providerSeen = new Map<string, number>();
-      const judges = sortedJudges.map((judge) => {
-        const provider = inferProviderFromModel(judge.model);
-        if (!provider) {
-          return judge;
-        }
-        const seen = providerSeen.get(provider) ?? 0;
-        providerSeen.set(provider, seen + 1);
-        if (seen === 0) {
-          return judge;
-        }
-        return { ...judge, color: getProviderColor(provider, true) };
-      });
-
-      const models = Array.from(new Set(promptRecords.map((record) => record.Gen_Model)));
-
-      const data = models.reduce<Array<Record<string, string | number>>>((acc, model) => {
-        const entry: Record<string, string | number> = { model: formatModelLabel(model) };
-        let judgeCount = 0;
-
-        judges.forEach((judge) => {
-          const record = promptRecords.find(
-            (promptRecord) =>
-              promptRecord.Gen_Model === model && promptRecord.Judge_Model === judge.model
+  const promptDelta: PromptDeltaRecord[] =
+    !activePromptLabel || !baselinePromptLabel || !primaryJudge
+      ? []
+      : (() => {
+          const judgedRuns = finalOverallRuns.filter(
+            (run) => run.judgeModel === primaryJudge.model
+          );
+          const models = Array.from(new Set(judgedRuns.map((run) => run.genModel)));
+          const modelCountsByProvider = models.reduce<Record<string, number>>(
+            (counts, model) => {
+              const provider = judgedRuns.find((run) => run.genModel === model)?.provider;
+              if (provider) counts[provider] = (counts[provider] ?? 0) + 1;
+              return counts;
+            },
+            {}
           );
 
-          if (record) {
-            entry[judge.key] = parseFloat(record.value.toFixed(2));
-            judgeCount += 1;
-          } else {
-            entry[judge.key] = 0;
-          }
-        });
+          return models
+            .flatMap<PromptDeltaRecord>((model) => {
+              const modelRuns = judgedRuns.filter((run) => run.genModel === model);
+              const currentRun = modelRuns.find(
+                (run) => run.systemPromptLabel === activePromptLabel
+              );
+              const baselineRun = modelRuns.find(
+                (run) => run.systemPromptLabel === baselinePromptLabel
+              );
+              if (!currentRun || !baselineRun) return [];
 
-        if (judgeCount >= 2) {
-          acc.push(entry);
-        }
+              const scores = progressionPromptLabels.reduce<Record<string, number>>(
+                (scoreMap, promptLabel) => {
+                  const promptRun = modelRuns.find(
+                    (run) => run.systemPromptLabel === promptLabel
+                  );
+                  if (promptRun) {
+                    scoreMap[promptLabel] = Number(
+                      promptRun.scores.finalOverall.mean.toFixed(2)
+                    );
+                  }
+                  return scoreMap;
+                },
+                {}
+              );
+              const current = scores[activePromptLabel];
+              const baseline = scores[baselinePromptLabel];
+              if (current === undefined || baseline === undefined) return [];
 
-        return acc;
-      }, []);
+              const providerLabel = getProviderLabel(currentRun.provider);
+              return [
+                {
+                  model,
+                  provider: currentRun.provider,
+                  displayLabel:
+                    (modelCountsByProvider[currentRun.provider] ?? 0) > 1
+                      ? `${providerLabel} - ${formatModelLabel(model)}`
+                      : providerLabel,
+                  scores,
+                  currentLabel: activePromptLabel,
+                  baselineLabel: baselinePromptLabel,
+                  deltaPct: baseline > 0 ? ((current - baseline) / baseline) * 100 : 0,
+                },
+              ];
+            })
+            .sort(
+              (left, right) =>
+                left.provider.localeCompare(right.provider) ||
+                left.model.localeCompare(right.model)
+            );
+        })();
 
-      if (data.length === 0) {
-        return [];
-      }
+  const bestImprovement: BestImprovementRecord | null =
+    promptDelta.length === 0
+      ? null
+      : (() => {
+          const winner = [...promptDelta].sort(
+            (left, right) => right.deltaPct - left.deltaPct
+          )[0];
+          return {
+            model: winner.model,
+            delta: winner.deltaPct.toFixed(0),
+            baselineLabel: winner.baselineLabel,
+            promptLabel: winner.currentLabel,
+          };
+        })();
 
-      return [{ promptLabel, judges, data }];
-    });
-  }, [finalOverallRecords, nonBaselinePromptLabels]);
-
-  const judgeComparisonPromptLabel = judgeComparisons[0]?.promptLabel ?? null;
-  const comparisonJudges = judgeComparisons[0]?.judges ?? [];
-
-  const allCrossValidators = useMemo<JudgeInfo[]>(() => {
-    if (!primaryJudge) {
-      return judgeComparisons.flatMap((jc) => jc.judges);
-    }
-
-    const seen = new Set<string>();
-    const result: JudgeInfo[] = [];
-
-    judgeComparisons.forEach((jc) => {
-      jc.judges.forEach((judge) => {
-        if (judge.model === primaryJudge.model) {
-          return;
-        }
-        if (seen.has(judge.model)) {
-          return;
-        }
-        seen.add(judge.model);
-        result.push(judge);
-      });
-    });
-
-    return result;
-  }, [judgeComparisons, primaryJudge]);
-
-  const bestPerProvider = useMemo(() => {
-    if (!activePromptLabel || !primaryJudge) {
-      return [];
-    }
-
-    const finalOveralls = finalOverallRecords
-      .filter(
-        (record) =>
-          record.Judge_Model === primaryJudge.model &&
-          record.System_Prompt_Label === activePromptLabel
-      )
-      .map((record) => ({
-        provider: record.Provider,
-        model: record.Gen_Model,
-        promptLabel: record.System_Prompt_Label,
-        score: record.value,
-      }));
-
-    const maxes: Record<string, (typeof finalOveralls)[0]> = {};
-    finalOveralls.forEach((record) => {
-      if (!maxes[record.provider] || record.score > maxes[record.provider].score) {
-        maxes[record.provider] = record;
-      }
-    });
-
-    return Object.values(maxes)
-      .map((record) => ({
-        provider: record.provider,
-        model: record.model,
-        promptLabel: record.promptLabel,
-        score: parseFloat(record.score.toFixed(2)),
-        fill: getProviderColor(record.provider),
-      }))
-      .sort((left, right) => right.score - left.score);
-  }, [activePromptLabel, finalOverallRecords, primaryJudge]);
-
-  const promptDelta = useMemo<PromptDeltaRecord[]>(() => {
-    if (!activePromptLabel || !baselinePromptLabel || !primaryJudge) {
-      return [];
-    }
-
-    const judgedRecords = finalOverallRecords.filter(
-      (record) => record.Judge_Model === primaryJudge.model
-    );
-    const models = Array.from(new Set(judgedRecords.map((record) => record.Gen_Model)));
-    const modelCountsByProvider = models.reduce<Record<string, number>>((acc, model) => {
-      const provider = judgedRecords.find((record) => record.Gen_Model === model)?.Provider;
-      if (provider) {
-        acc[provider] = (acc[provider] ?? 0) + 1;
-      }
-      return acc;
-    }, {});
-
-    return models
-      .reduce<PromptDeltaRecord[]>((acc, model) => {
-        const modelRecords = judgedRecords.filter((record) => record.Gen_Model === model);
-        const currentRecord = modelRecords.find(
-          (record) => record.System_Prompt_Label === activePromptLabel
-        );
-        const baselineRecord = modelRecords.find(
-          (record) => record.System_Prompt_Label === baselinePromptLabel
-        );
-
-        if (!currentRecord || !baselineRecord) {
-          return acc;
-        }
-
-        const scores = progressionPromptLabels.reduce<Record<string, number>>((scoreMap, promptLabel) => {
-          const promptRecord = modelRecords.find(
-            (record) => record.System_Prompt_Label === promptLabel
-          );
-
-          if (promptRecord) {
-            scoreMap[promptLabel] = parseFloat(promptRecord.value.toFixed(2));
-          }
-
-          return scoreMap;
-        }, {});
-
-        const current = scores[activePromptLabel];
-        const baseline = scores[baselinePromptLabel];
-
-        if (current === undefined || baseline === undefined) {
-          return acc;
-        }
-
-        const providerLabel = getProviderLabel(currentRecord.Provider);
-        const displayLabel =
-          (modelCountsByProvider[currentRecord.Provider] ?? 0) > 1
-            ? `${providerLabel} - ${formatModelLabel(model)}`
-            : providerLabel;
-
-        acc.push({
-          model,
-          provider: currentRecord.Provider,
-          displayLabel,
-          scores,
-          currentLabel: activePromptLabel,
-          baselineLabel: baselinePromptLabel,
-          deltaPct: baseline > 0 ? ((current - baseline) / baseline) * 100 : 0,
-        });
-
-        return acc;
-      }, [])
-      .sort((left, right) => left.provider.localeCompare(right.provider) || left.model.localeCompare(right.model));
-  }, [activePromptLabel, baselinePromptLabel, finalOverallRecords, primaryJudge, progressionPromptLabels]);
-
-  const bestImprovement = useMemo<BestImprovementRecord | null>(() => {
-    if (promptDelta.length === 0) {
-      return null;
-    }
-
-    const winner = [...promptDelta].sort((left, right) => right.deltaPct - left.deltaPct)[0];
-    return {
-      model: winner.model,
-      delta: winner.deltaPct.toFixed(0),
-      baselineLabel: winner.baselineLabel,
-      promptLabel: winner.currentLabel,
-    };
-  }, [promptDelta]);
-
-  const categoryScoresByModel = useMemo(() => {
-    if (!activePromptLabel || !primaryJudge) {
-      return [];
-    }
-
-    const overallRecords = data.filter(
-      (record) =>
-        record.Judge_Model === primaryJudge.model &&
-        record.System_Prompt_Label === activePromptLabel &&
-        record.subCriterion === "Overall"
-    );
-
-    const models = Array.from(new Set(overallRecords.map((record) => record.Gen_Model)));
-
-    return models
-      .map((model) => {
-        const modelRecords = overallRecords.filter((record) => record.Gen_Model === model);
-        const adherence = modelRecords.find((record) => record.criterion === "Adherence")?.value;
-        const kindness = modelRecords.find(
-          (record) => record.criterion === "Kindness_and_Gentleness"
-        )?.value;
-        const interfaith = modelRecords.find(
-          (record) => record.criterion === "Interfaith_Sensitivity"
-        )?.value;
-        const provider = modelRecords[0]?.Provider;
-
-        if (
-          adherence === undefined ||
-          kindness === undefined ||
-          interfaith === undefined ||
-          !provider
-        ) {
-          return null;
-        }
-
-        return {
-          model,
-          provider,
-          adherence: parseFloat(adherence.toFixed(2)),
-          kindness: parseFloat(kindness.toFixed(2)),
-          interfaith: parseFloat(interfaith.toFixed(2)),
-          fill: getProviderColor(provider),
-          label: formatModelLabel(model),
-          providerLabel: getProviderLabel(provider),
-        };
-      })
-      .filter((item): item is NonNullable<typeof item> => item !== null);
-  }, [activePromptLabel, data, primaryJudge]);
-
-  const providerSpread = useMemo(() => {
-    if (!primaryJudge || nonBaselinePromptLabels.length === 0) {
-      return [];
-    }
-
-    const scores = finalOverallRecords
-      .filter(
-        (record) =>
-          record.Judge_Model === primaryJudge.model &&
-          nonBaselinePromptLabels.includes(record.System_Prompt_Label)
-      )
-      .map((record) => ({
-        provider: record.Provider,
-        model: record.Gen_Model,
-        promptLabel: record.System_Prompt_Label,
-        score: record.value,
-      }));
-
-    return Array.from(new Set(scores.map((score) => score.provider)))
-      .map((provider) => {
-        const providerScores = scores.filter((score) => score.provider === provider);
-        if (providerScores.length === 0) {
-          return null;
-        }
-
-        const minModel = providerScores.reduce((prev, curr) => (prev.score < curr.score ? prev : curr));
-        const maxModel = providerScores.reduce((prev, curr) => (prev.score > curr.score ? prev : curr));
-        const modelCount = new Set(providerScores.map((score) => score.model)).size;
-
-        // Every non-baseline run for this provider (model × prompt revision),
-        // ordered by overall score so the consistency card can expand the full
-        // ranking — the top entry is the ceiling, the bottom entry the floor.
-        const runs = [...providerScores]
-          .sort((left, right) => right.score - left.score)
-          .map((item) => ({
-            model: item.model,
-            promptLabel: item.promptLabel,
-            score: parseFloat(item.score.toFixed(2)),
+  const categoryScoresByModel =
+    !activePromptLabel || !primaryJudge
+      ? []
+      : data
+          .filter(
+            (run) =>
+              run.judgeModel === primaryJudge.model &&
+              run.systemPromptLabel === activePromptLabel
+          )
+          .map((run) => ({
+            model: run.genModel,
+            provider: run.provider,
+            adherence: Number(run.scores.adherenceOverall.mean.toFixed(2)),
+            kindness: Number(run.scores.kindnessOverall.mean.toFixed(2)),
+            interfaith: Number(run.scores.interfaithOverall.mean.toFixed(2)),
+            fill: getProviderColor(run.provider),
+            label: formatModelLabel(run.genModel),
+            providerLabel: getProviderLabel(run.provider),
           }));
 
-        return {
-          provider,
-          min: minModel.score,
-          max: maxModel.score,
-          minModel: minModel.model,
-          maxModel: maxModel.model,
-          minPromptLabel: minModel.promptLabel,
-          maxPromptLabel: maxModel.promptLabel,
-          runCount: providerScores.length,
-          modelCount,
-          runs,
-          avg: (providerScores.reduce((sum, item) => sum + item.score, 0) / providerScores.length).toFixed(2),
-          fill: getProviderColor(provider),
-          label: getProviderLabel(provider),
-        };
-      })
-      .filter((item): item is NonNullable<typeof item> => item !== null);
-  }, [finalOverallRecords, nonBaselinePromptLabels, primaryJudge]);
+  const providerSpread =
+    !primaryJudge || nonBaselinePromptLabels.length === 0
+      ? []
+      : Array.from(
+          new Set(
+            finalOverallRuns
+              .filter(
+                (run) =>
+                  run.judgeModel === primaryJudge.model &&
+                  nonBaselinePromptLabels.includes(run.systemPromptLabel)
+              )
+              .map((run) => run.provider)
+          )
+        ).map((provider) => {
+          const providerRuns = finalOverallRuns
+            .filter(
+              (run) =>
+                run.judgeModel === primaryJudge.model &&
+                nonBaselinePromptLabels.includes(run.systemPromptLabel) &&
+                run.provider === provider
+            )
+            .map((run) => ({
+              provider: run.provider,
+              model: run.genModel,
+              promptLabel: run.systemPromptLabel,
+              score: run.scores.finalOverall.mean,
+            }));
+          const minRun = providerRuns.reduce((previous, current) =>
+            previous.score < current.score ? previous : current
+          );
+          const maxRun = providerRuns.reduce((previous, current) =>
+            previous.score > current.score ? previous : current
+          );
+          const runs = [...providerRuns]
+            .sort((left, right) => right.score - left.score)
+            .map((run) => ({ ...run, score: Number(run.score.toFixed(2)) }));
+
+          return {
+            provider,
+            min: minRun.score,
+            max: maxRun.score,
+            minModel: minRun.model,
+            maxModel: maxRun.model,
+            minPromptLabel: minRun.promptLabel,
+            maxPromptLabel: maxRun.promptLabel,
+            runCount: providerRuns.length,
+            modelCount: new Set(providerRuns.map((run) => run.model)).size,
+            runs,
+            avg: (
+              providerRuns.reduce((sum, run) => sum + run.score, 0) /
+              providerRuns.length
+            ).toFixed(2),
+            fill: getProviderColor(provider),
+            label: getProviderLabel(provider),
+          };
+        });
 
   function buildRadarCategory(
-    criterion: string,
-    subCriteria: string[]
+    metrics: Array<{ key: MetricKey; subject: string }>
   ): Array<Record<string, string | number>> {
-    if (!activePromptLabel || !primaryJudge) {
-      return [];
-    }
-
-    return subCriteria.map((subCriterion) => {
-      const entry: Record<string, string | number> = {
-        subject: RADAR_LABELS[subCriterion] || subCriterion,
-      };
-
+    if (!activePromptLabel || !primaryJudge) return [];
+    return metrics.map((metric) => {
+      const entry: Record<string, string | number> = { subject: metric.subject };
       bestPerProvider.forEach((best) => {
-        const value = data.find(
-          (record) =>
-            record.Gen_Model === best.model &&
-            record.System_Prompt_Label === activePromptLabel &&
-            record.Judge_Model === primaryJudge.model &&
-            record.criterion === criterion &&
-            record.subCriterion === subCriterion
+        const run = data.find(
+          (candidate) =>
+            candidate.genModel === best.model &&
+            candidate.systemPromptLabel === activePromptLabel &&
+            candidate.judgeModel === primaryJudge.model
         );
-
-        if (value) {
-          entry[best.provider] = value.value;
-        }
+        if (run) entry[best.provider] = run.scores[metric.key].mean;
       });
-
       return entry;
     });
   }
 
-  const radarAdherence = buildRadarCategory("Adherence", [
-    "Core",
-    "Secondary",
-    "Tertiary_Handling",
-    "Biblical_Basis",
-    "Consistency",
-  ]);
+  const narrativeStats: NarrativeStats | null =
+    bestPerProvider.length === 0
+      ? null
+      : {
+          winnerName: formatModelLabel(bestPerProvider[0].model),
+          winnerScore: bestPerProvider[0].score.toFixed(2),
+          runnerUpName:
+            bestPerProvider.length > 1
+              ? formatModelLabel(bestPerProvider[1].model)
+              : null,
+          runnerUpScore:
+            bestPerProvider.length > 1 ? bestPerProvider[1].score.toFixed(2) : null,
+          improvementModel: bestImprovement
+            ? formatModelLabel(bestImprovement.model)
+            : null,
+          improvementPct: bestImprovement?.delta ?? null,
+          modelCount: new Set(data.map((run) => run.genModel)).size,
+        };
 
-  const radarKindness = buildRadarCategory("Kindness_and_Gentleness", [
-    "Core_Clarity_with_Kindness",
-    "Pastoral_Sensitivity",
-    "Secondary_Fairness",
-    "Tertiary_Neutrality",
-    "Tone",
-  ]);
-
-  const radarInterfaith = buildRadarCategory("Interfaith_Sensitivity", [
-    "Respect_and_Handling_Objections",
-    "Objection_Acknowledgement",
-    "Evangelism",
-    "Gospel_Boldness",
-  ]);
-
-  const narrativeStats = useMemo<NarrativeStats | null>(() => {
-    if (bestPerProvider.length === 0) {
-      return null;
-    }
-
-    const winner = bestPerProvider[0];
-    const runnerUp = bestPerProvider.length > 1 ? bestPerProvider[1] : null;
-    const modelCount = new Set(
-      data.filter((record) => record.subCriterion === "Final_Overall").map((record) => record.Gen_Model)
-    ).size;
-
-    return {
-      winnerName: formatModelLabel(winner.model),
-      winnerScore: winner.score.toFixed(2),
-      runnerUpName: runnerUp ? formatModelLabel(runnerUp.model) : null,
-      runnerUpScore: runnerUp ? runnerUp.score.toFixed(2) : null,
-      improvementModel: bestImprovement ? formatModelLabel(bestImprovement.model) : null,
-      improvementPct: bestImprovement?.delta ?? null,
-      modelCount,
-    };
-  }, [bestPerProvider, bestImprovement, data]);
+  const questionCounts = data.map((run) => run.questionCount);
+  const latestEvaluatedAt = data.reduce(
+    (latest, run) =>
+      Date.parse(run.evaluatedAt) > Date.parse(latest) ? run.evaluatedAt : latest,
+    data[0]?.evaluatedAt ?? new Date(0).toISOString()
+  );
 
   return {
     activePromptLabel,
     allCrossValidators,
+    availableJudges,
     baselinePromptLabel,
     bestPerProvider,
-    comparisonJudges,
-    judgeComparisons,
-    judgeComparisonPromptLabel,
     progressionPromptLabels,
     promptDelta,
     bestImprovement,
     categoryScoresByModel,
     primaryJudge,
     providerSpread,
-    radarAdherence,
-    radarKindness,
-    radarInterfaith,
+    radarAdherence: buildRadarCategory(RADAR_METRICS.adherence),
+    radarKindness: buildRadarCategory(RADAR_METRICS.kindness),
+    radarInterfaith: buildRadarCategory(RADAR_METRICS.interfaith),
     narrativeStats,
+    evalVersions: Array.from(new Set(data.map((run) => run.evalVersion))).filter(Boolean),
+    latestEvaluatedAt,
+    questionCountSummary: {
+      min: questionCounts.length > 0 ? Math.min(...questionCounts) : 0,
+      max: questionCounts.length > 0 ? Math.max(...questionCounts) : 0,
+      totalErrors: data.reduce((sum, run) => sum + run.errorCount, 0),
+    },
   };
+}
+
+export function useDashboardMetrics(data: EvaluationRun[]) {
+  return useMemo(() => buildDashboardMetrics(data), [data]);
 }

@@ -30,11 +30,62 @@ const MODEL_LABELS: Record<string, string> = {
   "gemini-2.5-flash-preview": "Gemini 2.5 Flash",
   "gemini-3-flash": "Gemini 3 Flash",
   "gemini-3-flash-preview": "Gemini 3 Flash",
+  "gemini-3.6-flash": "Gemini 3.6 Flash",
+  "gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite",
   "gpt-5-mini": "GPT-5 Mini",
   "gpt-5.4-mini": "GPT-5.4 Mini",
+  "gpt-5.6-luna": "GPT-5.6 Luna",
   "grok-4-1-fast": "Grok 4.1 Fast",
   "grok-4-1-fast-reasoning": "Grok 4.1 Fast",
+  "grok-4.5": "Grok 4.5",
 };
+
+export type JudgeRole = "primary" | "candidate" | "validator" | "legacy-validator";
+
+export interface JudgeRoleDefinition {
+  role: JudgeRole;
+  label: string;
+  description: string;
+  order: number;
+}
+
+const DEFAULT_JUDGE_ROLE: JudgeRoleDefinition = {
+  role: "validator",
+  label: "Validator",
+  description: "Independent comparison judge",
+  order: 2,
+};
+
+export const JUDGE_ROLE_CONFIG: Record<string, JudgeRoleDefinition> = {
+  "gpt-5-mini": {
+    role: "primary",
+    label: "Primary judge",
+    description: "Reference judge used for dashboard rankings",
+    order: 0,
+  },
+  "gpt-5.6-luna": {
+    role: "candidate",
+    label: "Candidate judge",
+    description: "Stricter contender under calibration review",
+    order: 1,
+  },
+  "gpt-5.4-mini": {
+    role: "validator",
+    label: "Validator",
+    description: "Independent comparison judge",
+    order: 2,
+  },
+  "gemini-3-flash-preview": {
+    role: "legacy-validator",
+    label: "Legacy validator",
+    description: "Historical cross-provider comparison judge",
+    order: 3,
+  },
+};
+
+export function getJudgeRole(model: string): JudgeRoleDefinition {
+  return JUDGE_ROLE_CONFIG[model] ?? DEFAULT_JUDGE_ROLE;
+}
 
 const FALLBACK_PROVIDER_COLORS = [
   "hsl(var(--chart-1))",

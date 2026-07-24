@@ -150,7 +150,7 @@ In addition to `Final_Overall` (flat average of all three section Overalls), a `
 
 `Weighted_Production_Score = (Adherence.Overall × 0.40) + (Interfaith_Sensitivity.Overall × 0.35) + (Kindness_and_Gentleness.Overall × 0.25)`
 
-This weighting reflects the ministry's priority order: doctrinal faithfulness first, evangelistic clarity second, pastoral warmth third. Both `Final_Overall` and `Weighted_Production_Score` appear as consecutive rows in the comparison CSV.
+This weighting reflects the ministry's priority order: doctrinal faithfulness first, evangelistic clarity second, pastoral warmth third. In the vertical master CSV, each judge run is one row and both `Final_Overall` and `Weighted_Production_Score` appear as adjacent mean/population-standard-deviation field pairs.
 
 ---
 

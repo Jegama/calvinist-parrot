@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { EvaluationRecord } from "./lib";
+import type { EvaluationRun } from "./evaluation-metrics";
 
 const DashboardClient = dynamic(() => import("./dashboard-client"), {
   ssr: false,
@@ -17,6 +17,6 @@ const DashboardClient = dynamic(() => import("./dashboard-client"), {
   ),
 });
 
-export function DashboardShell({ data }: { data: EvaluationRecord[] }) {
+export function DashboardShell({ data }: { data: EvaluationRun[] }) {
   return <DashboardClient data={data} />;
 }

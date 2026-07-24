@@ -2,6 +2,7 @@ import React from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { formatModelLabel, formatPromptLabel, getProviderColor } from "../constants";
 import type { PromptDeltaRecord } from "../hooks/use-dashboard-metrics";
+import { CHART_INITIAL_DIMENSIONS } from "./chart-dimensions";
 
 interface PromptDeltaBarProps {
   data: PromptDeltaRecord[];
@@ -38,7 +39,13 @@ export function PromptDeltaBar({ data, promptLabels }: PromptDeltaBarProps) {
 
   return (
     <div className="w-full min-w-0" style={{ height: chartHeight }}>
-      <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        minWidth={240}
+        minHeight={240}
+        initialDimension={CHART_INITIAL_DIMENSIONS.dynamicBar}
+      >
         <BarChart data={chartData} layout="vertical" barGap={6} margin={{ top: 6, right: 24, bottom: 12, left: 8 }}>
           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
           <XAxis
