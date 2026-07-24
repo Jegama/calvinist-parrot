@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import { CHART_INITIAL_DIMENSIONS } from "./chart-dimensions";
 
 export interface CategoryScatterPoint {
   model: string;
@@ -54,7 +55,13 @@ export function CategoryScatter({ data, xLabel, yLabel }: CategoryScatterProps) 
   return (
     <div className="w-full min-w-0">
       <div className="h-[320px] sm:h-[380px] md:h-[440px] lg:h-[500px]">
-        <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
+        <ResponsiveContainer
+          width="100%"
+          height="100%"
+          minWidth={240}
+          minHeight={240}
+          initialDimension={CHART_INITIAL_DIMENSIONS.scatter}
+        >
           <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 60 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis

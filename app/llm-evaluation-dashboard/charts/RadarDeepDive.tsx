@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { getProviderColor, getProviderLabel } from "../constants";
+import { CHART_INITIAL_DIMENSIONS } from "./chart-dimensions";
 
 interface RadarDeepDiveProps {
   data: Array<Record<string, string | number>>;
@@ -24,7 +25,13 @@ export function RadarDeepDive({ data, domainMin = 3.5 }: RadarDeepDiveProps) {
 
   return (
     <div className="h-96 w-full min-w-0">
-      <ResponsiveContainer width="100%" height="100%" minWidth={240} minHeight={240}>
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        minWidth={240}
+        minHeight={240}
+        initialDimension={CHART_INITIAL_DIMENSIONS.radar}
+      >
         <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
           <PolarGrid stroke="hsl(var(--border))" strokeWidth={1} />
           <PolarAngleAxis dataKey="subject" tick={{ fill: "hsl(var(--foreground))", fontSize: 12, fontWeight: 500 }} />

@@ -259,5 +259,6 @@ No model scores above 3.40 on Objection Acknowledgement (GPT-5 Mini judge). This
 
 ## Raw Data
 
-The v2 evaluation data is available at `content/data/api_evals_comparison.csv`.
+The canonical v2 evaluation data is available at `content/data/api_evals_master.csv` (one row per model/judge run, including population standard deviations).
+The previous wide comparison export remains at `content/data/api_evals_comparison.csv` for historical reconciliation.
 The v1 evaluation data is archived at `content/data/api_evals_comparison_v1.csv`.
