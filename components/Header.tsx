@@ -57,7 +57,7 @@ export function Header() {
 
   return (
     <header
-      className={`app-header sticky top-0 z-50 w-full px-4 transition-all duration-700 ease-in-out ${
+      className={`app-header sticky top-0 z-50 w-full px-2 transition-all duration-700 ease-in-out sm:px-4 ${
         isScrolled ? "liquid-glass-header" : ""
       }`}
       style={{
@@ -72,8 +72,8 @@ export function Header() {
         }}
       >
         {/* Left side: Logo and Navigation */}
-        <div className="flex items-center space-x-2">
-          <Link href="/" prefetch={false} className="flex items-center space-x-2 hover:opacity-70 transition-opacity">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+          <Link href="/" prefetch={false} className="flex min-w-0 items-center gap-1 hover:opacity-70 transition-opacity sm:gap-2">
             <Image
               src="/Logo.png"
               alt="Calvinist Parrot"
@@ -86,15 +86,11 @@ export function Header() {
               height={50}
             />
             <span
-              className="app-logo overflow-hidden transition-opacity duration-700 ease-in-out"
+              className="app-logo hidden min-w-0 max-w-[200px] overflow-hidden transition-opacity duration-700 ease-in-out sm:block"
               style={
                 {
                   // Keep width stable and only fade to avoid layout glitches
-                  maxWidth: "200px",
                   opacity: isScrolled ? 0 : 1,
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
                 } as React.CSSProperties
               }
             >
@@ -104,7 +100,7 @@ export function Header() {
 
           {/* Fade-out separator when scrolled */}
           <span
-            className="transition-opacity duration-700 ease-in-out"
+            className="hidden transition-opacity duration-700 ease-in-out min-[360px]:inline-block"
             style={{ opacity: isScrolled ? 0 : 1, pointerEvents: isScrolled ? "none" : "auto" }}
             aria-hidden={isScrolled}
           >
@@ -227,13 +223,13 @@ export function Header() {
         <div className="flex-1" />
 
         {/* Right side: Theme toggle and user session actions */}
-        <div className="flex items-center space-x-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           {/* Hide ThemeToggle when scrolled for a cleaner compact header */}
           {!isScrolled && <ThemeToggle />}
           {loading ? null : user ? (
             // If logged in, show the user's name linking to profile
             <Link href="/profile" prefetch={false}>
-              <Button variant="outline" className="hover:bg-muted/50" size={isScrolled ? "xsm" : "default"}>
+              <Button variant="outline" className="hover:bg-muted/50 max-sm:h-8 max-sm:px-2 max-sm:text-xs" size={isScrolled ? "xsm" : "default"}>
                 {user.name}
               </Button>
             </Link>
@@ -241,13 +237,13 @@ export function Header() {
             <>
               {/* If not logged in, show Login and Register */}
               <Link href="/login" prefetch={false}>
-                <Button variant="outline" className="hover:bg-muted/50" size={isScrolled ? "sm" : "default"}>
+                <Button variant="outline" className="hover:bg-muted/50 max-sm:h-8 max-sm:px-2 max-sm:text-xs" size={isScrolled ? "sm" : "default"}>
                   Login
                 </Button>
               </Link>
               <Link href="/register" prefetch={false}>
                 <Button
-                  className="bg-accent text-accent-foreground hover:bg-accent/90"
+                  className="bg-accent text-accent-foreground hover:bg-accent/90 max-sm:h-8 max-sm:px-2 max-sm:text-xs"
                   size={isScrolled ? "sm" : "default"}
                 >
                   Register

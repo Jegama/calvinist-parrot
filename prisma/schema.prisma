@@ -231,10 +231,13 @@ model chatHistory {
 model chatMessage {
   id        String      @id @default(cuid())
   chatId    String
+  requestId String?
   sender    String
   content   String
   timestamp DateTime    @default(now())
   chat      chatHistory @relation("ChatMessages", fields: [chatId], references: [id])
+
+  @@index([chatId, requestId])
 }
 
 model parrotDevotionals {

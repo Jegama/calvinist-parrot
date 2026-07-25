@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 export type ChatSummary = {
   id: string;
   conversationName: string;
+  modifiedAt: string;
 };
 
 async function loadChats(): Promise<ChatSummary[]> {
@@ -29,15 +30,28 @@ export function useChatList(actorKey: string) {
   });
 
   const upsertChat = useCallback(
-    (chat: ChatSummary) => {
+    (
+      chat: Omit<ChatSummary, "modifiedAt"> &
+        Partial<Pick<ChatSummary, "modifiedAt">>,
+    ) => {
       queryClient.setQueryData<ChatSummary[]>(queryKey, (current = []) => {
         const existingIndex = current.findIndex((item) => item.id === chat.id);
         if (existingIndex !== -1) {
           const next = current.slice();
-          next[existingIndex] = chat;
+          next[existingIndex] = {
+            ...next[existingIndex],
+            ...chat,
+            modifiedAt: chat.modifiedAt ?? new Date().toISOString(),
+          };
           return next;
         }
-        return [chat, ...current];
+        return [
+          {
+            ...chat,
+            modifiedAt: chat.modifiedAt ?? new Date().toISOString(),
+          },
+          ...current,
+        ];
       });
     },
     [queryClient, queryKey],
@@ -61,6 +75,7 @@ export function useChatList(actorKey: string) {
       variables: {
         initialQuestion: string;
         clientChatId?: string;
+        requestId?: string;
       },
     ) => {
       const response = await fetch("/api/parrot-chat", {
@@ -71,12 +86,77 @@ export function useChatList(actorKey: string) {
       if (!response.ok) {
         throw new Error("Failed to create chat session");
       }
-      const json = (await response.json()) as { chatId?: string };
-      if (!json.chatId) {
+      const json = (await response.json()) as {
+        chatId?: string;
+        messageId?: string;
+        requestId?: string;
+      };
+      if (!json.chatId || !json.messageId || !json.requestId) {
         throw new Error("Chat session created without an ID");
       }
-      return { chatId: json.chatId };
+      return {
+        chatId: json.chatId,
+        messageId: json.messageId,
+        requestId: json.requestId,
+      };
     },
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: async ({
+      chatId,
+      conversationName,
+    }: {
+      chatId: string;
+      conversationName: string;
+    }) => {
+      const response = await fetch("/api/user-chats", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId, conversationName }),
+      });
+      if (!response.ok) throw new Error("Failed to rename conversation");
+      return (await response.json()) as { chat: ChatSummary };
+    },
+    onMutate: async ({ chatId, conversationName }) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<ChatSummary[]>(queryKey);
+      queryClient.setQueryData<ChatSummary[]>(queryKey, (current = []) =>
+        current.map((chat) =>
+          chat.id === chatId
+            ? { ...chat, conversationName, modifiedAt: new Date().toISOString() }
+            : chat,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (chatId: string) => {
+      const params = new URLSearchParams({ chatId });
+      const response = await fetch(`/api/user-chats?${params.toString()}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete conversation");
+      return chatId;
+    },
+    onMutate: async (chatId) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<ChatSummary[]>(queryKey);
+      queryClient.setQueryData<ChatSummary[]>(queryKey, (current = []) =>
+        current.filter((chat) => chat.id !== chatId),
+      );
+      return { previous };
+    },
+    onError: (_error, _chatId, context) => {
+      if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
 
   return {
@@ -90,5 +170,7 @@ export function useChatList(actorKey: string) {
     removeChat,
     invalidate,
     createChat: createMutation,
+    renameChat: renameMutation,
+    deleteChat: deleteMutation,
   };
 }

@@ -96,15 +96,15 @@
     /* Brand: Deep Blue #004D70 - Parrot message bubbles */
     --parrot-message: 199 100% 22%;
     --parrot-message-foreground: 0 0% 100%;
-    /* Sidebar - Matches background for cohesion */
-    --sidebar-background: 42 56% 91%;
+    /* Sidebar - A slightly deeper cream separates navigation from content */
+    --sidebar-background: 42 35% 87%;
     --sidebar-foreground: 0 0% 20%;
     --sidebar-primary: 0 0% 20%;
     --sidebar-primary-foreground: 0 0% 98%;
     /* Brand: Mint Green #5ABFB1 - Sidebar active states */
     --sidebar-accent: 172 43% 55%;
     --sidebar-accent-foreground: 0 0% 20%;
-    --sidebar-border: 0 0% 88%;
+    --sidebar-border: 42 20% 74%;
     --sidebar-ring: 199 100% 22%;
   }
 

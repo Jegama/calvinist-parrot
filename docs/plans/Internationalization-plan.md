@@ -90,6 +90,24 @@ Current regex (`[A-Z][a-zA-Z]+`) only matches Latin ASCII. Must support:
 
 **Strategy:** Per-locale regex patterns or a lookup-based approach instead of regex for non-Latin scripts.
 
+### Chat UX Must Not Depend on English Layout
+
+The main chat redesign must be localization-ready before translated routes ship. English copy length, Latin word boundaries, and left-to-right alignment must not become structural assumptions.
+
+- Size the composer, message actions, sidebar controls, prompt starters, status messages, and menus for translated labels that may expand by 30–50%.
+- Allow controls to wrap or move into an overflow menu instead of clipping or shrinking labels below accessible sizes.
+- Use CSS logical alignment (`start`/`end`, `ms`/`me`, `ps`/`pe`) for message placement, sidebar controls, action rows, and composer affordances.
+- Do not infer message ownership from physical left/right placement. Preserve semantic `user` and `assistant` roles, then map their visual alignment through the active text direction.
+- Use `dir="auto"` or isolated bidi spans where user prompts, AI answers, Bible references, URLs, code, or citations may contain mixed LTR and RTL text.
+- Keep answer width as a readable line measure (for example, `ch`/`max-width`) rather than limiting total response length. CJK and Arabic typography require locale-specific visual review rather than assuming an English character count produces the same measure.
+- Prompt starters must use flexible grid/list layouts and translated content keys; do not bake English prompt text into card dimensions.
+- Conversation titles, date groups, timestamps, copy feedback, streaming progress, error recovery, and accessibility announcements must all be localized.
+- Use `Intl.DateTimeFormat`, locale-aware case folding, and locale-aware search behavior for conversation grouping and sidebar search.
+- Composer keyboard help must be localized and must not assume every input method treats Enter, Shift, or composition events the same way. Never submit while an IME composition is active.
+- Rich clipboard output must preserve Unicode and semantic structure, include appropriate `lang`/`dir` metadata, and remove application theme colors so content pastes legibly into Word and Google Docs.
+- Manual selection copy, formatted copy, Markdown copy, and plain-text copy must be tested with non-Latin and RTL content.
+- The compact mobile chat header must prioritize space for navigation and the conversation title. Denomination context may appear persistently on desktop but must not require an additional mobile header row.
+
 ---
 
 ## Phase 0: Infrastructure Foundation (PR #1)
@@ -179,7 +197,14 @@ const notoSansArabic = Noto_Sans_Arabic({ weight: ["400","600"], variable: "--fo
   "common": { "loading", "error", "send", "cancel", "save", "delete", "back", "next", ... },
   "nav": { "chat", "devotional", "journal", "prayerTracker", "heritage", "churchFinder", "about", "labs", "login", "register", "more", "logout", "profile" },
   "home": { "subtitle": "What theological question do you have?", "placeholder": "Enter your question here...", "startChat": "Start Chat" },
-  "chat": { "you", "parrot", "typePlaceholder", "loadingChat", "copyMarkdown", "markdownCopied", "toolProgress.*", "toolTitles.*", ... },
+  "chat": {
+    "you", "parrot", "newChat", "searchConversations", "renameConversation",
+    "deleteConversation", "undoDelete", "typePlaceholder", "send", "stop",
+    "jumpToLatest", "loadingChat", "responseStopped", "retrySend",
+    "copyFormatted", "copyMarkdown", "copyPlainText", "formattedCopied",
+    "markdownCopied", "plainTextCopied", "copyFailed", "aiDisclaimer",
+    "promptStarters.*", "conversationGroups.*", "toolProgress.*", "toolTitles.*", ...
+  },
   "auth": { "loginTitle", "registerTitle", "email", "password", "forgotPassword", "noAccount", "hasAccount", ... },
   "seo": { "title", "description", "ogTitle", "ogDescription", ... }
 }
@@ -469,6 +494,10 @@ alternates: {
 - `components/chat-sidebar.tsx` - Sidebar position
 - `components/Header.tsx` - Navigation order, dropdown alignment
 - Chat message layout - User messages on correct side
+- Chat composer - Send/stop placement, safe-area padding, IME composition, and mixed-direction input
+- Message action menus - Logical alignment, translated labels, and 30–50% text expansion
+- Conversation search, rename, and date grouping - Locale-aware matching and formatting
+- Clipboard output - Preserve Unicode, semantic formatting, `lang`, and `dir` without copying theme colors
 
 **Verification:** Navigate to `/ar/` and `/ur/` - entire layout mirrors. Sidebar, navigation, chat messages, forms all render correctly RTL.
 
@@ -663,6 +692,10 @@ Key terms like "Justification by Faith", "Penal Substitutionary Atonement", "Per
 
 1. **Phase 0:** `npm run build` passes. All existing English URLs work identically. No visible changes.
 2. **Phase 1:** Toggle language selector through all 10 locales. Navigation, home page, chat basics display in correct language. Auth flow works.
+   - At 320px and 390px, long translated chat labels reflow or use an accessible overflow menu without clipping.
+   - Prompt starters, the conversation sidebar, message actions, and the composer remain usable with 30–50% string expansion.
+   - IME composition in Chinese, Hindi, Bengali, Arabic, and Urdu never submits prematurely.
+   - Formatted, Markdown, plain-text, and manual selection copy remain legible in Word and Google Docs and preserve non-Latin/RTL text.
 3. **Phase 2:** Bible verse popovers per locale:
    - `/es/` click "Romanos 8:28" -> shows `spa_rvg` (Reina Valera Gómez) text
    - `/zh/` click "罗马书 8:28" -> shows `cmn_cu1` (Chinese Union Simplified) text
@@ -671,6 +704,8 @@ Key terms like "Justification by Faith", "Penal Substitutionary Atonement", "Per
 4. **Phase 3:** Send chat question from `/es/`, `/zh/`, `/ar/` -> response in correct language with correct Bible book names and translation references.
 5. **Phase 4:** Google Rich Results Test passes for all locale variants. hreflang tags present and correct for all 10 locales.
 6. **Phase 5:** `/ar/` and `/ur/` render full RTL layout. Sidebar, navigation, chat, forms all mirror correctly.
+   - Mixed-direction Bible citations, URLs, code blocks, and copied content retain the correct reading order.
+   - Desktop may show denomination context within the existing chat header; mobile must not gain a second persistent header row.
 7. **Phase 6 (Church Finder):**
    - Submit a church in `/es/` -> AI extraction still returns English badge keys -> `filterAllowlistedBadges()` passes -> badges stored in DB
    - View same church evaluation in `/es/` -> status shows "Recomendado" (not "RECOMMENDED"), badges show translated display names

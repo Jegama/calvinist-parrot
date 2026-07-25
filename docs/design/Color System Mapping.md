@@ -9,7 +9,7 @@ This document maps the Brand Identity colors to their usage in the application's
 | Brand Color | Hex | HSL | CSS Variable | Usage in App |
 |------------|-----|-----|--------------|--------------|
 | **Deep Teal** | `#004D4D` | `180, 100%, 15%` | `--accent`<br>`--chart-2`<br>`.app-header text` | **Header text color**, links, accent elements, chart color |
-| **Deep Blue** | `#004D70` | `199, 100%, 22%` | `--primary`<br>`--parrot-message`<br>`--ring`<br>`--sidebar-ring` | Primary buttons, Parrot chat bubbles, focus rings |
+| **Deep Blue** | `#004D70` | `199, 100%, 22%` | `--primary`<br>`--parrot-message`<br>`--ring`<br>`--sidebar-ring` | Primary buttons, legacy/compact Parrot chat bubbles, focus rings |
 | **Warm Gold** | `#FFD166` | `42, 100%, 70%` | `--chart-1` | Charts, potential future highlight color |
 
 ### Accent Colors
@@ -24,13 +24,20 @@ This document maps the Brand Identity colors to their usage in the application's
 
 | Brand Color | Hex | HSL | CSS Variable | Usage in App |
 |------------|-----|-----|--------------|--------------|
-| **Cream** | `#F5EEDC` | `42, 56%, 91%` | `--background`<br>`--popover`<br>`--sidebar-background`<br>`.app-header background` | Warm main background, sidebar, header background (matches main site) |
-| **Off-White** | `#FAFAFA` | `0, 0%, 98%` | `--card` | Subtle card elevation |
+| **Cream** | `#F5EEDC` | `42, 56%, 91%` | `--background`<br>`--popover`<br>`.app-header background` | Warm main background and header background (matches main site) |
+| **Deep Cream** | token-derived | `42, 35%, 87%` | `--sidebar-background` | Light-mode chat sidebar separation |
+| **Off-White** | `#FAFAFA` | `0, 0%, 98%` | `--card` | Subtle card elevation, light-mode chat toolbars, long-form Parrot surfaces |
 | **Pure White** | `#FFFFFF` | `0, 0%, 100%` | `--primary-foreground`<br>`--accent-foreground`<br>`--parrot-message-foreground` | Text on colored buttons/elements |
 | **Charcoal** | `#333333` | `0, 0%, 20%` | `--foreground`<br>`--card-foreground`<br>`--user-message-foreground`<br>`--sidebar-primary` | Body text, headings |
-| **Light Gray** | `#E5E5E5` | `0, 0%, 90%` | `--border`<br>`--sidebar-border` | Borders, dividers |
+| **Light Gray** | `#E5E5E5` | `0, 0%, 90%` | `--border` | General borders and dividers |
+| **Warm Neutral** | token-derived | `42, 20%, 74%` | `--sidebar-border` | Light-mode sidebar and chat-toolbar dividers |
 | **Very Light Gray** | `#F5F5F5` | `0, 0%, 96%` | `--muted`<br>`--input`<br>`--secondary` | Muted backgrounds, input fields, secondary actions |
 | **Pure White** | `#FFFFFF` | `0, 0%, 100%` | `--input-bg` | Input backgrounds in light mode |
+
+`--input-bg` is the required surface token for the main chat composer. Pair it
+with `border-input` and subtle token-derived elevation; do not add a chat-only
+background color. In dark mode the same token maps to dark charcoal so the
+composer stays distinct without inheriting light-theme colors.
 
 ## Semantic Color Variables
 
@@ -58,11 +65,11 @@ In dark mode, brand colors are adjusted for better contrast and readability:
   - Accent: `180, 100%, 15%` → `180, 100%, 30%` (lighter Deep Teal)
   - Sidebar Accent: `172, 43%, 55%` → `172, 45%, 45%` (adjusted Mint Green)
   - Focus ring: `--ring` becomes near-white `0, 0%, 98%` for stronger contrast
-- **Message Bubbles**: Both inverted for consistency
+- **Message Surfaces**:
   - **User Messages**: Darker Sage Green `82, 25%, 35%` with white text
-  - **Parrot Messages**: Lighter Deep Blue `199, 100%, 35%` with white text
-  - Creates consistent visual pattern (both have dark backgrounds with light text)
-  - Better contrast and more elegant appearance
+  - **Long-form Parrot Answers**: Dark `--card` surface with `--card-foreground` text and a visible `--border` edge
+  - **Legacy/Compact Parrot Messages**: Lighter Deep Blue `199, 100%, 35%` with white text
+  - This keeps long theological answers quiet and readable while preserving the Deep Blue legacy treatment where a compact bubble is still appropriate
 - **Header**: 
   - Dark card background `0, 0%, 15%` instead of cream
   - White text instead of Deep Teal for better readability
@@ -94,7 +101,7 @@ In dark mode, brand colors are adjusted for better contrast and readability:
 
 Sidebar palette reference:
 
-- Light mode: `--sidebar-accent: 172, 43%, 55%`, `--sidebar-primary: 0, 0%, 20%`, `--sidebar-ring: 199, 100%, 22%`
+- Light mode: `--sidebar-background: 42, 35%, 87%`, `--sidebar-border: 42, 20%, 74%`, `--sidebar-accent: 172, 43%, 55%`, `--sidebar-primary: 0, 0%, 20%`, `--sidebar-ring: 199, 100%, 22%`
 - Dark mode: `--sidebar-accent: 172, 45%, 45%`, `--sidebar-primary: 199, 100%, 35%`, `--sidebar-ring: 199, 100%, 35%`
 
 ## Usage Guidelines
@@ -131,7 +138,7 @@ Use Tailwind's semantic color classes:
 
 ### Color Hierarchy
 
-1. **Primary** (Deep Blue): Main actions, CTAs, Parrot messages
+1. **Primary** (Deep Blue): Main actions, CTAs, and legacy/compact Parrot messages
 2. **Accent** (Deep Teal): Links, secondary emphasis
 3. **Success** (Green): Positive feedback, completed actions
 4. **Destructive** (Red): Errors, destructive actions
@@ -156,6 +163,8 @@ When making color changes or adding new components:
 - [ ] Check that shadows and borders are visible in both modes
 - [ ] Ensure sidebar active states use Mint Green (`--sidebar-accent`)
 - [ ] Confirm header styling matches main Calvinist Parrot Ministries site aesthetic
+- [ ] In light mode, confirm the Deep Cream sidebar, Off-White chat toolbar, and Cream content surface remain visibly distinct
+- [ ] Confirm branch/edit dialogs use a `--card` inset with a primary edge so the two light surfaces do not blend together
 
 ## Quick Reference: Common Patterns
 
@@ -184,13 +193,26 @@ When making color changes or adding new components:
 <Button className="bg-accent text-accent-foreground">Register</Button>
 ```
 
-### Message Bubbles (Chat Interface)
+### Message Surfaces (Chat Interface)
 ```tsx
 // User message
 <div className="bg-user-message text-user-message-foreground">User content</div>
 
-// Parrot/AI message
+// Preferred long-form Parrot/AI answer
+<article className="max-w-[72ch] border border-border bg-card text-card-foreground">
+  AI response
+</article>
+
+// Legacy or compact Parrot/AI message
 <div className="bg-parrot-message text-parrot-message-foreground">AI response</div>
+
+// Main chat composer
+<form className="border border-input bg-input-bg">...</form>
+
+// Edit/branch explanation inset
+<div className="border border-primary/35 border-s-4 border-s-primary bg-card">
+  Branching explanation
+</div>
 ```
 
 ### Cards and Containers

@@ -1,153 +1,113 @@
-// app/page.tsx
-
 "use client";
 
 import { useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
-import { AppSidebar } from "@/components/chat-sidebar";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+
+import {
+  ChatComposer,
+  LANDING_CHAT_DISCLAIMER,
+} from "@/components/chat/chat-composer";
+import { ChatShell } from "@/components/chat/chat-shell";
+import { ChatShortcuts } from "@/components/chat/chat-shortcuts";
+import { SuggestedQuestions } from "@/components/chat/suggested-questions";
 import { useAuth } from "@/hooks/use-auth";
 import { useChatList } from "@/hooks/use-chat-list";
-import { BookOpen, Church, Sprout } from "lucide-react";
 
 export default function MainChatPage() {
   const [initialQuestion, setInitialQuestion] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
   const { user } = useAuth();
-  const { chats, createChat, upsertChat, removeChat } = useChatList(user?.$id ?? "guest");
+  const {
+    chats,
+    createChat,
+    upsertChat,
+    renameChat,
+    deleteChat,
+  } = useChatList(user?.$id ?? "guest");
 
-  const handleStartNewChat = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleStartNewChat = () => {
     const question = initialQuestion.trim();
-    if (!question) return;
+    if (!question || createChat.isPending) return;
 
-    const newChatId = crypto.randomUUID();
-
+    const clientChatId = crypto.randomUUID();
+    const requestId = crypto.randomUUID();
     setErrorMessage("");
 
     createChat.mutate(
-      { initialQuestion: question, clientChatId: newChatId },
+      { initialQuestion: question, clientChatId, requestId },
       {
-        onSuccess: ({ chatId }) => {
-          upsertChat({ id: chatId, conversationName: "New Conversation" });
+        onSuccess: ({ chatId, messageId }) => {
+          upsertChat({
+            id: chatId,
+            conversationName: "New Conversation",
+          });
+          router.push(`/${chatId}?autoSendMessageId=${encodeURIComponent(messageId)}`);
         },
         onError: (error) => {
           console.error("Error starting new chat:", error);
-          setErrorMessage("An error occurred while starting a new chat.");
+          setErrorMessage(
+            "We could not start the conversation. Please try again.",
+          );
         },
-      }
+      },
     );
-
-    router.push(`/${newChatId}?initialQuestion=${encodeURIComponent(question)}`);
   };
 
   return (
-    <SidebarProvider style={{ minHeight: "calc(100vh - var(--app-header-height))" }}>
-      <AppSidebar
-        chats={chats}
-        onDeleted={(id) => {
-          // Optimistically remove from cache
-          removeChat(id);
-        }}
-      />
-      <SidebarInset className="flex h-[calc(100vh-var(--app-header-height))] flex-col overflow-hidden relative">
-        <header className="absolute top-0 left-0 z-20 flex h-16 items-center px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
-        <div className="relative flex flex-1 flex-col overflow-y-auto px-4">
-          <div
-            className="flex min-h-0 flex-1 items-start justify-center pb-10"
-            style={{ paddingTop: "clamp(0.5rem, calc((100vh - var(--app-header-height)) * 0.12), 10rem)" }}
-          >
-            <Card className="w-full max-w-3xl">
-              <CardHeader>
-                <div className="flex items-center space-x-4 landscape:hidden md:landscape:flex">
-                  <Image
-                    src="/Logo.png"
-                    alt="Calvinist Parrot"
-                    width={100}
-                    height={100}
-                    priority
-                    unoptimized={true}
-                    className="landscape:h-16 landscape:w-16"
-                  />
-                  <CardTitle className="w-full justify-center text-3xl font-bold landscape:text-2xl">
-                    Calvinist Parrot
-                  </CardTitle>
-                </div>
-                <CardDescription>What theological question do you have?</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {errorMessage && <p className="mb-4 text-destructive">{errorMessage}</p>}
-                <form onSubmit={handleStartNewChat} className="space-y-4">
-                  <Textarea
-                    placeholder="Enter your question here..."
-                    value={initialQuestion}
-                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInitialQuestion(e.target.value)}
-                  />
-                  <Button type="submit" className="w-full">
-                    Start Chat
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+    <ChatShell
+      chats={chats}
+      title="New chat"
+      onDelete={(chatId) =>
+        deleteChat.mutateAsync(chatId).then(() => undefined)
+      }
+      onRename={(chatId, conversationName) =>
+        renameChat.mutateAsync({ chatId, conversationName }).then(() => undefined)
+      }
+      contentClassName="overflow-y-auto"
+    >
+      <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col px-4 pb-5 pt-5 sm:px-6 sm:pb-6 sm:pt-8 lg:justify-center lg:py-12">
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col landscape:flex-none lg:flex-none">
+          <header className="mb-6 text-center">
+            <Image
+              src="/Logo.png"
+              alt=""
+              width={88}
+              height={88}
+              priority
+              className="mx-auto mb-3 hidden h-20 w-20 min-[390px]:block sm:h-24 sm:w-24"
+            />
+            <h2 className="font-serif text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+              Calvinist Parrot
+            </h2>
+            <p className="mt-2 text-muted-foreground">
+              What theological question do you have?
+            </p>
+          </header>
+
+          <ChatComposer
+            value={initialQuestion}
+            onChange={setInitialQuestion}
+            onSubmit={handleStartNewChat}
+            isSubmitting={createChat.isPending}
+            placeholder="Enter your question here..."
+            submitLabel="Start Chat"
+            layout="stacked"
+            size="hero"
+            disclaimer={LANDING_CHAT_DISCLAIMER}
+            autoFocus
+            error={errorMessage}
+          />
+
+          <div className="mt-5">
+            <SuggestedQuestions onSelect={setInitialQuestion} />
           </div>
-
-          {/* Feature shortcuts */}
-          <div className="flex flex-wrap justify-center gap-2 pb-6 pt-4 lg:hidden landscape:hidden">
-            <Link
-              href="/devotional"
-              prefetch={false}
-              className="badge--neutral inline-flex items-center gap-1.5 px-3 py-2 text-sm transition-all hover:opacity-80"
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '1rem', lineHeight: 1 }}>candle</span>
-              <span>Devotional</span>
-            </Link>
-
-            <Link
-              href="/journal"
-              prefetch={false}
-              className="badge--neutral inline-flex items-center gap-1.5 px-3 py-2 text-sm transition-all hover:opacity-80"
-            >
-              <BookOpen className="h-4 w-4" />
-              <span>Journal</span>
-            </Link>
-
-            <Link
-              href="/prayer-tracker"
-              prefetch={false}
-              className="badge--neutral inline-flex items-center gap-1.5 px-3 py-2 text-sm transition-all hover:opacity-80"
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '1rem', lineHeight: 1 }}>folded_hands</span>
-              <span>Prayer Tracker</span>
-            </Link>
-
-            <Link
-              href="/kids-discipleship"
-              prefetch={false}
-              className="badge--neutral inline-flex items-center gap-1.5 px-3 py-2 text-sm transition-all hover:opacity-80"
-            >
-              <Sprout className="h-4 w-4" />
-              <span>Heritage</span>
-            </Link>
-
-            <Link
-              href="/church-finder"
-              prefetch={false}
-              className="badge--neutral inline-flex items-center gap-1.5 px-3 py-2 text-sm transition-all hover:opacity-80"
-            >
-              <Church className="h-4 w-4" />
-              <span>Church Finder</span>
-            </Link>
+          <div className="mt-auto pt-6 lg:hidden landscape:hidden">
+            <ChatShortcuts />
           </div>
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+      </div>
+    </ChatShell>
   );
 }
