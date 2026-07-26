@@ -81,6 +81,8 @@ npm run dev
 
 You can also use `npm run dev:local` to start Docker, apply migrations, seed local fixtures, and launch Next.js in one command.
 
+Codex-managed worktrees share the local Postgres container but receive separate development, shadow, and test databases automatically. Put worktree-only API keys and local/staging credentials in `.env.worktree.local`; `.worktreeinclude` copies that ignored file into each new managed worktree.
+
 For the database workflow, CI/CD notes, and testing recommendations, see [Local Development](./docs/technical/Local%20Development.md).
 
 ## API Endpoints

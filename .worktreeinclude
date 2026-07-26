@@ -1,0 +1,3 @@
+# Copied into Codex-managed worktrees before the local-environment setup runs.
+# Keep only local or staging credentials in this ignored file.
+.env.worktree.local

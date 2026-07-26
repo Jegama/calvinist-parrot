@@ -2,6 +2,10 @@
 
 This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
+## Documentation Style
+
+- Do not hard-wrap Markdown prose to a fixed maximum column width. Keep each paragraph and list item on one logical line unless Markdown structure, a code block, or readability genuinely requires a line break.
+
 ## Project Overview
 
 Calvinist Parrot is an AI-powered theological assistant built with Next.js 16, React 19, and TypeScript. It combines Reformed theology with modern AI to provide biblical guidance through chat, journaling, prayer tracking, kids discipleship, and church discovery features.
