@@ -13,6 +13,27 @@ import { generateConversationName } from "@/utils/generateConversationName";
 import { updateUserMemoriesFromConversation } from "@/utils/memoryExtraction";
 import { buildParrotSystemPrompt } from "@/utils/buildParrotSystemPrompt";
 import { getChatActorId, resolveChatActor } from "@/lib/guest";
+import { evaluateRetry } from "@/lib/chat-requests";
+import { resolveEffectiveDenomination } from "@/lib/chat-context";
+import {
+  getRequestTerminalState,
+  selectTerminalSafeMessages,
+  type RequestTerminalState,
+} from "@/lib/chat-request-state";
+
+async function withRequestPersistenceLock<T>(
+  chatId: string,
+  requestId: string,
+  operation: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    const lockKey = `parrot-chat-request:${chatId}:${requestId}`;
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
+    `;
+    return operation(tx);
+  });
+}
 
 export async function POST(request: Request) {
   const TOOL_NODE_NAMES = new Set(["tools", ...toolsArray.map((tool) => tool.name)]);
@@ -29,6 +50,10 @@ export async function POST(request: Request) {
     denomination?: string;
     isAutoTrigger?: boolean;
     clientChatId?: string;
+    requestId?: string;
+    messageId?: string;
+    retry?: boolean;
+    stop?: boolean;
   }
 
   const {
@@ -43,10 +68,91 @@ export async function POST(request: Request) {
     denomination = "reformed-baptist",
     isAutoTrigger,
     clientChatId,
+    requestId,
+    messageId,
+    retry = false,
+    stop = false,
   }: ChatRequestBody = await request.json();
 
-  const actor = await resolveChatActor({ externalUserId: userId });
+  void userId;
+  const actor = await resolveChatActor();
   const effectiveUserId = getChatActorId(actor);
+  const resolvedRequestId = requestId?.trim() || crypto.randomUUID();
+
+  if (chatId && stop && requestId?.trim()) {
+    const chatRecord = await prisma.chatHistory.findUnique({
+      where: { id: chatId },
+      select: { userId: true },
+    });
+    if (!chatRecord) {
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    }
+    if (chatRecord.userId !== effectiveUserId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const stopResult = await withRequestPersistenceLock(
+      chatId,
+      resolvedRequestId,
+      async (tx) => {
+        const requestMessages = await tx.chatMessage.findMany({
+          where: { chatId, requestId: resolvedRequestId },
+          select: { sender: true },
+        });
+        if (
+          !requestMessages.some(
+            (requestMessage) => requestMessage.sender === "user",
+          )
+        ) {
+          return "missing_user" as const;
+        }
+
+        const terminalState = getRequestTerminalState(requestMessages);
+        if (terminalState === "completed") {
+          return "completed" as const;
+        }
+        if (terminalState === "stopped") {
+          return "stopped" as const;
+        }
+        if (terminalState === "failed") {
+          return "failed" as const;
+        }
+
+        await tx.chatMessage.create({
+          data: {
+            chatId,
+            requestId: resolvedRequestId,
+            sender: "system_stopped",
+            content: "Response stopped by the user.",
+          },
+        });
+        await tx.chatHistory.update({
+          where: { id: chatId },
+          data: { modifiedAt: new Date() },
+        });
+        return "stopped" as const;
+      },
+    );
+
+    if (stopResult === "missing_user") {
+      return NextResponse.json(
+        { error: "The original request could not be found" },
+        { status: 404 },
+      );
+    }
+    if (stopResult === "completed") {
+      return NextResponse.json({ stopped: false, completed: true });
+    }
+    if (stopResult === "failed") {
+      return NextResponse.json({
+        stopped: false,
+        completed: false,
+        failed: true,
+      });
+    }
+
+    return NextResponse.json({ stopped: true, completed: false });
+  }
 
   // Handle new chat from Parrot QA
   if (effectiveUserId && initialQuestion && initialAnswer && !chatId) {
@@ -66,6 +172,7 @@ export async function POST(request: Request) {
       await tx.chatMessage.create({
         data: {
           chatId: createdChat.id,
+          requestId: resolvedRequestId,
           sender: "user",
           content: initialQuestion,
         },
@@ -74,6 +181,7 @@ export async function POST(request: Request) {
       await tx.chatMessage.create({
         data: {
           chatId: createdChat.id,
+          requestId: resolvedRequestId,
           sender: "parrot",
           content: initialAnswer,
         },
@@ -82,12 +190,20 @@ export async function POST(request: Request) {
       return createdChat;
     });
 
-    return NextResponse.json({ chatId: chat.id });
+    const firstMessage = await prisma.chatMessage.findFirst({
+      where: { chatId: chat.id, requestId: resolvedRequestId, sender: "user" },
+      select: { id: true },
+    });
+    return NextResponse.json({
+      chatId: chat.id,
+      messageId: firstMessage?.id,
+      requestId: resolvedRequestId,
+    });
   }
 
   // If identity and an initial message are provided but no chatId, start a new chat session.
   if (effectiveUserId && initialQuestion && !chatId) {
-    const chat = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const createdChat = await tx.chatHistory.create({
         data: {
           id: clientChatId ?? undefined,
@@ -100,18 +216,23 @@ export async function POST(request: Request) {
         },
       });
 
-      await tx.chatMessage.create({
+      const createdMessage = await tx.chatMessage.create({
         data: {
           chatId: createdChat.id,
+          requestId: resolvedRequestId,
           sender: "user",
           content: initialQuestion,
         },
       });
 
-      return createdChat;
+      return { createdChat, createdMessage };
     });
 
-    return NextResponse.json({ chatId: chat.id });
+    return NextResponse.json({
+      chatId: result.createdChat.id,
+      messageId: result.createdMessage.id,
+      requestId: resolvedRequestId,
+    });
   }
 
   // If chatID and message run main system <-- This continues the converation and is the main use case.
@@ -129,6 +250,64 @@ export async function POST(request: Request) {
 
     if (chatRecord.userId !== effectiveUserId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const requestMessages = await prisma.chatMessage.findMany({
+      where: { chatId, requestId: resolvedRequestId },
+      select: { sender: true, content: true, requestId: true },
+    });
+
+    if (retry) {
+      const retryDecision = evaluateRetry(requestMessages, resolvedRequestId);
+      if (retryDecision === "already_succeeded") {
+        return NextResponse.json(
+          { error: "This request already has a successful response" },
+          { status: 409 },
+        );
+      }
+      if (retryDecision === "missing_user") {
+        return NextResponse.json(
+          { error: "The original request could not be found" },
+          { status: 404 },
+        );
+      }
+      await prisma.chatMessage.deleteMany({
+        where: {
+          chatId,
+          requestId: resolvedRequestId,
+          sender: { in: ["tool_summary", "system_error", "system_stopped"] },
+        },
+      });
+    } else {
+      const existingUserMessage = requestMessages.find(
+        (requestMessage) => requestMessage.sender === "user",
+      );
+      const alreadySucceeded = requestMessages.some(
+        (requestMessage) => requestMessage.sender === "parrot",
+      );
+      if (alreadySucceeded) {
+        return NextResponse.json(
+          { error: "This request already has a successful response" },
+          { status: 409 },
+        );
+      }
+      if (existingUserMessage && existingUserMessage.content !== message) {
+        return NextResponse.json(
+          { error: "Request ID is already associated with another message" },
+          { status: 409 },
+        );
+      }
+      if (!existingUserMessage) {
+        await prisma.chatMessage.create({
+          data: {
+            id: messageId?.trim() || undefined,
+            chatId,
+            requestId: resolvedRequestId,
+            sender: "user",
+            content: message,
+          },
+        });
+      }
     }
 
     const resolvedUserId = chatRecord.userId;
@@ -196,7 +375,7 @@ export async function POST(request: Request) {
       }),
       prisma.chatMessage.findMany({
         where: { chatId },
-        orderBy: { timestamp: "asc" },
+        orderBy: [{ timestamp: "asc" }, { id: "asc" }],
         select: { sender: true, content: true },
       }) as Promise<ChatMessageSummary[]>,
     ]);
@@ -211,6 +390,7 @@ export async function POST(request: Request) {
     // Capture variables for stream closure
     const capturedUserId = resolvedUserId;
     const capturedChatId = chatId;
+    const capturedRequestId = resolvedRequestId;
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -221,6 +401,7 @@ export async function POST(request: Request) {
             type: "progress",
             title: "Processing",
             content: "Preparing your response...",
+            requestId: capturedRequestId,
           },
           controller
         );
@@ -242,6 +423,7 @@ export async function POST(request: Request) {
         const enqueueMessage = (sender: string, content: string) => {
           pendingMessages.push({
             chatId: capturedChatId,
+            requestId: capturedRequestId,
             sender,
             content,
             // Ensure stable chronology even when createMany writes rows in one batch.
@@ -342,7 +524,15 @@ export async function POST(request: Request) {
           }
           emittedToolSummaries.add(canonical);
 
-          sendProgress({ type: "tool_summary", toolName, content, raw }, controller);
+          sendProgress(
+            {
+              type: "tool_summary",
+              toolName,
+              content,
+              requestId: capturedRequestId,
+            },
+            controller,
+          );
           enqueueMessage("tool_summary", JSON.stringify({ toolName: normalizedToolName, content, raw }));
           // Keep naming context lean and human-readable, avoid large raw payloads.
           conversationMessages.push({
@@ -351,17 +541,65 @@ export async function POST(request: Request) {
           });
         };
 
-        try {
+        let parrotReply = "";
+        let generationStopped = false;
+        const persistPendingMessages = () =>
+          withRequestPersistenceLock(
+            capturedChatId,
+            capturedRequestId,
+            async (tx) => {
+              const existingMessages = await tx.chatMessage.findMany({
+                where: {
+                  chatId: capturedChatId,
+                  requestId: capturedRequestId,
+                },
+                select: { sender: true },
+              });
+              const existingTerminalState =
+                getRequestTerminalState(existingMessages);
+              const stopRequested =
+                generationStopped || request.signal.aborted;
 
-          // Only add and save user message if not auto-triggered. This is from `app/[chatId]/page.tsx`, when you load the page and the last message is from the user.
-          if (!isAutoTrigger) {
-            const userMessage = { sender: "user", content: message };
-            conversationMessages.push(userMessage);
-            enqueueMessage("user", message);
-          }
+              if (
+                stopRequested &&
+                !pendingMessages.some(
+                  (pendingMessage) =>
+                    pendingMessage.sender === "system_stopped",
+                )
+              ) {
+                enqueueMessage(
+                  "system_stopped",
+                  "Response stopped by the user.",
+                );
+              }
+
+              const messagesToPersist = selectTerminalSafeMessages(
+                pendingMessages,
+                existingTerminalState,
+                stopRequested,
+              );
+
+              if (messagesToPersist.length > 0) {
+                await tx.chatMessage.createMany({
+                  data: messagesToPersist,
+                });
+                await tx.chatHistory.update({
+                  where: { id: capturedChatId },
+                  data: { modifiedAt: new Date() },
+                });
+              }
+
+              return getRequestTerminalState([
+                ...existingMessages,
+                ...messagesToPersist,
+              ]);
+            },
+          );
+
+        try {
+          void isAutoTrigger;
 
           // Parrot's answer
-          let parrotReply = "";
           try {
             // Build message history with system prompt (Prisma context already injected)
             const parrotHistory = buildParrotHistory(conversationMessages, newParrotSysPrompt);
@@ -376,6 +614,7 @@ export async function POST(request: Request) {
                   thread_id: capturedChatId,
                   userId: capturedUserId,
                 },
+                signal: request.signal,
               }
             );
 
@@ -388,7 +627,12 @@ export async function POST(request: Request) {
                   toolsWithCustomProgress.add(canonicalToolKey(customData.toolName));
                   // tool_progress event (ephemeral)
                   sendProgress(
-                    { type: "tool_progress", toolName: displayToolName(customData.toolName), message: customData.message },
+                    {
+                      type: "tool_progress",
+                      toolName: displayToolName(customData.toolName),
+                      message: customData.message,
+                      requestId: capturedRequestId,
+                    },
                     controller
                   );
                 } else if (customData?.toolName && customData.content) {
@@ -414,7 +658,14 @@ export async function POST(request: Request) {
                   for (const block of token.contentBlocks) {
                     if (typeof block.text === "string") {
                       parrotReply += block.text;
-                      sendProgress({ type: "parrot", content: block.text }, controller);
+                      sendProgress(
+                        {
+                          type: "parrot",
+                          content: block.text,
+                          requestId: capturedRequestId,
+                        },
+                        controller,
+                      );
                     }
                   }
                 }
@@ -435,6 +686,7 @@ export async function POST(request: Request) {
                         type: "progress",
                         title: "Drafting response",
                         content: "Turning insights into a clear answer...",
+                        requestId: capturedRequestId,
                       },
                       controller
                     );
@@ -445,6 +697,7 @@ export async function POST(request: Request) {
                         type: "progress",
                         title: "Finalizing response",
                         content: "Synthesizing research into your answer...",
+                        requestId: capturedRequestId,
                       },
                       controller
                     );
@@ -468,7 +721,12 @@ export async function POST(request: Request) {
                     // send a generic progress event so the user sees activity
                     if (!isSupplemental && !isCcel && !toolsWithCustomProgress.has(toolKey)) {
                       sendProgress(
-                        { type: "tool_progress", toolName: readableToolName, message: `Using ${readableToolName}...` },
+                        {
+                          type: "tool_progress",
+                          toolName: readableToolName,
+                          message: `Using ${readableToolName}...`,
+                          requestId: capturedRequestId,
+                        },
                         controller
                       );
                     }
@@ -525,34 +783,44 @@ export async function POST(request: Request) {
               });
             }
           } catch (error) {
-            sendError(error, "parrot_response", controller);
+            generationStopped =
+              request.signal.aborted ||
+              (error instanceof Error && error.name === "AbortError");
+            if (generationStopped) {
+              enqueueMessage("system_stopped", "Response stopped by the user.");
+            } else {
+              const failureMessage = "We couldn't finish this response.";
+              enqueueMessage("system_error", failureMessage);
+              sendError(
+                error,
+                "parrot_response",
+                controller,
+                capturedRequestId,
+              );
+            }
           }
 
-          // Persist messages to database (without conversation naming - that's deferred)
-          if (pendingMessages.length > 0) {
+          // Stop and completion use the same transaction-scoped lock. Whichever
+          // terminal state commits first becomes authoritative for this request.
+          let persistedTerminalState: RequestTerminalState = "open";
+          try {
+            persistedTerminalState = await persistPendingMessages();
+          } catch {
+            // One short retry for transient DB pressure (e.g. P2028 timeout).
             try {
-              await prisma.chatMessage.createMany({
-                data: pendingMessages,
-              });
-              await prisma.chatHistory.update({
-                where: { id: capturedChatId },
-                data: { modifiedAt: new Date() },
-              });
-            } catch {
-              // One short retry for transient DB pressure (e.g. P2028 timeout).
-              try {
-                await wait(300);
-                await prisma.chatMessage.createMany({
-                  data: pendingMessages,
-                });
-                await prisma.chatHistory.update({
-                  where: { id: capturedChatId },
-                  data: { modifiedAt: new Date() },
-                });
-              } catch (retryError) {
-                sendError(retryError, "persist_messages", controller);
-              }
+              await wait(300);
+              persistedTerminalState = await persistPendingMessages();
+            } catch (retryError) {
+              sendError(
+                retryError,
+                "persist_messages",
+                controller,
+                capturedRequestId,
+              );
             }
+          }
+          if (persistedTerminalState === "stopped") {
+            generationStopped = true;
           }
 
           // Handle conversation naming BEFORE closing stream so client can update sidebar
@@ -563,7 +831,12 @@ export async function POST(request: Request) {
               select: { conversationName: true },
             });
 
-            if (currentChat && currentChat.conversationName === "New Conversation") {
+            if (
+              persistedTerminalState === "completed" &&
+              parrotReply.trim() &&
+              currentChat &&
+              currentChat.conversationName === "New Conversation"
+            ) {
               const allMessagesStr = conversationMessages.map((m) => `${m.sender}: ${m.content}`).join("\n");
               const conversationName = await generateConversationName(allMessagesStr);
               const finalName = conversationName || "New Conversation";
@@ -575,7 +848,12 @@ export async function POST(request: Request) {
 
               // Send name update event so client can update sidebar immediately
               sendProgress(
-                { type: "conversationNameUpdated", chatId: capturedChatId, name: finalName },
+                {
+                  type: "conversationNameUpdated",
+                  chatId: capturedChatId,
+                  name: finalName,
+                  requestId: capturedRequestId,
+                },
                 controller
               );
             }
@@ -585,14 +863,30 @@ export async function POST(request: Request) {
           }
 
           // Send "done" and close stream
-          sendProgress({ type: "done" }, controller);
-          controller.close();
+          if (!generationStopped && !request.signal.aborted) {
+            sendProgress(
+              {
+                type: "done",
+                requestId: capturedRequestId,
+              },
+              controller,
+            );
+          }
+          try {
+            controller.close();
+          } catch {
+            // The client may already have closed the stream after Stop.
+          }
 
           // === Background tasks (fire-and-forget, don't block response) ===
           // Memory extraction runs after stream closes since client doesn't need this data
 
           // 2. Extract and update user memories asynchronously
-          if (capturedUserId) {
+          if (
+            persistedTerminalState === "completed" &&
+            capturedUserId &&
+            parrotReply.trim()
+          ) {
             updateUserMemoriesFromConversation(
               capturedUserId,
               conversationMessages.map((m) => ({
@@ -602,18 +896,39 @@ export async function POST(request: Request) {
             ).catch((error) => {
               console.error("Background memory extraction failed:", error);
             });
-          } else {
+          } else if (
+            persistedTerminalState === "completed" &&
+            !capturedUserId
+          ) {
             console.warn("⚠️ Memory extraction skipped: userId is undefined");
           }
         } catch (error) {
-          sendError(error, "general", controller);
-          controller.close();
+          if (!request.signal.aborted) {
+            enqueueMessage("system_error", "We couldn't finish this response.");
+            if (pendingMessages.length > 0) {
+              await persistPendingMessages().catch((persistError) => {
+                console.error(
+                  "Failed to persist request failure:",
+                  persistError,
+                );
+              });
+            }
+            sendError(error, "general", controller, capturedRequestId);
+          }
+          try {
+            controller.close();
+          } catch {
+            // The client may already have closed the stream after Stop.
+          }
         }
       },
     });
 
     return new Response(stream, {
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
+      headers: {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
     });
   }
 
@@ -623,7 +938,7 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const chatId = searchParams.get("chatId");
-  const actor = await resolveChatActor({ externalUserId: searchParams.get("userId") });
+  const actor = await resolveChatActor();
   const requesterUserId = getChatActorId(actor);
 
   if (!chatId) {
@@ -638,10 +953,20 @@ export async function GET(request: Request) {
   if (chat.userId !== requesterUserId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const messages = await prisma.chatMessage.findMany({
-    where: { chatId },
-    orderBy: [{ timestamp: "asc" }, { id: "asc" }],
-  });
+  const [profile, messages] = await Promise.all([
+    prisma.userProfile.findUnique({
+      where: { appwriteUserId: chat.userId },
+      select: { denomination: true },
+    }),
+    prisma.chatMessage.findMany({
+      where: { chatId },
+      orderBy: [{ timestamp: "asc" }, { id: "asc" }],
+    }),
+  ]);
+  const effectiveDenomination = resolveEffectiveDenomination(
+    profile?.denomination,
+    chat.denomination,
+  );
 
   // Parse tool_summary messages from JSON strings
   const parsedMessages = messages.map((msg) => {
@@ -652,7 +977,6 @@ export async function GET(request: Request) {
           ...msg,
           toolName: parsed.toolName,
           content: parsed.content,
-          raw: parsed.raw,
         };
       } catch (e) {
         console.error("Failed to parse tool_summary message:", e);
@@ -678,5 +1002,8 @@ export async function GET(request: Request) {
     return msg;
   });
 
-  return NextResponse.json({ chat, messages: parsedMessages });
+  return NextResponse.json({
+    chat: { ...chat, effectiveDenomination },
+    messages: parsedMessages,
+  });
 }

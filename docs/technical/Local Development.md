@@ -43,6 +43,34 @@ The init script only runs when Docker creates the database volume. If you need t
 
 Do not put production credentials in `.env`. Keep production database credentials in Vercel and GitHub Environments only.
 
+### Codex worktrees
+
+Codex worktrees share the same Docker Postgres container and volume, but each worktree is provisioned with its own development, shadow, and test databases. The database names use a stable hash of `CODEX_WORKTREE_PATH`, so returning to the same worktree reconnects to the same isolated data while parallel worktrees cannot migrate or reset each other's databases.
+
+The local-environment setup runs:
+
+```bash
+docker compose up -d --wait postgres
+npm run db:worktree:setup
+npm run db:deploy
+npm run db:generate
+npm run db:seed
+```
+
+`db:worktree:setup` creates databases named like:
+
+```text
+calvinist_parrot_dev_a1b2c3d4e5f6
+calvinist_parrot_shadow_a1b2c3d4e5f6
+calvinist_parrot_test_a1b2c3d4e5f6
+```
+
+It then generates the worktree's `.env` from `.env.template`, replacing only the three local database URLs. To provide API keys and other local or staging credentials, create an ignored `.env.worktree.local` in the local checkout. The tracked `.worktreeinclude` copies it into new Codex-managed worktrees, and the setup copies it to `.env.local`. The setup rejects `DATABASE_URL`, `SHADOW_DATABASE_URL`, or `TEST_DATABASE_URL` in the credential overlay so it cannot replace the isolated local URLs. Never put a production database URL in that file.
+
+The isolated databases remain in the shared Docker volume after a worktree is removed so an accidental cleanup cannot destroy another active agent's data. `docker compose down` still stops the shared Postgres service for every worktree, and `docker compose down -v` deletes all local and worktree databases, so do not run those commands while another worktree is active.
+
+When two branches add migrations independently, rebase or merge them and validate the combined migration directory against a fresh database before production deployment. Database isolation prevents local interference, but it does not resolve conflicting SQL or migration ordering automatically.
+
 ## Migrations
 
 Use `npm run db:migrate` locally after changing `prisma/schema.prisma`. This should target the Docker database from `.env`.

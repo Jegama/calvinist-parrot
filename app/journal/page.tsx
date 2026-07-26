@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { useAutoGrowingTextarea } from "@/hooks/use-auto-growing-textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProtectedView } from "@/components/ProtectedView";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Loader2, Plus, Search, MessageSquare, BookOpen, Calendar, ChevronRight } from "lucide-react";
 import { ReflectionCard } from "./components/ReflectionCard";
 import { SuggestedRequestsPanel } from "./components/SuggestedRequestsPanel";
@@ -108,6 +116,15 @@ export default function JournalPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [newEntryText, setNewEntryText] = useState("");
+  const {
+    textareaRef: journalEntryTextareaRef,
+    handleInput: handleJournalEntryInput,
+  } = useAutoGrowingTextarea(newEntryText, {
+    minHeight: 200,
+    maxHeight: 560,
+    maxViewportRatio: 0.42,
+    enabled: isComposerOpen,
+  });
   const [activeEntry, setActiveEntry] = useState<JournalEntry | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
@@ -698,74 +715,93 @@ export default function JournalPage() {
         )}
 
         {/* Composer Modal/Dialog */}
-        {isComposerOpen && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <Card className="w-full max-w-2xl max-h-[80vh] overflow-auto">
-              <CardHeader>
-                <CardTitle className="font-serif">New Journal Entry</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  What is on your heart today? Reflect on circumstances, emotions, struggles, or thanksgivings.
-                  Consider: What happened? How did you respond? What might God be teaching you?
-                </p>
-                <div>
-                  <Textarea
-                    placeholder="Write your journal entry..."
-                    value={newEntryText}
-                    onChange={(e) => setNewEntryText(e.target.value)}
-                    className="min-h-[200px]"
-                    disabled={isSubmitting}
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Tip: Reflect on what happened, how you responded, and what God might be teaching you
-                  </p>
-                </div>
-                {newEntryText.length === 0 && (
-                  <details className="text-sm">
-                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
-                      Need help getting started?
-                    </summary>
-                    <ul className="mt-2 space-y-1 text-muted-foreground ml-4 list-disc">
-                      <li>What happened today that stood out?</li>
-                      <li>How did you feel or respond?</li>
-                      <li>Where did you see God&apos;s hand?</li>
-                      <li>What are you struggling with?</li>
-                    </ul>
-                  </details>
+        <Dialog
+          open={isComposerOpen}
+          onOpenChange={(open) => {
+            if (!open && isSubmitting) return;
+            setIsComposerOpen(open);
+            if (!open) setNewEntryText("");
+          }}
+        >
+          <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-2xl flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-h-[90dvh]">
+            <DialogHeader className="shrink-0 space-y-4 px-5 pb-0 pt-5 pr-12 text-left sm:px-6 sm:pt-6 sm:pr-12">
+              <DialogTitle className="font-serif">
+                New Journal Entry
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed">
+                What is on your heart today? Reflect on circumstances,
+                emotions, struggles, or thanksgivings. Consider: What happened?
+                How did you respond? What might God be teaching you?
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">
+              <Textarea
+                ref={journalEntryTextareaRef}
+                placeholder="Write your journal entry..."
+                value={newEntryText}
+                onInput={handleJournalEntryInput}
+                onChange={(e) => setNewEntryText(e.target.value)}
+                className="min-h-[200px] max-h-[42dvh] resize-none overflow-y-hidden"
+                disabled={isSubmitting}
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Tip: Reflect on what happened, how you responded, and what God
+                might be teaching you
+              </p>
+              {newEntryText.length === 0 && (
+                <details className="mt-4 text-sm">
+                  <summary className="cursor-pointer text-muted-foreground transition-colors hover:text-foreground">
+                    Need help getting started?
+                  </summary>
+                  <ul className="ml-4 mt-2 list-disc space-y-1 text-muted-foreground">
+                    <li>What happened today that stood out?</li>
+                    <li>How did you feel or respond?</li>
+                    <li>Where did you see God&apos;s hand?</li>
+                    <li>What are you struggling with?</li>
+                  </ul>
+                </details>
+              )}
+            </div>
+
+            <DialogFooter className="shrink-0 flex-row justify-end gap-2 border-t bg-background px-5 py-4 sm:px-6 sm:space-x-0">
+              <Button
+                variant="outline"
+                className="flex-1 sm:flex-none"
+                onClick={() => {
+                  setIsComposerOpen(false);
+                  setNewEntryText("");
+                }}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 sm:flex-none"
+                onClick={handleSubmitEntry}
+                disabled={!newEntryText.trim() || isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2
+                      className="mr-2 h-4 w-4 animate-spin"
+                      aria-hidden="true"
+                    />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    Save Entry
+                    <ChevronRight
+                      className="ml-1 h-4 w-4"
+                      aria-hidden="true"
+                    />
+                  </>
                 )}
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsComposerOpen(false);
-                      setNewEntryText("");
-                    }}
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSubmitEntry}
-                    disabled={!newEntryText.trim() || isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        Save Entry
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

@@ -1,44 +1,44 @@
 "use client";
 
-import { Fragment, Suspense, useEffect, useState, useRef, useCallback } from "react";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { AppSidebar } from "@/components/chat-sidebar";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
-import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
-import { Loader2, Copy, Check, Info } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useAuth } from "@/hooks/use-auth";
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { useChatList } from "@/hooks/use-chat-list";
-import { useQuery } from "@tanstack/react-query";
-import { fetchProfileOverview } from "@/app/profile/api";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { ArrowDown, Loader2 } from "lucide-react";
 
-// Keyed by the toolName string that arrives in tool_progress events.
-// Writer-based tools use display names (e.g. "Bible Commentary").
-// MCP/route-injected tools use LangChain names (e.g. "word_study").
+import { ChatComposer } from "@/components/chat/chat-composer";
+import { ChatShell } from "@/components/chat/chat-shell";
+import { ChatTurn } from "@/components/chat/chat-turn";
+import { DenominationContextMenu } from "@/components/chat/denomination-context-menu";
+import { EditMessageDialog } from "@/components/chat/edit-message-dialog";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/hooks/use-auth";
+import { useChatList } from "@/hooks/use-chat-list";
+import {
+  groupChatMessagesIntoTurns,
+  type ChatMessageRecord,
+  type ChatTurn as ChatTurnType,
+} from "@/lib/chat-turns";
+
 const TOOL_PROGRESS_TITLES: Record<string, string> = {
-  // Display names from writer events
   "Theological Research": "Gathering supporting sources",
   "CCEL Retrieval": "Consulting classic works",
   "Memory Recall": "Recalling past context",
   "Bible Commentary": "Retrieving commentaries",
   "Cross References": "Finding cross-references",
   "Web Search": "Searching the web",
-  // LangChain tool names (from route's tools step / MCP tools)
   supplementalArticleSearch: "Gathering supporting sources",
   ccelRetrieval: "Consulting classic works",
   userMemoryRecall: "Recalling past context",
   BibleCommentary: "Retrieving commentaries",
   bibleCrossReferences: "Finding cross-references",
   generalSearch: "Searching the web",
-  // Study Bible MCP tools
   lookup_verse: "Looking up verse",
   word_study: "Analyzing word",
   get_cross_references: "Finding cross-references",
@@ -59,768 +59,776 @@ const TOOL_PROGRESS_TITLES: Record<string, string> = {
   search_by_strongs: "Searching by Strong's number",
 };
 
-const DEFAULT_DENOMINATION = "reformed-baptist";
-const DEFAULT_DENOMINATION_LABEL = "Reformed Baptist";
-const DEFAULT_DENOMINATION_REGEX = /\breformed[- ]baptist\b/i;
-const DENOMINATION_NOTICE_STORAGE_PREFIX = "chat-denomination-notice";
-
-type Message = {
-  sender: string;
-  content: string;
-  toolName?: string;
-};
-
 type Chat = {
   id: string;
   userId: string;
   conversationName: string;
+  denomination: string;
+  effectiveDenomination: string;
+  modifiedAt: string;
 };
 
+type RequestEvent = { requestId?: string };
+
 type DataEvent =
-  | { type: "info" | "done" }
-  | { type: "error"; stage: string; message: string }
-  | { type: "progress"; title: string; content: string }
-  | { type: "tool_progress"; toolName: string; message: string }
-  | { type: "tool_summary"; toolName: string; content: string; raw?: unknown }
-  | { type: "parrot"; content: string }
-  | { type: "calvin"; content: string }
-  | { type: "gotQuestions"; content: string }
-  | { type: "CCEL"; content: string }
-  | { type: "conversationNameUpdated"; chatId: string; name: string };
+  | ({ type: "info" | "done" | "stopped" } & RequestEvent)
+  | ({ type: "error"; stage: string; message: string } & RequestEvent)
+  | ({ type: "progress"; title: string; content: string } & RequestEvent)
+  | ({ type: "tool_progress"; toolName: string; message: string } & RequestEvent)
+  | ({
+      type: "tool_summary";
+      toolName: string;
+      content: string;
+    } & RequestEvent)
+  | ({ type: "parrot" | "calvin"; content: string } & RequestEvent)
+  | ({ type: "gotQuestions" | "CCEL"; content: string } & RequestEvent)
+  | ({
+      type: "conversationNameUpdated";
+      chatId: string;
+      name: string;
+    } & RequestEvent);
+
+type SendOptions = {
+  message?: string;
+  requestId?: string;
+  messageId?: string;
+  isAutoTrigger?: boolean;
+  retry?: boolean;
+};
 
 function ChatPageContent() {
   const params = useParams() as { chatId: string };
   const searchParams = useSearchParams();
   const router = useRouter();
-  const isMobile = useIsMobile();
   const { user } = useAuth();
+  const {
+    chats,
+    invalidate: invalidateChatList,
+    upsertChat,
+    removeChat,
+    renameChat,
+    deleteChat,
+  } = useChatList(user?.$id ?? "guest");
+
   const [chat, setChat] = useState<Chat | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessageRecord[]>([]);
   const [input, setInput] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [hasShownDenominationNotice, setHasShownDenominationNotice] = useState(false);
-  const [showDenominationNotice, setShowDenominationNotice] = useState(false);
-  const { chats, invalidate: invalidateChatList, upsertChat, removeChat } = useChatList(user?.$id ?? "guest");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [progress, setProgress] = useState<{ title: string; content: string } | null>(null);
-  const autoSentRef = useRef(false);
-  const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
-  const copyResetTimeoutRef = useRef<number | null>(null);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const lastChatScrolledRef = useRef<boolean>(false);
+  const [pageError, setPageError] = useState("");
+  const [composerError, setComposerError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [progress, setProgress] = useState<{
+    title: string;
+    content: string;
+  } | null>(null);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const [editingMessage, setEditingMessage] =
+    useState<ChatMessageRecord | null>(null);
+
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  // Add refs to track data loading state
-  const isFetchingChatRef = useRef(false);
-  const chatFetchedRef = useRef(false);
-  const seededInitialMessageRef = useRef(false);
-  const urlNormalizedRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const activeRequestRef = useRef<{ requestId: string } | null>(null);
+  const fetchControllerRef = useRef<AbortController | null>(null);
+  const fetchRetryTimeoutRef = useRef<number | null>(null);
+  const isFetchingRef = useRef(false);
+  const nearBottomRef = useRef(true);
+  const initialScrollCompleteRef = useRef(false);
+  const autoSentMessageIdRef = useRef<string | null>(null);
 
-  const initialQuestionParam = searchParams.get("initialQuestion");
-  const MAX_CHAT_FETCH_RETRIES = 5;
-  const RETRY_DELAY_BASE_MS = 200;
-  const COPY_FEEDBACK_DURATION = 2000;
-  const denominationNoticeStorageKey = `${DENOMINATION_NOTICE_STORAGE_PREFIX}:${params.chatId}`;
-
-  const profileOverview = useQuery({
-    queryKey: ["profile-overview", user?.$id ?? "guest"],
-    enabled: Boolean(user?.$id),
-    queryFn: () => fetchProfileOverview(),
-    staleTime: 1000 * 60 * 5,
-  });
-
-  const currentDenomination = profileOverview.data?.profile?.denomination ?? DEFAULT_DENOMINATION;
-  const shouldInviteDenominationChoice = !user?.$id || currentDenomination === DEFAULT_DENOMINATION;
-  const denominationMentionIndex = messages.findIndex(
-    (message) => message.sender === "parrot" && DEFAULT_DENOMINATION_REGEX.test(message.content)
+  const autoSendMessageId = searchParams.get("autoSendMessageId");
+  const turns = useMemo(
+    () => groupChatMessagesIntoTurns(messages),
+    [messages],
   );
-
-  // --- 1) Fetch Chat, User, and Chat List ---
 
   const fetchChat = useCallback(
     async (attempt = 0) => {
-      // Prevent duplicate fetch requests
-      if (isFetchingChatRef.current) return;
-
+      if (isFetchingRef.current) return;
+      isFetchingRef.current = true;
+      const fetchController = new AbortController();
+      fetchControllerRef.current = fetchController;
       try {
-        isFetchingChatRef.current = true;
-        const response = await fetch(`/api/parrot-chat?chatId=${params.chatId}`);
+        const response = await fetch(
+          `/api/parrot-chat?chatId=${encodeURIComponent(params.chatId)}`,
+          { cache: "no-store", signal: fetchController.signal },
+        );
         if (!response.ok) {
+          if (response.status === 404 && attempt < 4) {
+            fetchRetryTimeoutRef.current = window.setTimeout(() => {
+              void fetchChat(attempt + 1);
+            }, 150 * 2 ** attempt);
+            return;
+          }
           if (response.status === 403) {
-            setErrorMessage("You do not have access to this chat.");
-            return;
+            throw new Error("You do not have access to this conversation.");
           }
-          if (response.status === 404 && attempt < MAX_CHAT_FETCH_RETRIES) {
-            const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt);
-            setTimeout(() => fetchChat(attempt + 1), delay);
-            return;
-          }
-          throw new Error("Failed to fetch chat");
+          throw new Error("We could not load this conversation.");
         }
-        const data = await response.json();
-        if (!data.chat) {
-          if (attempt < MAX_CHAT_FETCH_RETRIES) {
-            const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt);
-            setTimeout(() => fetchChat(attempt + 1), delay);
-          } else {
-            setErrorMessage("An error occurred while fetching the chat.");
-          }
-          return;
-        }
+
+        const data = (await response.json()) as {
+          chat: Chat;
+          messages: ChatMessageRecord[];
+        };
         setChat(data.chat);
-        setMessages((current) => {
-          const incoming = Array.isArray(data.messages) ? data.messages : [];
-          // Guard against transient backend lag right after streaming.
-          // Prefer the longer transcript so the just-streamed final answer is not dropped.
-          return incoming.length >= current.length ? incoming : current;
-        });
+        setMessages(Array.isArray(data.messages) ? data.messages : []);
         upsertChat({
           id: data.chat.id,
-          conversationName: data.chat.conversationName ?? "New Conversation",
+          conversationName: data.chat.conversationName,
+          modifiedAt: data.chat.modifiedAt,
         });
-        chatFetchedRef.current = true;
-        setErrorMessage("");
-        if (initialQuestionParam && !urlNormalizedRef.current) {
-          router.replace(`/${params.chatId}`);
-          urlNormalizedRef.current = true;
-        }
+        setPageError("");
+        setIsLoading(false);
       } catch (error) {
+        if (fetchController.signal.aborted) return;
         console.error("Error fetching chat:", error);
-        if (attempt >= MAX_CHAT_FETCH_RETRIES) {
-          setErrorMessage("An error occurred while fetching the chat.");
-        }
+        setPageError(
+          error instanceof Error
+            ? error.message
+            : "We could not load this conversation.",
+        );
+        setIsLoading(false);
       } finally {
-        isFetchingChatRef.current = false;
+        if (fetchControllerRef.current === fetchController) {
+          fetchControllerRef.current = null;
+          isFetchingRef.current = false;
+        }
       }
     },
-    [params.chatId, initialQuestionParam, router, upsertChat]
+    [params.chatId, upsertChat],
   );
 
   useEffect(() => {
-    urlNormalizedRef.current = false;
-  }, [params.chatId]);
-
-  useEffect(() => {
-    setHasShownDenominationNotice(false);
-    setShowDenominationNotice(false);
-
-    if (typeof window === "undefined") return;
-
-    if (window.localStorage.getItem(denominationNoticeStorageKey) === "shown") {
-      setHasShownDenominationNotice(true);
+    fetchControllerRef.current?.abort();
+    if (fetchRetryTimeoutRef.current !== null) {
+      window.clearTimeout(fetchRetryTimeoutRef.current);
+      fetchRetryTimeoutRef.current = null;
     }
-  }, [denominationNoticeStorageKey]);
+    isFetchingRef.current = false;
+    setChat(null);
+    setMessages([]);
+    setInput("");
+    setPageError("");
+    setComposerError("");
+    setIsLoading(true);
+    setIsStreaming(false);
+    setProgress(null);
+    setShowJumpToLatest(false);
+    nearBottomRef.current = true;
+    initialScrollCompleteRef.current = false;
+    autoSentMessageIdRef.current = null;
+    void fetchChat();
 
-  useEffect(() => {
     return () => {
-      if (copyResetTimeoutRef.current !== null) {
-        window.clearTimeout(copyResetTimeoutRef.current);
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+      fetchControllerRef.current?.abort();
+      fetchControllerRef.current = null;
+      isFetchingRef.current = false;
+      if (fetchRetryTimeoutRef.current !== null) {
+        window.clearTimeout(fetchRetryTimeoutRef.current);
+        fetchRetryTimeoutRef.current = null;
       }
     };
-  }, []);
+  }, [fetchChat, params.chatId]);
 
-  // Add scroll detection for both the window and the messages container (mobile Safari may scroll the window)
   useEffect(() => {
     const container = messagesContainerRef.current;
+    if (!container) return;
 
-    const computeScrolled = () => {
-      const containerScrolled = container ? container.scrollTop > 30 : false;
-      const windowScrolled = typeof window !== "undefined" ? window.scrollY > 30 : false;
-      return containerScrolled || windowScrolled;
+    const updateScrollState = () => {
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      const isNearBottom = distanceFromBottom < 96;
+      nearBottomRef.current = isNearBottom;
+      if (isNearBottom) setShowJumpToLatest(false);
     };
 
-    const handleScroll = () => {
-      const next = computeScrolled();
-      if (next !== lastChatScrolledRef.current) {
-        lastChatScrolledRef.current = next;
-        setIsScrolled(next);
-      }
-    };
-
-    // Initialize on mount in case we land mid-scroll (e.g., browser restore)
-    setIsScrolled(computeScrolled());
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    if (container) container.addEventListener("scroll", handleScroll, { passive: true } as AddEventListenerOptions);
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      if (container) container.removeEventListener("scroll", handleScroll);
-    };
+    container.addEventListener("scroll", updateScrollState, { passive: true });
+    return () => container.removeEventListener("scroll", updateScrollState);
   }, []);
 
-  // Load chat data once when component mounts or chatId changes
   useEffect(() => {
-    if (params.chatId && !chatFetchedRef.current) {
-      fetchChat();
-    }
-  }, [params.chatId, fetchChat]);
+    const container = messagesContainerRef.current;
+    if (!container || messages.length === 0) return;
 
-  // Seed the initial user message immediately when navigating from the landing page.
-  useEffect(() => {
-    if (!seededInitialMessageRef.current && initialQuestionParam && messages.length === 0 && !chatFetchedRef.current) {
-      seededInitialMessageRef.current = true;
-      setMessages([{ sender: "user", content: initialQuestionParam }]);
-    }
-  }, [initialQuestionParam, messages.length]);
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const frame = window.requestAnimationFrame(() => {
+      if (!initialScrollCompleteRef.current || nearBottomRef.current) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: initialScrollCompleteRef.current ? "auto" : "auto",
+        });
+        nearBottomRef.current = true;
+        initialScrollCompleteRef.current = true;
+        setShowJumpToLatest(false);
+      } else {
+        setShowJumpToLatest(true);
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [messages]);
 
-  useEffect(() => {
-    if (showDenominationNotice) return;
-    if (hasShownDenominationNotice) return;
-    if (denominationMentionIndex < 0) return;
-    if (!shouldInviteDenominationChoice) return;
-    if (user?.$id && profileOverview.isPending) return;
-    if (typeof window === "undefined") return;
+  const appendFailure = useCallback((requestId: string, content: string) => {
+    setMessages((current) => {
+      if (
+        current.some(
+          (message) =>
+            message.requestId === requestId && message.sender === "system_error",
+        )
+      ) {
+        return current;
+      }
+      return [
+        ...current,
+        {
+          id: `error:${requestId}`,
+          sender: "system_error",
+          content,
+          requestId,
+          timestamp: new Date().toISOString(),
+        },
+      ];
+    });
+  }, []);
 
-    window.localStorage.setItem(denominationNoticeStorageKey, "shown");
-    setHasShownDenominationNotice(true);
-    setShowDenominationNotice(true);
-  }, [
-    hasShownDenominationNotice,
-    denominationMentionIndex,
-    denominationNoticeStorageKey,
-    profileOverview.isPending,
-    shouldInviteDenominationChoice,
-    showDenominationNotice,
-    user?.$id,
-  ]);
-
-  // --- 2) Send Message ---
   const handleSendMessage = useCallback(
-    async (opts?: { message?: string; isAutoTrigger?: boolean }) => {
-      const userInput = opts?.message || input.trim();
-      if (!userInput) return;
-      setProgress({ title: "Preparing your answer", content: "Thinking through your question to give a clear reply." });
+    async (options: SendOptions = {}) => {
+      if (isStreaming) return;
+      const outgoingMessage = (options.message ?? input).trim();
+      if (!outgoingMessage) return;
 
-      // Only add user message if not auto-triggered
-      if (!opts?.isAutoTrigger) {
-        setMessages((msgs) => [...msgs, { sender: "user", content: userInput }]);
-      }
-      setInput("");
-
-      const response = await fetch("/api/parrot-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chatId: params.chatId,
-          message: userInput,
-          isAutoTrigger: opts?.isAutoTrigger,
-        }),
+      const requestId = options.requestId ?? crypto.randomUUID();
+      const messageId = options.messageId ?? crypto.randomUUID();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      activeRequestRef.current = { requestId };
+      setComposerError("");
+      setIsStreaming(true);
+      setProgress({
+        title: options.retry ? "Retrying your answer" : "Preparing your answer",
+        content: "Thinking through your question to give a clear reply.",
       });
+      nearBottomRef.current = true;
 
-      if (!response.ok || !response.body) {
-        console.error("Error processing message");
-        setProgress(null);
-        return;
+      if (options.retry) {
+        setMessages((current) =>
+          current.filter(
+            (existing) =>
+              existing.requestId !== requestId ||
+              ![
+                "tool_summary",
+                "system_error",
+                "system_stopped",
+                "parrot",
+              ].includes(existing.sender),
+          ),
+        );
+      } else if (!options.isAutoTrigger) {
+        setMessages((current) => [
+          ...current,
+          {
+            id: messageId,
+            sender: "user",
+            content: outgoingMessage,
+            requestId,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+        setInput("");
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let buffer = "";
-
-      const appendToken = (sender: string, token: string) => {
-        // Skip empty tokens to prevent empty message bubbles
-        if (!token) return;
-
-        setMessages((msgs) => {
-          if (msgs.length > 0 && msgs[msgs.length - 1].sender === sender) {
-            return [...msgs.slice(0, -1), { sender, content: msgs[msgs.length - 1].content + token }];
-          } else {
-            return [...msgs, { sender, content: token }];
-          }
+      try {
+        const response = await fetch("/api/parrot-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            chatId: params.chatId,
+            message: outgoingMessage,
+            requestId,
+            messageId,
+            isAutoTrigger: options.isAutoTrigger,
+            retry: options.retry,
+          }),
         });
-      };
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) {
-          setProgress(null);
-          // When streaming is done, refresh chat without triggering a re-fetch loop
-          chatFetchedRef.current = false;
-          fetchChat();
-          // Also refresh the chat list to update the sidebar
-          invalidateChatList();
-          break;
+        if (!response.ok || !response.body) {
+          if (response.status === 409) {
+            await fetchChat();
+            return;
+          }
+          const body = (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          throw new Error(body?.error || "The response could not be started.");
         }
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
 
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          let data: DataEvent;
-          try {
-            data = JSON.parse(line);
-          } catch (e) {
-            console.error("Failed to parse JSON line:", line, e);
-            continue;
-          }
+        const appendAssistantToken = (
+          eventRequestId: string,
+          token: string,
+          sender = "parrot",
+        ) => {
+          if (!token) return;
+          setMessages((current) => {
+            const existingIndex = current.findIndex(
+              (existing) =>
+                existing.requestId === eventRequestId &&
+                existing.sender === sender,
+            );
+            if (existingIndex < 0) {
+              return [
+                ...current,
+                {
+                  id: `stream:${eventRequestId}:${sender}`,
+                  sender,
+                  content: token,
+                  requestId: eventRequestId,
+                  timestamp: new Date().toISOString(),
+                },
+              ];
+            }
+            const next = current.slice();
+            next[existingIndex] = {
+              ...next[existingIndex],
+              content: next[existingIndex].content + token,
+            };
+            return next;
+          });
+        };
 
+        const processEvent = (data: DataEvent) => {
+          const eventRequestId = data.requestId ?? requestId;
           switch (data.type) {
             case "progress":
               setProgress({ title: data.title, content: data.content });
               break;
             case "tool_progress":
-              // Ephemeral tool progress - show in progress indicator
               setProgress({
-                title: TOOL_PROGRESS_TITLES[data.toolName] || "Working on your answer",
+                title:
+                  TOOL_PROGRESS_TITLES[data.toolName] ||
+                  "Working on your answer",
                 content: data.message,
               });
               break;
             case "tool_summary":
-              // Save tool summary as a collapsible message
-              setMessages((msgs) => [
-                ...msgs,
-                { sender: "tool_summary", content: data.content, toolName: data.toolName },
+              setMessages((current) => [
+                ...current,
+                {
+                  id: crypto.randomUUID(),
+                  sender: "tool_summary",
+                  toolName: data.toolName,
+                  content: data.content,
+                  requestId: eventRequestId,
+                  timestamp: new Date().toISOString(),
+                },
               ]);
               break;
             case "parrot":
-              appendToken("parrot", data.content);
-              break;
             case "calvin":
-              appendToken("calvin", data.content);
+              appendAssistantToken(eventRequestId, data.content, data.type);
               break;
             case "gotQuestions":
-              setMessages((msgs) => [
-                ...msgs,
-                { sender: "tool_summary", toolName: "Theological Research", content: data.content },
-              ]);
-              break;
             case "CCEL":
-              setMessages((msgs) => [
-                ...msgs,
-                { sender: "tool_summary", toolName: "CCEL Retrieval", content: data.content },
+              setMessages((current) => [
+                ...current,
+                {
+                  id: crypto.randomUUID(),
+                  sender: "tool_summary",
+                  toolName:
+                    data.type === "CCEL"
+                      ? "CCEL Retrieval"
+                      : "Theological Research",
+                  content: data.content,
+                  requestId: eventRequestId,
+                  timestamp: new Date().toISOString(),
+                },
               ]);
               break;
             case "error":
               setProgress(null);
-              setMessages((msgs) => [
-                ...msgs,
+              appendFailure(eventRequestId, data.message);
+              break;
+            case "stopped":
+              setMessages((current) => [
+                ...current,
                 {
-                  sender: "system_error",
-                  content: `An error occurred during ${data.stage}: ${data.message}`,
+                  id: `stopped:${eventRequestId}`,
+                  sender: "system_stopped",
+                  content: "Response stopped by the user.",
+                  requestId: eventRequestId,
+                  timestamp: new Date().toISOString(),
                 },
               ]);
               break;
             case "conversationNameUpdated":
-              // Update sidebar immediately with new conversation name
-              upsertChat({ id: data.chatId, conversationName: data.name });
-              if (chat?.id === data.chatId) {
-                setChat((prev) => prev ? { ...prev, conversationName: data.name } : prev);
-              }
+              upsertChat({
+                id: data.chatId,
+                conversationName: data.name,
+              });
+              setChat((current) =>
+                current?.id === data.chatId
+                  ? { ...current, conversationName: data.name }
+                  : current,
+              );
               break;
             case "done":
-              setProgress(null);
-              // Refresh chat data once after completion
-              chatFetchedRef.current = false;
-              fetchChat();
+            case "info":
+              break;
+          }
+        };
 
-              // Refresh chat list to update sidebar
-              invalidateChatList();
-              if (initialQuestionParam && !urlNormalizedRef.current) {
-                router.replace(`/${params.chatId}`);
-                urlNormalizedRef.current = true;
-              }
-              return;
-            default:
-              console.warn("Unknown event type:", data.type);
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              processEvent(JSON.parse(line) as DataEvent);
+            } catch (error) {
+              console.error("Failed to parse chat event:", error);
+            }
           }
         }
+
+        if (buffer.trim()) {
+          try {
+            processEvent(JSON.parse(buffer) as DataEvent);
+          } catch (error) {
+            console.error("Failed to parse final chat event:", error);
+          }
+        }
+
+        await fetchChat();
+        invalidateChatList();
+      } catch (error) {
+        if (controller.signal.aborted) {
+          setMessages((current) => {
+            if (
+              current.some(
+                (message) =>
+                  message.requestId === requestId &&
+                  message.sender === "system_stopped",
+              )
+            ) {
+              return current;
+            }
+            return [
+              ...current,
+              {
+                id: `stopped:${requestId}`,
+                sender: "system_stopped",
+                content: "Response stopped by the user.",
+                requestId,
+                timestamp: new Date().toISOString(),
+              },
+            ];
+          });
+        } else {
+          console.error("Error processing message:", error);
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : "We couldn't finish this response.";
+          setComposerError(errorMessage);
+          appendFailure(requestId, errorMessage);
+        }
+      } finally {
+        if (abortControllerRef.current === controller) {
+          abortControllerRef.current = null;
+        }
+        if (activeRequestRef.current?.requestId === requestId) {
+          activeRequestRef.current = null;
+        }
+        setProgress(null);
+        setIsStreaming(false);
       }
     },
-    [input, params.chatId, fetchChat, invalidateChatList, initialQuestionParam, router, chat?.id, upsertChat]
+    [
+      appendFailure,
+      fetchChat,
+      input,
+      invalidateChatList,
+      isStreaming,
+      params.chatId,
+      upsertChat,
+    ],
   );
 
-  // --- Auto-trigger sending if only the initial user message exists ---
   useEffect(() => {
     if (
-      chatFetchedRef.current &&
-      messages.length === 1 &&
-      messages[0].sender === "user" &&
-      !autoSentRef.current &&
-      !progress
+      !autoSendMessageId ||
+      isLoading ||
+      isStreaming ||
+      autoSentMessageIdRef.current === autoSendMessageId
     ) {
-      autoSentRef.current = true;
-      // Call handleSendMessage with autotrigger flag
-      handleSendMessage({ message: messages[0].content, isAutoTrigger: true });
+      return;
     }
-  }, [messages, handleSendMessage, progress]);
 
-  // --- 3) Rendering ---
-  if (errorMessage) {
-    return (
-      <div className="flex flex-1 overflow-hidden">
-        <p className="text-destructive">{errorMessage}</p>
-      </div>
+    const userMessage = messages.find(
+      (message) =>
+        message.id === autoSendMessageId && message.sender === "user",
     );
-  }
+    if (!userMessage) return;
 
-  if (!chat) {
-    return (
-      <SidebarProvider style={{ minHeight: "calc(100vh - var(--app-header-height))" }}>
-        <AppSidebar
-          chats={chats}
-          currentChatId={params.chatId}
-          onDeleted={(id) => {
-            removeChat(id);
-            if (id === params.chatId) {
-              router.push("/");
-            }
-          }}
-        />
-        <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))] !bg-transparent">
-          <div className="flex min-h-full flex-col">
-            <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <SidebarTrigger className="-ml-1" />
-              <Separator orientation="vertical" className="h-4 mr-2" />
-              <Skeleton className="h-6 w-48" />
-            </header>
-            <div className="flex-1 overflow-hidden px-4 pb-6 pt-4">
-              <Card className="mx-auto flex h-full w-full max-w-2xl flex-col">
-                <CardContent className="flex-1 space-y-4 overflow-y-auto p-6">
-                  <p className="text-lg text-muted-foreground">Loading chat...</p>
-                  <div className="ml-auto max-w-[80%] space-y-2">
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="h-20 w-full" />
-                  </div>
-                  <div className="mr-auto max-w-[80%] space-y-2">
-                    <Skeleton className="h-4 w-16" />
-                    <Skeleton className="h-32 w-full" />
-                  </div>
-                </CardContent>
-                <div className="border-t bg-card/80 p-4 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-                  <Skeleton className="h-20 w-full" />
-                </div>
-              </Card>
-            </div>
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+    const alreadyFinished = messages.some(
+      (message) =>
+        message.requestId === userMessage.requestId &&
+        ["parrot", "system_error", "system_stopped"].includes(message.sender),
     );
-  }
+    autoSentMessageIdRef.current = autoSendMessageId;
+    router.replace(`/${params.chatId}`);
+    if (!alreadyFinished) {
+      void handleSendMessage({
+        message: userMessage.content,
+        messageId: userMessage.id,
+        requestId: userMessage.requestId ?? crypto.randomUUID(),
+        isAutoTrigger: true,
+      });
+    }
+  }, [
+    autoSendMessageId,
+    handleSendMessage,
+    isLoading,
+    isStreaming,
+    messages,
+    params.chatId,
+    router,
+  ]);
+
+  const handleRetry = (turn: ChatTurnType) => {
+    if (!turn.requestId || !turn.user || isStreaming) return;
+    void handleSendMessage({
+      message: turn.user.content,
+      messageId: turn.user.id,
+      requestId: turn.requestId,
+      isAutoTrigger: true,
+      retry: true,
+    });
+  };
+
+  const handleCreateBranch = async (
+    message: ChatMessageRecord,
+    editedText: string,
+  ) => {
+    const response = await fetch("/api/parrot-chat/branch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sourceChatId: params.chatId,
+        sourceMessageId: message.id,
+        editedText,
+      }),
+    });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      throw new Error(body?.error || "Unable to create conversation branch");
+    }
+
+    const data = (await response.json()) as {
+      chatId: string;
+      title: string;
+      editedMessageId: string;
+    };
+    upsertChat({ id: data.chatId, conversationName: data.title });
+    router.push(
+      `/${data.chatId}?autoSendMessageId=${encodeURIComponent(data.editedMessageId)}`,
+    );
+  };
+
+  const jumpToLatest = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    nearBottomRef.current = true;
+    setShowJumpToLatest(false);
+  };
+
+  const stopActiveResponse = async () => {
+    const activeRequest = activeRequestRef.current;
+    abortControllerRef.current?.abort();
+    if (!activeRequest) return;
+
+    try {
+      const response = await fetch("/api/parrot-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: params.chatId,
+          requestId: activeRequest.requestId,
+          stop: true,
+        }),
+      });
+      if (!response.ok) {
+        console.error("Unable to persist stopped response state");
+        return;
+      }
+      await fetchChat();
+      invalidateChatList();
+    } catch (error) {
+      console.error("Unable to persist stopped response state:", error);
+    }
+  };
+
+  const currentDenomination =
+    chat?.effectiveDenomination || chat?.denomination || "reformed-baptist";
 
   return (
-    <SidebarProvider style={{ minHeight: "calc(100vh - var(--app-header-height))" }}>
-      <AppSidebar
+    <>
+      <ChatShell
         chats={chats}
         currentChatId={params.chatId}
-        onDeleted={(id) => {
-          removeChat(id);
-          if (id === params.chatId) {
-            router.push("/");
-          }
+        title={
+          isLoading ? (
+            <span
+              className="block h-5 w-48 animate-pulse rounded bg-muted motion-reduce:animate-none"
+              aria-label="Loading conversation"
+            />
+          ) : (
+            chat?.conversationName || "Conversation"
+          )
+        }
+        toolbarEnd={
+          <DenominationContextMenu
+            denomination={currentDenomination}
+            isAuthenticated={Boolean(user?.$id)}
+          />
+        }
+        onDelete={(chatId) =>
+          deleteChat.mutateAsync(chatId).then(() => undefined)
+        }
+        onRename={(chatId, conversationName) =>
+          renameChat
+            .mutateAsync({ chatId, conversationName })
+            .then(({ chat: renamedChat }) => {
+              if (renamedChat.id === params.chatId) {
+                setChat((current) =>
+                  current
+                    ? {
+                        ...current,
+                        conversationName: renamedChat.conversationName,
+                        modifiedAt: renamedChat.modifiedAt,
+                      }
+                    : current,
+                );
+              }
+            })
+        }
+        onDeleted={(chatId) => {
+          removeChat(chatId);
+          if (chatId === params.chatId) router.push("/");
         }}
-      />
-      <SidebarInset className="min-h-[calc(100vh-var(--app-header-height))] !bg-transparent">
-        <div className="flex min-h-full flex-col">
-          <header
-            className={`sticky top-[var(--app-header-height)] z-20 flex shrink-0 items-center transition-all duration-200 ease-in-out ${isMobile && isScrolled
-              ? "!bg-transparent"
-              : isScrolled
-                ? "!bg-transparent"
-                : "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-              } ${isMobile && !isScrolled ? "!bg-transparent !backdrop-blur-none" : ""}`}
-            style={{
-              height: isMobile ? (isScrolled ? "2.5rem" : "3.5rem") : isScrolled ? "3rem" : "4rem",
-              justifyContent: isMobile && isScrolled ? "center" : "flex-start",
-              paddingLeft: isMobile && isScrolled ? 0 : "1rem",
-              paddingRight: isMobile && isScrolled ? 0 : "1rem",
-            }}
+      >
+        <div className="flex h-full min-h-0 flex-col">
+          <div
+            ref={messagesContainerRef}
+            className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-5 scroll-smooth sm:px-6 sm:py-7"
+            aria-busy={isStreaming}
           >
-            <div
-              className={`flex items-center transition-all duration-700 ease-in-out ${isMobile && isScrolled ? "liquid-glass-pill" : ""
-                }`}
-              style={{
-                justifyContent: isMobile && isScrolled ? "center" : "flex-start",
-                background: isMobile && isScrolled ? "transparent" : "transparent",
-                backdropFilter: "none",
-                borderRadius: isMobile && isScrolled ? "9999px" : "0",
-                border: "none",
-                paddingLeft: isMobile && isScrolled ? "0.625rem" : "0",
-                paddingRight: isMobile && isScrolled ? "0.625rem" : "0",
-                paddingTop: isMobile && isScrolled ? "0.01rem" : "0",
-                paddingBottom: isMobile && isScrolled ? "0.01rem" : "0",
-                width: isMobile && isScrolled ? "50%" : "100%",
-                maxWidth: isMobile && isScrolled ? "20rem" : "none",
-                boxShadow: "none",
-                gap: isMobile && isScrolled ? 0 : "0.5rem",
-              }}
-            >
-              <SidebarTrigger
-                className="-ml-1 transition-all duration-700 ease-in-out"
-                style={{
-                  opacity: isMobile && isScrolled ? 0 : 1,
-                  width: isMobile && isScrolled ? 0 : "auto",
-                  marginLeft: isMobile && isScrolled ? 0 : undefined,
-                  marginRight: isMobile && isScrolled ? 0 : undefined,
-                  pointerEvents: isMobile && isScrolled ? "none" : "auto",
-                  transform: isMobile && isScrolled ? "scale(0)" : "scale(1)",
-                }}
-              />
-              <Separator
-                orientation="vertical"
-                className="h-4 transition-all duration-700 ease-in-out"
-                style={{
-                  opacity: isMobile && isScrolled ? 0 : 1,
-                  width: isMobile && isScrolled ? 0 : "auto",
-                  marginLeft: isMobile && isScrolled ? 0 : undefined,
-                  marginRight: isMobile && isScrolled ? 0 : "0.5rem",
-                  transform: isMobile && isScrolled ? "scale(0)" : "scale(1)",
-                }}
-              />
-              <h2
-                className="leading-tight transition-all duration-700 ease-in-out truncate"
-                style={{
-                  fontSize: isMobile ? (isScrolled ? "0.75rem" : "1rem") : isScrolled ? "0.875rem" : "1.125rem",
-                  fontWeight: isMobile && isScrolled ? 500 : 600,
-                  textAlign: isMobile && isScrolled ? "center" : "left",
-                  flex: isMobile && isScrolled ? "1" : "0 1 auto",
-                }}
-              >
-                {chat.conversationName}
-              </h2>
-            </div>
-          </header>
-          <div className="flex-1 overflow-hidden px-4 pb-6 pt-4">
-            <Card className="mx-auto flex h-full w-full max-w-2xl flex-col">
-              <CardContent ref={messagesContainerRef} className="flex-1 space-y-4 overflow-y-auto p-6">
-                {messages.map((msg, i) => {
-                  switch (msg.sender) {
-                    case "user":
-                      return (
-                        <div
-                          key={i}
-                          className="ml-auto max-w-[80%] rounded-md bg-user-message p-3 text-user-message-foreground shadow"
-                        >
-                          <div className="mb-1 text-sm font-bold">You</div>
-                          <MarkdownWithBibleVerses content={msg.content} />
-                        </div>
-                      );
-                    case "parrot":
-                      return (
-                        <Fragment key={i}>
-                          <div className="group relative mr-auto max-w-[80%] rounded-md bg-parrot-message p-3 text-parrot-message-foreground shadow break-words overflow-wrap-anywhere">
-                            <div className="mb-1 text-sm font-bold">Parrot</div>
-                            <div className="break-words overflow-wrap-anywhere">
-                              <MarkdownWithBibleVerses content={msg.content} />
-                            </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              aria-label={copiedMessageIndex === i ? "Markdown copied" : "Copy markdown"}
-                              className="absolute right-3 top-3 h-7 w-7 rounded-full bg-muted/30 text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-muted/40"
-                              onClick={async () => {
-                                try {
-                                  await navigator.clipboard.writeText(msg.content);
-                                  setCopiedMessageIndex(i);
-                                  if (copyResetTimeoutRef.current !== null) {
-                                    window.clearTimeout(copyResetTimeoutRef.current);
-                                  }
-                                  copyResetTimeoutRef.current = window.setTimeout(() => {
-                                    setCopiedMessageIndex(null);
-                                    copyResetTimeoutRef.current = null;
-                                  }, COPY_FEEDBACK_DURATION);
-                                } catch (err) {
-                                  console.error("Failed to copy message:", err);
-                                }
-                              }}
-                            >
-                              {copiedMessageIndex === i ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                            </Button>
-                          </div>
-
-                          {showDenominationNotice && denominationMentionIndex === i ? (
-                            <div className="mr-auto mt-2 max-w-[80%]">
-                              <Alert className="border-border/60 bg-muted/20">
-                                <Info className="h-4 w-4" />
-                                <AlertTitle>
-                                  {user?.$id ? "Prefer a different tradition?" : `Currently using ${DEFAULT_DENOMINATION_LABEL} mode`}
-                                </AlertTitle>
-                                <AlertDescription className="space-y-3">
-                                  <p>
-                                    {user?.$id
-                                      ? `Parrot is answering with ${DEFAULT_DENOMINATION_LABEL} distinctives. If you'd rather use another tradition, you can update your denomination in your profile.`
-                                      : `Parrot defaults to ${DEFAULT_DENOMINATION_LABEL} distinctives for guests. Create an account to choose another denomination, or sign in if you already have one.`}
-                                  </p>
-
-                                  <div className="flex flex-wrap gap-2">
-                                    {user?.$id ? (
-                                      <Button asChild size="sm">
-                                        <Link href="/profile">Choose denomination in profile</Link>
-                                      </Button>
-                                    ) : (
-                                      <>
-                                        <Button asChild size="sm">
-                                          <Link href="/register">Create account</Link>
-                                        </Button>
-                                        <Button asChild size="sm" variant="outline">
-                                          <Link href="/login">Sign in</Link>
-                                        </Button>
-                                      </>
-                                    )}
-                                  </div>
-                                </AlertDescription>
-                              </Alert>
-                            </div>
-                          ) : null}
-                        </Fragment>
-                      );
-                    case "calvin": // for backward compatibility
-                      return (
-                        <div key={i} className="mr-auto mt-2 max-w-[80%]">
-                          <Accordion type="single" collapsible>
-                            <AccordionItem value={`calvin-${i}`}>
-                              <AccordionTrigger>Calvin&apos;s Feedback</AccordionTrigger>
-                              <AccordionContent>
-                                <MarkdownWithBibleVerses content={msg.content} />
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
-                        </div>
-                      );
-                    case "tool_summary":
-                      const toolIcons: Record<string, string> = {
-                        "Theological Research": "🔍",
-                        "Bible Commentary": "📖",
-                        "Memory Recall": "🧠",
-                        "CCEL Retrieval": "📚",
-                        "Cross References": "🔗",
-                        "Web Search": "🌐",
-                        "Lookup Verse": "📜",
-                        "Word Study": "📘",
-                        "Get Cross References": "🔗",
-                        "Get Study Notes": "📝",
-                        "Search Lexicon": "📚",
-                        "Parse Morphology": "🔎",
-                        "Explore Genealogy": "🌿",
-                        "Explore Person Events": "👤",
-                        "Explore Place": "🗺️",
-                        "Find Connection": "🧩",
-                        "Find Similar Passages": "🧭",
-                        "Get Ane Context": "🏺",
-                        "Get Bible Dictionary": "📗",
-                        "Get Key Terms": "🏷️",
-                        "Graph Enriched Search": "🕸️",
-                        "Lookup Name": "🔤",
-                        "People In Passage": "👥",
-                        "Search By Strongs": "🔠",
-                      };
-                      const toolTitles: Record<string, string> = {
-                        "Theological Research": "Research Notes",
-                        "Bible Commentary": "Commentary References",
-                        "Memory Recall": "Context Recalled",
-                        "CCEL Retrieval": "CCEL Sources",
-                        "Cross References": "Cross-References",
-                        "Web Search": "Web Sources",
-                        "Lookup Verse": "Verse Lookup",
-                        "Word Study": "Word Study",
-                        "Get Cross References": "Cross-References",
-                        "Get Study Notes": "Study Notes",
-                        "Search Lexicon": "Lexicon Results",
-                        "Parse Morphology": "Morphology Analysis",
-                        "Explore Genealogy": "Genealogy",
-                        "Explore Person Events": "Person Events",
-                        "Explore Place": "Place Details",
-                        "Find Connection": "Passage Connections",
-                        "Find Similar Passages": "Similar Passages",
-                        "Get Ane Context": "Ancient Context",
-                        "Get Bible Dictionary": "Bible Dictionary",
-                        "Get Key Terms": "Key Terms",
-                        "Graph Enriched Search": "Knowledge Graph",
-                        "Lookup Name": "Name Lookup",
-                        "People In Passage": "People In Passage",
-                        "Search By Strongs": "Strong's Search",
-                      };
-                      const toolName = msg.toolName || "unknown";
-                      const icon = toolIcons[toolName] || "🔧";
-                      const title = toolTitles[toolName] || toolName;
-                      return (
-                        <div key={i} className="mr-auto mt-2 max-w-[80%]">
-                          <Accordion type="single" collapsible>
-                            <AccordionItem value={`tool-${i}`}>
-                              <AccordionTrigger>
-                                {icon} {title}
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <div className="max-h-72 overflow-y-auto rounded-md border border-border/60 bg-muted/20 p-3">
-                                  <MarkdownWithBibleVerses content={msg.content} />
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
-                        </div>
-                      );
-                    case "system_error":
-                      return (
-                        <div key={i} className="mr-auto max-w-[80%] rounded-md border border-destructive/40 bg-destructive/10 p-3 text-destructive">
-                          <div className="mb-1 text-sm font-bold">System</div>
-                          <p className="text-sm">{msg.content}</p>
-                        </div>
-                      );
-                    default:
-                      return (
-                        <div key={i} className="mr-auto max-w-[80%] rounded-md border border-border/60 bg-muted/20 p-3 text-foreground">
-                          <div className="mb-1 text-sm font-bold">Message</div>
-                          <MarkdownWithBibleVerses content={msg.content} />
-                        </div>
-                      );
-                  }
-                })}
-                <div ref={messagesEndRef} />
-              </CardContent>
-              <div className="border-t bg-card/80 p-4 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-                {progress ? (
-                  <div className="flex items-center gap-3">
-                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                    <div className="space-y-1 text-sm">
-                      <h3 className="font-semibold leading-none">{progress.title}</h3>
-                      <p className="text-muted-foreground">{progress.content}</p>
-                    </div>
+            <div className="mx-auto w-full max-w-4xl space-y-8 pb-5">
+              {isLoading ? (
+                <div className="space-y-7" aria-label="Loading conversation">
+                  <div className="ms-auto w-3/4 max-w-xl space-y-2">
+                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="ms-auto h-8 w-36" />
                   </div>
-                ) : (
-                  <form
-                    className="flex w-full items-end gap-3"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }}
-                  >
-                    <Textarea
-                      className="min-h-[80px] flex-1 resize-none"
-                      placeholder="Type your message..."
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      disabled={!!progress}
-                    />
-                    <Button type="submit" disabled={!!progress}>
-                      Send
-                    </Button>
-                  </form>
-                )}
+                  <Skeleton className="h-48 w-full max-w-[72ch]" />
+                </div>
+              ) : pageError ? (
+                <div
+                  className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive"
+                  role="alert"
+                >
+                  {pageError}
+                </div>
+              ) : turns.length === 0 ? (
+                <p className="py-12 text-center text-muted-foreground">
+                  Ask a theological question to begin.
+                </p>
+              ) : (
+                turns.map((turn) => (
+                  <ChatTurn
+                    key={turn.key}
+                    turn={turn}
+                    onEdit={setEditingMessage}
+                    onRetry={handleRetry}
+                  />
+                ))
+              )}
+            </div>
+            {showJumpToLatest ? (
+              <div className="pointer-events-none sticky bottom-3 flex justify-center">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="pointer-events-auto min-h-10 rounded-full border border-border shadow-lg"
+                  onClick={jumpToLatest}
+                >
+                  <ArrowDown className="h-4 w-4" aria-hidden="true" />
+                  Jump to latest
+                </Button>
               </div>
-            </Card>
+            ) : null}
+          </div>
+
+          <div className="shrink-0 border-t border-border/70 bg-background/95 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+            <div className="mx-auto w-full max-w-4xl">
+              {isLoading ? (
+                <div className="rounded-[var(--radius)] border bg-input-bg p-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2
+                      className="h-4 w-4 animate-spin motion-reduce:animate-none"
+                      aria-hidden="true"
+                    />
+                    Loading conversation…
+                  </div>
+                </div>
+              ) : (
+                <ChatComposer
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={() => void handleSendMessage()}
+                  onStop={() => void stopActiveResponse()}
+                  isStreaming={isStreaming}
+                  progress={progress}
+                  error={composerError}
+                />
+              )}
+            </div>
           </div>
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+      </ChatShell>
+
+      <EditMessageDialog
+        message={editingMessage}
+        open={Boolean(editingMessage)}
+        onOpenChange={(open) => {
+          if (!open) setEditingMessage(null);
+        }}
+        onConfirm={handleCreateBranch}
+      />
+      <p className="sr-only" aria-live="polite">
+        {isStreaming ? "Parrot is responding." : ""}
+      </p>
+    </>
   );
 }
 
 export default function ChatPage() {
   return (
-    <Suspense fallback={<div className="min-h-[calc(100vh-var(--app-header-height))]" />}>
+    <Suspense
+      fallback={
+        <div className="min-h-[calc(100vh-var(--app-header-height))]" />
+      }
+    >
       <ChatPageContent />
     </Suspense>
   );

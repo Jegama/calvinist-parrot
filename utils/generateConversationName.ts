@@ -6,8 +6,22 @@ import {
     n_shot_examples,
   } from '@/lib/prompts/parrot-qa';
 import type { ChatMessage } from '@/lib/parrot-ai';
+import {
+  deterministicConversationTitle,
+  MAX_CONVERSATION_TITLE_LENGTH,
+} from '@/lib/chat-title';
 
-// Helper: generate conversation name
+const MAX_NAME_ATTEMPTS = 2;
+
+function normalizeGeneratedTitle(value: string) {
+  return value
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, MAX_CONVERSATION_TITLE_LENGTH);
+}
+
+// Helper: generate a conversation name with bounded retries and a deterministic fallback.
 export async function generateConversationName(currentConversation: string): Promise<string> {
   const promptCreateName = `I have this conversation:
 
@@ -31,19 +45,25 @@ What would you like to name this conversation? It can be a short name to remembe
     },
   };
 
-  try {
-    const result = await parrotAI.generateStructured<{ name: string }>({
-      messages: [
-        { role: "system", content: 'You are a helpful assistant that can create short names for conversations.' },
-        { role: "user", content: promptCreateName },
-      ],
-      schema: conversationNameSchema,
-    });
-
-    return result.data.name;
-  } catch {
-    return await generateConversationName(currentConversation);
+  for (let attempt = 0; attempt < MAX_NAME_ATTEMPTS; attempt += 1) {
+    try {
+      const result = await parrotAI.generateStructured<{ name: string }>({
+        messages: [
+          { role: "system", content: 'You are a helpful assistant that can create short names for conversations.' },
+          { role: "user", content: promptCreateName },
+        ],
+        schema: conversationNameSchema,
+      });
+      const title = normalizeGeneratedTitle(result.data.name);
+      if (title) return title;
+    } catch (error) {
+      if (attempt === MAX_NAME_ATTEMPTS - 1) {
+        console.error("Conversation naming failed after bounded retries:", error);
+      }
+    }
   }
+
+  return deterministicConversationTitle(currentConversation);
 }
 
 // Build categorization messages

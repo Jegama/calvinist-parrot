@@ -1,16 +1,18 @@
 // lib/progressUtils.ts
 
+type RequestEvent = { requestId?: string };
+
 type DataEvent =
-  | { type: "info" | "done" }
-  | { type: "error"; stage: string; message: string }
-  | { type: "progress"; title: string; content: string }
-  | { type: "tool_progress"; toolName: string; message: string }
-  | { type: "tool_summary"; toolName: string; content: string; raw?: unknown }
-  | { type: "parrot"; content: string }
-  | { type: "calvin"; content: string }
-  | { type: "gotQuestions"; content: string }
-  | { type: "CCEL"; content: string }
-  | { type: "conversationNameUpdated"; chatId: string; name: string };
+  | ({ type: "info" | "done" | "stopped" } & RequestEvent)
+  | ({ type: "error"; stage: string; message: string } & RequestEvent)
+  | ({ type: "progress"; title: string; content: string } & RequestEvent)
+  | ({ type: "tool_progress"; toolName: string; message: string } & RequestEvent)
+  | ({ type: "tool_summary"; toolName: string; content: string } & RequestEvent)
+  | ({ type: "parrot"; content: string } & RequestEvent)
+  | ({ type: "calvin"; content: string } & RequestEvent)
+  | ({ type: "gotQuestions"; content: string } & RequestEvent)
+  | ({ type: "CCEL"; content: string } & RequestEvent)
+  | ({ type: "conversationNameUpdated"; chatId: string; name: string } & RequestEvent);
 
 // Shared function for streaming progress messages.
 export function sendProgress(data: DataEvent, controller?: ReadableStreamDefaultController<Uint8Array>) {
@@ -27,7 +29,8 @@ export function sendProgress(data: DataEvent, controller?: ReadableStreamDefault
 export function sendError(
   error: Error | unknown,
   stage: string,
-  controller: ReadableStreamDefaultController<Uint8Array>
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  requestId?: string,
 ) {
   console.error(`Error during ${stage}:`, error);
   sendProgress(
@@ -35,6 +38,7 @@ export function sendError(
       type: "error",
       stage,
       message: "An error occurred, but continuing conversation...",
+      requestId,
     },
     controller
   );

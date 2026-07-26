@@ -174,6 +174,8 @@ All main feature pages use a standardized header pattern for consistency:
 
 - Inputs: `bg-background`/`bg-card`, `border-border`, focus `ring`.
 - Labels: `text-foreground/80`; helper text uses `muted-foreground`.
+- Long-form textareas should auto-grow until they reach a viewport-aware ceiling, then scroll internally. Use the shared `useAutoGrowingTextarea` behavior instead of fixed heights.
+- The New Journal Entry dialog keeps its header and action footer visible, lets the middle region scroll, and caps the textarea at `min(560px, 42dvh)` with a 200px minimum. This prevents long entries from pushing Cancel or Save Entry outside small phone viewports.
 
 ### 4.5 Cards
 
@@ -197,13 +199,29 @@ All main feature pages use a standardized header pattern for consistency:
 ### 4.8 Chat Bubbles
 
 - User: `bg-user-message text-user-message-foreground` (Sage)
-- Parrot: `bg-parrot-message text-parrot-message-foreground` (Deep Blue)
-- Maintain adequate padding and max-width for readability (~60–70ch max for prose).
+- Long-form Parrot answers: `bg-card text-card-foreground` with a subtle `border-border` edge. Keep the prose measure near `66–72ch`; this limits line length, never total answer length.
+- `bg-parrot-message text-parrot-message-foreground` (Deep Blue) remains available for legacy or compact assistant bubbles, but it is not the preferred surface for long-form answers.
+- Composer: `bg-input-bg border-input` with subtle elevation so it remains distinct from the Cream page and legible in dark mode. The landing composer is the entry screen’s visual anchor: it starts at 144px and auto-grows to `min(560px, 60vh)`. The in-conversation composer starts at 72px and auto-grows to `min(200px, 40vh)`.
+- Place message actions immediately outside both user and Parrot surfaces. Use icon-only controls with accessible names and tooltips to keep the transcript visually quiet.
+- Keep user and assistant content wrapped with `MarkdownWithBibleVerses` so headings, lists, tables, code, links, and Bible popovers retain their semantics.
+- The landing disclaimer is exactly: “The Parrot is not a substitute for your own study, prayer, or pastoral counsel.”
+- The in-conversation disclaimer is exactly: “The Parrot can make mistakes. Check important claims against Scripture and your elders/pastors.” Render it smaller than normal helper text.
+- Copy defaults to Formatted for Word and also offers Markdown and Plain text. All three formats resolve internal links to absolute URLs; selected rich text preserves semantic HTML with a plain-text fallback.
+- Editing a user message opens a clearly differentiated confirmation inset before creating a new conversation branch. The original conversation remains unchanged.
+- Denominational context controls explain what the context means before offering an explicit profile link; clicking the control must not navigate immediately.
+
+### 4.8.1 Chat Responsive Layout
+
+- The landing hero parrot is visible at widths of 390px and above and hidden below 390px.
+- Feature shortcuts stay anchored at the bottom of the landing content and remain tablet/phone-only with `lg:hidden landscape:hidden`.
+- Preserve the established shortcut icon set: Material Symbols `candle` and `folded_hands`, plus Lucide `BookOpen`, `Sprout`, and `Church`.
+- In light mode, use three related but distinct surfaces: Deep Cream for the sidebar, Off-White for the chat toolbar, and Cream for the main content. Reinforce their separation with the warm neutral sidebar border and subtle token-derived toolbar shadow.
 
 ### 4.9 Sidebar Navigation
 
 - Buttons: `.sidebar-button` with hover tint and active Mint background.
 - Colors: use `sidebar.*` tokens for background, foreground, accents, borders, ring.
+- In light mode, the sidebar uses a slightly deeper Cream and a warm neutral divider. Chat toolbars use the Off-White card surface so navigation, toolbar, and content remain distinct without introducing a new brand color.
 
 ### 4.10 Tables & Data
 
@@ -249,4 +267,6 @@ All main feature pages use a standardized header pattern for consistency:
 - Success text: `className="text-success"`
 - Warning chip: `className="status--warning"`
 - User bubble: `className="bg-user-message text-user-message-foreground"`
-- Parrot bubble: `className="bg-parrot-message text-parrot-message-foreground"`
+- Long-form Parrot answer: `className="max-w-[72ch] bg-card text-card-foreground border border-border"`
+- Legacy/compact Parrot bubble: `className="bg-parrot-message text-parrot-message-foreground"`
+- Chat composer: `className="bg-input-bg border-input"`
