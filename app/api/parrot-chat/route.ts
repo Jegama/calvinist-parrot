@@ -14,6 +14,26 @@ import { updateUserMemoriesFromConversation } from "@/utils/memoryExtraction";
 import { buildParrotSystemPrompt } from "@/utils/buildParrotSystemPrompt";
 import { getChatActorId, resolveChatActor } from "@/lib/guest";
 import { evaluateRetry } from "@/lib/chat-requests";
+import { resolveEffectiveDenomination } from "@/lib/chat-context";
+import {
+  getRequestTerminalState,
+  selectTerminalSafeMessages,
+  type RequestTerminalState,
+} from "@/lib/chat-request-state";
+
+async function withRequestPersistenceLock<T>(
+  chatId: string,
+  requestId: string,
+  operation: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    const lockKey = `parrot-chat-request:${chatId}:${requestId}`;
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))
+    `;
+    return operation(tx);
+  });
+}
 
 export async function POST(request: Request) {
   const TOOL_NODE_NAMES = new Set(["tools", ...toolsArray.map((tool) => tool.name)]);
@@ -71,38 +91,64 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const requestMessages = await prisma.chatMessage.findMany({
-      where: { chatId, requestId: resolvedRequestId },
-      select: { sender: true },
-    });
-    if (!requestMessages.some((requestMessage) => requestMessage.sender === "user")) {
-      return NextResponse.json(
-        { error: "The original request could not be found" },
-        { status: 404 },
-      );
-    }
-    if (requestMessages.some((requestMessage) => requestMessage.sender === "parrot")) {
-      return NextResponse.json({ stopped: false, completed: true });
-    }
-    if (
-      !requestMessages.some(
-        (requestMessage) => requestMessage.sender === "system_stopped",
-      )
-    ) {
-      await prisma.$transaction([
-        prisma.chatMessage.create({
+    const stopResult = await withRequestPersistenceLock(
+      chatId,
+      resolvedRequestId,
+      async (tx) => {
+        const requestMessages = await tx.chatMessage.findMany({
+          where: { chatId, requestId: resolvedRequestId },
+          select: { sender: true },
+        });
+        if (
+          !requestMessages.some(
+            (requestMessage) => requestMessage.sender === "user",
+          )
+        ) {
+          return "missing_user" as const;
+        }
+
+        const terminalState = getRequestTerminalState(requestMessages);
+        if (terminalState === "completed") {
+          return "completed" as const;
+        }
+        if (terminalState === "stopped") {
+          return "stopped" as const;
+        }
+        if (terminalState === "failed") {
+          return "failed" as const;
+        }
+
+        await tx.chatMessage.create({
           data: {
             chatId,
             requestId: resolvedRequestId,
             sender: "system_stopped",
             content: "Response stopped by the user.",
           },
-        }),
-        prisma.chatHistory.update({
+        });
+        await tx.chatHistory.update({
           where: { id: chatId },
           data: { modifiedAt: new Date() },
-        }),
-      ]);
+        });
+        return "stopped" as const;
+      },
+    );
+
+    if (stopResult === "missing_user") {
+      return NextResponse.json(
+        { error: "The original request could not be found" },
+        { status: 404 },
+      );
+    }
+    if (stopResult === "completed") {
+      return NextResponse.json({ stopped: false, completed: true });
+    }
+    if (stopResult === "failed") {
+      return NextResponse.json({
+        stopped: false,
+        completed: false,
+        failed: true,
+      });
     }
 
     return NextResponse.json({ stopped: true, completed: false });
@@ -495,13 +541,65 @@ export async function POST(request: Request) {
           });
         };
 
-        try {
+        let parrotReply = "";
+        let generationStopped = false;
+        const persistPendingMessages = () =>
+          withRequestPersistenceLock(
+            capturedChatId,
+            capturedRequestId,
+            async (tx) => {
+              const existingMessages = await tx.chatMessage.findMany({
+                where: {
+                  chatId: capturedChatId,
+                  requestId: capturedRequestId,
+                },
+                select: { sender: true },
+              });
+              const existingTerminalState =
+                getRequestTerminalState(existingMessages);
+              const stopRequested =
+                generationStopped || request.signal.aborted;
 
+              if (
+                stopRequested &&
+                !pendingMessages.some(
+                  (pendingMessage) =>
+                    pendingMessage.sender === "system_stopped",
+                )
+              ) {
+                enqueueMessage(
+                  "system_stopped",
+                  "Response stopped by the user.",
+                );
+              }
+
+              const messagesToPersist = selectTerminalSafeMessages(
+                pendingMessages,
+                existingTerminalState,
+                stopRequested,
+              );
+
+              if (messagesToPersist.length > 0) {
+                await tx.chatMessage.createMany({
+                  data: messagesToPersist,
+                });
+                await tx.chatHistory.update({
+                  where: { id: capturedChatId },
+                  data: { modifiedAt: new Date() },
+                });
+              }
+
+              return getRequestTerminalState([
+                ...existingMessages,
+                ...messagesToPersist,
+              ]);
+            },
+          );
+
+        try {
           void isAutoTrigger;
 
           // Parrot's answer
-          let parrotReply = "";
-          let generationStopped = false;
           try {
             // Build message history with system prompt (Prisma context already injected)
             const parrotHistory = buildParrotHistory(conversationMessages, newParrotSysPrompt);
@@ -702,31 +800,27 @@ export async function POST(request: Request) {
             }
           }
 
-          // Persist messages to database (without conversation naming - that's deferred)
-          if (pendingMessages.length > 0) {
+          // Stop and completion use the same transaction-scoped lock. Whichever
+          // terminal state commits first becomes authoritative for this request.
+          let persistedTerminalState: RequestTerminalState = "open";
+          try {
+            persistedTerminalState = await persistPendingMessages();
+          } catch {
+            // One short retry for transient DB pressure (e.g. P2028 timeout).
             try {
-              await prisma.chatMessage.createMany({
-                data: pendingMessages,
-              });
-              await prisma.chatHistory.update({
-                where: { id: capturedChatId },
-                data: { modifiedAt: new Date() },
-              });
-            } catch {
-              // One short retry for transient DB pressure (e.g. P2028 timeout).
-              try {
-                await wait(300);
-                await prisma.chatMessage.createMany({
-                  data: pendingMessages,
-                });
-                await prisma.chatHistory.update({
-                  where: { id: capturedChatId },
-                  data: { modifiedAt: new Date() },
-                });
-              } catch (retryError) {
-                sendError(retryError, "persist_messages", controller);
-              }
+              await wait(300);
+              persistedTerminalState = await persistPendingMessages();
+            } catch (retryError) {
+              sendError(
+                retryError,
+                "persist_messages",
+                controller,
+                capturedRequestId,
+              );
             }
+          }
+          if (persistedTerminalState === "stopped") {
+            generationStopped = true;
           }
 
           // Handle conversation naming BEFORE closing stream so client can update sidebar
@@ -738,6 +832,7 @@ export async function POST(request: Request) {
             });
 
             if (
+              persistedTerminalState === "completed" &&
               parrotReply.trim() &&
               currentChat &&
               currentChat.conversationName === "New Conversation"
@@ -787,7 +882,11 @@ export async function POST(request: Request) {
           // Memory extraction runs after stream closes since client doesn't need this data
 
           // 2. Extract and update user memories asynchronously
-          if (capturedUserId && parrotReply.trim()) {
+          if (
+            persistedTerminalState === "completed" &&
+            capturedUserId &&
+            parrotReply.trim()
+          ) {
             updateUserMemoriesFromConversation(
               capturedUserId,
               conversationMessages.map((m) => ({
@@ -797,18 +896,22 @@ export async function POST(request: Request) {
             ).catch((error) => {
               console.error("Background memory extraction failed:", error);
             });
-          } else {
+          } else if (
+            persistedTerminalState === "completed" &&
+            !capturedUserId
+          ) {
             console.warn("⚠️ Memory extraction skipped: userId is undefined");
           }
         } catch (error) {
           if (!request.signal.aborted) {
             enqueueMessage("system_error", "We couldn't finish this response.");
             if (pendingMessages.length > 0) {
-              await prisma.chatMessage.createMany({ data: pendingMessages }).catch(
-                (persistError) => {
-                  console.error("Failed to persist request failure:", persistError);
-                },
-              );
+              await persistPendingMessages().catch((persistError) => {
+                console.error(
+                  "Failed to persist request failure:",
+                  persistError,
+                );
+              });
             }
             sendError(error, "general", controller, capturedRequestId);
           }
@@ -850,10 +953,20 @@ export async function GET(request: Request) {
   if (chat.userId !== requesterUserId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const messages = await prisma.chatMessage.findMany({
-    where: { chatId },
-    orderBy: [{ timestamp: "asc" }, { id: "asc" }],
-  });
+  const [profile, messages] = await Promise.all([
+    prisma.userProfile.findUnique({
+      where: { appwriteUserId: chat.userId },
+      select: { denomination: true },
+    }),
+    prisma.chatMessage.findMany({
+      where: { chatId },
+      orderBy: [{ timestamp: "asc" }, { id: "asc" }],
+    }),
+  ]);
+  const effectiveDenomination = resolveEffectiveDenomination(
+    profile?.denomination,
+    chat.denomination,
+  );
 
   // Parse tool_summary messages from JSON strings
   const parsedMessages = messages.map((msg) => {
@@ -889,5 +1002,8 @@ export async function GET(request: Request) {
     return msg;
   });
 
-  return NextResponse.json({ chat, messages: parsedMessages });
+  return NextResponse.json({
+    chat: { ...chat, effectiveDenomination },
+    messages: parsedMessages,
+  });
 }

@@ -2,6 +2,7 @@
 // Centralized builder for the Parrot system prompt with denomination mapping and pastoral context injection
 
 import * as prompts from "@/lib/prompts/core";
+import { resolveEffectiveDenomination } from "@/lib/chat-context";
 
 export interface PastoralUserProfile {
   denomination: string | null;
@@ -150,7 +151,10 @@ export function buildParrotSystemPrompt(params: {
 
   const pastoralContext = buildPastoralContext(userProfile, effectiveUserId);
 
-  const effectiveDenomination = userProfile?.denomination || denominationFallback || "reformed-baptist";
+  const effectiveDenomination = resolveEffectiveDenomination(
+    userProfile?.denomination,
+    denominationFallback,
+  );
   const secondaryPromptText = mapDenominationPrompt(effectiveDenomination);
   const coreSysPromptWithDenomination = prompts.CORE_SYS_PROMPT.replace("{denomination}", secondaryPromptText);
   let newParrotSysPrompt = prompts.PARROT_SYS_PROMPT_MAIN.replace("{CORE}", coreSysPromptWithDenomination);

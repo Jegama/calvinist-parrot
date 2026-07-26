@@ -64,6 +64,7 @@ type Chat = {
   userId: string;
   conversationName: string;
   denomination: string;
+  effectiveDenomination: string;
   modifiedAt: string;
 };
 
@@ -667,13 +668,17 @@ function ChatPageContent() {
       });
       if (!response.ok) {
         console.error("Unable to persist stopped response state");
+        return;
       }
+      await fetchChat();
+      invalidateChatList();
     } catch (error) {
       console.error("Unable to persist stopped response state:", error);
     }
   };
 
-  const currentDenomination = chat?.denomination || "reformed-baptist";
+  const currentDenomination =
+    chat?.effectiveDenomination || chat?.denomination || "reformed-baptist";
 
   return (
     <>
