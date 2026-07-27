@@ -1,4 +1,4 @@
-import badgesJson from "@/lib/references/badges.json";
+import badgesJson from "../lib/references/badges.json";
 
 /**
  * Filter a list of badges to the canonical allowlist from badges.json.

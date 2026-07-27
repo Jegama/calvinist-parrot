@@ -6,7 +6,7 @@ import type { ChurchListItem, EvaluationStatus } from "@/types/church";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
 import badgesJson from "@/lib/references/badges.json";
-import { secondaryDifferenceBadges } from "@/lib/schemas/church-finder";
+import { secondaryDifferenceBadges } from "@/lib/church-evaluation/policy";
 import { useEffect, useRef } from "react";
 
 const STATUS_STYLES: Record<EvaluationStatus | "confessional", string> = {

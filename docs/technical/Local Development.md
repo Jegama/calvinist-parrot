@@ -69,6 +69,14 @@ It then generates the worktree's `.env` from `.env.template`, replacing only the
 
 The isolated databases remain in the shared Docker volume after a worktree is removed so an accidental cleanup cannot destroy another active agent's data. `docker compose down` still stops the shared Postgres service for every worktree, and `docker compose down -v` deletes all local and worktree databases, so do not run those commands while another worktree is active.
 
+Before removing a completed worktree, use the repository-local `$teardown-worktree` skill. It first previews the exact path-derived databases:
+
+```bash
+CODEX_WORKTREE_PATH="/absolute/path/to/worktree" npm run db:worktree:teardown -- --dry-run
+```
+
+After explicit confirmation, it runs the same command with `--confirm <worktree-id>`, drops only that worktree's development, shadow, and test databases, and then removes the Git worktree from a surviving checkout. Dropping those isolated databases removes all tables and local data created for the job. The command refuses primary checkouts, mismatched paths, non-generated database environments, and incorrect confirmation IDs. It never removes the shared Docker volume or touches production, Neon, or CCEL databases.
+
 When two branches add migrations independently, rebase or merge them and validate the combined migration directory against a fresh database before production deployment. Database isolation prevents local interference, but it does not resolve conflicting SQL or migration ordering automatically.
 
 ## Migrations

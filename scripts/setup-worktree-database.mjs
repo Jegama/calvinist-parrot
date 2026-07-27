@@ -16,7 +16,7 @@ import { pathToFileURL } from "node:url";
 const POSTGRES_USER = "calvinist_parrot";
 const POSTGRES_HOST = "localhost";
 const POSTGRES_PORT = 54322;
-const GENERATED_ENV_MARKER =
+export const GENERATED_ENV_MARKER =
   "# Generated for this Codex worktree by scripts/setup-worktree-database.mjs.";
 
 function databaseUrl(databaseName) {

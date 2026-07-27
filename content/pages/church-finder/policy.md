@@ -11,9 +11,9 @@ We do not compromise the core doctrines outlined in our Doctrinal Statement. Chu
 ## Endorsement Categories (Church Finder)
 
 - **Confessional Reformed (Encouraged):** Explicit subscription to a historic Reformed confession (Westminster Standards, 1689 London Baptist, Three Forms of Unity). Clear doctrinal articulation and Gospel emphasis.
-- **Recommended:** Affirms the essentials and reflects Reformed or closely compatible theology based on published content.
-- **Biblically Sound (With Differences):** Affirms the essentials and is orthodox, yet either (a) holds secondary positions differing from Reformed distinctives, or (b) lacks explicit Reformed identifiers. We note differences for user discernment while honoring shared Gospel foundation.
-- **Limited Information:** Website does not clearly state a majority of essential doctrines. This is not an accusation of denial; we encourage direct inquiry before decisions.
+- **Recommended:** Explicitly affirms every non-negotiable essential, clearly addresses at least 80% of evaluated doctrines, and publishes strong Reformed evidence through a recognized historic confession, explicit Reformed identity, or explicit Covenant Theology.
+- **Biblically Sound (With Differences):** Explicitly affirms every non-negotiable essential and clearly addresses at least 60% of evaluated doctrines, but does not meet the stricter Recommended criteria because it has less than 80% coverage, holds secondary positions differing from Reformed theology, or lacks explicit Reformed or Covenant identification.
+- **Limited Information:** Website does not clearly affirm every non-negotiable essential or clearly address at least 60% of evaluated doctrines. This is not an accusation of denial; we encourage direct inquiry before decisions.
 - **Not Endorsed:** Clear denial of an essential doctrine or presence of one or more critical red flags (see below).
 
 We do not infer doctrine beyond what is explicitly published online. Absence of content is treated as unknown, not denial.

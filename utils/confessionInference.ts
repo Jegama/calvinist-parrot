@@ -1,9 +1,5 @@
 import confessionsMap from "@/lib/references/confessions_map.json";
-import type {
-  CoreDoctrineMap,
-  SecondaryDoctrinesResponse,
-} from "@/types/church";
-import { CORE_DOCTRINE_KEYS } from "@/lib/schemas/church-finder";
+import type { SecondaryDoctrinesResponse } from "@/types/church";
 
 type ConfessionKey = keyof typeof confessionsMap;
 
@@ -14,35 +10,6 @@ function isBFM2000Confession(confessionName?: string | null): boolean {
     normalized.includes("baptist faith and message") ||
     normalized.includes("bfm")
   );
-}
-
-/**
- * Apply confession inference to core doctrines.
- * If a confession is adopted, mark all unknown core doctrines as "true"
- * (unless explicitly denied on the website).
- */
-export function applyConfessionToCoreDoctrines(
-  coreDoctrines: CoreDoctrineMap,
-  confessionAdopted: boolean,
-  confessionName?: string | null
-): CoreDoctrineMap {
-  // Special case: BF&M 2000 gets inference even when adopted=false
-  // (It's not a historic Reformed confession, but it's biblically sound)
-  const isBFM2000 = isBFM2000Confession(confessionName);
-
-  if (!confessionAdopted && !isBFM2000) {
-    return coreDoctrines;
-  }
-
-  const updated = { ...coreDoctrines };
-
-  for (const key of CORE_DOCTRINE_KEYS) {
-    if (updated[key] === "unknown") {
-      updated[key] = "true";
-    }
-  }
-
-  return updated;
 }
 
 /**
@@ -59,7 +26,8 @@ export function applyConfessionToSecondary(
     return secondary;
   }
 
-  // Special case: BF&M 2000 gets inference even when adopted=false
+  // Special case: BF&M 2000 gets secondary-doctrine inference even when
+  // adopted=false, without granting historic Reformed status.
   const isBFM2000 = isBFM2000Confession(confessionName);
 
   if (!confessionAdopted && !isBFM2000) {

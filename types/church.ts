@@ -87,6 +87,18 @@ export interface RedFlagsResponse {
   notes: ChurchNote[];
 }
 
+export interface ChurchEvaluationMetadata {
+  model: string;
+  prompt_version: string;
+  policy_version: string;
+  evaluated_at: string;
+  source_pages: Array<{
+    requested_url: string | null;
+    resolved_url: string | null;
+    content_sha256: string;
+  }>;
+}
+
 // ============================================================================
 // Existing Types
 // ============================================================================
@@ -128,6 +140,7 @@ export interface ConfessionInfo {
 }
 
 export interface ChurchEvaluationRaw {
+  metadata?: ChurchEvaluationMetadata;
   church: {
     name: string | null;
     website: string;

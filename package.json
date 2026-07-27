@@ -23,7 +23,8 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
-    "db:worktree:setup": "node scripts/setup-worktree-database.mjs"
+    "db:worktree:setup": "node scripts/setup-worktree-database.mjs",
+    "db:worktree:teardown": "node scripts/teardown-worktree-database.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.73.0",

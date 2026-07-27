@@ -19,7 +19,7 @@ import denominationAliasesJson from "@/lib/references/denomination_aliases.json"
 import badgesJson from "@/lib/references/badges.json";
 import { cn } from "@/lib/utils";
 import { createChurch, deleteChurch } from "@/app/church-finder/api";
-import { secondaryDifferenceBadges } from "@/lib/schemas/church-finder";
+import { secondaryDifferenceBadges } from "@/lib/church-evaluation/policy";
 import { isClientAdminUser } from "@/lib/admin";
 
 function normalizeDenomination(label: string): string {
@@ -61,7 +61,7 @@ const STATUS_CONFIG = {
     iconColor: "status-text--recommended",
     title: "Recommended",
     description:
-      "Based on what is published, the church affirms a majority of essential Christian doctrines and holds to Reformed or compatible theology. We can commend this church.",
+      "Based on what is published, the church explicitly affirms every non-negotiable essential, provides substantial doctrinal clarity, and identifies with Reformed or Covenant theology. We can commend this church.",
   },
   biblically_sound_with_differences: {
     icon: Info,
@@ -71,7 +71,7 @@ const STATUS_CONFIG = {
     iconColor: "status-text--info",
     title: "Biblically Sound (With Differences)",
     description:
-      "This church affirms a majority of essential Christian doctrines and is biblically orthodox. However, it either holds to secondary theological positions that differ from Reformed theology, or it does not clearly identify with Reformed distinctives. While we can affirm their commitment to essential Christianity, we note these differences for your discernment.",
+      "This church explicitly affirms every non-negotiable essential and provides substantial doctrinal clarity. However, it either holds secondary positions that differ from Reformed theology or does not explicitly identify with Reformed or Covenant theology.",
   },
   limited_information: {
     icon: AlertTriangle,
@@ -81,7 +81,7 @@ const STATUS_CONFIG = {
     iconColor: "status-text--warning",
     title: "Limited Information",
     description:
-      "The church's website does not clearly state a majority of essential doctrines. This does not mean the church denies these doctrines—it may simply not be stated clearly online. We encourage you to reach out to the church directly for clarification before making a decision.",
+      "The church's website does not clearly affirm every non-negotiable essential or provide enough overall doctrinal detail. This is not a denial; we encourage direct clarification before making a decision.",
   },
   not_endorsed: {
     icon: AlertCircle,
@@ -396,7 +396,7 @@ export function ChurchDetailDialog({
 
               {/* Low Essentials Coverage Warning */}
               {evaluation &&
-                evaluation.coverageRatio < 0.5 &&
+                evaluation.status === "limited_information" &&
                 falseDoctrine.length === 0 &&
                 redFlagBadges.length === 0 && (
                   <div className="space-y-4 rounded-lg p-4 shadow-md status--warning">
@@ -414,7 +414,7 @@ export function ChurchDetailDialog({
                         </p>
                       </div>
                       <p className="text-sm text-foreground/80 mb-3">
-                        Only {evaluation.coreOnSiteCount} out of {evaluation.coreTotalCount} essential doctrines are
+                        {evaluation.coreOnSiteCount} out of {evaluation.coreTotalCount} essential doctrines are
                         clearly affirmed on their website.
                       </p>
                       <div className="rounded bg-muted/50 p-3">

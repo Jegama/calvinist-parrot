@@ -105,12 +105,17 @@ Set each to \`"true"\`, \`"false"\`, or \`"unknown"\`:
 - \`"true"\`: Church explicitly affirms this doctrine (see definitions above for what counts as affirmation)
 - \`"false"\`: Church explicitly denies or contradicts this doctrine
 - \`"unknown"\`: Not clearly stated or ambiguous
+- For a doctrine whose name or definition combines multiple claims, \`"true"\` requires explicit evidence for EVERY required component. Do not award partial credit by treating one component as the entire doctrine.
+- Evidence may be combined across official pages, but every required component must be supported by a source-grounded note. If only part of a composite doctrine is stated, return \`"unknown"\`.
+- Do not reuse a broad sentence to affirm several doctrines unless that sentence independently satisfies every definition in full.
 
 **Notes Array:**
-For each doctrine you mark as \`"true"\` or \`"false"\`, capture a note with:
+For each doctrine you mark as \`"true"\` or \`"false"\`, capture one or more notes with:
 - \`label\`: Name of the doctrine (e.g., "trinity", "scripture_authority", "resurrection_of_jesus")
 - \`text\`: Short, verbatim quote (≤30 words) from the website showing the belief (no paraphrases)
 - \`source_url\`: URL where you found this statement
+
+When a composite doctrine needs more than one excerpt, return multiple notes with the same doctrine label so that every component is evidenced.
 
 If a doctrine is \`unknown\`, do not create a note for it.`;
 
@@ -291,7 +296,7 @@ Determine if the church **adopts** a historic confession as their doctrinal stan
 - If the site uses qualifying language (e.g., "subscribe for guidance but not absolute adherence", "subscribe for guidance", "affirm as sound teaching"), still mark \`adopted = true\` because the confession is being presented as the church's doctrinal guide. In this case, add a clarifying note that preserves the nuance (see Notes below).
 
 **CRITICAL REJECTIONS - Mark \`adopted = false\` for these:**
-- Baptist Faith and Message (2000 Edition / BFM 2000) - Southern Baptist Convention statement, NOT a historic Reformed confession. While biblically sound, it accommodates both Reformed and Arminian soteriology within the SBC. **Special handling:** Set \`name\` to "Baptist Faith and Message (2000 Edition)", note in denomination field as "Baptist (SBC affiliated/BFM 2000)", and mark \`adopted = false\`. This allows doctrine inference while preventing the Reformed badge.
+- Baptist Faith and Message (2000 Edition / BFM 2000) - Southern Baptist Convention statement, NOT a historic Reformed confession. While biblically sound, it accommodates both Reformed and Arminian soteriology within the SBC. **Special handling:** Set \`name\` to "Baptist Faith and Message (2000 Edition)", note in denomination field as "Baptist (SBC affiliated/BFM 2000)", and mark \`adopted = false\`. This permits known secondary-position mapping without granting the Reformed badge or filling unsupported core doctrines.
 - ECO Essential Tenets (2012) - Modern progressive confession, NOT historic Reformed
 - Book of Confessions (PCUSA/ECO collection) - Contains problematic modern confessions (Confession of 1967, Belhar)
 - Any confession not explicitly listed above
@@ -394,6 +399,9 @@ Add badges ONLY if you have clear evidence, including the emoji. If none of the 
 **👩‍🏫 Ordained Women**:
 - Add this badge ONLY when a specific individual woman is explicitly described with an ordained/clergy office title such as **Pastor**, **Elder**, **Reverend/Rev.**, **Bishop**, or **Priest**.
 - This is about the woman's *office/title*, not about general church governance language.
+- Require explicit textual evidence that the named officeholder is a woman, such as Ms./Mrs./Miss, "(she/her)", or a directly connected "She/Her" biographical statement. Do not infer gender from a first name or photograph.
+- The office title must be directly attached to the specific woman's name. A generic "Elders/Pastors" section heading above couples or families is not enough.
+- Do NOT infer that a pastor's or elder's wife holds office because a couple is shown together or because elders/pastors "serve together alongside their wives."
 - NOT for women serving as deacons/deaconesses, staff, ministry leaders/directors, committee members, board/council roles, or teachers in non-governing roles.
 - Do NOT infer this badge from phrases like "elder-led" / "elder-directed" / "elder-governed" unless the page explicitly lists women as elders.
 - Do NOT infer this badge from "Chair" / "Vice-Chair" / "Secretary" / "Treasurer" unless the page explicitly identifies that woman as an Elder/Pastor/Rev/Bishop/Priest.
@@ -466,6 +474,6 @@ For each red flag badge you add, create a note with:
 - \`text\`: Brief explanation of what you found (≤50 words)
 - \`source_url\`: URL where you found this evidence
 
-For the **👩‍🏫 Ordained Women** badge specifically, your note text MUST quote the woman's name and her explicit office title exactly as written on the site (e.g., "Sarah Johnson — Pastor of Children's Ministry"). If you cannot quote an explicit Elder/Pastor/Rev/Bishop/Priest title tied to a specific woman, DO NOT add the badge.
+For the **👩‍🏫 Ordained Women** badge specifically, your note text MUST include one exact quotation containing both the woman's explicit office title and textual female-identity evidence (e.g., "Sarah Johnson — Pastor of Children's Ministry. She oversees..."). If the site gives only a name/title or photograph without Ms./Mrs./Miss, she/her pronouns, or another explicit textual female signal, DO NOT add the badge.
 
 If NO red flags are found, return empty arrays for both badges and notes.`;

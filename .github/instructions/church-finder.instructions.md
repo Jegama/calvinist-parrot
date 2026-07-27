@@ -11,7 +11,7 @@ applyTo: "app/church-finder/**"
 ## Data Normalization
 - Normalize doctrine data via `lib/churchMapper.ts`: core doctrines in columns, secondary/tertiary in JSON.
 - Enforce badge allowlist via `utils/badges.ts`; sort list with `sortChurchesByPriority` in `app/api/churches/route.ts`.
-- Badge metadata in `lib/references/badges.json`; secondary difference badges in `lib/schemas/church-finder.ts`.
+- Badge metadata in `lib/references/badges.json`; endorsement and secondary-difference policy in `lib/church-evaluation/policy.ts`.
 
 ## UI Patterns
 - Components in `components/` folder: `ChurchList`, `ChurchDetailDialog`, `ChurchForm`, `FilterPanel`.
