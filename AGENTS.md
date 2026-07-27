@@ -6,6 +6,12 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 - Do not hard-wrap Markdown prose to a fixed maximum column width. Keep each paragraph and list item on one logical line unless Markdown structure, a code block, or readability genuinely requires a line break.
 
+## GitHub CLI Authentication in Codex
+
+- On macOS, Codex's sandbox may be unable to read the GitHub CLI credential stored in Keychain, causing a sandboxed `gh auth status` to incorrectly report that the active token is invalid even after a successful login.
+- If a sandboxed GitHub CLI authentication check fails, do not immediately ask the user to log in again. First rerun `gh auth status` with the required elevated/Keychain access and treat that result as authoritative.
+- Run subsequent `gh` commands that require the stored credential with the same Keychain-capable access. Never print, copy, or persist the authentication token.
+
 ## Project Overview
 
 Calvinist Parrot is an AI-powered theological assistant built with Next.js 16, React 19, and TypeScript. It combines Reformed theology with modern AI to provide biblical guidance through chat, journaling, prayer tracking, kids discipleship, and church discovery features.
