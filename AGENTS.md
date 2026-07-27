@@ -35,6 +35,8 @@ npx prisma studio           # Visual database manager
 npx prisma generate         # Regenerate Prisma client after schema changes
 ```
 
+For completed Codex worktrees, use the repository-local `$teardown-worktree` skill. It previews and removes only the path-derived development, shadow, and test databases before removing the Git worktree. Never use `docker compose down -v` for worktree cleanup because the Docker volume is shared.
+
 ## Environment Setup
 
 Copy `.env.template` to `.env` and fill in:

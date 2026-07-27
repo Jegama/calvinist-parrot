@@ -1,0 +1,4 @@
+interface:
+  display_name: "Teardown Worktree"
+  short_description: "Safely remove a worktree and its databases"
+  default_prompt: "Use $teardown-worktree to safely remove this Calvinist Parrot worktree and its isolated databases."
