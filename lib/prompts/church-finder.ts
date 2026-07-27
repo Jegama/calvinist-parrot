@@ -105,12 +105,17 @@ Set each to \`"true"\`, \`"false"\`, or \`"unknown"\`:
 - \`"true"\`: Church explicitly affirms this doctrine (see definitions above for what counts as affirmation)
 - \`"false"\`: Church explicitly denies or contradicts this doctrine
 - \`"unknown"\`: Not clearly stated or ambiguous
+- For a doctrine whose name or definition combines multiple claims, \`"true"\` requires explicit evidence for EVERY required component. Do not award partial credit by treating one component as the entire doctrine.
+- Evidence may be combined across official pages, but every required component must be supported by a source-grounded note. If only part of a composite doctrine is stated, return \`"unknown"\`.
+- Do not reuse a broad sentence to affirm several doctrines unless that sentence independently satisfies every definition in full.
 
 **Notes Array:**
-For each doctrine you mark as \`"true"\` or \`"false"\`, capture a note with:
+For each doctrine you mark as \`"true"\` or \`"false"\`, capture one or more notes with:
 - \`label\`: Name of the doctrine (e.g., "trinity", "scripture_authority", "resurrection_of_jesus")
 - \`text\`: Short, verbatim quote (≤30 words) from the website showing the belief (no paraphrases)
 - \`source_url\`: URL where you found this statement
+
+When a composite doctrine needs more than one excerpt, return multiple notes with the same doctrine label so that every component is evidenced.
 
 If a doctrine is \`unknown\`, do not create a note for it.`;
 
@@ -394,6 +399,8 @@ Add badges ONLY if you have clear evidence, including the emoji. If none of the 
 **👩‍🏫 Ordained Women**:
 - Add this badge ONLY when a specific individual woman is explicitly described with an ordained/clergy office title such as **Pastor**, **Elder**, **Reverend/Rev.**, **Bishop**, or **Priest**.
 - This is about the woman's *office/title*, not about general church governance language.
+- The office title must be directly attached to the specific woman's name. A generic "Elders/Pastors" section heading above couples or families is not enough.
+- Do NOT infer that a pastor's or elder's wife holds office because a couple is shown together or because elders/pastors "serve together alongside their wives."
 - NOT for women serving as deacons/deaconesses, staff, ministry leaders/directors, committee members, board/council roles, or teachers in non-governing roles.
 - Do NOT infer this badge from phrases like "elder-led" / "elder-directed" / "elder-governed" unless the page explicitly lists women as elders.
 - Do NOT infer this badge from "Chair" / "Vice-Chair" / "Secretary" / "Treasurer" unless the page explicitly identifies that woman as an Elder/Pastor/Rev/Bishop/Priest.

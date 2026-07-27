@@ -167,6 +167,10 @@
     "description": "This church follows a family-integrated model that keeps families together in worship and emphasizes family discipleship.",
     "category": "practice"
   },
+  "⚠️ Low Essentials Coverage": {
+    "description": "The published website does not clearly affirm every non-negotiable essential or clearly address at least 60% of the doctrines evaluated.",
+    "category": "info"
+  },
   "ℹ️ Minimal Doctrinal Detail": {
     "description": "Crawl-accessible pages lacked substantive doctrinal detail; site may impede crawling or does not present a published doctrinal statement online.",
     "category": "info"

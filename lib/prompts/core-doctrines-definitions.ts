@@ -31,12 +31,12 @@ These are the foundational truths upon which Christian faith stands. We will not
 **Definition**: Salvation is secured by Christ's historical death, burial, and resurrection on the third day, demonstrating His victory over sin and death. Salvation is by grace alone through faith alone in Christ alone.
 
 **What to look for:**
-- ✅ **Affirms**: "Salvation by grace through faith in Jesus Christ", "saved by faith alone", "grace alone", "Christ died for our sins"
-- ✅ **Affirms**: "Jesus rose from the dead", "resurrection on the third day", "Christ's victory over sin and death"
-- ✅ **Affirms**: "Not by works", "apart from works of the law"
+- ✅ **Required component 1 — Christ's work**: "Christ died for our sins" together with "Jesus rose from the dead", "resurrection on the third day", or equivalent historical death-and-resurrection language
+- ✅ **Required component 2 — means of salvation**: "Salvation by grace through faith in Jesus Christ", "saved by faith alone", "grace alone through faith", "not by works", or equivalent language
 - ❌ **Denies**: Works-based salvation, faith + works for justification, salvation by sacraments alone
 
 **Edge cases:**
+- This is a composite doctrine. Mark \`true\` only when BOTH Christ's saving death/resurrection AND salvation by grace through faith are explicit. A statement that Christ died and rose without explaining how salvation is received is \`unknown\`.
 - If they emphasize "faith and obedience" or "faith that works", this is likely affirming gospel + sanctification (still mark \`true\`)
 - "Faith working through love" (Galatians 5:6) is compatible with gospel (mark \`true\`)
 - Only mark \`false\` if they explicitly require works FOR salvation/justification
@@ -73,6 +73,7 @@ These are the foundational truths upon which Christian faith stands. We will not
 **Edge cases:**
 - If they say "Son of God" without explicitly saying "Jesus is God", look for divine attributes (eternal, creator, worshiped) to confirm (mark \`true\` if present)
 - "Divine nature and human nature in one person" = clear \`true\`
+- This is a composite doctrine. Mark \`true\` only when BOTH Christ's deity and His real humanity are explicit. "Son of God" by itself establishes neither complete claim.
 
 ---
 
@@ -105,6 +106,7 @@ These are the foundational truths upon which Christian faith stands. We will not
 **Edge cases:**
 - If they mention "born of Mary" but don't say "virgin", mark \`unknown\` unless incarnation is clearly stated
 - "Conceived by the Holy Spirit, born of the Virgin Mary" (from creeds) = clear \`true\`
+- This is a composite doctrine. General language about Jesus becoming human without the virgin conception, or virgin-birth language without a clear reference to Christ's incarnation, is \`unknown\`.
 
 ---
 
@@ -120,7 +122,7 @@ These are the foundational truths upon which Christian faith stands. We will not
 
 **Edge cases:**
 - Churches may emphasize different atonement theories (penal substitution, Christus Victor, etc.)—as long as they affirm Christ's death is necessary and sufficient, mark \`true\`
-- "Ransom for many", "died in our place" = \`true\`
+- This is a composite doctrine. "Christ died for our sins", "ultimate sacrifice", "ransom for many", or "died in our place" establishes sacrificial purpose but does not by itself establish necessity and sufficiency. Without exclusivity or sufficiency language, mark \`unknown\`.
 
 ---
 
@@ -151,7 +153,7 @@ These are the foundational truths upon which Christian faith stands. We will not
 
 **Edge cases:**
 - Churches may differ on timing (pre/post/amillennial)—as long as they affirm Christ will return and judge, mark \`true\`
-- "We await His return" = \`true\`
+- This is a composite doctrine. "We await His return" without a future final judgment is \`unknown\`; judgment language without Christ's future return is also \`unknown\`.
 
 ---
 
@@ -166,6 +168,7 @@ These are the foundational truths upon which Christian faith stands. We will not
 - ❌ **Denies**: God changes His mind, God is not sovereign, God has no wrath, open theism (God doesn't know the future)
 
 **Edge cases:**
-- Churches don't need to list ALL attributes—just look for clear affirmation of God's holiness, sovereignty, justice, love, and wrath
+- Churches don't need to list every attribute, but a substantive statement must affirm both God's holy/just rule and His goodness/love/mercy.
 - If they emphasize God's love but don't mention His wrath, mark \`unknown\` (not \`false\`)
-- "Merciful and gracious, slow to anger, abounding in steadfast love" (Exodus 34:6) = affirms character`;
+- "God loves you" or another single-attribute statement is \`unknown\`.
+- "Merciful and gracious, slow to anger, abounding in steadfast love" (Exodus 34:6), when paired with holiness or righteous judgment, affirms character`;

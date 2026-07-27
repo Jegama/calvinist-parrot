@@ -15,17 +15,6 @@ export const CORE_DOCTRINE_KEYS: CoreDoctrineKey[] = [
   "character_of_god",
 ];
 
-export const secondaryDifferenceBadges = [
-  "🍷 Paedocommunion",
-  "🔥 Charismatic",
-  "🔄 Dispensational",
-  "🧑‍🎓 Wesleyan-Holiness",
-  "🧱 KJV-Only",
-  "🎯 Seeker-Sensitive",
-  "🥖 Real Presence (Lutheran)",
-  "🧭 Arminian",
-];
-
 // ============================================================================
 // Call 1: Basic Fields Schema
 // ============================================================================
