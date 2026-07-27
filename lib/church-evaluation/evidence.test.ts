@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type {
   CoreDoctrinesResponse,
+  CoreDoctrineKey,
   CoreDoctrineMap,
   RedFlagsResponse,
 } from "@/types/church";
@@ -103,6 +104,102 @@ describe("validateCoreDoctrineEvidence", () => {
     expect(result.core_doctrines.trinity).toBe("unknown");
     expect(result.notes).toEqual([]);
   });
+
+  it("downgrades a composite doctrine when only Christ's deity is grounded", () => {
+    const result = validateCoreDoctrineEvidence(
+      response(
+        { christ_deity_humanity: "true" },
+        [{
+          label: "christ_deity_humanity",
+          text: "Jesus Christ is truly God.",
+          source_url: "https://example.church/beliefs",
+        }],
+      ),
+      [{
+        url: "https://example.church/beliefs",
+        rawContent: "Jesus Christ is truly God.",
+      }],
+    );
+
+    expect(result.core_doctrines.christ_deity_humanity).toBe("unknown");
+    expect(result.notes).toEqual([]);
+  });
+
+  it("combines grounded notes to validate every component of a composite doctrine", () => {
+    const notes = [{
+      label: "christ_deity_humanity",
+      text: "Jesus Christ is truly God.",
+      source_url: "https://example.church/beliefs",
+    }, {
+      label: "christ_deity_humanity",
+      text: "He took upon Himself a human nature.",
+      source_url: "https://example.church/beliefs",
+    }];
+    const result = validateCoreDoctrineEvidence(
+      response({ christ_deity_humanity: "true" }, notes),
+      [{
+        url: "https://example.church/beliefs",
+        rawContent: "Jesus Christ is truly God. He took upon Himself a human nature.",
+      }],
+    );
+
+    expect(result.core_doctrines.christ_deity_humanity).toBe("true");
+    expect(result.notes).toEqual(notes);
+  });
+
+  it.each([
+    [
+      "gospel",
+      "Christ died for our sins and rose from the dead.",
+      "Salvation is by grace through faith.",
+    ],
+    [
+      "incarnation_virgin_birth",
+      "The Word became flesh.",
+      "He was conceived by the Holy Spirit and born of the Virgin Mary.",
+    ],
+    [
+      "atonement_necessary_sufficient",
+      "Christ died as an atoning sacrifice for our sins.",
+      "His death is necessary and sufficient.",
+    ],
+    [
+      "return_and_judgment",
+      "Jesus will return.",
+      "He will judge the living and the dead.",
+    ],
+    [
+      "character_of_god",
+      "God is holy and just.",
+      "God is good and merciful.",
+    ],
+  ] satisfies Array<[CoreDoctrineKey, string, string]>)(
+    "requires both grounded components for %s",
+    (key, firstComponent, secondComponent) => {
+      const sourceUrl = "https://example.church/beliefs";
+      const partial = validateCoreDoctrineEvidence(
+        response(
+          { [key]: "true" },
+          [{ label: key, text: firstComponent, source_url: sourceUrl }],
+        ),
+        [{ url: sourceUrl, rawContent: firstComponent }],
+      );
+      const completeNotes = [
+        { label: key, text: firstComponent, source_url: sourceUrl },
+        { label: key, text: secondComponent, source_url: sourceUrl },
+      ];
+      const complete = validateCoreDoctrineEvidence(
+        response({ [key]: "true" }, completeNotes),
+        [{
+          url: sourceUrl,
+          rawContent: `${firstComponent} ${secondComponent}`,
+        }],
+      );
+
+      expect(partial.core_doctrines[key]).toBe("unknown");
+      expect(complete.core_doctrines[key]).toBe("true");
+    },
+  );
 });
 
 describe("validateRedFlagEvidence", () => {
@@ -216,6 +313,62 @@ describe("validateRedFlagEvidence", () => {
 
     expect(result.badges).toEqual([]);
     expect(result.notes).toEqual([]);
+  });
+
+  it("does not apply another person's pronoun to a named male pastor", () => {
+    const response: RedFlagsResponse = {
+      badges: ["👩‍🏫 Ordained Women"],
+      notes: [{
+        label: "Ordained Women",
+        text: "The leadership page identifies \"John Smith — Pastor; Jane coordinates outreach. She leads the women's ministry.\"",
+        source_url: "https://example.church/leadership",
+      }],
+    };
+
+    const result = validateRedFlagEvidence(response, [{
+      url: "https://example.church/leadership",
+      rawContent: "John Smith — Pastor; Jane coordinates outreach. She leads the women's ministry.",
+    }]);
+
+    expect(result.badges).toEqual([]);
+    expect(result.notes).toEqual([]);
+  });
+
+  it("does not apply another person's stated pronouns to a named male pastor", () => {
+    const response: RedFlagsResponse = {
+      badges: ["👩‍🏫 Ordained Women"],
+      notes: [{
+        label: "Ordained Women",
+        text: "The leadership page identifies \"John Smith — Pastor; Jane Doe (she/her) coordinates outreach.\"",
+        source_url: "https://example.church/leadership",
+      }],
+    };
+
+    const result = validateRedFlagEvidence(response, [{
+      url: "https://example.church/leadership",
+      rawContent: "John Smith — Pastor; Jane Doe (she/her) coordinates outreach.",
+    }]);
+
+    expect(result.badges).toEqual([]);
+    expect(result.notes).toEqual([]);
+  });
+
+  it("accepts stated pronouns only when attached to the named clergy member", () => {
+    const response: RedFlagsResponse = {
+      badges: ["👩‍🏫 Ordained Women"],
+      notes: [{
+        label: "Ordained Women",
+        text: "The leadership page identifies \"Sarah Johnson (she/her) — Teaching Pastor\".",
+        source_url: "https://example.church/leadership",
+      }],
+    };
+
+    const result = validateRedFlagEvidence(response, [{
+      url: "https://example.church/leadership",
+      rawContent: "Sarah Johnson (she/her) — Teaching Pastor.",
+    }]);
+
+    expect(result.badges).toEqual(["👩‍🏫 Ordained Women"]);
   });
 
   it("rejects an explicit title that cannot be found on the cited page", () => {
