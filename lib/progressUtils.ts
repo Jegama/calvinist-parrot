@@ -1,36 +1,52 @@
-// lib/progressUtils.ts
+import {
+  chatStreamEventSchema,
+  qaStreamEventSchema,
+  type ChatStreamEvent,
+  type QaStreamEvent,
+} from "@/lib/api/contracts";
 
-type RequestEvent = { requestId?: string };
+type StreamController = ReadableStreamDefaultController<Uint8Array>;
 
-type DataEvent =
-  | ({ type: "info" | "done" | "stopped" } & RequestEvent)
-  | ({ type: "error"; stage: string; message: string } & RequestEvent)
-  | ({ type: "progress"; title: string; content: string } & RequestEvent)
-  | ({ type: "tool_progress"; toolName: string; message: string } & RequestEvent)
-  | ({ type: "tool_summary"; toolName: string; content: string } & RequestEvent)
-  | ({ type: "parrot"; content: string } & RequestEvent)
-  | ({ type: "calvin"; content: string } & RequestEvent)
-  | ({ type: "gotQuestions"; content: string } & RequestEvent)
-  | ({ type: "CCEL"; content: string } & RequestEvent)
-  | ({ type: "conversationNameUpdated"; chatId: string; name: string } & RequestEvent);
-
-// Shared function for streaming progress messages.
-export function sendProgress(data: DataEvent, controller?: ReadableStreamDefaultController<Uint8Array>) {
-  if (controller) {
-    // If we have a stream controller, we can enqueue progress to the client:
-    const encoder = new TextEncoder();
-    controller.enqueue(encoder.encode(JSON.stringify(data) + "\n"));
-  } else {
-    // Otherwise, fallback to logging or some other approach:
+function enqueueNdjson(
+  data: unknown,
+  controller?: StreamController,
+) {
+  if (!controller) {
     console.log("PROGRESS:", data);
+    return;
   }
+
+  controller.enqueue(
+    new TextEncoder().encode(`${JSON.stringify(data)}\n`),
+  );
+}
+
+/**
+ * Emits one contract-validated chat event. Keeping validation at the stream
+ * boundary prevents runtime event shapes from drifting from OpenAPI.
+ */
+export function sendProgress(
+  data: ChatStreamEvent,
+  controller?: StreamController,
+) {
+  enqueueNdjson(chatStreamEventSchema.parse(data), controller);
+}
+
+/**
+ * Emits one contract-validated Parrot QA event.
+ */
+export function sendQaProgress(
+  data: QaStreamEvent,
+  controller?: StreamController,
+) {
+  enqueueNdjson(qaStreamEventSchema.parse(data), controller);
 }
 
 export function sendError(
   error: Error | unknown,
   stage: string,
-  controller: ReadableStreamDefaultController<Uint8Array>,
-  requestId?: string,
+  controller: StreamController,
+  requestId: string,
 ) {
   console.error(`Error during ${stage}:`, error);
   sendProgress(
@@ -40,6 +56,6 @@ export function sendError(
       message: "An error occurred, but continuing conversation...",
       requestId,
     },
-    controller
+    controller,
   );
 }

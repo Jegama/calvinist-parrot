@@ -45,25 +45,28 @@ Copy `.env.template` to `.env` and fill in:
 
 ### Conversational Pipelines
 
-**`/api/parrot-chat`** (recommended) - LangGraph agent that streams JSONL events. Main agent defined in `utils/langChainAgents/mainAgent.ts` with tools in `utils/langChainAgents/tools/`. Conversation state persisted to PostgreSQL via LangGraph checkpointing.
+**`/api/v1/chats`** (recommended) - Resource-oriented LangGraph API for creating chats, reading transcripts, streaming messages, and stopping requests. Main agent defined in `utils/langChainAgents/mainAgent.ts` with tools in `utils/langChainAgents/tools/`. Conversation state persisted to PostgreSQL via LangGraph checkpointing.
 
-**`/api/parrot-qa`** (legacy) - "Counsel of Three" workflow with Calvin-style review synthesis.
+**`/api/v1/qa`** - "Counsel of Three" workflow with Calvin-style review synthesis. `/api/parrot-chat` and `/api/parrot-qa` remain deprecated compatibility routes.
 
 ### Feature Modules
 
 | Feature | UI Path | API Path | Instructions |
 |---------|---------|----------|--------------|
-| Chat | `app/[chatId]/` | `app/api/parrot-chat/` | - |
+| Chat | `app/[chatId]/` | `app/api/v1/chats/` | `.github/instructions/api-contracts.instructions.md` |
 | Journal | `app/journal/` | `app/api/journal/` | `.github/instructions/journal-*.md` |
 | Kids Discipleship | `app/kids-discipleship/` | `app/api/kids-discipleship/` | `.github/instructions/kids-discipleship-*.md` |
 | Prayer Tracker | `app/prayer-tracker/` | `app/api/prayer-tracker/` | `.github/instructions/prayer-tracker.instructions.md` |
 | Church Finder | `app/church-finder/` | `app/api/churches/` | `.github/instructions/church-finder.instructions.md` |
+| Public API Contracts | `app/api/v1/docs/` | `app/api/v1/` | `.github/instructions/api-contracts.instructions.md` |
 
 ### Key Patterns
 
 **Authentication:** All API handlers use `requireAuthenticatedUser` or `getAuthenticatedUserId` from `lib/auth.ts`. Authenticated identity comes from the Appwrite session cookie; anonymous chat continuity uses the server-managed `guestId` cookie in `lib/guest.ts`. Client-side API functions must not accept `userId` — identity is always resolved server-side. On login, guest chats transfer automatically. On logout, `queryClient.clear()` wipes cached data and a hard navigation to `/` prevents race conditions with `ProtectedView`. Rate limiting for sensitive endpoints uses `lib/rate-limit.ts`.
 
 **Streaming:** JSONL/NDJSON events via `lib/progressUtils.sendProgress`. Chat UI keys on `{type}` values.
+
+**API Contracts:** Versioned request, response, and stream schemas live in `lib/api/contracts/`. `lib/api/spec.ts` builds the OpenAPI 3.1 document served at `/api/v1/openapi.json`; `/api/v1/docs` renders the reference. Run `npm run openapi:generate` after contract changes and commit `docs/api/openapi.json`.
 
 **State Management:** TanStack Query v5 for server state (5-min stale window), Zustand for UI state (`app/profile/ui-store.ts`).
 
