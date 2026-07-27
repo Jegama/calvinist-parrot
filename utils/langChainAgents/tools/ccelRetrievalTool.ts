@@ -2,7 +2,7 @@ import { tool } from "langchain";
 import { z } from "zod";
 import type { LangGraphRunnableConfig } from "@langchain/langgraph";
 import type { Document } from "@langchain/core/documents";
-import { PGVectorStore } from "@langchain/community/vectorstores/pgvector";
+import { PGVectorStore } from "@langchain/pgvector";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { getToolProgressWriter } from "@/utils/langChainAgents/tools/toolProgress";
 

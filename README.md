@@ -87,13 +87,19 @@ For the database workflow, CI/CD notes, and testing recommendations, see [Local 
 
 ## API Endpoints
 
+The generated [OpenAPI 3.1 contract](https://www.calvinistparrot.com/api/v1/openapi.json) and [interactive API reference](https://www.calvinistparrot.com/api/v1/docs) are the source of truth for public request, response, and streaming event schemas.
+
 ### Core Features
 
-- **/api/parrot-qa**  
-  Classic Calvinist Parrot Q&A pipeline that categorizes the question, gathers three model answers, runs a Calvin style review, and then streams back a brief synthesized answer using the original legacy guardrails.
+- **/api/v1/chats**
 
-- **/api/parrot-chat**  
-  Recommended default chat endpoint that powers the main site experience, using the newer LangGraph agent to stream responses and save conversation history while enforcing the current doctrinal and tone guardrails.
+  Resource-oriented LangGraph chat API for creating conversations, reading history, streaming new messages, and stopping in-progress requests.
+
+- **/api/v1/qa**
+
+  Classic Calvinist Parrot Q&A pipeline that categorizes the question, gathers three model answers, runs a Calvin style review, and streams a brief synthesized answer.
+
+The former `/api/parrot-chat` and `/api/parrot-qa` routes remain available as deprecated compatibility endpoints. Their responses include the RFC 9745 `Deprecation` header and a migration-documentation `Link`; every request also emits a privacy-safe `deprecated_api_request` runtime log so remaining consumers can be measured before removal.
 
 ### Church Finder
 

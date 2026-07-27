@@ -2,6 +2,10 @@
 
 import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  createChatResponseSchema,
+  type CreateChatRequest,
+} from "@/lib/api/contracts";
 
 export type ChatSummary = {
   id: string;
@@ -72,13 +76,9 @@ export function useChatList(actorKey: string) {
 
   const createMutation = useMutation({
     mutationFn: async (
-      variables: {
-        initialQuestion: string;
-        clientChatId?: string;
-        requestId?: string;
-      },
+      variables: CreateChatRequest,
     ) => {
-      const response = await fetch("/api/parrot-chat", {
+      const response = await fetch("/api/v1/chats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(variables),
@@ -86,19 +86,7 @@ export function useChatList(actorKey: string) {
       if (!response.ok) {
         throw new Error("Failed to create chat session");
       }
-      const json = (await response.json()) as {
-        chatId?: string;
-        messageId?: string;
-        requestId?: string;
-      };
-      if (!json.chatId || !json.messageId || !json.requestId) {
-        throw new Error("Chat session created without an ID");
-      }
-      return {
-        chatId: json.chatId,
-        messageId: json.messageId,
-        requestId: json.requestId,
-      };
+      return createChatResponseSchema.parse(await response.json());
     },
   });
 

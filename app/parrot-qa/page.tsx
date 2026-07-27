@@ -25,6 +25,11 @@ import { MarkdownWithBibleVerses } from '@/components/MarkdownWithBibleVerses';
 import { BibleCommentary } from "@/components/BibleCommentary";
 import { extractReferences } from "@/utils/bibleUtils";
 import { BackToTop } from '@/components/BackToTop';
+import {
+  createChatResponseSchema,
+  qaStreamEventSchema,
+  type QaStreamEvent,
+} from "@/lib/api/contracts";
 
 import { useRouter } from 'next/navigation';
 
@@ -52,6 +57,7 @@ export default function Home() {
   const [isSynthesisStarted, setIsSynthesisStarted] = useState(false);
   const [isElaborating, setIsElaborating] = useState(false);
   const [commentaryTexts, setCommentaryTexts] = useState<{ [key: string]: string }>({});
+  const [requestError, setRequestError] = useState("");
 
   const handleReset = () => {
     setQuestion("");
@@ -60,6 +66,7 @@ export default function Home() {
     setIsSynthesisStarted(false);
     setIsElaborating(false);
     setCommentaryTexts({});
+    setRequestError("");
   };
 
   // Memoized callback to prevent re-creation on every render
@@ -80,9 +87,10 @@ export default function Home() {
     setIsLoading(true);
     setResult(null);
     setProgressMessage('');
+    setRequestError("");
     setIsSynthesisStarted(false);
     try {
-      const response = await fetch("/api/parrot-qa", {
+      const response = await fetch("/api/v1/qa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question }),
@@ -93,7 +101,7 @@ export default function Home() {
       const decoder = new TextDecoder('utf-8');
       let done = false;
       let buffer = '';
-      const newResult = {
+      const newResult: ChainReasoningResult = {
         first_answer: '',
         second_answer: '',
         third_answer: '',
@@ -112,22 +120,24 @@ export default function Home() {
           for (const line of lines) {
             if (line.trim() === '') continue;
             try {
-              const data = JSON.parse(line);
+              const data: QaStreamEvent = qaStreamEventSchema.parse(
+                JSON.parse(line),
+              );
               if (data.type === 'progress') {
                 setProgressMessage(data.message);
                 if (data.message === 'Synthesizing final answer...') {
                   setIsSynthesisStarted(true);
                 }
               } else if (data.type === 'agent_responses') {
-                newResult.first_answer = data.data.first_answer;
-                newResult.second_answer = data.data.second_answer;
-                newResult.third_answer = data.data.third_answer;
+                newResult.first_answer = data.data.first_answer ?? "";
+                newResult.second_answer = data.data.second_answer ?? "";
+                newResult.third_answer = data.data.third_answer ?? "";
                 setResult({ ...newResult });
               } else if (data.type === 'categorization') {
                 newResult.categorization = data.data;
                 setResult({ ...newResult });
               } else if (data.type === 'calvin_review') {
-                newResult.calvin_review = data.content;
+                newResult.calvin_review = data.content ?? "";
                 setResult({ ...newResult });
               } else if (data.type === 'reviewed_answer') {
                 newResult.reviewed_answer += data.content;
@@ -135,6 +145,10 @@ export default function Home() {
               } else if (data.type === 'refusal') {
                 newResult.refuse_answer = (newResult.refuse_answer || '') + data.content;
                 setResult({ ...newResult });
+              } else if (data.type === "error") {
+                setRequestError(data.message);
+              } else if (data.type === "done") {
+                setProgressMessage("");
               }
             } catch (error) {
               console.error("Failed to parse JSON:", error, line);
@@ -145,6 +159,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Error:", error);
+      setRequestError("We couldn't finish this response.");
     }
     setIsLoading(false);
     setProgressMessage('');
@@ -217,7 +232,7 @@ export default function Home() {
   const handleContinueInChat = async () => {
     if (!question || !result?.reviewed_answer || !result?.categorization) return;
     try {
-      const response = await fetch('/api/parrot-chat', {
+      const response = await fetch('/api/v1/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -225,7 +240,7 @@ export default function Home() {
           initialAnswer: result.reviewed_answer,
           category: result.categorization.category,
           subcategory: result.categorization.subcategory,
-          issue_type: result.categorization.issue_type,
+          issueType: result.categorization.issue_type,
         }),
       });
 
@@ -233,7 +248,7 @@ export default function Home() {
         throw new Error('Failed to create chat session');
       }
 
-      const data = await response.json();
+      const data = createChatResponseSchema.parse(await response.json());
       router.push(`/${data.chatId}`);
     } catch (error) {
       console.error("Error starting chat:", error);
@@ -404,6 +419,14 @@ export default function Home() {
               <Loader2 className="h-5 w-5 mr-2 animate-spin" />
               {progressMessage && <p>{progressMessage}</p>}
             </div>
+          </CardFooter>
+        )}
+
+        {requestError && (
+          <CardFooter>
+            <p className="w-full text-sm text-destructive" role="alert">
+              {requestError}
+            </p>
           </CardFooter>
         )}
 

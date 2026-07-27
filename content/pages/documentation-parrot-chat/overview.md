@@ -1,421 +1,59 @@
-# API Documentation: Parrot Chat Endpoint
-
-## Endpoint URL
-```
-https://calvinistparrot.com/api/parrot-chat
-```
+# Parrot Chat API
 
 ## Overview
-The Parrot Chat endpoint provides real-time conversational interactions by streaming responses. It handles creating chat sessions, processing user messages, maintaining context, and integrating multiple theological agents including a final review stage ("Calvin's Review").
 
-**Important**: The API includes an intelligent memory extraction system that learns from conversations to provide personalized pastoral care. When you call this API from the Calvinist Parrot web app, identity is resolved automatically from the request cookies. When you call it from an external app or server, you should send a stable `userId` in the request body so conversation memory, history, and personalization remain tied to the same end user over time.
+Parrot Chat is Calvinist Parrot's primary conversational API. The current implementation uses a LangGraph agent that can maintain conversation context, call theological research tools, stream intermediate progress, and produce a pastorally oriented final response.
 
-As with the [Parrot QA API](/documentation-parrot-qa), the Parrot Chat endpoint supports multiple denominational modes to cater to various theological traditions. However, we will not compromise on the following essential doctrines:
+The stable API is organized around chat resources:
 
-- **The Trinity:** One God, eternally existing in three persons—Father, Son, and Holy Spirit.
-- **The Character of God:** God is holy, supreme, sovereign, immutable, faithful, good, patient, gracious, merciful, loving, and just; His wrath against sin is real.
-- **The Authority of Scripture:** The Bible is the inspired, inerrant, and infallible Word of God, serving as the ultimate authority in all matters of faith and practice.
-- **The Deity and Humanity of Christ:** Jesus Christ is truly God and truly man (Vera Deus, vera homo).
-- **The Incarnation and Virgin Birth:** Jesus Christ took on human nature through miraculous conception by the Holy Spirit and was born of the Virgin Mary.
-- **The Atonement (Christ's Saving Work):** Christ's sacrificial death on the cross is necessary and sufficient to reconcile sinners to God.
-- **The Gospel:** Salvation is secured by Christ's historical death, burial, and resurrection on the third day, demonstrating His victory over sin and death.
-- **Justification by Faith:** Individuals are justified solely by grace alone through faith alone in Christ alone, apart from works.
-- **The Resurrection:** Christ's bodily resurrection, confirming His divinity and victory over sin and death.
-- **Christ's Return and Final Judgment:** Jesus Christ will return personally and bodily to judge the living and the dead, culminating in the renewal of all things.
+- Create a chat
+- Read a chat and its message history
+- Send a message and receive a newline-delimited JSON stream
+- Stop an in-progress request
 
-### QA Endpoint
-
-For simplicity, I created this other endpoint that focuses on quick QA. Please check the [Parrot QA API documentation](/documentation-parrot-qa) for more information.
-
----
-
-## How It Works
-
-1. **Chat Session Initialization**  
-   - There are two ways to start a new chat:
-   - **From Parrot QA**: Initialize with both question and answer
-   - **From Chat Interface**: Initialize with just a question
-
-2. **Chat Continuation**  
-   - Uses stored chat history to maintain context
-   - Processes messages through multiple agents and tools
-   - Streams real-time responses with progress updates
-
-3. **Memory Extraction & Personalization**  
-   - **Automatic Learning**: After each conversation, the system extracts and updates user memories in the background
-   - **Pastoral Context**: Builds a profile including spiritual maturity, ministry context, theological preferences, and question history
-   - **Smart Responses**: Future conversations are informed by this context for more personalized, pastorally-appropriate answers
-  - **Privacy**: Memory data is tied to the resolved conversation actor and never exposed to other users
-   - **No Interruption**: Memory extraction happens asynchronously and doesn't block responses
-
-4. **Denomination Handling**  
-   - User's denomination preference is stored in their profile and automatically applied
-   - Each denomination maps to a specific system prompt
-   - Affects how the AI interprets and responds to questions
-   - Maintains core doctrinal consistency while respecting denominational distinctives
-
-## Why Stable Identity Is Critical
-
-The resolved actor identity enables:
-- **Memory persistence** across conversations
-- **Spiritual journey tracking** (seeker → new believer → mature believer progression)
-- **Personalized depth** (concise vs. detailed responses based on learned preferences)
-- **Gospel presentation tracking** (avoids redundant salvation explanations)
-- **Ministry context awareness** (tailors examples to user's roles)
-- **Doctrinal question history** (identifies areas needing more teaching)
-
-There are two supported identity modes:
-- **First-party Calvinist Parrot app**: The Appwrite session cookie is read automatically for signed-in users, and a server-managed `guestId` cookie is used for guests
-- **External public API consumers**: Send a stable `userId` in the request body for `POST` calls, and in the query string for `GET` history calls
-- **On login inside Calvinist Parrot**: Guest chats are automatically transferred to the authenticated user's account
-
-If an authenticated session cookie is present, it always takes priority over any supplied `userId`.
+The former `/api/parrot-chat` endpoint remains available as a deprecated compatibility route. New integrations should use the `/api/v1/chats` resources.
 
 ## API Reference
 
-### Request Structure
+The generated contract is the source of truth for paths, request and response schemas, status codes, examples, and streaming event shapes:
 
-Send a JSON payload with these possible fields:
+- [Interactive API reference](/api/v1/docs)
+- [OpenAPI 3.1 document](/api/v1/openapi.json)
 
-- *chatId* (string, optional): Identifier for an existing chat session.
-- *message* (string): The user's chat message.
-- *initialQuestion* (string, optional): For starting a new chat session.
-- *initialAnswer* (string, optional): Initial answer for a new chat session.
-- *userId* (string, optional): Stable caller-supplied identity for external integrations. Use this when calling the API from your own app or server and you do not have Calvinist Parrot session cookies. Reuse the same value for every request made on behalf of the same end user.
-- *denomination* (string, optional): The theological perspective. **Note**: This parameter is now primarily stored in the user's profile. If provided, it will be used as a fallback when no profile denomination exists. Possible values:
-  - *reformed-baptist* (Reformed Baptist perspective - default)
-  - *presbyterian* (Presbyterian perspective)
-  - *wesleyan* (Wesleyan perspective)
-  - *lutheran* (Lutheran perspective)
-  - *anglican* (Anglican perspective)
-  - *pentecostal* (Pentecostal/Charismatic perspective)
-  - *non-denom* (Non-Denominational Evangelical perspective)
-- *isAutoTrigger* (boolean, optional): Indicates if the message is auto-triggered (for conversation continuity).
-- *clientChatId* (string, optional): Client-provided chatId for optimistic UI updates. If provided when creating a new chat, this ID will be used instead of a server-generated one.
+The interactive reference also describes the required `application/x-ndjson` stream handling and request identifiers used for retries, conflict detection, and cancellation.
 
+## How It Works
 
-### Response Stream Format
+### Chat initialization
 
-The API streams different event types as JSON objects:
+A chat can begin with a question alone or with an existing question-and-answer pair, such as a result carried forward from Parrot QA. The server stores the initial transcript and returns stable identifiers that clients can use for navigation and subsequent requests.
 
-1. **Progress Updates** - Status messages during processing
-  ```json
-  {"type": "progress", "title": "Looking for articles", "content": "Searching for: predestination"}
-  ```
+### Conversation continuation
 
-2. **Parrot Messages** - Main response content (streamed in chunks)
-  ```json
-  {"type": "parrot", "content": "The doctrine of predestination..."}
-  ```
+Each new message is evaluated with the stored transcript and the user's effective denominational preference. The agent may call research tools, publish progress events, stream the answer in chunks, and persist the completed turn for future context.
 
-3. **Tool Progress** - Ephemeral status messages during tool execution (not persisted)
-  ```json
-  {"type": "tool_progress", "toolName": "supplementalArticleSearch", "message": "Searching for articles on predestination..."}
-  ```
+Every submitted turn has a request identifier. This makes retries explicit, prevents competing requests from silently overwriting one another, and gives the stop endpoint a precise request to cancel.
 
-4. **Tool Summary** - Persistent tool results (saved to database)
-  ```json
-  {"type": "tool_summary", "toolName": "supplementalArticleSearch", "content": "Found 3 relevant articles..."}
-  ```
+### Research tools and sources
 
-5. **Reference Materials** - Related articles from GotQuestions and Monergism
-  ```json
-  {"type": "gotQuestions", "content": "- [What is predestination?](https://www.gotquestions.org/predestination.html) _(GotQuestions)_"}
-  ```
+The LangGraph agent can consult approved theological resources and report both temporary tool progress and persistent tool summaries. Source material that should remain visible in the transcript is returned as part of the documented stream rather than through a separate undocumented response channel.
 
-6. **CCEL Results** - Christian Classics Ethereal Library sources
-  ```json
-  {"type": "CCEL", "content": "- [Calvin's Institutes, Book III](https://ccel.org/...)"}
-  ```
+### Memory extraction and personalization
 
-7. **Conversation Name Updated** - Sent when the conversation name is generated (for sidebar updates)
-  ```json
-  {"type": "conversationNameUpdated", "chatId": "chat123", "name": "Understanding Predestination"}
-  ```
+After a response completes, a background process can extract conservative pastoral context from the conversation. Examples include spiritual maturity, ministry context, preferred answer depth, church involvement, Gospel-presentation history, and the kinds of doctrinal questions the person has asked.
 
-8. **Stream Completion**
-  ```json
-  {"type": "done"}
-  ```
+Memory extraction does not block the response stream. Failures are logged without failing the completed answer, and weak signals do not overwrite established preferences. Stored memory remains scoped to the resolved conversation actor.
 
-### Memory Extraction (Background Process)
+## Identity and Privacy
 
-After the response stream completes, the system automatically extracts and updates user memories in a background process (non-blocking). This includes:
+Identity is resolved by the server. Signed-in users are identified through the Appwrite session cookie, while guests receive a server-managed `guestId` cookie. When a guest signs in, eligible guest chats are transferred to the authenticated account.
 
-**Extracted Information:**
-- Spiritual status (seeker, new believer, growing believer, mature believer)
-- Ministry context (teacher, elder, small group leader, etc.)
-- Church involvement level
-- Preferred answer depth (concise, moderate, detailed)
-- Follow-up tendency (high, moderate, low)
-- Gospel presentation count
-- Doctrinal question categories (core, secondary, tertiary)
+The v1 API does not accept a caller-supplied `userId`. Browser clients should include credentials normally, and server integrations should retain the cookies returned for the conversation actor. Chat history access is checked against that resolved actor, and internal ownership identifiers are not part of the public response contract.
 
-**How it Works:**
-1. After Parrot's response is sent, the conversation history is analyzed
-2. An LLM extracts structured insights using a JSON schema
-3. Memories are stored in a LangGraph MemoryStore (key-value pairs)
-4. User profile counters are updated (question types, Gospel presentations)
-5. Future conversations inject this context into the system prompt for personalized responses
+## Theological Commitments
 
-**Developer Notes:**
-- Memory extraction never blocks the response stream
-- Errors in memory extraction are logged but don't affect user experience
-- Memory data is scoped to the resolved actor only
-- The system uses conservative updates (won't overwrite established preferences with weak signals)
+Denominational modes affect secondary doctrines while sharing non-negotiable commitments: the Trinity; God's holy, sovereign, loving, and just character; the inspiration, inerrancy, and authority of Scripture; Christ's true deity and humanity; the incarnation and virgin birth; the necessity and sufficiency of Christ's atonement; the historical death, burial, and bodily resurrection of Christ; justification by grace alone through faith alone in Christ alone; Christ's bodily return; final judgment; and the renewal of all things.
 
-### Usage Patterns
+The supported modes are Reformed Baptist (default), Presbyterian, Wesleyan, Lutheran, Anglican, Pentecostal or Charismatic, and Non-Denominational Evangelical.
 
-#### 1. Initialize from Parrot QA
-```json
-POST /api/parrot-chat
-{
-  "initialQuestion": "What is predestination?",
-  "initialAnswer": "Predestination refers to...",
-  "denomination": "reformed-baptist"
-}
-```
-
-#### 2. Initialize from Chat Interface
-```json
-POST /api/parrot-chat
-{
-  "initialQuestion": "What is predestination?"
-}
-```
-
-#### 2b. Initialize from an External App
-```json
-POST /api/parrot-chat
-{
-  "initialQuestion": "What is predestination?",
-  "userId": "my-app:user-42"
-}
-```
-
-Response:
-```json
-{
-  "chatId": "chat123"
-}
-```
-
-> **Note**: This endpoint only returns the chatId. The client should navigate to a new URL with this chatId (e.g., `/chat123`). When the chat page loads, it will automatically trigger the streaming process using the `isAutoTrigger` flag to process the initial question.
-
-#### Complete Flow Example
-
-1. **Start a new chat and get the chatId**:
-  ```typescript
-  // In /page.tsx
-  const handleStartNewChat = async () => {
-    const response = await fetch('/api/parrot-chat', {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify({ 
-      initialQuestion: "What is predestination?" 
-     }),
-    });
-    const { chatId } = await response.json();
-    router.push(`/${chatId}`);  // Navigate to chat page
-  };
-  ```
-
-2. **Chat page loads and auto-triggers the initial question**:
-  ```typescript
-  // In /[chatId]/page.tsx
-  useEffect(() => {
-    // When we detect only a user message with no response yet
-    if (messages.length === 1 && messages[0].sender === "user" && !autoSentRef.current) {
-     autoSentRef.current = true;
-     // Auto-trigger the API call with the isAutoTrigger flag
-     handleSendMessage({ 
-      message: messages[0].content, 
-      isAutoTrigger: true 
-     });
-    }
-  }, [messages, handleSendMessage]);
-
-  // Actual API call with isAutoTrigger flag
-  const handleSendMessage = async ({ message, isAutoTrigger }) => {
-    const response = await fetch("/api/parrot-chat", {
-     method: "POST",
-     headers: { "Content-Type": "application/json" },
-     body: JSON.stringify({
-      chatId: "chat123",  // From URL params
-      message: "What is predestination?",  // Initial question
-      isAutoTrigger: true  // This tells the API not to store the message again
-     }),
-    });
-    
-    // Handle streaming response...
-  };
-  ```
-
-3. **API processes the request differently with isAutoTrigger**:
-  - When `isAutoTrigger: true`, the API doesn't save the message again (it's already stored)
-  - The API processes the message and streams the response
-  - The client receives and displays the streaming response
-
-#### 3. Continue Conversation
-```json
-POST /api/parrot-chat
-{
-  "chatId": "chat123",
-  "message": "How does it relate to free will?"
-}
-```
-
-External integrations should keep sending the same `userId`:
-
-```json
-POST /api/parrot-chat
-{
-  "chatId": "chat123",
-  "message": "How does it relate to free will?",
-  "userId": "my-app:user-42"
-}
-```
-
-#### 4. Fetch Chat History
-```
-GET /api/parrot-chat?chatId=chat123
-```
-
-External integrations should include the same `userId` in the query string:
-
-```
-GET /api/parrot-chat?chatId=chat123&userId=my-app:user-42
-```
-
-Response:
-```json
-{
-  "chat": {
-   "id": "cm7p6rik1001emqp0slgxgu1j",
-   "userId": "6754db6b00119ba9e0da",
-   "conversationName": "Understanding Predestination",
-   "denomination": "reformed-baptist",
-   "createdAt": "2025-02-28T19:48:22.321Z",
-   "modifiedAt": "2025-02-28T19:48:45.855Z"
-  },
-  "messages": [
-   {
-    "id": "cm7p6rimi001gmqp0liuisq27",
-    "chatId": "cm7p6rik1001emqp0slgxgu1j",
-    "sender": "user",
-    "content": "What is predestination?",
-    "timestamp": "2025-02-28T19:48:22.410Z"
-   },
-   {
-    "id": "cm7p6rqc0001imqp0h9gywt2x",
-    "chatId": "cm7p6rik1001emqp0slgxgu1j",
-    "sender": "tool_summary",
-    "toolName": "supplementalArticleSearch",
-    "content": "Found 3 relevant theological articles on predestination from trusted sources.",
-    "timestamp": "2025-02-28T19:48:30.401Z"
-   },
-   {
-    "id": "cm7p6rqd0001jmqp0abc12345",
-    "chatId": "cm7p6rik1001emqp0slgxgu1j",
-    "sender": "gotQuestions",
-    "content": "- [Providence and Predestination - Monergism](https://www.monergism.com/reformation-theology/blog/providence-and-predestination) _(Monergism)_\n- [What is predestination? - GotQuestions.org](https://www.gotquestions.org/predestination.html) _(GotQuestions)_\n- [What is Predestination? - Monergism](https://www.monergism.com/what-predestination) _(Monergism)_",
-    "timestamp": "2025-02-28T19:48:32.401Z"
-   },
-   {
-    "id": "cm7p6rxq0001kmqp0kdxt3qvt",
-    "chatId": "cm7p6rik1001emqp0slgxgu1j",
-    "sender": "CCEL",
-    "content": "- [Calvin's Institutes, Book III, Chapter 21](https://ccel.org/ccel/calvin/institutes/institutes.v.xxii.html) - On Eternal Election",
-    "timestamp": "2025-02-28T19:48:41.938Z"
-   },
-   {
-    "id": "cm7p6rzqs001mmqp0jrawhfi1",
-    "chatId": "cm7p6rik1001emqp0slgxgu1j",
-    "sender": "parrot",
-    "content": "Predestination is...",
-    "timestamp": "2025-02-28T19:48:44.596Z"
-   }
-  ]
-}
-```
-
-> **Note**: The `tool_summary` messages include a `toolName` field that is parsed from the stored JSON content. This allows the frontend to display tool-specific UI components.
-
-> **Note**: Treat the `chat.userId` value in the response as an internal actor identifier. External integrations should keep using their own original `userId` value for subsequent requests.
-
-## Implementation Guide
-
-### Front-end Integration Example
-```typescript
-const handleStream = async (chatId: string, message: string) => {
-  const response = await fetch('/api/parrot-chat', {
-   method: 'POST',
-   headers: { 'Content-Type': 'application/json' },
-   body: JSON.stringify({ chatId, message })
-  });
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-
-  while (true) {
-   const { value, done } = await reader.read();
-   if (done) break;
-   
-   const lines = decoder.decode(value).split('\n');
-   for (const line of lines) {
-    if (!line.trim()) continue;
-    
-    const event = JSON.parse(line);
-    switch (event.type) {
-      case 'progress':
-       updateProgress(event.title, event.content);
-       break;
-      case 'parrot':
-       appendParrotMessage(event.content);
-       break;
-      case 'tool_progress':
-       // Ephemeral - show but don't persist
-       showToolProgress(event.toolName, event.message);
-       break;
-      case 'tool_summary':
-       // Persistent - show and will be in chat history
-       showToolSummary(event.toolName, event.content);
-       break;
-      case 'gotQuestions':
-       showReferences(event.content);
-       break;
-      case 'CCEL':
-       showCCELReferences(event.content);
-       break;
-      case 'conversationNameUpdated':
-       // Update sidebar with new conversation name
-       updateSidebarChatName(event.chatId, event.name);
-       break;
-      case 'done':
-       finishStream();
-       break;
-    }
-   }
-  }
-};
-```
-
-For complete implementation examples, see:
-- [Main Chat Page](https://github.com/Jegama/calvinist-parrot/blob/master/app/page.tsx)
-- [Chat Session Page](https://github.com/Jegama/calvinist-parrot/blob/master/app/[chatId]/page.tsx)
-
----
-
-## Denominations
-
-The endpoint supports the following denomination:
-
-1. **Reformed Baptist** (default)
-2. **Presbyterian**
-3. **Wesleyan**
-4. **Lutheran**
-5. **Anglican**
-6. **Pentecostal/Charismatic**
-7. **Non-Denominational Evangelical**
-
-Each mode tailors its responses according to distinct theological perspectives on secondary issues while sharing a common foundation on core doctrines.
+For the classic multi-agent question-and-answer workflow, see the [Parrot QA API](/documentation-parrot-qa).

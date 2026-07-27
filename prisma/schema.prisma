@@ -216,16 +216,19 @@ model journalEntryAI {
 }
 
 model chatHistory {
-  id               String        @id @default(cuid())
-  userId           String
-  conversationName String
-  createdAt        DateTime      @default(now())
-  modifiedAt       DateTime      @updatedAt
-  category         String
-  issue_type       String
-  subcategory      String
-  denomination     String        @default("reformed-baptist")
-  messages         chatMessage[] @relation("ChatMessages")
+  id                String        @id @default(cuid())
+  userId            String
+  creationRequestId String?
+  conversationName  String
+  createdAt         DateTime      @default(now())
+  modifiedAt        DateTime      @updatedAt
+  category          String
+  issue_type        String
+  subcategory       String
+  denomination      String        @default("reformed-baptist")
+  messages          chatMessage[] @relation("ChatMessages")
+
+  @@unique([userId, creationRequestId])
 }
 
 model chatMessage {

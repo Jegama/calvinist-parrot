@@ -25,6 +25,12 @@ import {
   type ChatMessageRecord,
   type ChatTurn as ChatTurnType,
 } from "@/lib/chat-turns";
+import {
+  chatStreamEventSchema,
+  getChatResponseSchema,
+  type ChatStreamEvent,
+  type GetChatResponse,
+} from "@/lib/api/contracts";
 
 const TOOL_PROGRESS_TITLES: Record<string, string> = {
   "Theological Research": "Gathering supporting sources",
@@ -59,34 +65,7 @@ const TOOL_PROGRESS_TITLES: Record<string, string> = {
   search_by_strongs: "Searching by Strong's number",
 };
 
-type Chat = {
-  id: string;
-  userId: string;
-  conversationName: string;
-  denomination: string;
-  effectiveDenomination: string;
-  modifiedAt: string;
-};
-
-type RequestEvent = { requestId?: string };
-
-type DataEvent =
-  | ({ type: "info" | "done" | "stopped" } & RequestEvent)
-  | ({ type: "error"; stage: string; message: string } & RequestEvent)
-  | ({ type: "progress"; title: string; content: string } & RequestEvent)
-  | ({ type: "tool_progress"; toolName: string; message: string } & RequestEvent)
-  | ({
-      type: "tool_summary";
-      toolName: string;
-      content: string;
-    } & RequestEvent)
-  | ({ type: "parrot" | "calvin"; content: string } & RequestEvent)
-  | ({ type: "gotQuestions" | "CCEL"; content: string } & RequestEvent)
-  | ({
-      type: "conversationNameUpdated";
-      chatId: string;
-      name: string;
-    } & RequestEvent);
+type Chat = GetChatResponse["chat"];
 
 type SendOptions = {
   message?: string;
@@ -149,7 +128,7 @@ function ChatPageContent() {
       fetchControllerRef.current = fetchController;
       try {
         const response = await fetch(
-          `/api/parrot-chat?chatId=${encodeURIComponent(params.chatId)}`,
+          `/api/v1/chats/${encodeURIComponent(params.chatId)}`,
           { cache: "no-store", signal: fetchController.signal },
         );
         if (!response.ok) {
@@ -165,10 +144,7 @@ function ChatPageContent() {
           throw new Error("We could not load this conversation.");
         }
 
-        const data = (await response.json()) as {
-          chat: Chat;
-          messages: ChatMessageRecord[];
-        };
+        const data = getChatResponseSchema.parse(await response.json());
         setChat(data.chat);
         setMessages(Array.isArray(data.messages) ? data.messages : []);
         upsertChat({
@@ -337,19 +313,21 @@ function ChatPageContent() {
       }
 
       try {
-        const response = await fetch("/api/parrot-chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
-          body: JSON.stringify({
-            chatId: params.chatId,
-            message: outgoingMessage,
-            requestId,
-            messageId,
-            isAutoTrigger: options.isAutoTrigger,
-            retry: options.retry,
-          }),
-        });
+        const response = await fetch(
+          `/api/v1/chats/${encodeURIComponent(params.chatId)}/messages`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              message: outgoingMessage,
+              requestId,
+              messageId,
+              isAutoTrigger: options.isAutoTrigger,
+              retry: options.retry,
+            }),
+          },
+        );
 
         if (!response.ok || !response.body) {
           if (response.status === 409) {
@@ -399,8 +377,8 @@ function ChatPageContent() {
           });
         };
 
-        const processEvent = (data: DataEvent) => {
-          const eventRequestId = data.requestId ?? requestId;
+        const processEvent = (data: ChatStreamEvent) => {
+          const eventRequestId = data.requestId;
           switch (data.type) {
             case "progress":
               setProgress({ title: data.title, content: data.content });
@@ -427,41 +405,11 @@ function ChatPageContent() {
               ]);
               break;
             case "parrot":
-            case "calvin":
-              appendAssistantToken(eventRequestId, data.content, data.type);
-              break;
-            case "gotQuestions":
-            case "CCEL":
-              setMessages((current) => [
-                ...current,
-                {
-                  id: crypto.randomUUID(),
-                  sender: "tool_summary",
-                  toolName:
-                    data.type === "CCEL"
-                      ? "CCEL Retrieval"
-                      : "Theological Research",
-                  content: data.content,
-                  requestId: eventRequestId,
-                  timestamp: new Date().toISOString(),
-                },
-              ]);
+              appendAssistantToken(eventRequestId, data.content);
               break;
             case "error":
               setProgress(null);
               appendFailure(eventRequestId, data.message);
-              break;
-            case "stopped":
-              setMessages((current) => [
-                ...current,
-                {
-                  id: `stopped:${eventRequestId}`,
-                  sender: "system_stopped",
-                  content: "Response stopped by the user.",
-                  requestId: eventRequestId,
-                  timestamp: new Date().toISOString(),
-                },
-              ]);
               break;
             case "conversationNameUpdated":
               upsertChat({
@@ -475,7 +423,6 @@ function ChatPageContent() {
               );
               break;
             case "done":
-            case "info":
               break;
           }
         };
@@ -489,7 +436,7 @@ function ChatPageContent() {
           for (const line of lines) {
             if (!line.trim()) continue;
             try {
-              processEvent(JSON.parse(line) as DataEvent);
+              processEvent(chatStreamEventSchema.parse(JSON.parse(line)));
             } catch (error) {
               console.error("Failed to parse chat event:", error);
             }
@@ -498,7 +445,7 @@ function ChatPageContent() {
 
         if (buffer.trim()) {
           try {
-            processEvent(JSON.parse(buffer) as DataEvent);
+            processEvent(chatStreamEventSchema.parse(JSON.parse(buffer)));
           } catch (error) {
             console.error("Failed to parse final chat event:", error);
           }
@@ -657,15 +604,14 @@ function ChatPageContent() {
     if (!activeRequest) return;
 
     try {
-      const response = await fetch("/api/parrot-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chatId: params.chatId,
-          requestId: activeRequest.requestId,
-          stop: true,
-        }),
-      });
+      const response = await fetch(
+        `/api/v1/chats/${encodeURIComponent(params.chatId)}/requests/${encodeURIComponent(activeRequest.requestId)}/stop`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
       if (!response.ok) {
         console.error("Unable to persist stopped response state");
         return;
