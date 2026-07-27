@@ -34,7 +34,7 @@
         ],
         "operationId": "createChat",
         "summary": "Create a chat",
-        "description": "Creates a chat and persists the initial message. When `initialAnswer` is supplied, the answer and optional classification fields are also persisted so a QA result can continue as a chat.",
+        "description": "Creates a chat and persists the initial message. When `initialAnswer` is supplied, the answer and optional classification fields are also persisted so a QA result can continue as a chat. A caller-supplied `requestId` is scoped to the current browser actor: retrying the same payload returns the original identifiers, while reusing it for a different payload returns 409.",
         "requestBody": {
           "required": true,
           "content": {
@@ -53,7 +53,7 @@
         },
         "responses": {
           "201": {
-            "description": "Chat created.",
+            "description": "Chat created or an identical creation replayed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -89,6 +89,16 @@
           },
           "404": {
             "description": "The requested chat or request was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request ID conflicts with another chat creation, or the client chat ID is already in use.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1084,7 +1094,7 @@
           "initialQuestion"
         ],
         "additionalProperties": false,
-        "description": "Creates a chat and persists its initial user message."
+        "description": "Creates a chat and persists its initial user message. A caller-supplied requestId makes identical retries return the original identifiers."
       },
       "CreateChatResponse": {
         "type": "object",

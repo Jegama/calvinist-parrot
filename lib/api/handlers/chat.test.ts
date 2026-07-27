@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   resolveChatActor: vi.fn(),
   getChatActorId: vi.fn(),
   generateConversationName: vi.fn(),
+  chatHistoryFindFirst: vi.fn(),
   chatHistoryFindUnique: vi.fn(),
   userProfileFindUnique: vi.fn(),
   chatMessageFindMany: vi.fn(),
@@ -18,6 +19,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/prisma", () => ({
   default: {
     chatHistory: {
+      findFirst: mocks.chatHistoryFindFirst,
       findUnique: mocks.chatHistoryFindUnique,
     },
     userProfile: {
@@ -314,6 +316,8 @@ describe("chat runtime mappings", () => {
     });
     mocks.getChatActorId.mockReturnValue("owner-1");
     mocks.generateConversationName.mockResolvedValue("Grace");
+    mocks.chatHistoryFindFirst.mockResolvedValue(null);
+    mocks.chatHistoryFindUnique.mockResolvedValue(null);
   });
 
   it.each([
@@ -332,7 +336,12 @@ describe("chat runtime mappings", () => {
         .mockResolvedValueOnce({ id: "message-2" });
       mocks.transaction.mockImplementation(async (operation) =>
         operation({
-          chatHistory: { create: chatHistoryCreate },
+          $executeRaw: vi.fn(),
+          chatHistory: {
+            findFirst: mocks.chatHistoryFindFirst,
+            findUnique: mocks.chatHistoryFindUnique,
+            create: chatHistoryCreate,
+          },
           chatMessage: { create: chatMessageCreate },
         }),
       );
@@ -356,6 +365,7 @@ describe("chat runtime mappings", () => {
         data: expect.objectContaining({
           id: "client-chat-1",
           userId: "owner-1",
+          creationRequestId: "request-1",
           conversationName: expectedName,
           denomination: "presbyterian",
           category: "Doctrine",
@@ -370,6 +380,102 @@ describe("chat runtime mappings", () => {
       });
     },
   );
+
+  it("replays an identical chat creation and rejects a changed payload", async () => {
+    const chatHistoryCreate = vi.fn();
+    const chatMessageCreate = vi.fn();
+    const existingCreation = {
+      id: "chat-1",
+      category: "Doctrine",
+      subcategory: "Grace",
+      issue_type: "secondary",
+      denomination: "presbyterian",
+      messages: [
+        {
+          id: "message-1",
+          sender: "user",
+          content: "What is grace?",
+        },
+        {
+          id: "message-2",
+          sender: "parrot",
+          content: "God's unmerited favor.",
+        },
+      ],
+    };
+    mocks.chatHistoryFindFirst.mockResolvedValue(existingCreation);
+    mocks.transaction.mockImplementation(async (operation) =>
+      operation({
+        $executeRaw: vi.fn(),
+        chatHistory: {
+          findFirst: mocks.chatHistoryFindFirst,
+          findUnique: mocks.chatHistoryFindUnique,
+          create: chatHistoryCreate,
+        },
+        chatMessage: { create: chatMessageCreate },
+      }),
+    );
+
+    const command = {
+      initialQuestion: "What is grace?",
+      initialAnswer: "God's unmerited favor.",
+      requestId: "request-1",
+      denomination: "presbyterian",
+      category: "Doctrine",
+      subcategory: "Grace",
+      issueType: "secondary",
+    };
+    const replayed = await executeChatCommand(jsonRequest({}), command);
+
+    expect(replayed.status).toBe(200);
+    expect(await replayed.json()).toEqual({
+      chatId: "chat-1",
+      messageId: "message-1",
+      requestId: "request-1",
+    });
+    expect(chatHistoryCreate).not.toHaveBeenCalled();
+    expect(chatMessageCreate).not.toHaveBeenCalled();
+
+    const conflict = await executeChatCommand(jsonRequest({}), {
+      ...command,
+      initialQuestion: "What is mercy?",
+    });
+
+    expect(conflict.status).toBe(409);
+    expect(await conflict.json()).toEqual({
+      error: "Request ID conflicts with an existing chat creation",
+    });
+    expect(chatHistoryCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when a new request reuses an existing client chat ID", async () => {
+    const chatHistoryCreate = vi.fn();
+    mocks.chatHistoryFindFirst.mockResolvedValue(null);
+    mocks.chatHistoryFindUnique.mockResolvedValue({ id: "client-chat-1" });
+    mocks.transaction.mockImplementation(async (operation) =>
+      operation({
+        $executeRaw: vi.fn(),
+        chatHistory: {
+          findFirst: mocks.chatHistoryFindFirst,
+          findUnique: mocks.chatHistoryFindUnique,
+          create: chatHistoryCreate,
+        },
+        chatMessage: { create: vi.fn() },
+      }),
+    );
+
+    const response = await executeChatCommand(jsonRequest({}), {
+      initialQuestion: "What is grace?",
+      clientChatId: "client-chat-1",
+      requestId: "request-2",
+    });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "Client chat ID is already in use",
+    });
+    expect(chatHistoryCreate).not.toHaveBeenCalled();
+  });
 
   it("omits ownership and normalizes legacy stored senders in v1 history", async () => {
     const timestamp = new Date("2026-07-26T12:00:00.000Z");

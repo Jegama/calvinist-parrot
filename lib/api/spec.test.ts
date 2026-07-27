@@ -137,11 +137,14 @@ describe("OpenAPI document", () => {
     const createProperties =
       spec.components.schemas.CreateChatRequest.properties;
     const qaProperties = spec.components.schemas.QaRequest.properties;
+    const createResponses =
+      spec.paths["/api/v1/chats"].post.responses;
     const messageResponses =
       spec.paths["/api/v1/chats/{chatId}/messages"].post.responses;
 
     expect(createProperties).not.toHaveProperty("userId");
     expect(qaProperties).not.toHaveProperty("userId");
+    expect(createResponses).toHaveProperty("409");
     expect(messageResponses).toHaveProperty("409");
   });
 

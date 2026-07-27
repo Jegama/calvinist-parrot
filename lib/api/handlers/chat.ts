@@ -47,7 +47,10 @@ import {
   recordLegacyApiUse,
   withHeaders,
 } from "@/lib/api/handlers/http";
-import { acquireRequestPersistenceLock } from "@/lib/api/handlers/request-persistence-lock";
+import {
+  acquireChatCreationLocks,
+  acquireRequestPersistenceLock,
+} from "@/lib/api/handlers/request-persistence-lock";
 
 export type ChatCommand = {
   chatId?: string;
@@ -112,6 +115,89 @@ async function withRequestPersistenceLock<T>(
     await acquireRequestPersistenceLock(tx, chatId, requestId);
     return operation(tx);
   });
+}
+
+type ChatCreationStore = Pick<Prisma.TransactionClient, "chatHistory">;
+
+type ChatCreationInput = {
+  initialQuestion: string;
+  initialAnswer?: string;
+  category: string;
+  subcategory: string;
+  issueType: string;
+  denomination: string;
+  clientChatId?: string;
+};
+
+async function findExistingChatCreation(
+  store: ChatCreationStore,
+  userId: string,
+  requestId: string,
+) {
+  return store.chatHistory.findFirst({
+    where: {
+      userId,
+      creationRequestId: requestId,
+    },
+    select: {
+      id: true,
+      category: true,
+      subcategory: true,
+      issue_type: true,
+      denomination: true,
+      messages: {
+        where: { requestId },
+        orderBy: [{ timestamp: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          sender: true,
+          content: true,
+        },
+      },
+    },
+  });
+}
+
+type ExistingChatCreation = NonNullable<
+  Awaited<ReturnType<typeof findExistingChatCreation>>
+>;
+
+function getIdempotentChatCreationResult(
+  existing: ExistingChatCreation,
+  input: ChatCreationInput,
+  requestId: string,
+) {
+  const userMessages = existing.messages.filter(
+    (message) => message.sender === "user",
+  );
+  const parrotMessages = existing.messages.filter(
+    (message) => message.sender === "parrot",
+  );
+  const expectedMessageCount = input.initialAnswer ? 2 : 1;
+
+  const isSameRequest =
+    (!input.clientChatId || input.clientChatId === existing.id) &&
+    existing.category === input.category &&
+    existing.subcategory === input.subcategory &&
+    existing.issue_type === input.issueType &&
+    existing.denomination === input.denomination &&
+    existing.messages.length === expectedMessageCount &&
+    userMessages.length === 1 &&
+    userMessages[0].content === input.initialQuestion &&
+    (input.initialAnswer
+      ? parrotMessages.length === 1 &&
+        parrotMessages[0].content === input.initialAnswer
+      : parrotMessages.length === 0);
+
+  if (!isSameRequest) {
+    return null;
+  }
+
+  return {
+    chatId: existing.id,
+    messageId: userMessages[0].id,
+    requestId,
+  };
 }
 
 export async function executeChatCommand(
@@ -216,62 +302,95 @@ export async function executeChatCommand(
     return NextResponse.json({ stopped: true, completed: false });
   }
 
-  // Handle new chat from Parrot QA
-  if (effectiveUserId && initialQuestion && initialAnswer && !chatId) {
-    const allMessagesStr = `user: ${initialQuestion}\nparrot: ${initialAnswer}`;
-    const conversationName = await generateConversationName(allMessagesStr);
-    const result = await prisma.$transaction(async (tx) => {
-      const createdChat = await tx.chatHistory.create({
-        data: {
-          id: clientChatId ?? undefined,
-          userId: effectiveUserId,
-          conversationName,
-          category: category || "",
-          subcategory: subcategory || "",
-          issue_type: issueType || "",
-          denomination,
-        },
-      });
-
-      const createdMessage = await tx.chatMessage.create({
-        data: {
-          chatId: createdChat.id,
-          requestId: resolvedRequestId,
-          sender: "user",
-          content: initialQuestion,
-        },
-      });
-
-      await tx.chatMessage.create({
-        data: {
-          chatId: createdChat.id,
-          requestId: resolvedRequestId,
-          sender: "parrot",
-          content: initialAnswer,
-        },
-      });
-
-      return { createdChat, createdMessage };
-    });
-
-    return NextResponse.json({
-      chatId: result.createdChat.id,
-      messageId: result.createdMessage.id,
-      requestId: resolvedRequestId,
-    });
-  }
-
-  // If identity and an initial message are provided but no chatId, start a new chat session.
+  // If identity and an initial message are provided but no chatId, start or
+  // idempotently replay a chat creation.
   if (effectiveUserId && initialQuestion && !chatId) {
+    const creationInput: ChatCreationInput = {
+      initialQuestion,
+      initialAnswer,
+      category: category || "",
+      subcategory: subcategory || "",
+      issueType: issueType || "",
+      denomination,
+      clientChatId,
+    };
+    const existingCreation = await findExistingChatCreation(
+      prisma,
+      effectiveUserId,
+      resolvedRequestId,
+    );
+    if (existingCreation) {
+      const replay = getIdempotentChatCreationResult(
+        existingCreation,
+        creationInput,
+        resolvedRequestId,
+      );
+      return replay
+        ? NextResponse.json(replay)
+        : NextResponse.json(
+            {
+              error:
+                "Request ID conflicts with an existing chat creation",
+            },
+            { status: 409 },
+          );
+    }
+
+    const conversationName = initialAnswer
+      ? await generateConversationName(
+          `user: ${initialQuestion}\nparrot: ${initialAnswer}`,
+        )
+      : "New Conversation";
+
     const result = await prisma.$transaction(async (tx) => {
+      await acquireChatCreationLocks(
+        tx,
+        effectiveUserId,
+        resolvedRequestId,
+        clientChatId,
+      );
+
+      const existingCreation = await findExistingChatCreation(
+        tx,
+        effectiveUserId,
+        resolvedRequestId,
+      );
+      if (existingCreation) {
+        const replay = getIdempotentChatCreationResult(
+          existingCreation,
+          creationInput,
+          resolvedRequestId,
+        );
+        return replay
+          ? { kind: "success" as const, response: replay }
+          : {
+              kind: "conflict" as const,
+              error: "Request ID conflicts with an existing chat creation",
+            };
+      }
+
+      if (clientChatId) {
+        const existingClientChat = await tx.chatHistory.findUnique({
+          where: { id: clientChatId },
+          select: { id: true },
+        });
+        if (existingClientChat) {
+          return {
+            kind: "conflict" as const,
+            error: "Client chat ID is already in use",
+          };
+        }
+      }
+
       const createdChat = await tx.chatHistory.create({
         data: {
           id: clientChatId ?? undefined,
           userId: effectiveUserId,
-          conversationName: "New Conversation",
-          category: category || "",
-          subcategory: subcategory || "",
-          issue_type: issueType || "",
+          creationRequestId: resolvedRequestId,
+          conversationName,
+          category: creationInput.category,
+          subcategory: creationInput.subcategory,
+          issue_type: creationInput.issueType,
           denomination,
         },
       });
@@ -285,14 +404,32 @@ export async function executeChatCommand(
         },
       });
 
-      return { createdChat, createdMessage };
+      if (initialAnswer) {
+        await tx.chatMessage.create({
+          data: {
+            chatId: createdChat.id,
+            requestId: resolvedRequestId,
+            sender: "parrot",
+            content: initialAnswer,
+          },
+        });
+      }
+
+      return {
+        kind: "success" as const,
+        response: {
+          chatId: createdChat.id,
+          messageId: createdMessage.id,
+          requestId: resolvedRequestId,
+        },
+      };
     });
 
-    return NextResponse.json({
-      chatId: result.createdChat.id,
-      messageId: result.createdMessage.id,
-      requestId: resolvedRequestId,
-    });
+    if (result.kind === "conflict") {
+      return NextResponse.json({ error: result.error }, { status: 409 });
+    }
+
+    return NextResponse.json(result.response);
   }
 
   // If chatID and message run main system <-- This continues the converation and is the main use case.

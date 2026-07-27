@@ -202,7 +202,7 @@ export function buildSpec(): OpenApiDocument {
           operationId: "createChat",
           summary: "Create a chat",
           description:
-            "Creates a chat and persists the initial message. When `initialAnswer` is supplied, the answer and optional classification fields are also persisted so a QA result can continue as a chat.",
+            "Creates a chat and persists the initial message. When `initialAnswer` is supplied, the answer and optional classification fields are also persisted so a QA result can continue as a chat. A caller-supplied `requestId` is scoped to the current browser actor: retrying the same payload returns the original identifiers, while reusing it for a different payload returns 409.",
           requestBody: {
             required: true,
             content: jsonBody(
@@ -212,11 +212,16 @@ export function buildSpec(): OpenApiDocument {
           },
           responses: {
             "201": {
-              description: "Chat created.",
+              description: "Chat created or an identical creation replayed.",
               content: jsonBody(
                 schemaRef("CreateChatResponse"),
                 createChatResponseExample,
               ),
+            },
+            "409": {
+              description:
+                "The request ID conflicts with another chat creation, or the client chat ID is already in use.",
+              content: jsonBody(schemaRef("ErrorResponse")),
             },
             ...errorResponses,
           },

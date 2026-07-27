@@ -39,7 +39,9 @@ export const createChatRequestSchema = z
     subcategory: classificationSchema.optional(),
     issueType: classificationSchema.optional(),
   })
-  .describe("Creates a chat and persists its initial user message.");
+  .describe(
+    "Creates a chat and persists its initial user message. A caller-supplied requestId makes identical retries return the original identifiers.",
+  );
 
 export const createChatResponseSchema = z
   .strictObject({

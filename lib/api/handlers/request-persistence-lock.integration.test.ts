@@ -6,7 +6,10 @@ import { config } from "dotenv";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { acquireRequestPersistenceLock } from "./request-persistence-lock";
+import {
+  acquireChatCreationLocks,
+  acquireRequestPersistenceLock,
+} from "./request-persistence-lock";
 
 if (process.env.RUN_DATABASE_INTEGRATION_TESTS === "1") {
   config();
@@ -94,5 +97,71 @@ describeWithDatabase("request persistence advisory lock", () => {
     }
 
     expect(secondLockAcquired).toBe(true);
+  });
+
+  it("serializes identical chat creation retries to one persisted chat", async () => {
+    const userId = `idempotency-${randomUUID()}`;
+    const requestId = randomUUID();
+
+    const createOrReplay = () =>
+      prisma.$transaction(async (tx) => {
+        await acquireChatCreationLocks(tx, userId, requestId);
+
+        const existing = await tx.chatHistory.findFirst({
+          where: { userId, creationRequestId: requestId },
+          select: { id: true },
+        });
+        if (existing) {
+          return existing.id;
+        }
+
+        const created = await tx.chatHistory.create({
+          data: {
+            userId,
+            creationRequestId: requestId,
+            conversationName: "New Conversation",
+            category: "",
+            subcategory: "",
+            issue_type: "",
+          },
+        });
+        await tx.chatMessage.create({
+          data: {
+            chatId: created.id,
+            requestId,
+            sender: "user",
+            content: "What is grace?",
+          },
+        });
+        return created.id;
+      });
+
+    try {
+      const [firstChatId, retriedChatId] = await Promise.all([
+        createOrReplay(),
+        createOrReplay(),
+      ]);
+
+      expect(retriedChatId).toBe(firstChatId);
+      await expect(
+        prisma.chatHistory.count({
+          where: { userId, creationRequestId: requestId },
+        }),
+      ).resolves.toBe(1);
+      await expect(
+        prisma.chatMessage.count({
+          where: { chatId: firstChatId, requestId, sender: "user" },
+        }),
+      ).resolves.toBe(1);
+    } finally {
+      const createdChats = await prisma.chatHistory.findMany({
+        where: { userId },
+        select: { id: true },
+      });
+      await prisma.chatMessage.deleteMany({
+        where: { chatId: { in: createdChats.map((chat) => chat.id) } },
+      });
+      await prisma.chatHistory.deleteMany({ where: { userId } });
+    }
   });
 });
