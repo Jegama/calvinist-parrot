@@ -29,10 +29,7 @@ import type {
   SecondaryDoctrinesResponse,
   TertiaryDoctrinesResponse,
 } from "@/types/church";
-import {
-  applyConfessionToCoreDoctrines,
-  applyConfessionToSecondary,
-} from "@/utils/confessionInference";
+import { applyConfessionToSecondary } from "@/utils/confessionInference";
 
 import {
   createSourcePageMetadata,
@@ -262,11 +259,6 @@ export async function extractChurchEvaluation(
 
   const groundedCore = validateCoreDoctrineEvidence(coreDoctrinesRaw, pages);
   const groundedRedFlags = validateRedFlagEvidence(redFlags, pages);
-  const coreDoctrines = applyConfessionToCoreDoctrines(
-    groundedCore.core_doctrines,
-    denominationConfession.confession.adopted,
-    denominationConfession.confession.name,
-  );
   const secondary = applyConfessionToSecondary(
     secondaryRaw.secondary,
     denominationConfession.confession.name,
@@ -290,7 +282,7 @@ export async function extractChurchEvaluation(
       best_pages_for: basicFields.best_pages_for,
       denomination: denominationConfession.denomination,
       confession: denominationConfession.confession,
-      core_doctrines: coreDoctrines,
+      core_doctrines: groundedCore.core_doctrines,
       secondary,
       tertiary: tertiaryRaw.tertiary,
       badges: [

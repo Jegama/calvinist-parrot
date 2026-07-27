@@ -164,6 +164,26 @@ describe("postProcessEvaluation", () => {
     expect(result.badges).toContain("📜 Reformed");
   });
 
+  it("does not let an adopted confession replace grounded core evidence", () => {
+    const result = postProcessEvaluation(evaluationFixture({
+      core: withUnknown(
+        "trinity",
+        "gospel",
+        "justification_by_faith",
+        "christ_deity_humanity",
+        "scripture_authority",
+        "resurrection_of_jesus",
+      ),
+      confessionAdopted: true,
+    }));
+
+    expect(result.coverageRatio).toBe(0.4);
+    expect(result.status).toBe("limited_information");
+    expect(result.badges).toContain("📜 Reformed");
+    expect(result.badges).toContain("⚠️ Low Essentials Coverage");
+    expect(result.badges).toContain("ℹ️ Minimal Doctrinal Detail");
+  });
+
   it.each(["🔄 Dispensational", "🍷 Paedocommunion"])(
     "uses the shared secondary-difference policy for %s",
     (badge) => {

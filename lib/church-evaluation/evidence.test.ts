@@ -130,14 +130,14 @@ describe("validateRedFlagEvidence", () => {
       badges: ["👩‍🏫 Ordained Women"],
       notes: [{
         label: "Ordained Women",
-        text: "The leadership page identifies \"Sarah Johnson — Teaching Pastor\".",
+        text: "The leadership page identifies \"Sarah Johnson — Teaching Pastor. She oversees adult discipleship.\"",
         source_url: "https://example.church/leadership",
       }],
     };
 
     const result = validateRedFlagEvidence(response, [{
       url: "https://example.church/leadership",
-      rawContent: "Our team includes Sarah Johnson — Teaching Pastor.",
+      rawContent: "Our team includes Sarah Johnson — Teaching Pastor. She oversees adult discipleship.",
     }]);
 
     expect(result.badges).toEqual(["👩‍🏫 Ordained Women"]);
@@ -149,20 +149,57 @@ describe("validateRedFlagEvidence", () => {
       badges: ["👩‍🏫 Ordained Women"],
       notes: [{
         label: "👩‍🏫 Ordained Women",
-        text: "The leadership page identifies \"Rev. Jane Doe\".",
+        text: "The leadership page identifies \"Rev. Jane Doe. She serves on the pastoral team.\"",
         source_url: "https://example.church/leadership",
       }],
     };
 
     const result = validateRedFlagEvidence(response, [{
       url: "https://example.church/leadership",
-      rawContent: "Rev. Jane Doe serves on the pastoral team.",
+      rawContent: "Rev. Jane Doe. She serves on the pastoral team.",
     }]);
 
     expect(result.badges).toEqual(["👩‍🏫 Ordained Women"]);
   });
 
-  it("rejects an explicit title that cannot be found on the cited page", () => {
+  it("accepts a grounded gendered honorific tied to the named clergy member", () => {
+    const response: RedFlagsResponse = {
+      badges: ["👩‍🏫 Ordained Women"],
+      notes: [{
+        label: "Ordained Women",
+        text: "The leadership page identifies \"Ms. Anna Lee — Associate Pastor\".",
+        source_url: "https://example.church/leadership",
+      }],
+    };
+
+    const result = validateRedFlagEvidence(response, [{
+      url: "https://example.church/leadership",
+      rawContent: "Ms. Anna Lee — Associate Pastor.",
+    }]);
+
+    expect(result.badges).toEqual(["👩‍🏫 Ordained Women"]);
+  });
+
+  it("rejects a grounded male clergy title mislabeled as Ordained Women", () => {
+    const response: RedFlagsResponse = {
+      badges: ["👩‍🏫 Ordained Women"],
+      notes: [{
+        label: "Ordained Women",
+        text: "The leadership page identifies \"John Smith — Pastor. He leads the congregation.\"",
+        source_url: "https://example.church/leadership",
+      }],
+    };
+
+    const result = validateRedFlagEvidence(response, [{
+      url: "https://example.church/leadership",
+      rawContent: "John Smith — Pastor. He leads the congregation.",
+    }]);
+
+    expect(result.badges).toEqual([]);
+    expect(result.notes).toEqual([]);
+  });
+
+  it("does not infer female identity from a name alone", () => {
     const response: RedFlagsResponse = {
       badges: ["👩‍🏫 Ordained Women"],
       notes: [{
@@ -174,7 +211,26 @@ describe("validateRedFlagEvidence", () => {
 
     const result = validateRedFlagEvidence(response, [{
       url: "https://example.church/leadership",
-      rawContent: "Sarah Johnson — Children's Ministry Director.",
+      rawContent: "Sarah Johnson — Teaching Pastor.",
+    }]);
+
+    expect(result.badges).toEqual([]);
+    expect(result.notes).toEqual([]);
+  });
+
+  it("rejects an explicit title that cannot be found on the cited page", () => {
+    const response: RedFlagsResponse = {
+      badges: ["👩‍🏫 Ordained Women"],
+      notes: [{
+        label: "Ordained Women",
+        text: "The leadership page identifies \"Sarah Johnson — Teaching Pastor. She oversees adult discipleship.\"",
+        source_url: "https://example.church/leadership",
+      }],
+    };
+
+    const result = validateRedFlagEvidence(response, [{
+      url: "https://example.church/leadership",
+      rawContent: "Sarah Johnson — Children's Ministry Director. She oversees adult discipleship.",
     }]);
 
     expect(result.badges).toEqual([]);

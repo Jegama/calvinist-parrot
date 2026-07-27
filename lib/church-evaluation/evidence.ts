@@ -82,8 +82,9 @@ function extractQuotedEvidence(value: string): string[] {
     .filter((quote): quote is string => Boolean(quote));
 }
 
-function hasExplicitNamedClergyTitle(value: string): boolean {
-  const nameToken = String.raw`[A-Z][A-Za-zÀ-ÖØ-öø-ÿ'’.-]*`;
+function extractExplicitNamedClergyName(value: string): string | null {
+  const nameToken =
+    String.raw`(?:[A-Z]\.|[A-Z][A-Za-zÀ-ÖØ-öø-ÿ'’.-]*[A-Za-zÀ-ÖØ-öø-ÿ'’])`;
   const personName = String.raw`${nameToken}(?:\s+${nameToken}){1,3}`;
   const clergyOffice =
     String.raw`(?:[Pp]astor|PASTOR|[Ee]lder|ELDER|[Rr]ev(?:erend)?\.?|REV(?:EREND)?\.?|[Bb]ishop|BISHOP|[Pp]riest|PRIEST)`;
@@ -92,13 +93,42 @@ function hasExplicitNamedClergyTitle(value: string): boolean {
   const titledOffice = String.raw`(?:${officeModifier}\s+)*${clergyOffice}`;
 
   const officeBeforeName = new RegExp(
-    String.raw`(?:^|[\s,;:—–-])${titledOffice}\s+${personName}(?:$|[\s,;:—–-])`,
+    String.raw`(?:^|[\s.,;:—–-])${titledOffice}\s+(${personName})(?:$|[\s.,;:—–-])`,
   );
   const nameBeforeOffice = new RegExp(
-    String.raw`(?:^|[\s,;:—–-])${personName}\s*(?:,|:|—|–|-)\s*${titledOffice}(?:$|[\s,;:—–-])`,
+    String.raw`(?:^|[\s.,;:—–-])(${personName})\s*(?:,|:|—|–|-)\s*${titledOffice}(?:$|[\s.,;:—–-])`,
   );
 
-  return officeBeforeName.test(value) || nameBeforeOffice.test(value);
+  return officeBeforeName.exec(value)?.[1] ??
+    nameBeforeOffice.exec(value)?.[1] ??
+    null;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function hasExplicitFemaleIdentity(
+  value: string,
+  personName: string,
+): boolean {
+  const escapedName = escapeRegExp(personName);
+  const genderedHonorific = new RegExp(
+    String.raw`(?:^|[\s,;:—–-])(?:Ms|Mrs|Miss)\.?\s+${escapedName}(?:$|[\s.,;:—–-])`,
+    "i",
+  );
+  const statedPronouns = /\(\s*she\s*\/\s*(?:her|hers)\s*\)/i;
+  const connectedFemalePronoun =
+    /(?:^|[.!?]\s+|[,;:—–-]\s+)(?:she|her)\b/i;
+  const explicitFemaleDescription = new RegExp(
+    String.raw`\b${escapedName}\s+(?:is|identifies as)\s+(?:a\s+)?(?:woman|female)\b`,
+    "i",
+  );
+
+  return genderedHonorific.test(value) ||
+    statedPronouns.test(value) ||
+    connectedFemalePronoun.test(value) ||
+    explicitFemaleDescription.test(value);
 }
 
 function isOrdainedWomenNote(note: ChurchNote): boolean {
@@ -113,10 +143,12 @@ function isGroundedOrdainedWomenNote(
   if (!sourcePage?.rawContent) return false;
 
   const normalizedSource = normalizeEvidenceText(sourcePage.rawContent);
-  return extractQuotedEvidence(note.text).some((quote) =>
-    hasExplicitNamedClergyTitle(quote) &&
-    normalizedSource.includes(normalizeEvidenceText(quote))
-  );
+  return extractQuotedEvidence(note.text).some((quote) => {
+    const personName = extractExplicitNamedClergyName(quote);
+    return personName !== null &&
+      hasExplicitFemaleIdentity(quote, personName) &&
+      normalizedSource.includes(normalizeEvidenceText(quote));
+  });
 }
 
 /**
@@ -163,7 +195,7 @@ export function validateCoreDoctrineEvidence(
  * serving alongside their wives does not establish that a woman holds an
  * ordained office. Keep this critical badge only when a single verbatim,
  * source-grounded quotation directly joins a named individual to a clergy
- * title.
+ * title and explicitly identifies that officeholder as a woman.
  */
 export function validateRedFlagEvidence(
   response: RedFlagsResponse,

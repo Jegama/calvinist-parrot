@@ -73,8 +73,7 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): ProcessedChurch
   }
 
   const lacksEndorsementDetail =
-    !confessionAdopted &&
-    (coverageRatio < MIN_SOUND_COVERAGE || !hasRequiredCoreAffirmations);
+    coverageRatio < MIN_SOUND_COVERAGE || !hasRequiredCoreAffirmations;
 
   if (lacksEndorsementDetail) {
     computedBadges.push("⚠️ Low Essentials Coverage");
