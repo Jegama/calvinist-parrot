@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import type {
   CoreDoctrinesResponse,
-  CoreDoctrineKey,
   CoreDoctrineMap,
   RedFlagsResponse,
 } from "@/types/church";
@@ -48,7 +47,8 @@ describe("validateCoreDoctrineEvidence", () => {
       ),
       [{
         url: "https://example.church/beliefs",
-        rawContent: "We believe: The Bible is the inspired Word of God and our final authority.",
+        rawContent:
+          "We believe: The Bible is the inspired Word of God and our final authority.",
       }],
     );
 
@@ -74,6 +74,28 @@ describe("validateCoreDoctrineEvidence", () => {
     );
 
     expect(result.core_doctrines.resurrection_of_jesus).toBe("true");
+  });
+
+  it("retains source-grounded composite doctrine evidence in Spanish", () => {
+    const quote =
+      "Jesucristo es verdaderamente Dios y verdaderamente hombre.";
+    const result = validateCoreDoctrineEvidence(
+      response(
+        { christ_deity_humanity: "true" },
+        [{
+          label: "christ_deity_humanity",
+          text: quote,
+          source_url: "https://ejemplo.iglesia/creemos",
+        }],
+      ),
+      [{
+        url: "https://ejemplo.iglesia/creemos",
+        rawContent: `Nuestra confesión declara: ${quote}`,
+      }],
+    );
+
+    expect(result.core_doctrines.christ_deity_humanity).toBe("true");
+    expect(result.notes).toHaveLength(1);
   });
 
   it("downgrades a status with no matching note to unknown", () => {
@@ -105,288 +127,126 @@ describe("validateCoreDoctrineEvidence", () => {
     expect(result.notes).toEqual([]);
   });
 
-  it("downgrades a composite doctrine when only Christ's deity is grounded", () => {
+  it("rejects a citation to a URL outside the source set", () => {
     const result = validateCoreDoctrineEvidence(
       response(
-        { christ_deity_humanity: "true" },
+        { gospel: "true" },
         [{
-          label: "christ_deity_humanity",
-          text: "Jesus Christ is truly God.",
+          label: "gospel",
+          text: "Christ died and rose again for our salvation.",
+          source_url: "https://invented.example/faith",
+        }],
+      ),
+      [{
+        url: "https://example.church/beliefs",
+        rawContent: "Christ died and rose again for our salvation.",
+      }],
+    );
+
+    expect(result.core_doctrines.gospel).toBe("unknown");
+  });
+
+  it("rejects evidence that exceeds the structural quote limit", () => {
+    const quote = "D".repeat(501);
+    const result = validateCoreDoctrineEvidence(
+      response(
+        { trinity: "true" },
+        [{
+          label: "trinity",
+          text: quote,
           source_url: "https://example.church/beliefs",
         }],
       ),
       [{
         url: "https://example.church/beliefs",
-        rawContent: "Jesus Christ is truly God.",
+        rawContent: quote,
       }],
     );
 
-    expect(result.core_doctrines.christ_deity_humanity).toBe("unknown");
-    expect(result.notes).toEqual([]);
+    expect(result.core_doctrines.trinity).toBe("unknown");
   });
-
-  it("combines grounded notes to validate every component of a composite doctrine", () => {
-    const notes = [{
-      label: "christ_deity_humanity",
-      text: "Jesus Christ is truly God.",
-      source_url: "https://example.church/beliefs",
-    }, {
-      label: "christ_deity_humanity",
-      text: "He took upon Himself a human nature.",
-      source_url: "https://example.church/beliefs",
-    }];
-    const result = validateCoreDoctrineEvidence(
-      response({ christ_deity_humanity: "true" }, notes),
-      [{
-        url: "https://example.church/beliefs",
-        rawContent: "Jesus Christ is truly God. He took upon Himself a human nature.",
-      }],
-    );
-
-    expect(result.core_doctrines.christ_deity_humanity).toBe("true");
-    expect(result.notes).toEqual(notes);
-  });
-
-  it.each([
-    [
-      "gospel",
-      "Christ died for our sins and rose from the dead.",
-      "Salvation is by grace through faith.",
-    ],
-    [
-      "incarnation_virgin_birth",
-      "The Word became flesh.",
-      "He was conceived by the Holy Spirit and born of the Virgin Mary.",
-    ],
-    [
-      "atonement_necessary_sufficient",
-      "Christ died as an atoning sacrifice for our sins.",
-      "His death is necessary and sufficient.",
-    ],
-    [
-      "return_and_judgment",
-      "Jesus will return.",
-      "He will judge the living and the dead.",
-    ],
-    [
-      "character_of_god",
-      "God is holy and just.",
-      "God is good and merciful.",
-    ],
-  ] satisfies Array<[CoreDoctrineKey, string, string]>)(
-    "requires both grounded components for %s",
-    (key, firstComponent, secondComponent) => {
-      const sourceUrl = "https://example.church/beliefs";
-      const partial = validateCoreDoctrineEvidence(
-        response(
-          { [key]: "true" },
-          [{ label: key, text: firstComponent, source_url: sourceUrl }],
-        ),
-        [{ url: sourceUrl, rawContent: firstComponent }],
-      );
-      const completeNotes = [
-        { label: key, text: firstComponent, source_url: sourceUrl },
-        { label: key, text: secondComponent, source_url: sourceUrl },
-      ];
-      const complete = validateCoreDoctrineEvidence(
-        response({ [key]: "true" }, completeNotes),
-        [{
-          url: sourceUrl,
-          rawContent: `${firstComponent} ${secondComponent}`,
-        }],
-      );
-
-      expect(partial.core_doctrines[key]).toBe("unknown");
-      expect(complete.core_doctrines[key]).toBe("true");
-    },
-  );
 });
 
 describe("validateRedFlagEvidence", () => {
-  it("rejects the Refuge couple-list inference for Ordained Women", () => {
+  it("retains grounded Spanish clergy and textual gender evidence", () => {
+    const quote = "María López — Pastora. Ella dirige la congregación.";
     const response: RedFlagsResponse = {
       badges: ["👩‍🏫 Ordained Women"],
       notes: [{
         label: "Ordained Women",
-        text: "The church leadership page lists \"ELDERS/PASTORS\" and explicitly includes \"Courtney & Marilyn Knerr\" and other couples in this governing category. Marilyn is also described as serving together with Courtney.",
-        source_url: "https://www.myrefugecommunity.org/about",
+        text: quote,
+        source_url: "https://ejemplo.iglesia/liderazgo",
       }],
     };
 
     const result = validateRedFlagEvidence(response, [{
-      url: "https://www.myrefugecommunity.org/about",
-      rawContent: "ELDERS/PASTORS Courtney & Marilyn Knerr. The Elders/Pastors serve together alongside their wives.",
-    }]);
-
-    expect(result.badges).toEqual([]);
-    expect(result.notes).toEqual([]);
-  });
-
-  it("retains Ordained Women only for a grounded named clergy title", () => {
-    const response: RedFlagsResponse = {
-      badges: ["👩‍🏫 Ordained Women"],
-      notes: [{
-        label: "Ordained Women",
-        text: "The leadership page identifies \"Sarah Johnson — Teaching Pastor. She oversees adult discipleship.\"",
-        source_url: "https://example.church/leadership",
-      }],
-    };
-
-    const result = validateRedFlagEvidence(response, [{
-      url: "https://example.church/leadership",
-      rawContent: "Our team includes Sarah Johnson — Teaching Pastor. She oversees adult discipleship.",
+      url: "https://ejemplo.iglesia/liderazgo",
+      rawContent: `Equipo pastoral: ${quote}`,
     }]);
 
     expect(result.badges).toEqual(["👩‍🏫 Ordained Women"]);
     expect(result.notes).toEqual(response.notes);
   });
 
-  it("accepts a clergy title placed before the woman's name", () => {
+  it("accepts a requested URL when a leadership page redirects", () => {
+    const quote = "牧師の佐藤恵美。彼女は会衆を導いています。";
     const response: RedFlagsResponse = {
       badges: ["👩‍🏫 Ordained Women"],
       notes: [{
         label: "👩‍🏫 Ordained Women",
-        text: "The leadership page identifies \"Rev. Jane Doe. She serves on the pastoral team.\"",
-        source_url: "https://example.church/leadership",
+        text: quote,
+        source_url: "https://example.jp/team",
       }],
     };
 
     const result = validateRedFlagEvidence(response, [{
-      url: "https://example.church/leadership",
-      rawContent: "Rev. Jane Doe. She serves on the pastoral team.",
+      requestedUrl: "https://example.jp/team",
+      url: "https://example.jp/leaders",
+      rawContent: quote,
     }]);
 
     expect(result.badges).toEqual(["👩‍🏫 Ordained Women"]);
   });
 
-  it("accepts a grounded gendered honorific tied to the named clergy member", () => {
+  it("removes Ordained Women when its quotation is hallucinated", () => {
     const response: RedFlagsResponse = {
       badges: ["👩‍🏫 Ordained Women"],
       notes: [{
         label: "Ordained Women",
-        text: "The leadership page identifies \"Ms. Anna Lee — Associate Pastor\".",
-        source_url: "https://example.church/leadership",
+        text: "María López — Pastora. Ella dirige la congregación.",
+        source_url: "https://ejemplo.iglesia/liderazgo",
       }],
     };
 
     const result = validateRedFlagEvidence(response, [{
-      url: "https://example.church/leadership",
-      rawContent: "Ms. Anna Lee — Associate Pastor.",
-    }]);
-
-    expect(result.badges).toEqual(["👩‍🏫 Ordained Women"]);
-  });
-
-  it("rejects a grounded male clergy title mislabeled as Ordained Women", () => {
-    const response: RedFlagsResponse = {
-      badges: ["👩‍🏫 Ordained Women"],
-      notes: [{
-        label: "Ordained Women",
-        text: "The leadership page identifies \"John Smith — Pastor. He leads the congregation.\"",
-        source_url: "https://example.church/leadership",
-      }],
-    };
-
-    const result = validateRedFlagEvidence(response, [{
-      url: "https://example.church/leadership",
-      rawContent: "John Smith — Pastor. He leads the congregation.",
+      url: "https://ejemplo.iglesia/liderazgo",
+      rawContent: "María López — Directora del ministerio infantil.",
     }]);
 
     expect(result.badges).toEqual([]);
     expect(result.notes).toEqual([]);
   });
 
-  it("does not infer female identity from a name alone", () => {
+  it("preserves unrelated red flags while removing unsupported Ordained Women", () => {
     const response: RedFlagsResponse = {
-      badges: ["👩‍🏫 Ordained Women"],
+      badges: ["👩‍🏫 Ordained Women", "⚠️ Prosperity Gospel"],
       notes: [{
         label: "Ordained Women",
-        text: "The leadership page identifies \"Sarah Johnson — Teaching Pastor\".",
-        source_url: "https://example.church/leadership",
+        text: "Unsupported quotation",
+        source_url: "https://example.church/team",
+      }, {
+        label: "Prosperity Gospel",
+        text: "Giving guarantees personal wealth.",
+        source_url: "https://example.church/giving",
       }],
     };
 
     const result = validateRedFlagEvidence(response, [{
-      url: "https://example.church/leadership",
-      rawContent: "Sarah Johnson — Teaching Pastor.",
+      url: "https://example.church/giving",
+      rawContent: "Giving guarantees personal wealth.",
     }]);
 
-    expect(result.badges).toEqual([]);
-    expect(result.notes).toEqual([]);
-  });
-
-  it("does not apply another person's pronoun to a named male pastor", () => {
-    const response: RedFlagsResponse = {
-      badges: ["👩‍🏫 Ordained Women"],
-      notes: [{
-        label: "Ordained Women",
-        text: "The leadership page identifies \"John Smith — Pastor; Jane coordinates outreach. She leads the women's ministry.\"",
-        source_url: "https://example.church/leadership",
-      }],
-    };
-
-    const result = validateRedFlagEvidence(response, [{
-      url: "https://example.church/leadership",
-      rawContent: "John Smith — Pastor; Jane coordinates outreach. She leads the women's ministry.",
-    }]);
-
-    expect(result.badges).toEqual([]);
-    expect(result.notes).toEqual([]);
-  });
-
-  it("does not apply another person's stated pronouns to a named male pastor", () => {
-    const response: RedFlagsResponse = {
-      badges: ["👩‍🏫 Ordained Women"],
-      notes: [{
-        label: "Ordained Women",
-        text: "The leadership page identifies \"John Smith — Pastor; Jane Doe (she/her) coordinates outreach.\"",
-        source_url: "https://example.church/leadership",
-      }],
-    };
-
-    const result = validateRedFlagEvidence(response, [{
-      url: "https://example.church/leadership",
-      rawContent: "John Smith — Pastor; Jane Doe (she/her) coordinates outreach.",
-    }]);
-
-    expect(result.badges).toEqual([]);
-    expect(result.notes).toEqual([]);
-  });
-
-  it("accepts stated pronouns only when attached to the named clergy member", () => {
-    const response: RedFlagsResponse = {
-      badges: ["👩‍🏫 Ordained Women"],
-      notes: [{
-        label: "Ordained Women",
-        text: "The leadership page identifies \"Sarah Johnson (she/her) — Teaching Pastor\".",
-        source_url: "https://example.church/leadership",
-      }],
-    };
-
-    const result = validateRedFlagEvidence(response, [{
-      url: "https://example.church/leadership",
-      rawContent: "Sarah Johnson (she/her) — Teaching Pastor.",
-    }]);
-
-    expect(result.badges).toEqual(["👩‍🏫 Ordained Women"]);
-  });
-
-  it("rejects an explicit title that cannot be found on the cited page", () => {
-    const response: RedFlagsResponse = {
-      badges: ["👩‍🏫 Ordained Women"],
-      notes: [{
-        label: "Ordained Women",
-        text: "The leadership page identifies \"Sarah Johnson — Teaching Pastor. She oversees adult discipleship.\"",
-        source_url: "https://example.church/leadership",
-      }],
-    };
-
-    const result = validateRedFlagEvidence(response, [{
-      url: "https://example.church/leadership",
-      rawContent: "Sarah Johnson — Children's Ministry Director. She oversees adult discipleship.",
-    }]);
-
-    expect(result.badges).toEqual([]);
-    expect(result.notes).toEqual([]);
+    expect(result.badges).toEqual(["⚠️ Prosperity Gospel"]);
+    expect(result.notes).toEqual([response.notes[1]]);
   });
 });

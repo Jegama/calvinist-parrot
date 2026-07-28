@@ -31,7 +31,9 @@ export async function geocodeAddress(
     const response = await fetch(url.toString(), { signal });
 
     if (!response.ok) {
-      console.warn(`Geocode failed for "${query}": HTTP ${response.status}`);
+      console.warn("church_geocoding_upstream_failed", {
+        http_status: response.status,
+      });
       return { latitude: null, longitude: null };
     }
 
@@ -45,7 +47,7 @@ export async function geocodeAddress(
 
     const coordinates = data.features?.[0]?.geometry?.coordinates;
     if (!coordinates || coordinates.length !== 2) {
-      console.warn(`No valid geocode results found for: ${query}`);
+      console.warn("church_geocoding_no_results");
       return { latitude: null, longitude: null };
     }
 
@@ -58,7 +60,9 @@ export async function geocodeAddress(
     if ((error as Error).name === "AbortError") {
       throw error;
     }
-    console.error(`Geocode error for "${query}":`, error);
+    console.error("church_geocoding_upstream_error", {
+      error_name: error instanceof Error ? error.name : "UnknownError",
+    });
     return { latitude: null, longitude: null };
   }
 }
