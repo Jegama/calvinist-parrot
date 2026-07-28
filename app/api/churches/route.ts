@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 
 import prisma from "@/lib/prisma";
@@ -14,8 +14,18 @@ import {
 import { CORE_DOCTRINE_KEYS } from "@/lib/schemas/church-finder";
 import { isServerAdminUser } from "@/lib/admin";
 import type { ChurchEvaluationRaw } from "@/types/church";
+import {
+  ChurchEvaluationTimeoutError,
+  ChurchEvaluationUpstreamError,
+  logEvaluationStage,
+  measureEvaluationStage,
+  runEvaluationStage,
+} from "@/lib/church-evaluation/runtime";
 
 const DEFAULT_PAGE_SIZE = 10;
+const BACKGROUND_GEOCODING_BUDGET_MS = 20_000;
+
+export const maxDuration = 300;
 
 function parseBooleanParam(value: string | null): boolean | null {
   if (value === null) return null;
@@ -132,6 +142,60 @@ function buildEvaluationData(
     ),
     coreCharacterOfGod: toCoreDoctrineStatusEnum(processed.normalizedCore.character_of_god),
   };
+}
+
+type PersistedAddressForGeocoding = {
+  id: string;
+  street1: string | null;
+  city: string | null;
+  state: string | null;
+  postCode: string | null;
+};
+
+function scheduleAddressGeocoding(
+  persistedAddresses: PersistedAddressForGeocoding[],
+): void {
+  if (persistedAddresses.length === 0) return;
+
+  after(async () => {
+    try {
+      await runEvaluationStage({
+        stage: "background_geocoding",
+        deadlineAt: Date.now() + BACKGROUND_GEOCODING_BUDGET_MS,
+        maxDurationMs: BACKGROUND_GEOCODING_BUDGET_MS,
+        operation: async (signal) => {
+          const geocodedAddresses = await Promise.all(
+            persistedAddresses.map(async (address) => ({
+              id: address.id,
+              coords: await geocodeAddress({
+                street1: address.street1,
+                city: address.city,
+                state: address.state,
+                postCode: address.postCode,
+              }, signal),
+            })),
+          );
+
+          await prisma.$transaction(async (tx) => {
+            for (const entry of geocodedAddresses) {
+              await tx.churchAddress.update({
+                where: { id: entry.id },
+                data: {
+                  latitude: entry.coords.latitude,
+                  longitude: entry.coords.longitude,
+                },
+              });
+            }
+          });
+        },
+      });
+    } catch (error) {
+      console.error("church_geocoding_background_failed", {
+        error_name: error instanceof Error ? error.name : "UnknownError",
+        address_count: persistedAddresses.length,
+      });
+    }
+  });
 }
 
 export async function GET(request: Request) {
@@ -303,9 +367,17 @@ export async function POST(request: Request) {
     }
   }
 
+  const evaluationStartedAt = Date.now();
+  let sourcePageCount = 0;
+
   try {
     const rawEvaluation: ChurchEvaluationRaw = await extractChurchEvaluation(websiteUrl);
-    const processed = postProcessEvaluation(rawEvaluation);
+    sourcePageCount = rawEvaluation.metadata?.source_pages.length ?? 0;
+    const processed = await measureEvaluationStage({
+      stage: "post_processing",
+      operation: () => postProcessEvaluation(rawEvaluation),
+      dimensions: { sourcePageCount },
+    });
 
     const churchData = rawEvaluation.church;
     const fallbackName = new URL(websiteUrl).hostname.replace(/^www\./, "");
@@ -337,129 +409,147 @@ export async function POST(request: Request) {
       bestLeadershipUrl: churchData.best_pages_for?.leadership ?? null,
     };
 
-    const { churchId } = await prisma.$transaction(async (tx) => {
-      const existingChurch = await tx.church.findUnique({
-        where: { website: websiteUrl },
-        select: { id: true },
-      });
+    const persisted = await measureEvaluationStage({
+      stage: "persistence",
+      dimensions: { sourcePageCount },
+      operation: async () => {
+        const { churchId } = await prisma.$transaction(async (tx) => {
+          const existingChurch = await tx.church.findUnique({
+            where: { website: websiteUrl },
+            select: { id: true },
+          });
 
-      let persistedChurchId: string;
+          let persistedChurchId: string;
 
-      if (existingChurch) {
-        persistedChurchId = existingChurch.id;
-        await tx.church.update({ where: { id: persistedChurchId }, data: baseData });
-        await tx.churchAddress.deleteMany({ where: { churchId: persistedChurchId } });
-        await tx.churchServiceTime.deleteMany({ where: { churchId: persistedChurchId } });
-      } else {
-        const createdChurch = await tx.church.create({ data: baseData });
-        persistedChurchId = createdChurch.id;
-      }
+          if (existingChurch) {
+            persistedChurchId = existingChurch.id;
+            await tx.church.update({
+              where: { id: persistedChurchId },
+              data: baseData,
+            });
+            await tx.churchAddress.deleteMany({
+              where: { churchId: persistedChurchId },
+            });
+            await tx.churchServiceTime.deleteMany({
+              where: { churchId: persistedChurchId },
+            });
+          } else {
+            const createdChurch = await tx.church.create({ data: baseData });
+            persistedChurchId = createdChurch.id;
+          }
 
-      for (const [index, address] of addresses.entries()) {
-        await tx.churchAddress.create({
-          data: {
-            churchId: persistedChurchId,
-            street1: address.street_1 ?? null,
-            street2: address.street_2 ?? null,
-            city: address.city ?? null,
-            state: address.state ?? null,
-            postCode: address.post_code ?? null,
-            latitude: null,
-            longitude: null,
-            sourceUrl: address.source_url ?? null,
-            isPrimary: index === 0,
-          },
-        });
-      }
-
-      for (const label of serviceTimes) {
-        await tx.churchServiceTime.create({
-          data: {
-            churchId: persistedChurchId,
-            label,
-          },
-        });
-      }
-
-      await tx.churchEvaluation.create({
-        data: {
-          churchId: persistedChurchId,
-          ...evaluationData,
-        },
-      });
-
-      return { churchId: persistedChurchId };
-    });
-
-    const persisted = await prisma.church.findUnique({
-      where: { id: churchId },
-      include: {
-        addresses: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
-        serviceTimes: { orderBy: { createdAt: "asc" } },
-        evaluations: { orderBy: { createdAt: "desc" }, take: 1 },
-      },
-    });
-
-    if (!persisted) {
-      return NextResponse.json({ error: "Unable to persist church" }, { status: 500 });
-    }
-
-    const response = NextResponse.json(mapChurchToDetail(persisted));
-
-    // ============================================================================
-    // Background Job: Geocode + Update Coordinates (Fire-and-Forget)
-    // ============================================================================
-    const persistedAddresses = persisted.addresses;
-
-    void (async () => {
-      try {
-        console.log(`[Background] Starting geocoding for ${websiteUrl}`);
-
-        const geocodedAddresses = await Promise.all(
-          addresses.map((address, index) =>
-            geocodeAddress({
-              street1: address.street_1,
-              city: address.city,
-              state: address.state,
-              postCode: address.post_code,
-            }).then((coords) => ({ index, coords }))
-          )
-        );
-
-        console.log(`[Background] Geocoding complete, updating coordinates...`);
-
-        await prisma.$transaction(async (tx) => {
-          for (const entry of geocodedAddresses) {
-            const targetAddress = persistedAddresses[entry.index];
-            if (!targetAddress) {
-              continue;
-            }
-
-            await tx.churchAddress.update({
-              where: { id: targetAddress.id },
+          for (const [index, address] of addresses.entries()) {
+            await tx.churchAddress.create({
               data: {
-                latitude: entry.coords.latitude,
-                longitude: entry.coords.longitude,
+                churchId: persistedChurchId,
+                street1: address.street_1 ?? null,
+                street2: address.street_2 ?? null,
+                city: address.city ?? null,
+                state: address.state ?? null,
+                postCode: address.post_code ?? null,
+                latitude: null,
+                longitude: null,
+                sourceUrl: address.source_url ?? null,
+                isPrimary: index === 0,
               },
             });
           }
+
+          for (const label of serviceTimes) {
+            await tx.churchServiceTime.create({
+              data: {
+                churchId: persistedChurchId,
+                label,
+              },
+            });
+          }
+
+          await tx.churchEvaluation.create({
+            data: {
+              churchId: persistedChurchId,
+              ...evaluationData,
+            },
+          });
+
+          return { churchId: persistedChurchId };
         });
 
-        console.log(`[Background] Coordinate update complete for ${websiteUrl}`);
-      } catch (error) {
-        console.error(`[Background] Failed to update coordinates for ${websiteUrl}:`, error);
-        // Background job failure doesn't affect user experience
-        // Could implement retry logic or logging service here
-      }
-    })();
+        const savedChurch = await prisma.church.findUnique({
+          where: { id: churchId },
+          include: {
+            addresses: {
+              orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+            },
+            serviceTimes: { orderBy: { createdAt: "asc" } },
+            evaluations: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+            },
+          },
+        });
 
-    return response;
+        if (!savedChurch) {
+          throw new Error("Unable to persist church");
+        }
+
+        return savedChurch;
+      },
+    });
+
+    scheduleAddressGeocoding(persisted.addresses);
+    logEvaluationStage({
+      stage: "total",
+      status: "success",
+      startedAt: evaluationStartedAt,
+      dimensions: { sourcePageCount },
+    });
+    return NextResponse.json(mapChurchToDetail(persisted));
   } catch (error) {
-    console.error("Failed to evaluate church", error);
+    logEvaluationStage({
+      stage: "total",
+      status: error instanceof ChurchEvaluationTimeoutError
+        ? "timeout"
+        : "error",
+      startedAt: evaluationStartedAt,
+      dimensions: { sourcePageCount },
+      error,
+    });
+    console.error("church_evaluation_request_failed", {
+      error_name: error instanceof Error ? error.name : "UnknownError",
+      error_code: error instanceof ChurchEvaluationTimeoutError ||
+          error instanceof ChurchEvaluationUpstreamError
+        ? error.code
+        : undefined,
+      stage: error instanceof ChurchEvaluationTimeoutError ||
+          error instanceof ChurchEvaluationUpstreamError
+        ? error.stage
+        : undefined,
+    });
 
     const errorMessage = error instanceof Error ? error.message : "Unable to evaluate church at this time";
 
-    // Provide more specific error messages
+    if (error instanceof ChurchEvaluationTimeoutError) {
+      return NextResponse.json(
+        {
+          error: "Church evaluation timed out while waiting for an upstream service. Please try again.",
+          code: error.code,
+          stage: error.stage,
+        },
+        { status: 504 },
+      );
+    }
+
+    if (error instanceof ChurchEvaluationUpstreamError) {
+      return NextResponse.json(
+        {
+          error: "An upstream service could not complete the church evaluation. Please try again.",
+          code: error.code,
+          stage: error.stage,
+        },
+        { status: 502 },
+      );
+    }
+
     if (errorMessage.includes("Unable to gather website content")) {
       return NextResponse.json(
         {
@@ -469,11 +559,10 @@ export async function POST(request: Request) {
       );
     }
 
-    if (errorMessage.includes("TAVILY_API_KEY")) {
-      return NextResponse.json({ error: "Service configuration error" }, { status: 500 });
-    }
-
-    if (errorMessage.includes("OPENAI_API_KEY")) {
+    if (
+      errorMessage.includes("TAVILY_API_KEY") ||
+      errorMessage.includes("GEMINI_API_KEY")
+    ) {
       return NextResponse.json({ error: "Service configuration error" }, { status: 500 });
     }
 

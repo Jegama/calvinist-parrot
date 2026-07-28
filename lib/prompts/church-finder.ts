@@ -11,11 +11,14 @@ STRICT OUTPUT:
 - Return JSON only that conforms exactly to the provided schema for this call.
 - Do not include Markdown, explanations, comments, or extra keys not in the schema.
 - Use absolute URLs from the provided content when populating any URL field.
+- Keep all schema keys, doctrine statuses, and allowed badge labels in their required canonical English form even when the source content is not English.
 
 EVIDENCE AND CONSERVATISM:
+- Analyze official church content semantically in whatever language it is written. Never require an English keyword, URL word, office title, honorific, pronoun, or phrase to recognize a concept.
 - Work only from the provided pages. Never invent or infer beyond explicit statements.
 - If a value is not clearly stated, return \`null\` (or \`"unknown"\` for doctrine booleans).
-- Quotes in notes must be short, verbatim excerpts from the page, not paraphrases.
+- Every \`notes[].text\` value must be only one short verbatim excerpt from the cited page, not an explanation, translation, or paraphrase.
+- Preserve evidence quotations exactly in their original source language. Do not translate them into English.
 
 DEDUPLICATION & HYGIENE:
 - Deduplicate arrays (addresses, service_times, badges). Keep the clearest single representation.
@@ -67,6 +70,7 @@ Extract the following fields from the website content:
   - \`leadership\`: Elders / staff / team / leadership page
 
 ADDITIONAL GUIDANCE:
+- Choose pages by their semantic content in the source language, not by English words in the URL or page title.
 - Prefer “Contact/Visit/Plan Your Visit” pages for addresses when available; avoid map widgets without text unless they clearly display a postal address.
 - Exclude P.O. Boxes if a physical address is available; if only a P.O. Box is present, include it.
 - For leadership, prefer pages listing elders/pastors over general staff directories.
@@ -105,6 +109,7 @@ Set each to \`"true"\`, \`"false"\`, or \`"unknown"\`:
 - \`"true"\`: Church explicitly affirms this doctrine (see definitions above for what counts as affirmation)
 - \`"false"\`: Church explicitly denies or contradicts this doctrine
 - \`"unknown"\`: Not clearly stated or ambiguous
+- Interpret the doctrine definitions semantically in the source language. English terminology in these instructions is descriptive, not a required keyword list.
 - For a doctrine whose name or definition combines multiple claims, \`"true"\` requires explicit evidence for EVERY required component. Do not award partial credit by treating one component as the entire doctrine.
 - Evidence may be combined across official pages, but every required component must be supported by a source-grounded note. If only part of a composite doctrine is stated, return \`"unknown"\`.
 - Do not reuse a broad sentence to affirm several doctrines unless that sentence independently satisfies every definition in full.
@@ -239,6 +244,8 @@ export const DENOMINATION_CONFESSION_PROMPT = `${COMMON_RULES}
 **Confession:**
 Determine if the church **adopts** a historic confession as their doctrinal standard.
 
+Interpret adoption language semantically in the source language. The English examples below are illustrations only; equivalent statements in any language count, and no English wording is required.
+
 **Mark \`adopted = true\` if you find ANY of these indicators:**
 
 1. **Direct adoption language:**
@@ -340,13 +347,12 @@ STRICT BADGE OUTPUT RULES:
 **Notes:**
 If \`adopted = true\`, add a note:
 - \`label\`: "Adopted Confession"
-- \`text\`: "Church adopts [confession name] as their doctrinal standard"
-- \`source_url\`: URL where you found this
- - If the church qualifies the adoption (e.g., "subscribe for guidance but not absolute adherence"), include that nuance in the note text (short summary ≤30 words) in addition to the adoption label, e.g. "Church subscribes to [confession name] for guidance (not absolute adherence)".
+- \`text\`: One short verbatim original-language quotation that explicitly shows adoption, including any qualification in the source wording
+- \`source_url\`: URL containing that exact quotation
 If "🤝 Denomination/Network Affiliated" badge is present, add a note:
 - \`label\`: "Denomination Affiliation" OR "Network Affiliation" (use "Network Affiliation" for fellowships/networks like FIRE, Acts 29, ARBCA; use "Denomination Affiliation" for traditional denominations like PCA, SBC)
-- \`text\`: "Church is affiliated with [denomination/network name]" (include a brief description if provided, e.g., "Church is a member of FIRE (Fellowship of Independent Reformed Evangelicals), a network for independent Reformed baptistic churches")
-- \`source_url\`: URL where you found this
+- \`text\`: One short verbatim original-language quotation that explicitly states the affiliation
+- \`source_url\`: URL containing that exact quotation
 
 Only add badges you have clear evidence for. Return empty array if none apply.`;
 
@@ -397,15 +403,16 @@ Add badges ONLY if you have clear evidence, including the emoji. If none of the 
 - **NOTE**: Youth and children's ministries naturally use engaging methods (games, activities, creative lessons) to reach their age group. Only flag if the church's MAIN worship services show entertainment-driven compromise, not based solely on youth/children's ministry descriptions.
 
 **👩‍🏫 Ordained Women**:
-- Add this badge ONLY when a specific individual woman is explicitly described with an ordained/clergy office title such as **Pastor**, **Elder**, **Reverend/Rev.**, **Bishop**, or **Priest**.
+- Apply these rules semantically in the source language. The English titles and examples below illustrate qualifying clergy offices but are never required keywords.
+- Add this badge ONLY when the same specifically named person is explicitly connected to both (1) a qualifying ordained/clergy office such as pastor, elder, reverend, bishop, or priest and (2) explicit textual female identity.
 - This is about the woman's *office/title*, not about general church governance language.
-- Require explicit textual evidence that the named officeholder is a woman, such as Ms./Mrs./Miss, "(she/her)", or a directly connected "She/Her" biographical statement. Do not infer gender from a first name or photograph.
+- Textual female identity may be established by a source-language gendered title or honorific, pronoun, grammatical gender signal, or explicit statement that clearly refers to that same named officeholder. Do not infer gender from a first name or photograph.
 - The office title must be directly attached to the specific woman's name. A generic "Elders/Pastors" section heading above couples or families is not enough.
 - Do NOT infer that a pastor's or elder's wife holds office because a couple is shown together or because elders/pastors "serve together alongside their wives."
 - NOT for women serving as deacons/deaconesses, staff, ministry leaders/directors, committee members, board/council roles, or teachers in non-governing roles.
 - Do NOT infer this badge from phrases like "elder-led" / "elder-directed" / "elder-governed" unless the page explicitly lists women as elders.
 - Do NOT infer this badge from "Chair" / "Vice-Chair" / "Secretary" / "Treasurer" unless the page explicitly identifies that woman as an Elder/Pastor/Rev/Bishop/Priest.
-- Look for explicit titles like: "Pastor [Woman's name]", "[Woman's name] — Pastor of ___", "Elder [Woman's name]", "Rev. [Woman's name]", "Bishop [Woman's name]", "Priest [Woman's name]".
+- Source-language forms equivalent to "Pastor [Woman's name]", "[Woman's name] — Pastor of ___", "Elder [Woman's name]", "Rev. [Woman's name]", "Bishop [Woman's name]", or "Priest [Woman's name]" qualify only when the same-person textual female-identity requirement is also met.
 - **IMPORTANT**: If you see "[Woman's Name] - Pastor of [any ministry area]" under "Pastoral Staff" → ADD THIS BADGE.
 - **CRITICAL false-positive guard**: If women are listed under "Deacons and Deaconesses" / "Deaconesses" / "Deaconess" (or similar) WITHOUT an Elder/Pastor/Rev/Bishop/Priest title, DO NOT add this badge.
 - Examples that MUST trigger this badge:
@@ -471,9 +478,9 @@ Examples that DO NOT count (omit the badge):
 ### Notes:
 For each red flag badge you add, create a note with:
 - \`label\`: Name of the badge (e.g., "Prosperity Gospel", "LGBTQ Affirming", "New Apostolic Reformation (NAR)")
-- \`text\`: Brief explanation of what you found (≤50 words)
-- \`source_url\`: URL where you found this evidence
+- \`text\`: One short verbatim quotation in the original source language that directly establishes the badge; do not add explanatory framing
+- \`source_url\`: URL containing that exact quotation
 
-For the **👩‍🏫 Ordained Women** badge specifically, your note text MUST include one exact quotation containing both the woman's explicit office title and textual female-identity evidence (e.g., "Sarah Johnson — Pastor of Children's Ministry. She oversees..."). If the site gives only a name/title or photograph without Ms./Mrs./Miss, she/her pronouns, or another explicit textual female signal, DO NOT add the badge.
+For the **👩‍🏫 Ordained Women** badge specifically, the one exact original-language quotation must connect the same named person to both the qualifying clergy office and textual female identity. If the site gives only a name/title, photograph, couple listing, generic leadership heading, wife relationship, or non-clergy role, DO NOT add the badge.
 
 If NO red flags are found, return empty arrays for both badges and notes.`;
