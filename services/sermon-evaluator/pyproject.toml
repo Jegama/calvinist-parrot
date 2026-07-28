@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling==1.28.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "calvinist-parrot-sermon-evaluator"
+version = "1.0.0"
+description = "Canonical platform-neutral Calvinist Parrot sermon evaluator"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "Proprietary" }
+dependencies = [
+  "appwrite>=22,<23",
+  "google-genai>=2.14,<3",
+  "mutagen>=1.47,<2",
+  "psycopg[binary,pool]>=3.2,<4",
+  "pydantic>=2.12,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pip-tools>=7.5,<8",
+  "pytest>=9,<10",
+  "pytest-cov>=7,<8",
+  "python-dotenv>=1.1,<2",
+]
+
+[project.scripts]
+cp-eval-sermons = "sermon_evaluator.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sermon_evaluator"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["sermon_evaluator"]
+
+[tool.coverage.report]
+show_missing = true

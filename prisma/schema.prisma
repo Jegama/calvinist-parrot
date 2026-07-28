@@ -344,6 +344,281 @@ model store_migrations {
   v Int @id
 }
 
+// ==========================================
+// Sermon Evaluation
+// ==========================================
+
+model sermonPreacher {
+  id             String             @id @default(cuid())
+  ownerId        String
+  displayName    String
+  normalizedName String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  evaluations    sermonEvaluation[]
+
+  @@unique([ownerId, normalizedName])
+  @@index([ownerId])
+}
+
+model sermonAudioFingerprint {
+  id                 String                       @id @default(cuid())
+  ownerId            String
+  sha256             String                       @db.Char(64)
+  verificationState  SermonFingerprintState       @default(PROVISIONAL)
+  runCreditsLimit    Int                          @default(9)
+  runCreditsReserved Int                          @default(0)
+  runCreditsConsumed Int                          @default(0)
+  firstSeenAt        DateTime                     @default(now())
+  lastSeenAt         DateTime                     @default(now())
+  verifiedAt         DateTime?
+  audioAsset         sermonAudioAsset?
+  evaluations        sermonEvaluation[]
+  creditReservations sermonRunCreditReservation[]
+  uploadReservations sermonUploadReservation[]
+
+  @@unique([ownerId, sha256])
+  @@index([ownerId, verificationState])
+}
+
+model sermonUploadReservation {
+  id                   String                       @id @default(cuid())
+  ownerId              String
+  claimedSha256        String                       @db.Char(64)
+  originalFilename     String
+  mimeType             String
+  byteSize             Int
+  requestedPreset      SermonEvaluationPreset
+  requestedRuns        Int
+  appwriteBucketId     String
+  appwriteFileId       String                       @unique
+  state                SermonUploadReservationState @default(PREPARED)
+  expiresAt            DateTime
+  fingerprintId        String?
+  reattachEvaluationId String?
+  finalizedAt          DateTime?
+  consumedAt           DateTime?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  fingerprint          sermonAudioFingerprint?      @relation(fields: [fingerprintId], references: [id], onDelete: SetNull)
+  reattachEvaluation   sermonEvaluation?            @relation("SermonUploadReattachTarget", fields: [reattachEvaluationId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId, claimedSha256])
+  @@index([state, expiresAt])
+  @@index([fingerprintId])
+}
+
+model sermonAudioAsset {
+  id                String                 @id @default(cuid())
+  fingerprintId     String                 @unique
+  appwriteBucketId  String?
+  appwriteFileId    String?                @unique
+  originalFilename  String
+  mimeType          String
+  byteSize          Int
+  durationSeconds   Float?
+  referenceCount    Int                    @default(0)
+  verificationState SermonAudioAssetState  @default(PENDING)
+  verifiedAt        DateTime?
+  deletedAt         DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  fingerprint       sermonAudioFingerprint @relation(fields: [fingerprintId], references: [id], onDelete: Restrict)
+  evaluations       sermonEvaluation[]
+
+  @@index([verificationState])
+  @@index([deletedAt])
+}
+
+model sermonEvaluation {
+  id                        String                      @id @default(cuid())
+  ownerId                   String
+  preacherId                String
+  fingerprintId             String
+  audioAssetId              String?
+  sourceEvaluationId        String?
+  title                     String
+  preachedOn                DateTime                    @db.Date
+  preset                    SermonEvaluationPreset
+  requestedRuns             Int
+  completedRuns             Int                         @default(0)
+  retryWave                 Int                         @default(0)
+  status                    SermonEvaluationStatus      @default(QUEUED)
+  version                   Int                         @default(0)
+  attemptDeadlineAt         DateTime?
+  cancelRequestedAt         DateTime?
+  canceledAt                DateTime?
+  durationAdjustmentEnabled Boolean                     @default(false)
+  durationPolicyUpdatedAt   DateTime?
+  durationPolicyUpdatedBy   String?
+  overallImpactBase         Float?
+  calculatedDurationPenalty Float?
+  overallImpactAdjusted     Float?
+  result                    Json?
+  provenance                Json?
+  warningCodes              String[]                    @default([])
+  errorCode                 String?
+  errorMessage              String?
+  startedAt                 DateTime?
+  completedAt               DateTime?
+  deletedAt                 DateTime?
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+  preacher                  sermonPreacher              @relation(fields: [preacherId], references: [id], onDelete: Restrict)
+  fingerprint               sermonAudioFingerprint      @relation(fields: [fingerprintId], references: [id], onDelete: Restrict)
+  audioAsset                sermonAudioAsset?           @relation(fields: [audioAssetId], references: [id], onDelete: SetNull)
+  sourceEvaluation          sermonEvaluation?           @relation("SermonEvaluationLineage", fields: [sourceEvaluationId], references: [id], onDelete: SetNull)
+  reevaluations             sermonEvaluation[]          @relation("SermonEvaluationLineage")
+  uploadReattachments       sermonUploadReservation[]   @relation("SermonUploadReattachTarget")
+  scoringRuns               sermonScoringRun[]
+  scoringAttempts           sermonScoringAttempt[]
+  evaluationAttempts        sermonEvaluationAttempt[]
+  creditReservation         sermonRunCreditReservation?
+  adminAuditEvents          sermonAdminAuditEvent[]
+  workerLeases              sermonWorkerLease[]
+  reportArtifacts           sermonReportArtifact[]
+
+  @@index([ownerId, status])
+  @@index([ownerId, preachedOn])
+  @@index([ownerId, fingerprintId])
+  @@index([fingerprintId, createdAt])
+  @@index([preacherId, preachedOn])
+  @@index([status, createdAt])
+  @@index([status, durationPolicyUpdatedAt])
+  @@index([ownerId, durationAdjustmentEnabled, preachedOn])
+}
+
+model sermonScoringRun {
+  id           String                 @id @default(cuid())
+  evaluationId String
+  ordinal      Int
+  status       SermonScoringRunStatus @default(PENDING)
+  finalSeed    Int?
+  rawScore     Json?
+  confidence   Float?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  evaluation   sermonEvaluation       @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  attempts     sermonScoringAttempt[]
+
+  @@unique([evaluationId, ordinal])
+  @@index([evaluationId, status])
+}
+
+model sermonScoringAttempt {
+  id                   String                     @id @default(cuid())
+  evaluationId         String
+  scoringRunId         String
+  attemptNumber        Int
+  seed                 Int
+  status               SermonScoringAttemptStatus @default(PENDING)
+  providerResponseId   String?
+  providerModelVersion String?
+  structuredResult     Json?
+  errorCode            String?
+  errorMessage         String?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  evaluation           sermonEvaluation           @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  scoringRun           sermonScoringRun           @relation(fields: [scoringRunId], references: [id], onDelete: Cascade)
+
+  @@unique([scoringRunId, attemptNumber])
+  @@unique([evaluationId, seed])
+  @@index([evaluationId, status])
+}
+
+model sermonEvaluationAttempt {
+  id                  String                          @id @default(cuid())
+  evaluationId        String
+  attemptNumber       Int
+  startedAt           DateTime?
+  deadlineAt          DateTime
+  endedAt             DateTime?
+  appwriteExecutionId String?
+  resumeReason        String?
+  terminalOutcome     SermonEvaluationAttemptOutcome?
+  createdAt           DateTime                        @default(now())
+  updatedAt           DateTime                        @updatedAt
+  evaluation          sermonEvaluation                @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  workerLeases        sermonWorkerLease[]
+
+  @@unique([evaluationId, attemptNumber])
+  @@index([evaluationId, deadlineAt])
+  @@index([appwriteExecutionId])
+}
+
+model sermonRunCreditReservation {
+  id               String                          @id @default(cuid())
+  fingerprintId    String
+  evaluationId     String                          @unique
+  requestedCredits Int
+  preset           SermonEvaluationPreset
+  state            SermonRunCreditReservationState @default(RESERVED)
+  actorId          String
+  reservedAt       DateTime                        @default(now())
+  consumedAt       DateTime?
+  releasedAt       DateTime?
+  releaseReason    String?
+  createdAt        DateTime                        @default(now())
+  updatedAt        DateTime                        @updatedAt
+  fingerprint      sermonAudioFingerprint          @relation(fields: [fingerprintId], references: [id], onDelete: Restrict)
+  evaluation       sermonEvaluation                @relation(fields: [evaluationId], references: [id], onDelete: Restrict)
+
+  @@index([actorId, reservedAt])
+  @@index([fingerprintId, state])
+}
+
+model sermonAdminAuditEvent {
+  id                String            @id @default(cuid())
+  actorId           String
+  evaluationId      String?
+  ownerId           String?
+  action            String
+  requestedRunCount Int?
+  reasonCode        String
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  evaluation        sermonEvaluation? @relation(fields: [evaluationId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, action, createdAt])
+  @@index([evaluationId, createdAt])
+}
+
+model sermonWorkerLease {
+  slotId              Int                       @id
+  leaseOwner          String?
+  evaluationId        String?
+  evaluationAttemptId String?
+  leaseExpiresAt      DateTime?
+  heartbeatAt         DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  evaluation          sermonEvaluation?         @relation(fields: [evaluationId], references: [id], onDelete: SetNull)
+  evaluationAttempt   sermonEvaluationAttempt?  @relation(fields: [evaluationAttemptId], references: [id], onDelete: Restrict)
+
+  @@index([leaseExpiresAt])
+  @@index([evaluationId])
+  @@index([evaluationAttemptId])
+}
+
+model sermonReportArtifact {
+  id            String             @id @default(cuid())
+  evaluationId  String
+  format        SermonReportFormat
+  content       Bytes
+  checksum      String             @db.Char(64)
+  reportVersion Int
+  createdAt     DateTime           @default(now())
+  evaluation    sermonEvaluation   @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  @@unique([evaluationId, format, reportVersion])
+  @@index([evaluationId, createdAt])
+}
+
 enum MemberRole {
   OWNER
   MEMBER
@@ -380,6 +655,84 @@ enum JournalEntryType {
 enum LogCategory {
   NURTURE     // Celebrating obedience, catching them doing good (Eph 6:4)
   ADMONITION  // Correcting disobedience, redirecting the heart (Eph 6:4)
+}
+
+enum SermonFingerprintState {
+  PROVISIONAL
+  VERIFIED
+  REJECTED
+}
+
+enum SermonUploadReservationState {
+  PREPARED
+  FINALIZED
+  CONSUMED
+  EXPIRED
+  CANCELED
+}
+
+enum SermonAudioAssetState {
+  PENDING
+  VERIFIED
+  REJECTED
+  DELETED
+}
+
+enum SermonEvaluationPreset {
+  STANDARD
+  HIGH_CONFIDENCE
+  CUSTOM
+}
+
+enum SermonEvaluationStatus {
+  QUEUED
+  PREPARING_AUDIO
+  EXTRACTING
+  SCORING
+  HARMONIZING
+  CALIBRATING
+  SUMMARIZING
+  COMPLETE
+  COMPLETE_WITH_WARNINGS
+  FAILED
+  TIMED_OUT
+  CANCELED
+}
+
+enum SermonScoringRunStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum SermonScoringAttemptStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+  CANCELED
+}
+
+enum SermonEvaluationAttemptOutcome {
+  COMPLETE
+  COMPLETE_WITH_WARNINGS
+  FAILED
+  TIMED_OUT
+  CANCELED
+}
+
+enum SermonRunCreditReservationState {
+  RESERVED
+  CONSUMED
+  RELEASED
+}
+
+enum SermonReportFormat {
+  MARKDOWN
+  JSON
+  CSV
 }
 
 // ==========================================

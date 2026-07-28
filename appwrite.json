@@ -1,0 +1,31 @@
+{
+  "projectId": "",
+  "projectName": "Calvinist Parrot",
+  "functions": [
+    {
+      "$id": "sermon-evaluator",
+      "name": "Sermon Evaluator",
+      "runtime": "python-3.12",
+      "path": "services/sermon-evaluator",
+      "entrypoint": "entrypoints/appwrite.py",
+      "commands": "pip install --no-cache-dir -r requirements.txt && pip install --no-deps .",
+      "execute": [],
+      "events": [],
+      "schedule": "* * * * *",
+      "timeout": 900,
+      "enabled": true,
+      "logging": true,
+      "scopes": [
+        "files.read",
+        "files.write"
+      ],
+      "ignore": [
+        ".cache",
+        ".pytest_cache",
+        ".venv",
+        "__pycache__",
+        "tests"
+      ]
+    }
+  ]
+}

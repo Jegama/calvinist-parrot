@@ -150,6 +150,11 @@ export function Header() {
                       AI Evaluation Dashboard
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/sermon-evaluation" prefetch={false} className="w-full">
+                      Sermon Evaluation
+                    </Link>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </nav>
@@ -212,6 +217,11 @@ export function Header() {
                 <DropdownMenuItem asChild>
                   <Link href="/llm-evaluation-dashboard" prefetch={false} className="w-full">
                     AI Eval (Labs)
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/sermon-evaluation" prefetch={false} className="w-full">
+                    Sermon Evaluation (Labs)
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>

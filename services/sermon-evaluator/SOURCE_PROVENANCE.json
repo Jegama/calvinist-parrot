@@ -1,0 +1,85 @@
+{
+  "sourceRepository": "CP-Evals-Lab",
+  "sourceCommit": "4fc02cb2da2c7c8c51ac84558bf9f592cf2d0485",
+  "copiedInto": "Calvinist Parrot",
+  "copyPolicy": "One-time provenance-recorded sermon-only transfer; source hashes are frozen and target hashes identify the initial adapted implementation.",
+  "files": [
+    {
+      "source": "cp_eval_sermons.py",
+      "sourceSha256": "c9f283639a65a571040db3970d1c44e8c99a2d699a966dd515a291947be21825",
+      "target": "src/sermon_evaluator/cli.py",
+      "targetSha256": "b2677e3cff48313c7cb807e0827f78a723e9b8def7da473a4a5f33b66c05798c",
+      "adaptation": "Preserved flags and append artifacts; stable model default and optional preached-date/duration policy added."
+    },
+    {
+      "source": "parrot_ai/sermon_evals/engine.py",
+      "sourceSha256": "b72d0be69baf08dc74e533685f63e74a75de7922b54f28ba21409b474ee0f2fd",
+      "target": "src/sermon_evaluator/engine.py",
+      "targetSha256": "07918e5dee2bee80d0518f95e03169d8c512adf3440ccf83f8e153c6af95f94b",
+      "adaptation": "Package-local imports, provider injection, stable model default, and off-by-default duration adjustment."
+    },
+    {
+      "source": "parrot_ai/sermon_evals/audio_utils.py",
+      "sourceSha256": "bf586758ca4a97922c8a0c18652a8e86790dc60a5084faad70510b62fe75823a",
+      "target": "src/sermon_evaluator/audio.py",
+      "targetSha256": "48e4556a7125c4e159d86acda5a20c458d782fb3aad9dc33180bd1e37d167756",
+      "adaptation": "Mutagen-only production duration and container detection, SHA-256 streaming, declared MIME/extension consistency, size/duration validation, and compatible Gemini cache helper."
+    },
+    {
+      "source": "parrot_ai/sermon_evals/aggregation.py",
+      "sourceSha256": "ec76099e64683e5b8f8da309c770e55d416cc4c385cfd742f37e7eaf49266e30",
+      "target": "src/sermon_evaluator/aggregation.py",
+      "targetSha256": "bcd71868a011bbf07c3cdf9a2d67ce7b9a65d5fd41699f896252b02d9dd463eb",
+      "adaptation": "Preserved weights/formula; retained base, calculated penalty, adjusted, and selected Overall Impact."
+    },
+    {
+      "source": "parrot_ai/sermon_evals/calibration.py",
+      "sourceSha256": "03ee331df3c00073e2bbc7bcd5c3cd0a7129d99d738516f60e39899a634e0742",
+      "target": "src/sermon_evaluator/calibration.py",
+      "targetSha256": "d204d001a1806b1d918bf59bdc3860138d6d4a0cf004999cd7d169ca9f2bdca4",
+      "adaptation": "Only the package-local schema import changed."
+    },
+    {
+      "source": "parrot_ai/sermon_evals/harmonization.py",
+      "sourceSha256": "0490caaf292cc17cf1518cad5605de0607f73c03b827156c45acb6256b080e02",
+      "target": "src/sermon_evaluator/harmonization.py",
+      "targetSha256": "6119474cf8e514c9796685bc8b12e393fb433ac5950b53984e2bc0ca33119167",
+      "adaptation": "Package-local imports, explicit duration-adjustment policy, and non-swallowable worker cancellation/deadline control flow; confidence weighting and feedback synthesis preserved."
+    },
+    {
+      "source": "parrot_ai/sermon_evals/markdown.py",
+      "sourceSha256": "feafd77cada400aaee21334db35733e2b316402a7e78ceeac4101dd7b61824a2",
+      "target": "src/sermon_evaluator/reports/markdown.py",
+      "targetSha256": "874d10449c9dd42429e8d3c850368c42afbe84f74d041b2bc4c61da4e5169a6e",
+      "adaptation": "Only the package-local schema import changed."
+    },
+    {
+      "source": "parrot_ai/evaluation_schemas.py",
+      "sourceSha256": "a788824953557811cbafd00143306f8c490f9aebc0809e06abc34bc014a949ba",
+      "target": "src/sermon_evaluator/schemas.py",
+      "targetSha256": "20734b64b3379b400c10c2fe81cde5c204a24b5924f2b6bfe5be8c07b4b46a35",
+      "adaptation": "Copied only sermon schemas and added explicit base/adjusted duration fields."
+    },
+    {
+      "source": "parrot_ai/prompts/sermon.py",
+      "sourceSha256": "dcc6d18a5ddf28665b8702536ec188db83ffd01dbe4baf104529773567844bcc",
+      "target": "src/sermon_evaluator/prompts.py",
+      "targetSha256": "dcc6d18a5ddf28665b8702536ec188db83ffd01dbe4baf104529773567844bcc",
+      "adaptation": "Byte-identical prompt transfer."
+    },
+    {
+      "source": "parrot_ai/core.py",
+      "sourceSha256": "185109b7f47f5a8882b2b8f967d6653f33f7bac4184fe891bed35fef25890f60",
+      "target": "src/sermon_evaluator/gemini.py",
+      "targetSha256": "dcbb925363bc00ea3af7888fa88526a07fd18dceff4917532fb6d6b5bd0017b0",
+      "adaptation": "Extracted only Gemini structured generation and Files behavior, then applied Gemini 3.6 migration requirements and metadata capture."
+    },
+    {
+      "source": "tests/test_sermon_calibration.py",
+      "sourceSha256": "7ed562e290459eaef144c22c85da991882ccd6b63183e7216752ab9152311686",
+      "target": "tests/test_sermon_calibration.py",
+      "targetSha256": "35d09f0e83d86406b7a6a0cae67726f4f8da92c664810bb65e239f5466dd01f1",
+      "adaptation": "Assertions preserved; only import paths changed."
+    }
+  ]
+}

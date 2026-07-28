@@ -8,6 +8,14 @@
 
 # testing
 /coverage
+.coverage
+.pytest_cache/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+/.cache/
 
 # next.js
 /.next/
