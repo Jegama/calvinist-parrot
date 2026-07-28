@@ -118,6 +118,8 @@ const reattachRequiredDecisionSchema = z.strictObject({
 const uploadRequiredDecisionSchema = z.strictObject({
   decision: z.literal("upload_required"),
   reservationId: resourceIdSchema,
+  uploadMode: z.enum(["appwrite", "local"]),
+  uploadUrl: z.string().startsWith("/").nullable(),
   uploadJwt: z.string().min(1),
   endpoint: z.string().url(),
   projectId: z.string().min(1),

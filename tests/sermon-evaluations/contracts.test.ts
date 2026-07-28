@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth", () => ({
   requireAuthenticatedUser: vi.fn(),
@@ -12,6 +12,7 @@ import {
   createSermonEvaluationRequestSchema,
   finalizeSermonUploadRequestSchema,
   prepareSermonUploadRequestSchema,
+  prepareSermonUploadResponseSchema,
   reevaluateSermonRequestSchema,
 } from "@/lib/api/contracts";
 import {
@@ -27,6 +28,10 @@ import {
 const sha256 = "A".repeat(64);
 
 describe("sermon evaluation contracts", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("normalizes SHA-256 and rejects spoofed authority fields", () => {
     const valid = prepareSermonUploadRequestSchema.parse({
       sha256,
@@ -80,6 +85,33 @@ describe("sermon evaluation contracts", () => {
     ).toBe(false);
   });
 
+  it("describes both local and Appwrite upload transports explicitly", () => {
+    const common = {
+      decision: "upload_required" as const,
+      reservationId: "reservation-1",
+      uploadJwt: "authorization",
+      endpoint: "http://localhost:3000",
+      projectId: "project-1",
+      bucketId: "bucket-1",
+      fileId: "file-1",
+      expiresAt: "2026-07-28T12:00:00.000Z",
+    };
+    expect(
+      prepareSermonUploadResponseSchema.safeParse({
+        ...common,
+        uploadMode: "local",
+        uploadUrl: "/api/sermon-evaluation-local/uploads/reservation-1",
+      }).success,
+    ).toBe(true);
+    expect(
+      prepareSermonUploadResponseSchema.safeParse({
+        ...common,
+        uploadMode: "appwrite",
+        uploadUrl: null,
+      }).success,
+    ).toBe(true);
+  });
+
   it("rejects normalized but nonexistent calendar dates", () => {
     expect(
       createSermonEvaluationRequestSchema.safeParse({
@@ -103,6 +135,10 @@ describe("sermon evaluation contracts", () => {
 });
 
 describe("sermon label capabilities", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   const user = (labels: string[]) =>
     ({ $id: "user-1", labels }) as never;
 
@@ -137,6 +173,25 @@ describe("sermon label capabilities", () => {
       allowedRunCount: { min: 1, max: 9 },
       dailyRunLimit: 6,
     });
+  });
+
+  it("grants the configured test account admin access only in local development", () => {
+    const testUser = {
+      $id: "test-user",
+      email: "TEST@test.com",
+      labels: [],
+    } as never;
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("SERMON_RUNTIME", "local");
+    expect(isSermonEvaluationAdmin(testUser)).toBe(true);
+    expect(hasSermonEvaluationAccess(testUser)).toBe(true);
+
+    vi.stubEnv("SERMON_RUNTIME", "appwrite");
+    expect(isSermonEvaluationAdmin(testUser)).toBe(false);
+
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("SERMON_RUNTIME", "local");
+    expect(isSermonEvaluationAdmin(testUser)).toBe(false);
   });
 });
 

@@ -4547,6 +4547,24 @@
                 "maxLength": 191,
                 "description": "An opaque resource identifier."
               },
+              "uploadMode": {
+                "type": "string",
+                "enum": [
+                  "appwrite",
+                  "local"
+                ]
+              },
+              "uploadUrl": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^\\/.*"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "uploadJwt": {
                 "type": "string",
                 "minLength": 1
@@ -4578,6 +4596,8 @@
             "required": [
               "decision",
               "reservationId",
+              "uploadMode",
+              "uploadUrl",
               "uploadJwt",
               "endpoint",
               "projectId",

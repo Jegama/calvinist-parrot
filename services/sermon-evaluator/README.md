@@ -1,11 +1,12 @@
 # Calvinist Parrot Sermon Evaluator
 
-This directory is the canonical, platform-neutral Python sermon evaluator copied from CP-Evals-Lab commit `4fc02cb2da2c7c8c51ac84558bf9f592cf2d0485`. `SOURCE_PROVENANCE.json` records the one-time source map and hashes. The copied prompt, rubric, calibration, aggregation, confidence weighting, feedback synthesis, and report behavior remain available through the compatibility CLI, while `entrypoints/appwrite.py` is a thin Appwrite deployment adapter around the same package.
+This directory is the canonical, platform-neutral Python sermon evaluator copied from CP-Evals-Lab commit `4fc02cb2da2c7c8c51ac84558bf9f592cf2d0485`. `SOURCE_PROVENANCE.json` records the one-time source map and hashes. The copied prompt, rubric, calibration, aggregation, confidence weighting, feedback synthesis, and report behavior remain available through the compatibility CLI, while `entrypoints/appwrite.py` is the Appwrite deployment adapter and `sermon_evaluator.worker` is the local polling adapter around the same package.
 
 ## Runtime boundaries
 
-- Next.js authenticates and authorizes users, reserves lifetime run credits, creates durable Neon jobs, and invokes this Function with only an opaque `evaluationId`.
+- Next.js authenticates and authorizes users, reserves lifetime run credits, creates durable Postgres jobs, and dispatches them to the selected runtime with only an opaque `evaluationId`.
 - This Function reads the private Appwrite audio file with Appwrite's injected dynamic API key, verifies its bytes and duration, calls Gemini, and writes only sermon tables through a dedicated pooled Neon URL.
+- The local runtime reads ignored filesystem audio, polls the same lease-backed queue, and uses deterministic fixture responses by default. It requires neither Appwrite Storage, an Appwrite Function, Neon, nor Gemini.
 - Prisma is the sole schema and migration owner. Python has no migration framework.
 - Production uses `gemini-3.6-flash`, medium thinking, structured output, and Gemini Files. The CLI model override is developer-only.
 - One Appwrite execution has a 900-second hard timeout and an 840-second soft deadline. A call is not started with less than 60 seconds remaining.
@@ -15,13 +16,14 @@ This directory is the canonical, platform-neutral Python sermon evaluator copied
 
 Appwrite supplies `APPWRITE_FUNCTION_API_ENDPOINT`, `APPWRITE_FUNCTION_PROJECT_ID`, and `APPWRITE_FUNCTION_API_KEY`. Configure these Function variables separately in development and production:
 
+- `SERMON_RUNTIME`: `appwrite`.
+- `SERMON_EVALUATOR_PROVIDER`: `gemini`.
 - `SERMON_DATABASE_URL`: dedicated least-privileged pooled Neon URL with `sslmode=require`.
 - `GEMINI_API_KEY`: worker-only Gemini key.
 - `SERMON_AUDIO_BUCKET_ID`: private sermon bucket for the same environment.
 - `SERMON_GEMINI_MODEL`: `gemini-3.6-flash`.
 - `SERMON_SOFT_DEADLINE_SECONDS`: `840`.
 - `SERMON_MAX_PARALLEL_SCORING_RUNS`: `9`.
-- `SERMON_MAX_ACTIVE_EVALUATIONS`: `2`.
 
 The direct database role needs only the required DML privileges on sermon tables and their sequences. It must not receive DDL or unrelated application-table access.
 
@@ -36,8 +38,25 @@ zsh -ic 'workon cp_evals && cd services/sermon-evaluator && python -m pip instal
 Run tests:
 
 ```bash
-zsh -ic 'workon cp_evals && cd services/sermon-evaluator && pytest'
+zsh -ic 'workon cp_evals && cd services/sermon-evaluator && python -m pytest'
 ```
+
+For the complete local application flow, copy `.env.template` to `.env`, configure the application's normal Appwrite authentication values, and run:
+
+```bash
+npm run dev:sermon
+```
+
+That command starts Docker Postgres, applies and seeds Prisma, starts Next.js, and starts the Python poller through `workon cp_evals`. `SERMON_RUNTIME=local` stores uploads under the ignored `.data/sermon-audio/` directory. `SERMON_EVALUATOR_PROVIDER=fixture` produces deterministic extraction, scoring, coaching, and reports without a Gemini key. The authenticated `test@test.com` account receives sermon administrator capabilities only while Next is in development mode and the sermon runtime is local.
+
+To run only the worker, including a single recovery pass useful for diagnostics:
+
+```bash
+npm run sermon:worker
+npm run sermon:worker -- --once
+```
+
+Set `SERMON_EVALUATOR_PROVIDER=gemini` locally only when deliberately testing the real provider and supplying `GEMINI_API_KEY`.
 
 Run the source-compatible CLI:
 

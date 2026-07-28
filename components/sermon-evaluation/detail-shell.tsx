@@ -881,7 +881,7 @@ function PrivateAudioCard({ evaluation }: { evaluation: SermonEvaluationDetail }
           <Volume2 className="h-5 w-5 text-primary" />
           Private audio
         </CardTitle>
-        <CardDescription>Playback uses a five-minute owner-authorized Appwrite file URL.</CardDescription>
+        <CardDescription>Playback uses a short-lived, owner-authorized private audio URL.</CardDescription>
       </CardHeader>
       <CardContent>
         {!evaluation.hasRetainedAudio ? (

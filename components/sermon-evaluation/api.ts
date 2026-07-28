@@ -355,6 +355,8 @@ function readUploadAuthorization(value: unknown): UploadAuthorization {
   const source = firstRecord(asRecord(value), "upload", "authorization");
   return {
     reservationId: asString(source.reservationId),
+    mode: asString(source.uploadMode) === "local" ? "local" : "appwrite",
+    uploadUrl: asNullableString(source.uploadUrl) ?? undefined,
     jwt: asString(source.jwt ?? source.uploadJwt),
     bucketId: asString(source.bucketId),
     fileId: asString(source.fileId),

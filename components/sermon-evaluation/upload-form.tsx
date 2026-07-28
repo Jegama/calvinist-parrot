@@ -228,7 +228,7 @@ export function SermonUploadForm({
       setProgress({
         phase: "uploading",
         progress: 0,
-        message: "Uploading directly to your private Appwrite storage…",
+        message: "Uploading to your private sermon audio storage…",
       });
       const fileId = await uploadSermonAudioDirectly({
         authorization,
@@ -238,7 +238,7 @@ export function SermonUploadForm({
           setProgress({
             phase: "uploading",
             progress: nextProgress,
-            message: "Uploading directly to your private Appwrite storage…",
+            message: "Uploading to your private sermon audio storage…",
           }),
       });
 

@@ -41,6 +41,7 @@ import {
   SermonQuotaError,
 } from "./quotas";
 import { isDurationReportRegenerationPending } from "./reports";
+import { isLocalSermonRuntime } from "./runtime";
 import {
   getCreditBalance,
   SERMON_ACTIVE_STATUSES,
@@ -587,6 +588,10 @@ export async function handlePrepareSermonUpload(request: Request) {
     return NextResponse.json({
       decision: "upload_required",
       reservationId: reservation.id,
+      uploadMode: isLocalSermonRuntime() ? "local" : "appwrite",
+      uploadUrl: isLocalSermonRuntime()
+        ? `/api/sermon-evaluation-local/uploads/${encodeURIComponent(reservation.id)}`
+        : null,
       uploadJwt,
       endpoint: config.endpoint,
       projectId: config.projectId,

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { requireAuthenticatedUser } from "@/lib/auth";
 
+import { isLocalSermonRuntime } from "./runtime";
 import { SERMON_DAILY_RUN_LIMIT } from "./types";
 
 export const SERMON_EVALUATOR_BETA_LABEL = "sermon-evaluator-beta";
@@ -11,13 +12,31 @@ export const SERMON_EVALUATOR_ADMIN_LABEL = "sermon-evaluator-admin";
 type AppwriteUserWithLabels = Pick<
   Models.User<Models.Preferences>,
   "$id" | "labels"
->;
+> &
+  Partial<Pick<Models.User<Models.Preferences>, "email">>;
+
+function isDevelopmentSermonAdmin(
+  user: AppwriteUserWithLabels | null | undefined,
+) {
+  if (
+    process.env.NODE_ENV !== "development" ||
+    !isLocalSermonRuntime() ||
+    !user?.email
+  ) {
+    return false;
+  }
+  const configuredEmail =
+    process.env.SERMON_DEV_ADMIN_EMAIL?.trim().toLowerCase() ||
+    "test@test.com";
+  return user.email.trim().toLowerCase() === configuredEmail;
+}
 
 export function hasSermonEvaluationAccess(
   user: AppwriteUserWithLabels | null | undefined,
 ) {
   return Boolean(
-    user?.labels.includes(SERMON_EVALUATOR_BETA_LABEL) ||
+    isDevelopmentSermonAdmin(user) ||
+      user?.labels.includes(SERMON_EVALUATOR_BETA_LABEL) ||
       user?.labels.includes(SERMON_EVALUATOR_ADMIN_LABEL),
   );
 }
@@ -25,7 +44,10 @@ export function hasSermonEvaluationAccess(
 export function isSermonEvaluationAdmin(
   user: AppwriteUserWithLabels | null | undefined,
 ) {
-  return Boolean(user?.labels.includes(SERMON_EVALUATOR_ADMIN_LABEL));
+  return Boolean(
+    isDevelopmentSermonAdmin(user) ||
+      user?.labels.includes(SERMON_EVALUATOR_ADMIN_LABEL),
+  );
 }
 
 export function getSermonEvaluationCapabilities(
@@ -75,4 +97,3 @@ export async function requireSermonEvaluationAdmin() {
   }
   return auth;
 }
-

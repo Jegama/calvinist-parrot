@@ -362,7 +362,7 @@ function ReevaluateDialog({
         <DialogHeader>
           <DialogTitle>Re-evaluate retained audio</DialogTitle>
           <DialogDescription>
-            The existing private Appwrite audio is reused. No upload is needed, and a new evaluation is added to this fingerprint&apos;s history.
+            The existing private audio is reused. No upload is needed, and a new evaluation is added to this fingerprint&apos;s history.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">

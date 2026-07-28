@@ -18,6 +18,7 @@ from .aggregation import SermonAggregator
 from .audio import InvalidAudioError
 from .calibration import SermonScoreCalibrator
 from .gemini import GeminiProvider, ProviderResponseMetadata
+from .fixture import FixtureProvider
 from .harmonization import SermonHarmonizer
 from .persistence import (
     AudioHashMismatch,
@@ -42,7 +43,7 @@ from .stages import (
     ParallelScoringCoordinator,
     SoftDeadline,
 )
-from .storage import AppwriteStorage
+from .storage import AppwriteStorage, LocalFilesystemStorage
 
 PROMPT_VERSION = "cp-evals-4fc02cb2"
 RUBRIC_VERSION = "cp-evals-4fc02cb2"
@@ -206,11 +207,38 @@ class SermonEvaluationService:
 
     @classmethod
     def from_environment(cls) -> "SermonEvaluationService":
-        model = os.getenv("SERMON_GEMINI_MODEL", "gemini-3.6-flash")
+        runtime = os.getenv("SERMON_RUNTIME", "appwrite").strip().lower()
+        if runtime not in {"local", "appwrite"}:
+            raise ValueError("SERMON_RUNTIME must be either local or appwrite")
+        provider_name = os.getenv(
+            "SERMON_EVALUATOR_PROVIDER",
+            "fixture" if runtime == "local" else "gemini",
+        ).strip().lower()
+        if provider_name not in {"fixture", "gemini"}:
+            raise ValueError(
+                "SERMON_EVALUATOR_PROVIDER must be either fixture or gemini"
+            )
+        if provider_name == "fixture" and runtime != "local":
+            raise ValueError(
+                "The fixture sermon evaluator provider is restricted to local runtime"
+            )
+        model = (
+            "fixture-sermon-evaluator-v1"
+            if provider_name == "fixture"
+            else os.getenv("SERMON_GEMINI_MODEL", "gemini-3.6-flash")
+        )
         return cls(
             persistence=PsycopgPersistence(),
-            storage=AppwriteStorage(),
-            provider=GeminiProvider(model=model),
+            storage=(
+                LocalFilesystemStorage()
+                if runtime == "local"
+                else AppwriteStorage()
+            ),
+            provider=(
+                FixtureProvider(model=model)
+                if provider_name == "fixture"
+                else GeminiProvider(model=model)
+            ),
             soft_deadline_seconds=int(
                 os.getenv("SERMON_SOFT_DEADLINE_SECONDS", "840")
             ),

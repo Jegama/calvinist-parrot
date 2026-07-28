@@ -1,4 +1,4 @@
-"""Private Appwrite Storage adapter for the sermon worker."""
+"""Private audio storage adapters for the sermon worker."""
 
 from __future__ import annotations
 
@@ -116,4 +116,56 @@ class AppwriteStorage:
         self._storage.delete_file(bucket_id=bucket_id, file_id=file_id)
 
 
-__all__ = ["AppwriteStorage", "DownloadedAudio"]
+class LocalFilesystemStorage:
+    """Read local-development audio written by the Next.js upload route."""
+
+    def __init__(
+        self,
+        *,
+        root: Optional[str | Path] = None,
+        allowed_bucket_id: str = "local-sermon-audio",
+    ) -> None:
+        configured = root or os.getenv("SERMON_LOCAL_AUDIO_DIR")
+        self.root = Path(configured or Path.cwd() / ".data" / "sermon-audio").resolve()
+        self.allowed_bucket_id = allowed_bucket_id
+
+    def _source(self, bucket_id: str, file_id: str) -> Path:
+        if bucket_id != self.allowed_bucket_id:
+            raise PermissionError("Evaluation references an unexpected storage bucket")
+        if (
+            not file_id
+            or len(file_id) > 36
+            or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for character in file_id)
+        ):
+            raise ValueError("Invalid local sermon audio file identifier")
+        return self.root / f"{file_id}.audio"
+
+    def download_to_temp(
+        self,
+        *,
+        bucket_id: str,
+        file_id: str,
+        suffix: str,
+        timeout_seconds: float = 120,
+    ) -> DownloadedAudio:
+        del timeout_seconds
+        source = self._source(bucket_id, file_id)
+        descriptor, path_string = tempfile.mkstemp(
+            prefix="sermon-audio-", suffix=suffix
+        )
+        os.close(descriptor)
+        path = Path(path_string)
+        try:
+            shutil.copyfile(source, path)
+        except BaseException:
+            path.unlink(missing_ok=True)
+            raise
+        return DownloadedAudio(path=path, bucket_id=bucket_id, file_id=file_id)
+
+    def delete_file(self, *, bucket_id: str, file_id: str) -> None:
+        source = self._source(bucket_id, file_id)
+        source.unlink(missing_ok=True)
+        source.with_suffix(".json").unlink(missing_ok=True)
+
+
+__all__ = ["AppwriteStorage", "DownloadedAudio", "LocalFilesystemStorage"]

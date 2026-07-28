@@ -158,6 +158,8 @@ export type SermonEvaluationDetail = SermonEvaluationListItem & {
 
 export type UploadAuthorization = {
   reservationId: string;
+  mode: "appwrite" | "local";
+  uploadUrl?: string;
   jwt: string;
   bucketId: string;
   fileId: string;

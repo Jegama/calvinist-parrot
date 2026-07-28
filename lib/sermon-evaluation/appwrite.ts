@@ -15,6 +15,14 @@ import {
   getSessionCookieValue,
 } from "@/lib/appwrite/server";
 
+import {
+  deleteLocalSermonAudioFile,
+  getLocalSermonAudioFile,
+} from "./local-storage";
+import {
+  getLocalSermonBucketId,
+  isLocalSermonRuntime,
+} from "./runtime";
 import { SERMON_PLAYBACK_TOKEN_TTL_MS } from "./types";
 
 const endpoint =
@@ -31,6 +39,18 @@ function requireConfiguration(value: string | undefined, name: string) {
 }
 
 export function getSermonAppwriteConfiguration() {
+  if (isLocalSermonRuntime()) {
+    return {
+      endpoint: (process.env.APP_URL || "http://localhost:3000").replace(
+        /\/$/,
+        "",
+      ),
+      projectId: "local-development",
+      apiKey: "local-development",
+      functionId: "local-sermon-worker",
+      bucketId: getLocalSermonBucketId(),
+    };
+  }
   return {
     endpoint: requireConfiguration(
       endpoint,
@@ -55,6 +75,9 @@ function createAdminClient() {
 }
 
 export async function createSermonUploadJwt() {
+  if (isLocalSermonRuntime()) {
+    return "local-development";
+  }
   const sessionSecret = await getSessionCookieValue();
   if (!sessionSecret) {
     throw new Error("Authenticated Appwrite session is required");
@@ -69,6 +92,9 @@ export async function createSermonUploadJwt() {
 }
 
 export async function getSermonAudioFile(fileId: string) {
+  if (isLocalSermonRuntime()) {
+    return getLocalSermonAudioFile(fileId);
+  }
   const { bucketId: configuredBucketId } =
     getSermonAppwriteConfiguration();
   return new Storage(createAdminClient()).getFile({
@@ -78,6 +104,10 @@ export async function getSermonAudioFile(fileId: string) {
 }
 
 export async function deleteSermonAudioFile(fileId: string) {
+  if (isLocalSermonRuntime()) {
+    await deleteLocalSermonAudioFile(fileId);
+    return;
+  }
   const { bucketId: configuredBucketId } =
     getSermonAppwriteConfiguration();
   await new Storage(createAdminClient()).deleteFile({
@@ -115,6 +145,14 @@ export async function invokeSermonEvaluationWorker(
     | { action: "evaluate"; evaluationId: string }
     | { action: "regenerate_reports"; evaluationId: string },
 ) {
+  if (isLocalSermonRuntime()) {
+    return {
+      local: true,
+      queued: true,
+      evaluationId: payload.evaluationId,
+      action: payload.action,
+    };
+  }
   const config = getSermonAppwriteConfiguration();
   const invocationBody =
     payload.action === "evaluate"
@@ -131,6 +169,12 @@ export async function invokeSermonEvaluationWorker(
 export async function createSermonPlaybackUrl(fileId: string) {
   const config = getSermonAppwriteConfiguration();
   const expiresAt = new Date(Date.now() + SERMON_PLAYBACK_TOKEN_TTL_MS);
+  if (isLocalSermonRuntime()) {
+    return {
+      url: `${config.endpoint}/api/sermon-evaluation-local/audio/${encodeURIComponent(fileId)}`,
+      expiresAt,
+    };
+  }
   const token = await new Tokens(createAdminClient()).createFileToken({
     bucketId: config.bucketId,
     fileId,
