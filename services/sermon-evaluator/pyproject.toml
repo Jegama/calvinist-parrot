@@ -7,7 +7,7 @@ name = "calvinist-parrot-sermon-evaluator"
 version = "1.0.0"
 description = "Canonical platform-neutral Calvinist Parrot sermon evaluator"
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.14,<3.15"
 license = { text = "Proprietary" }
 dependencies = [
   "appwrite>=22,<23",

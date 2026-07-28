@@ -49,7 +49,7 @@ The CLI preserves `--audio`, `--model`, `--out-dir`, `--label`, `--md-file`, `--
 
 ## Dependency lock regeneration
 
-Python 3.12 is required. `pyproject.toml` owns direct dependencies; committed lock inputs are regenerated with:
+Python 3.14 is required. `pyproject.toml` owns direct dependencies; committed lock inputs are regenerated with:
 
 ```bash
 python -m piptools compile --resolver=backtracking --strip-extras -o requirements.txt pyproject.toml
@@ -58,7 +58,7 @@ python -m piptools compile --resolver=backtracking --strip-extras --extra dev -o
 
 ## Deployment
 
-The root `appwrite.json` configures `services/sermon-evaluator` as a Python 3.12 Function, installs the pinned production requirements and package, exposes no public execute role, grants the dynamic key only file read/write scopes, runs recovery once per minute, and sets the 900-second timeout. Project IDs and all secrets remain deployment-environment configuration.
+The root `appwrite.json` configures `services/sermon-evaluator` as a Python 3.14 Function, installs the pinned production requirements and package, exposes no public execute role, grants the dynamic key only file read/write scopes, runs recovery once per minute, and sets the 900-second timeout. Project IDs and all secrets remain deployment-environment configuration.
 
 The scheduled empty-body invocation marks expired attempts timed out, removes soft-deleted Appwrite audio before clearing its database pointer, and resumes a bounded number of queued or lease-expired evaluations without extending their original deadline. A normal direct invocation body is:
 

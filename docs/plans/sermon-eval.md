@@ -133,7 +133,7 @@ calvinist-parrot/
 
 ## Python packaging, dependencies, and developer workflow
 
-- Use Python 3.12 in `.python-version`, Appwrite, and CI.
+- Use Python 3.14 in `.python-version`, Appwrite, and CI.
 - Treat `pyproject.toml` as the package and direct-dependency definition, including `[project.scripts] cp-eval-sermons = "sermon_evaluator.cli:main"`.
 - Commit a pinned production `requirements.txt` generated from the tested `pyproject.toml` with `pip-compile -o requirements.txt pyproject.toml`, and a pinned `requirements-dev.txt` generated with `pip-compile --extra dev -o requirements-dev.txt pyproject.toml`.
 - Keep the production dependency set sermon-specific:
@@ -146,7 +146,7 @@ calvinist-parrot/
 - Do not copy CP-Evals-Lab’s broad requirements containing unrelated OpenAI, Anthropic, xAI, Together, Transformers, Pandas, Streamlit, or watchdog dependencies.
 - Configure the Appwrite Function with:
   - Root directory: `services/sermon-evaluator`
-  - Runtime: Python 3.12
+  - Runtime: Python 3.14
   - Entrypoint: `entrypoints/appwrite.py`
   - Build command: `pip install --no-cache-dir -r requirements.txt && pip install --no-deps .`
   - Timeout: `900`
@@ -163,7 +163,7 @@ zsh -ic 'workon cp_evals && cd services/sermon-evaluator && python -m pip instal
 zsh -ic 'workon cp_evals && python -m sermon_evaluator.cli --audio data/sermons/sermon.mp3 --out-dir data/sermons_evals --label my_sermon --preacher "Name" --preached-date 2026-07-27 --num-scoring-runs 3 --markdown'
 ```
 
-- Add a Python 3.12 job to `.github/workflows/ci.yml` that installs from `requirements-dev.txt`, installs the package editable without resolving a second dependency graph, runs the sermon test suite, and verifies that the Appwrite entrypoint imports successfully. CI must not depend on `workon cp_evals`.
+- Add a Python 3.14 job to `.github/workflows/ci.yml` that installs from `requirements-dev.txt`, installs the package editable without resolving a second dependency graph, runs the sermon test suite, and verifies that the Appwrite entrypoint imports successfully. CI must not depend on `workon cp_evals`.
 - Add `node-appwrite` to the Next.js application for server-side Function invocation and expiring file-token creation. Add a small audited incremental SHA-256 implementation such as `hash-wasm` for browser-side streaming hashing in a Web Worker.
 
 ## Deployment configuration and environment contract

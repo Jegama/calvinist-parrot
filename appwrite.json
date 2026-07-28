@@ -5,7 +5,7 @@
     {
       "$id": "sermon-evaluator",
       "name": "Sermon Evaluator",
-      "runtime": "python-3.12",
+      "runtime": "python-3.14",
       "path": "services/sermon-evaluator",
       "entrypoint": "entrypoints/appwrite.py",
       "commands": "pip install --no-cache-dir -r requirements.txt && pip install --no-deps .",
