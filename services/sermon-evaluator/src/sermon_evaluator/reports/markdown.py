@@ -41,6 +41,7 @@ def render_markdown(
         penalty_text = ""
         if (
             scoring.Aggregated_Summary
+            and scoring.Aggregated_Summary.duration_adjustment_enabled
             and scoring.Aggregated_Summary.duration_penalty is not None
         ):
             penalty = scoring.Aggregated_Summary.duration_penalty

@@ -2154,6 +2154,7 @@
               "type": "string",
               "enum": [
                 "markdown",
+                "pdf",
                 "json",
                 "csv"
               ]
@@ -2177,6 +2178,12 @@
               "text/markdown": {
                 "schema": {
                   "type": "string"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
                 }
               },
               "application/json": {

@@ -1,6 +1,43 @@
 import { formatDate } from "./format";
 import type { SermonAnalyticsPoint } from "./types";
 
+const CANONICAL_AGGREGATE_METRICS = [
+  "textualFidelity",
+  "propositionClarity",
+  "introduction",
+  "applicationEffectiveness",
+  "structureCohesion",
+  "illustrations",
+] as const;
+
+function aggregateMetricKeys(
+  evaluations: readonly SermonAnalyticsPoint[],
+): string[] {
+  const discovered = new Set(
+    evaluations.flatMap((evaluation) =>
+      Object.keys(evaluation.aggregateScores),
+    ),
+  );
+  const canonical = CANONICAL_AGGREGATE_METRICS.filter((metric) =>
+    discovered.delete(metric),
+  );
+  return [...canonical, ...[...discovered].sort()];
+}
+
+export function listAvailableSermonMetrics(
+  evaluations: readonly SermonAnalyticsPoint[],
+): string[] {
+  const metrics = ["overallImpactBase"];
+  if (
+    evaluations.some(
+      (evaluation) => evaluation.overallImpactAdjusted !== null,
+    )
+  ) {
+    metrics.push("overallImpactAdjusted");
+  }
+  return [...metrics, ...aggregateMetricKeys(evaluations)];
+}
+
 export function scoreForSermonMetric(
   point: SermonAnalyticsPoint,
   metric: string,
@@ -39,4 +76,36 @@ export function buildSermonTrendRows(
       },
     ];
   });
+}
+
+export function buildSermonMetricAverageRows(
+  evaluations: readonly SermonAnalyticsPoint[],
+): Array<{
+  metric: string;
+  average: number;
+  sermons: number;
+}> {
+  return aggregateMetricKeys(evaluations)
+    .flatMap((metric) => {
+      const scores = evaluations.flatMap((evaluation) => {
+        const score = evaluation.aggregateScores[metric];
+        return score === undefined ? [] : [score];
+      });
+      if (scores.length === 0) {
+        return [];
+      }
+      return [
+        {
+          metric,
+          average:
+            scores.reduce((total, score) => total + score, 0) / scores.length,
+          sermons: scores.length,
+        },
+      ];
+    })
+    .sort(
+      (left, right) =>
+        right.average - left.average ||
+        left.metric.localeCompare(right.metric),
+    );
 }

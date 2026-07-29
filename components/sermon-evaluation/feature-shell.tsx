@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Beaker, FilePlus2, LockKeyhole, RefreshCw, ShieldAlert } from "lucide-react";
+import { BarChart3, Beaker, BookOpenText, FilePlus2, LockKeyhole, RefreshCw, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { ProtectedView } from "@/components/ProtectedView";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -96,12 +97,20 @@ export function SermonEvaluationFeature() {
                   Detailed, private coaching feedback that preserves the sermon&apos;s structure, rubric, aggregates, and practical next steps.
                 </p>
               </div>
-              {capabilitiesQuery.data?.hasAccess && (
-                <Button className="w-full sm:w-auto" onClick={() => setTab("new")}>
-                  <FilePlus2 />
-                  New evaluation
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <Button asChild variant="outline" className="w-full sm:w-auto">
+                  <Link href="/sermon-evaluation/framework">
+                    <BookOpenText />
+                    How evaluations work
+                  </Link>
                 </Button>
-              )}
+                {capabilitiesQuery.data?.hasAccess && (
+                  <Button className="w-full sm:w-auto" onClick={() => setTab("new")}>
+                    <FilePlus2 />
+                    New evaluation
+                  </Button>
+                )}
+              </div>
             </div>
           </header>
 

@@ -27,7 +27,7 @@ describe("sermon report downloads", () => {
     );
 
     expect(markup).toContain("Updating versioned reports");
-    expect(markup).toContain("Report downloads are paused");
+    expect(markup).toContain("Fresh report snapshots are being prepared");
     expect(markup).not.toContain("/exports/");
   });
 
@@ -38,7 +38,9 @@ describe("sermon report downloads", () => {
 
     expect(markup).not.toContain("Updating versioned reports");
     expect(markup).toContain(
-      "/api/v1/sermon-evaluations/evaluation-1/exports/markdown?version=1",
+      "/api/v1/sermon-evaluations/evaluation-1/exports/pdf?version=1",
     );
+    expect(markup).not.toContain("/exports/markdown");
+    expect(markup).not.toContain("/exports/json");
   });
 });

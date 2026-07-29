@@ -43,15 +43,15 @@
       "source": "parrot_ai/sermon_evals/harmonization.py",
       "sourceSha256": "0490caaf292cc17cf1518cad5605de0607f73c03b827156c45acb6256b080e02",
       "target": "src/sermon_evaluator/harmonization.py",
-      "targetSha256": "6119474cf8e514c9796685bc8b12e393fb433ac5950b53984e2bc0ca33119167",
-      "adaptation": "Package-local imports, explicit duration-adjustment policy, and non-swallowable worker cancellation/deadline control flow; confidence weighting and feedback synthesis preserved."
+      "targetSha256": "a96a0e369bfd5a3fa4d6cd8326f0d4edbd9e1a67b1d972cccd9ac7fdc98849c3",
+      "adaptation": "Package-local imports, explicit duration-adjustment policy, accurate optional-penalty feedback context, and non-swallowable worker cancellation/deadline control flow; confidence weighting and feedback synthesis preserved."
     },
     {
       "source": "parrot_ai/sermon_evals/markdown.py",
       "sourceSha256": "feafd77cada400aaee21334db35733e2b316402a7e78ceeac4101dd7b61824a2",
       "target": "src/sermon_evaluator/reports/markdown.py",
-      "targetSha256": "874d10449c9dd42429e8d3c850368c42afbe84f74d041b2bc4c61da4e5169a6e",
-      "adaptation": "Only the package-local schema import changed."
+      "targetSha256": "9511f140db1438bbc955aea2c5f5b6083220c6b83ffae648fa783feba0372042",
+      "adaptation": "The package-local schema import and accurate optional-penalty wording changed."
     },
     {
       "source": "parrot_ai/evaluation_schemas.py",

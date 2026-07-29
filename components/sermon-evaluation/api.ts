@@ -234,12 +234,22 @@ export function normalizeSermonEvaluationDetail(
     reports: asArray(source.reports ?? source.reportArtifacts ?? source.reportFormats).map((item) => {
       if (typeof item === "string") {
         const rawFormat = item.toLowerCase();
-        const format: SermonExportFormat = rawFormat === "json" || rawFormat === "csv" ? rawFormat : "markdown";
+        const format: SermonExportFormat =
+          rawFormat === "pdf" ||
+          rawFormat === "json" ||
+          rawFormat === "csv"
+            ? rawFormat
+            : "markdown";
         return { format, version: "latest" };
       }
       const record = asRecord(item);
       const rawFormat = asString(record.format).toLowerCase();
-      const format: SermonExportFormat = rawFormat === "json" || rawFormat === "csv" ? rawFormat : "markdown";
+      const format: SermonExportFormat =
+        rawFormat === "pdf" ||
+        rawFormat === "json" ||
+        rawFormat === "csv"
+          ? rawFormat
+          : "markdown";
       const rawVersion = record.version ?? record.reportVersion;
       const version =
         typeof rawVersion === "string" && rawVersion.length > 0

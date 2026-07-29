@@ -495,6 +495,7 @@ class SermonHarmonizer:
             duration_info = f"\\n\\nSermon Duration: {duration_minutes:.1f} minutes"
             if (
                 scoring.Aggregated_Summary
+                and scoring.Aggregated_Summary.duration_adjustment_enabled
                 and scoring.Aggregated_Summary.duration_penalty
             ):
                 duration_info += f" (penalty applied: {scoring.Aggregated_Summary.duration_penalty:.2f} points)"

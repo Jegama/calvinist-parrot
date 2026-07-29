@@ -18,6 +18,20 @@ export function ReportDownloads({
 }: {
   evaluation: SermonEvaluationDetail;
 }) {
+  const reports: Array<{
+    format: "pdf" | "csv";
+    label: "PDF" | "CSV";
+    version: string;
+  }> = [];
+  for (const report of evaluation.reports) {
+    if (report.format === "markdown") {
+      reports.push({ format: "pdf", label: "PDF", version: report.version });
+    }
+    if (report.format === "csv") {
+      reports.push({ format: "csv", label: "CSV", version: report.version });
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -35,12 +49,12 @@ export function ReportDownloads({
             <Loader2 className="animate-spin motion-reduce:animate-none" />
             <AlertTitle>Updating versioned reports</AlertTitle>
             <AlertDescription>
-              Your sermon-length policy changed. Report downloads are paused
-              until fresh Markdown, JSON, and CSV versions are ready.
+              Fresh report snapshots are being prepared. Downloads will resume
+              when the PDF and CSV versions are ready.
             </AlertDescription>
           </Alert>
-        ) : evaluation.reports.length > 0 ? (
-          evaluation.reports.map((report) => (
+        ) : reports.length > 0 ? (
+          reports.map((report) => (
             <Button
               key={`${report.format}:${report.version}`}
               variant="outline"
@@ -55,10 +69,7 @@ export function ReportDownloads({
                 )}
               >
                 <span>
-                  {report.format === "markdown"
-                    ? "Markdown"
-                    : report.format.toUpperCase()}{" "}
-                  · version {report.version}
+                  {report.label} · version {report.version}
                 </span>
                 <Download />
               </a>

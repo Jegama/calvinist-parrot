@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildSermonTrendRows } from "@/components/sermon-evaluation/analytics-data";
+import {
+  buildSermonMetricAverageRows,
+  buildSermonTrendRows,
+  listAvailableSermonMetrics,
+} from "@/components/sermon-evaluation/analytics-data";
 import {
   normalizeSermonEvaluationDetail,
   sermonExportUrl,
@@ -8,6 +12,38 @@ import { canonicalDuplicateRedirectUrl } from "@/components/sermon-evaluation/ca
 import { formatDate } from "@/components/sermon-evaluation/format";
 import { normalizeSermonResult } from "@/components/sermon-evaluation/normalize";
 import type { SermonAnalyticsPoint } from "@/components/sermon-evaluation/types";
+
+function sermonAnalyticsPoint(
+  overrides: Partial<SermonAnalyticsPoint>,
+): SermonAnalyticsPoint {
+  return {
+    id: "evaluation",
+    title: "Sermon",
+    preacher: "John Calvin",
+    preachedOn: "2026-07-27",
+    createdAt: "2026-07-27T12:00:00.000Z",
+    updatedAt: "2026-07-27T12:00:00.000Z",
+    status: "COMPLETE",
+    preset: "STANDARD",
+    requestedRuns: 1,
+    completedRuns: 1,
+    overallImpactBase: 4,
+    overallImpactAdjusted: null,
+    durationAdjustmentEnabled: false,
+    durationSeconds: 2_400,
+    uncertaintyLow: null,
+    uncertaintyHigh: null,
+    hasRetainedAudio: true,
+    runCredits: {
+      limit: 9,
+      consumed: 1,
+      reserved: 0,
+      remaining: 8,
+    },
+    aggregateScores: {},
+    ...overrides,
+  };
+}
 
 const canonicalResult = {
   extraction: {
@@ -402,6 +438,65 @@ describe("sermon UI data helpers", () => {
       "evening",
     ]);
     expect(rows.map((row) => row["score:John Calvin"])).toEqual([3.5, 4.25]);
+  });
+
+  it("offers every available sermon metric in a stable, meaningful order", () => {
+    const evaluations = [
+      sermonAnalyticsPoint({
+        overallImpactAdjusted: null,
+        aggregateScores: {
+          illustrations: 2.5,
+          textualFidelity: 4.5,
+          introduction: 3.5,
+        },
+      }),
+      sermonAnalyticsPoint({
+        id: "evaluation-adjusted",
+        overallImpactAdjusted: 3.75,
+        aggregateScores: {
+          textualFidelity: 3.5,
+          introduction: 4,
+          deliveryPresence: 4.25,
+        },
+      }),
+    ];
+
+    expect(listAvailableSermonMetrics(evaluations.slice(0, 1))).not.toContain(
+      "overallImpactAdjusted",
+    );
+    expect(listAvailableSermonMetrics(evaluations)).toEqual([
+      "overallImpactBase",
+      "overallImpactAdjusted",
+      "textualFidelity",
+      "introduction",
+      "illustrations",
+      "deliveryPresence",
+    ]);
+  });
+
+  it("builds aggregate averages from only sermons that contain each metric", () => {
+    const evaluations = [
+      sermonAnalyticsPoint({
+        aggregateScores: {
+          textualFidelity: 4.5,
+          introduction: 3,
+        },
+      }),
+      sermonAnalyticsPoint({
+        id: "evaluation-two",
+        aggregateScores: {
+          textualFidelity: 3.5,
+          introduction: 4,
+          illustrations: 2.5,
+        },
+      }),
+    ];
+
+    expect(buildSermonMetricAverageRows(evaluations)).toEqual([
+      { metric: "textualFidelity", average: 4, sermons: 2 },
+      { metric: "introduction", average: 3.5, sermons: 2 },
+      { metric: "illustrations", average: 2.5, sermons: 1 },
+    ]);
   });
 });
 

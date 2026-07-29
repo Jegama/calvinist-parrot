@@ -33,7 +33,6 @@ import {
   fetchSermonEvaluation,
   fetchSermonPlaybackAuthorization,
   fetchSermonStatus,
-  updateSermonDurationPolicy,
 } from "./api";
 import { canonicalDuplicateRedirectUrl } from "./canonical-redirect";
 import { SermonDetailActions } from "./detail-actions";
@@ -212,29 +211,12 @@ function SermonDetail({
   notice?: "duplicate" | "reattach";
   onChanged: () => Promise<unknown>;
 }) {
-  const [durationBusy, setDurationBusy] = useState(false);
-  const [durationError, setDurationError] = useState<string | null>(null);
   const isComplete = COMPLETE_SERMON_STATUSES.has(evaluation.status);
-  const hasDurationEffect =
-    evaluation.calculatedDurationPenalty !== null && evaluation.calculatedDurationPenalty > 0;
   const scoreToDisplay =
     evaluation.durationAdjustmentEnabled && evaluation.overallImpactAdjusted !== null
       ? evaluation.overallImpactAdjusted
       : evaluation.overallImpactBase;
   const aggregateEntries = Object.entries(evaluation.aggregateScores);
-
-  const updateDurationPolicy = async (enabled: boolean) => {
-    setDurationError(null);
-    setDurationBusy(true);
-    try {
-      await updateSermonDurationPolicy(evaluation.id, enabled);
-      await onChanged();
-    } catch (caught) {
-      setDurationError(caught instanceof Error ? caught.message : "The duration policy could not be updated.");
-    } finally {
-      setDurationBusy(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -301,7 +283,7 @@ function SermonDetail({
         </div>
       </header>
 
-      <SermonStageProgress
+      <SermonDetailProgress
         status={evaluation.status}
         requestedRuns={evaluation.requestedRuns}
         completedRuns={evaluation.completedRuns}
@@ -337,8 +319,6 @@ function SermonDetail({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
-          <RunCreditCard evaluation={evaluation} />
-
           {isComplete && (
             <>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -354,52 +334,6 @@ function SermonDetail({
               {Object.keys(evaluation.aggregateFeedback).length > 0 && (
                 <AggregateFeedback evaluation={evaluation} />
               )}
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="font-serif text-xl">Sermon-length policy</CardTitle>
-                  <CardDescription>
-                    Rubric and category scores never change. Toggling this only changes the displayed Overall Impact and regenerates versioned reports.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <label className="flex cursor-pointer items-start gap-3">
-                    <input
-                      type="checkbox"
-                      role="switch"
-                      checked={evaluation.durationAdjustmentEnabled}
-                      onChange={(event) => void updateDurationPolicy(event.target.checked)}
-                      disabled={durationBusy}
-                      className="mt-1 h-4 w-4 accent-primary"
-                    />
-                    <span>
-                      <span className="font-medium">Apply sermon-length adjustment</span>
-                      <span className="mt-1 block text-sm text-muted-foreground">
-                        Optionally reduces Overall Impact for sermons shorter than 35 minutes or longer than 50 minutes.
-                      </span>
-                    </span>
-                  </label>
-                  <div className="grid gap-3 rounded-lg bg-muted/30 p-4 sm:grid-cols-3">
-                    <MetricLine label="Audio duration" value={formatDuration(evaluation.durationSeconds)} />
-                    <MetricLine label="Base impact" value={formatScore(evaluation.overallImpactBase)} />
-                    {hasDurationEffect ? (
-                      <>
-                        <MetricLine
-                          label="Calculated penalty"
-                          value={`−${evaluation.calculatedDurationPenalty?.toFixed(2)}`}
-                        />
-                        <MetricLine
-                          label="Adjusted impact"
-                          value={formatScore(evaluation.overallImpactAdjusted)}
-                        />
-                      </>
-                    ) : (
-                      <MetricLine label="Calculated penalty" value="None" />
-                    )}
-                  </div>
-                  {durationError && <p className="text-sm text-destructive">{durationError}</p>}
-                </CardContent>
-              </Card>
 
               <Tabs defaultValue="coaching" className="space-y-4">
                 <TabsList className="h-auto max-w-full justify-start overflow-x-auto">
@@ -439,7 +373,74 @@ function SermonDetail({
         user={user}
         onChanged={onChanged}
       />
+      <RunCreditCard evaluation={evaluation} />
     </div>
+  );
+}
+
+const COMPLETION_NOTICE_DURATION_MS = 6_000;
+
+export function SermonDetailProgress({
+  status,
+  requestedRuns,
+  completedRuns,
+  retryWave,
+  cancelRequested,
+}: {
+  status: SermonEvaluationDetail["status"];
+  requestedRuns: number;
+  completedRuns: number;
+  retryWave?: number | null;
+  cancelRequested?: boolean;
+}) {
+  const [progressState, setProgressState] = useState({
+    status,
+    showCompletionNotice: false,
+  });
+
+  // React permits this guarded previous-prop pattern and immediately retries
+  // the render, so no stale completed state is painted or synchronized by an
+  // effect.
+  if (progressState.status !== status) {
+    setProgressState({
+      status,
+      showCompletionNotice:
+        ACTIVE_SERMON_STATUSES.has(progressState.status) &&
+        COMPLETE_SERMON_STATUSES.has(status),
+    });
+  }
+
+  useEffect(() => {
+    if (!progressState.showCompletionNotice) {
+      return;
+    }
+
+    const timeout = window.setTimeout(
+      () =>
+        setProgressState((current) => ({
+          ...current,
+          showCompletionNotice: false,
+        })),
+      COMPLETION_NOTICE_DURATION_MS,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [progressState.showCompletionNotice]);
+
+  if (
+    COMPLETE_SERMON_STATUSES.has(status) &&
+    !progressState.showCompletionNotice
+  ) {
+    return null;
+  }
+
+  return (
+    <SermonStageProgress
+      status={status}
+      requestedRuns={requestedRuns}
+      completedRuns={completedRuns}
+      retryWave={retryWave}
+      cancelRequested={cancelRequested}
+    />
   );
 }
 

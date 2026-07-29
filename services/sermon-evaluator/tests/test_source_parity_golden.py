@@ -608,4 +608,17 @@ def test_frozen_report_field_mapping() -> None:
     assert "Generated: 2026-07-28 00:00:00" in markdown
     assert "**Overall Impact: 3.1**" in markdown
     assert "| Textual Fidelity | 5.0 | - |" in markdown
-    assert "**Audio Duration:** 40.0 minutes (penalty applied: 0.00)" in markdown
+    assert "**Audio Duration:** 40.0 minutes" in markdown
+    assert "penalty applied" not in markdown
+
+    scoring.Aggregated_Summary.duration_adjustment_enabled = True
+    scoring.Aggregated_Summary.duration_penalty = 0.4
+    adjusted_markdown = render_markdown(
+        extraction,
+        scoring,
+        label="Romans 8",
+        model="frozen-model",
+        num_scoring_runs=3,
+        generated_at="2026-07-28 00:00:00",
+    )
+    assert "**Audio Duration:** 40.0 minutes (penalty applied: 0.40)" in adjusted_markdown

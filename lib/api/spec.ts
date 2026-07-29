@@ -751,7 +751,7 @@ export function buildSpec(): OpenApiDocument {
               required: true,
               schema: {
                 type: "string",
-                enum: ["markdown", "json", "csv"],
+                enum: ["markdown", "pdf", "json", "csv"],
               },
             },
             {
@@ -768,6 +768,9 @@ export function buildSpec(): OpenApiDocument {
               description: "Latest immutable report in the requested format.",
               content: {
                 "text/markdown": { schema: { type: "string" } },
+                "application/pdf": {
+                  schema: { type: "string", format: "binary" },
+                },
                 "application/json": { schema: {} },
                 "text/csv": { schema: { type: "string" } },
               },

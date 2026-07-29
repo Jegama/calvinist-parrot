@@ -15,7 +15,7 @@ export const SERMON_STATUSES = [
 
 export type SermonStatus = (typeof SERMON_STATUSES)[number];
 export type SermonPreset = "STANDARD" | "HIGH_CONFIDENCE" | "CUSTOM";
-export type SermonExportFormat = "markdown" | "json" | "csv";
+export type SermonExportFormat = "markdown" | "pdf" | "json" | "csv";
 
 export type SermonCapabilities = {
   hasAccess: boolean;

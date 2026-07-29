@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   Prisma,
   type SermonEvaluationStatus,
@@ -40,6 +42,7 @@ import {
   resolveRunSelection,
   SermonQuotaError,
 } from "./quotas";
+import { renderSermonMarkdownPdf } from "./pdf-report";
 import { isDurationReportRegenerationPending } from "./reports";
 import { isLocalSermonRuntime } from "./runtime";
 import {
@@ -1742,7 +1745,7 @@ export async function handleDeleteSermonEvaluation(id: string) {
   }
 }
 
-const exportFormatSchema = z.enum(["markdown", "json", "csv"]);
+const exportFormatSchema = z.enum(["markdown", "pdf", "json", "csv"]);
 
 export async function handleGetSermonExport(
   request: Request,
@@ -1776,7 +1779,9 @@ export async function handleGetSermonExport(
     const artifact = await prisma.sermonReportArtifact.findFirst({
       where: {
         evaluationId: evaluation.id,
-        format: format.data.toUpperCase() as
+        format: (format.data === "pdf"
+          ? "MARKDOWN"
+          : format.data.toUpperCase()) as
           | "MARKDOWN"
           | "JSON"
           | "CSV",
@@ -1792,21 +1797,43 @@ export async function handleGetSermonExport(
     }
     const mediaTypes = {
       markdown: "text/markdown; charset=utf-8",
+      pdf: "application/pdf",
       json: "application/json; charset=utf-8",
       csv: "text/csv; charset=utf-8",
     } as const;
-    const extensions = { markdown: "md", json: "json", csv: "csv" };
+    const extensions = {
+      markdown: "md",
+      pdf: "pdf",
+      json: "json",
+      csv: "csv",
+    };
     const safeTitle =
       evaluation.title
         .replace(/[^a-z0-9]+/gi, "-")
         .replace(/^-|-$/g, "")
         .slice(0, 80) || "sermon-evaluation";
-    return new Response(artifact.content, {
+    const content =
+      format.data === "pdf"
+        ? Buffer.from(
+            await renderSermonMarkdownPdf(
+              Buffer.from(artifact.content).toString("utf8"),
+              {
+                title: evaluation.title,
+              },
+            ),
+          )
+        : artifact.content;
+    const checksum =
+      format.data === "pdf"
+        ? createHash("sha256").update(content).digest("hex")
+        : artifact.checksum;
+    return new Response(content, {
       headers: {
         "Content-Type": mediaTypes[format.data],
         "Content-Disposition": `attachment; filename="${safeTitle}.${extensions[format.data]}"`,
         "Cache-Control": "private, no-store",
-        ETag: `"${artifact.checksum}"`,
+        "X-Content-Type-Options": "nosniff",
+        ETag: `"${checksum}"`,
       },
     });
   } catch (error) {
