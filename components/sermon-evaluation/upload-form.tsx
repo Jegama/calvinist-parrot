@@ -119,6 +119,9 @@ export function SermonUploadForm({
     setProgress(INITIAL_PROGRESS);
     if (!file) {
       setAudio(null);
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
       return;
     }
     const validationError = validateAudioFile(file);
@@ -312,7 +315,7 @@ export function SermonUploadForm({
               className="sr-only"
               onChange={handleFileChange}
               disabled={busy}
-              required
+              aria-required="true"
             />
             <div
               className={`rounded-xl border-2 border-dashed p-5 text-center transition-colors ${
