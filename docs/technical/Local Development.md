@@ -10,6 +10,22 @@ The old workflow made production data too easy to touch by accident: `.env` coul
 
 The repo also had no CI workflow, no typecheck script, no Docker database, no seed/dev-data path, and no automated test runner. `npm run lint` and `npx prisma validate` passed, but `tsc --noEmit` initially failed until the Prisma client was regenerated, which shows why CI should run `prisma generate` before TypeScript checks.
 
+## Prerequisites
+
+Local development uses Node.js 24, Docker, and the repository's existing Python 3.14 `cp_evals` virtualenvwrapper environment. If the Python environment does not exist yet, create it once:
+
+```bash
+mkvirtualenv -p python3.14 cp_evals
+```
+
+Install the canonical sermon evaluator into that environment from this repository:
+
+```bash
+zsh -ic 'workon cp_evals && cd services/sermon-evaluator && python -m pip install -r requirements-dev.txt && python -m pip install --no-deps -e .'
+```
+
+The root development process owns both Next.js and required local background workers. The Python package is a deployment boundary, not a separate application developers start independently.
+
 ## Local Database
 
 Use Docker for the application database:
@@ -18,7 +34,7 @@ Use Docker for the application database:
 cp .env.template .env
 npm install
 npm run db:up
-npm run db:migrate
+npm run db:deploy
 npm run db:seed
 npm run dev
 ```
@@ -29,9 +45,13 @@ Or use the one-command local path:
 npm run dev:local
 ```
 
+`npm run dev` starts Next.js and, when `SERMON_RUNTIME=local`, the sermon evaluation worker. The worker derives its connection from the same local `DATABASE_URL`, reads private audio from the ignored `.data/sermon-audio/` directory, and uses deterministic fixture evaluation by default. If either required process exits, the root supervisor stops the other instead of leaving a partially working development stack.
+
+`npm run dev:web` is an explicit web-only diagnostic escape hatch. It does not start the sermon worker, so locally queued sermon evaluations will not complete. `npm run sermon:worker` likewise remains available for worker-only diagnostics; neither command is the canonical application startup path.
+
 The local seed adds a `test@test.com` app database profile, four starter journal entries with precomputed AI reflections, and starter Church Finder records. It is safe to rerun: fixture records are refreshed by stable IDs or unique websites instead of duplicated.
 
-On localhost, the seeded `test@test.com` Appwrite user is treated as a Church Finder admin so local developers can re-evaluate and delete church records. Deployed environments do not use that fallback; set `ADMIN_ID` and `NEXT_PUBLIC_ADMIN_ID` explicitly for real admin access.
+Use the existing `test@test.com` account in the development Appwrite project to authenticate. On localhost, that account is treated as a Church Finder admin and, when `SERMON_RUNTIME=local`, a Sermon Evaluation admin. Deployed environments do not use either fallback; Church Finder uses explicit admin IDs and Sermon Evaluation uses its server-managed Appwrite labels.
 
 The Docker compose setup creates three databases on port `54322`:
 
@@ -67,6 +87,8 @@ calvinist_parrot_test_a1b2c3d4e5f6
 
 It then generates the worktree's `.env` from `.env.template`, replacing only the three local database URLs. To provide API keys and other local or staging credentials, create an ignored `.env.worktree.local` in the local checkout. The tracked `.worktreeinclude` copies it into new Codex-managed worktrees, and the setup copies it to `.env.local`. The setup rejects `DATABASE_URL`, `SHADOW_DATABASE_URL`, or `TEST_DATABASE_URL` in the credential overlay so it cannot replace the isolated local URLs. Never put a production database URL in that file.
 
+After worktree setup, `npm run dev` starts the same Next.js-plus-worker process topology as the primary checkout.
+
 The isolated databases remain in the shared Docker volume after a worktree is removed so an accidental cleanup cannot destroy another active agent's data. `docker compose down` still stops the shared Postgres service for every worktree, and `docker compose down -v` deletes all local and worktree databases, so do not run those commands while another worktree is active.
 
 Before removing a completed worktree, use the repository-local `$teardown-worktree` skill. It first previews the exact path-derived databases:
@@ -81,7 +103,7 @@ When two branches add migrations independently, rebase or merge them and validat
 
 ## Migrations
 
-Use `npm run db:migrate` locally after changing `prisma/schema.prisma`. This should target the Docker database from `.env`.
+Routine startup uses `npm run db:deploy` to apply committed migrations without entering Prisma's schema-authoring workflow. Use `npm run db:migrate` locally only after changing `prisma/schema.prisma`; it should target the Docker development and shadow databases from `.env`.
 
 Use `npm run db:deploy` only for deploy-style migration application. The manual GitHub workflow `Deploy Prisma Migrations` expects a protected `PRODUCTION_DATABASE_URL` secret and runs `prisma migrate deploy` against production. For Neon, that secret should be the direct database connection string, not a transaction-pooler URL.
 
@@ -103,7 +125,9 @@ For local development, use one of these options:
 - Use a read-only dev/staging CCEL database.
 - Create a local CCEL seed process later for `data_ccel_vector_store`.
 
-Appwrite should also be split by environment. Local development should use a dev Appwrite project or a clearly marked staging project, not production.
+Appwrite should also be split by environment. Local development should use a dev Appwrite project or a clearly marked staging project, not production. Appwrite remains the application's authentication provider locally; Sermon Evaluation does not require local Appwrite Storage or a local Appwrite Function.
+
+The root `.env.template` contains variables consumed by the Next.js application and its local processes. In Vercel, set `SERMON_RUNTIME=appwrite` plus the server-only sermon Function and bucket IDs. Variables consumed inside the deployed Python Function are intentionally separate in `services/sermon-evaluator/.env.template` and must be configured in Appwrite, not Vercel.
 
 ## CI
 

@@ -1,10 +1,10 @@
 ### How to provision Appwrite
 
-Until local mode is implemented, this is the current cloud setup.
+Routine local sermon development does not require an Appwrite Storage bucket or Function. The root `npm run dev` process uses the Docker application database, ignored local audio storage, and the local Python worker as documented in [Local Development.md](./Local%20Development.md). Appwrite is still used for the application's existing sign-in flow; this document covers the additional resources required only when exercising or deploying the cloud sermon runtime.
 
 #### 1. Use the Appwrite project that owns the account
 
-For development, use the same Appwrite project referenced by your local `NEXT_PUBLIC_APPWRITE_PROJECT_ID`. The upload authorization creates a JWT from that authenticated project and returns the same project/bucket to the browser. [Source: [appwrite.ts:57](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/appwrite.ts:57), “upload JWT is derived from the authenticated Appwrite session”]
+For a cloud-runtime development or preview environment, use the same Appwrite project referenced by that environment's `NEXT_PUBLIC_APPWRITE_PROJECT_ID`. The upload authorization creates a JWT from the authenticated project and returns the same project and bucket to the browser. [Source: [appwrite.ts:57](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/appwrite.ts:57), “upload JWT is derived from the authenticated Appwrite session”]
 
 In that development project:
 
@@ -14,7 +14,11 @@ In that development project:
 
 Appwrite labels grant resource access and are attached directly to users; no separate label resource or label ID is required. [Appwrite Docs, [Labels](https://appwrite.io/docs/products/auth/labels), “labels categorize users and can grant resource access”]
 
+The label is not needed for routine localhost sermon testing when `SERMON_RUNTIME=local`: the development-only `SERMON_DEV_ADMIN_EMAIL` fallback grants the configured account access. Authentication still comes from the development Appwrite project because that is the shared authentication architecture of the application, not a sermon-worker dependency.
+
 #### 2. Create the private audio bucket
+
+Skip this step for the local runtime.
 
 Create a bucket such as `sermon-audio-dev` with:
 
@@ -32,7 +36,7 @@ Recommended route:
 
 - Appwrite Console → Functions → Create Function → connect Git provider.
 - Select this repository.
-- Runtime: Python 3.12.
+- Runtime: Python 3.14.
 - Root directory: `services/sermon-evaluator`.
 - Entrypoint: `entrypoints/appwrite.py`.
 - Build command:  
@@ -43,15 +47,17 @@ Recommended route:
 - Dynamic-key scopes: `files.read`, `files.write`.
 - Add a path trigger for `services/sermon-evaluator/**`.
 
-Appwrite supports Git-connected Functions, branch/path filters, and a 900-second maximum timeout. Python 3.12 is currently supported on Appwrite Cloud. [Appwrite Docs, [Deploy from Git](https://appwrite.io/docs/products/functions/deploy-from-git), “Git-connected Functions can use branch and path build triggers”] [Appwrite Docs, [Functions](https://appwrite.io/docs/products/functions/functions), “Function timeout maximum is 900 seconds”] [Appwrite Docs, [Runtimes](https://appwrite.io/docs/products/functions/runtimes), “Python 3.12 is an available runtime”]
+Appwrite supports Git-connected Functions with branch and path filters, and its current runtime table lists Python 3.14 for Appwrite Cloud. [Appwrite Docs, [Deploy from Git](https://appwrite.io/docs/products/functions/deploy-from-git), “Git-connected Functions can use branch and path build triggers”] [Appwrite Docs, [Runtimes](https://appwrite.io/docs/products/functions/runtimes), “Python 3.14 is an available Cloud runtime”]
 
-There is another deployment gap here: current Appwrite CLI documentation uses `appwrite.config.json`, while this branch provides `appwrite.json` with an empty project ID and no bucket definition. Therefore the branch is not currently a complete infrastructure-as-code deployment. [Source: [appwrite.json:2](/Users/omni_jgmancilla/Dev/calvinist-parrot/appwrite.json:2), “project ID is empty and only the Function is defined”] [Appwrite Docs, [CLI installation and initialization](https://appwrite.io/docs/tooling/command-line/installation), “appwrite init project creates appwrite.config.json”]
+The repository's `appwrite.json` records the Function definition, but it deliberately leaves the project ID empty and does not define the bucket. Do not treat it as complete infrastructure provisioning. Current Appwrite CLI documentation uses `appwrite.config.json`; until the repository adopts that format, connect the Function through the Console and copy the settings from `appwrite.json`. [Source: [appwrite.json:2](/Users/omni_jgmancilla/Dev/calvinist-parrot/appwrite.json:2), “project ID is empty and only the Function is defined”] [Appwrite Docs, [Deploy manually](https://appwrite.io/docs/products/functions/deploy-manually), “CLI deployment configuration is stored in appwrite.config.json”]
 
 #### 4. Configure Function variables in Appwrite
 
-Set these under Function → Settings → Environment variables:
+`services/sermon-evaluator/.env.template` is the authoritative Function-variable contract. Set those values under Function → Settings → Environment variables:
 
 ```text
+SERMON_RUNTIME=appwrite
+SERMON_EVALUATOR_PROVIDER=gemini
 SERMON_DATABASE_URL=<development Neon URL, dedicated worker role>
 GEMINI_API_KEY=<worker Gemini key>
 SERMON_AUDIO_BUCKET_ID=<the bucket ID above>
@@ -62,23 +68,19 @@ SERMON_MAX_PARALLEL_SCORING_RUNS=9
 
 Appwrite injects `APPWRITE_FUNCTION_API_ENDPOINT`, `APPWRITE_FUNCTION_PROJECT_ID`, and the dynamic API key; do not configure those yourself. Variable changes require redeploying the Function. [Appwrite Docs, [Function environment variables](https://appwrite.io/docs/products/functions/environment-variables), “Appwrite injects Function variables and custom variable changes require redeployment”]
 
-`SERMON_MAX_ACTIVE_EVALUATIONS=2` is documented but currently unused—the database migration hard-codes exactly two worker slots. That variable should either be implemented or removed. [Source: [migration.sql:504](/Users/omni_jgmancilla/Dev/calvinist-parrot/prisma/migrations/20260728022129_sermon_evaluation/migration.sql:504), “worker slot constraint is fixed to slots 1 and 2”]
+Worker capacity is database-owned and currently fixed at two lease slots by the migration; there is no corresponding environment variable. [Source: [migration.sql:504](/Users/omni_jgmancilla/Dev/calvinist-parrot/prisma/migrations/20260728022129_sermon_evaluation/migration.sql:504), “worker slot constraint is fixed to slots 1 and 2”]
 
 ### What belongs in Vercel
 
-Yes, Vercel needs environment variables because Next.js is the control plane. Vercel will not deploy or configure the Appwrite Function; Appwrite’s Git integration or CLI does that independently.
+Vercel needs only the variables consumed by Next.js because it deploys the control plane. It will not deploy or configure the Appwrite Function; Appwrite's Git integration does that independently.
 
-| Vercel / local Next.js | Appwrite Function |
-|---|---|
-| `DATABASE_URL` | `SERMON_DATABASE_URL` |
-| `APPWRITE_ENDPOINT` | `GEMINI_API_KEY` |
-| `APPWRITE_PROJECT_ID` | `SERMON_AUDIO_BUCKET_ID` |
-| `APPWRITE_API_KEY` | `SERMON_GEMINI_MODEL` |
-| `APPWRITE_SERMON_FUNCTION_ID` | `SERMON_SOFT_DEADLINE_SECONDS` |
-| `APPWRITE_SERMON_BUCKET_ID` | `SERMON_MAX_PARALLEL_SCORING_RUNS` |
-| `NEXT_PUBLIC_APPWRITE_ENDPOINT` | Appwrite-injected Function variables |
-| `NEXT_PUBLIC_APPWRITE_PROJECT_ID` |  |
+| Runtime owner | Source of truth | Sermon-related configuration |
+|---|---|---|
+| Vercel / Next.js control plane | Root `.env.template` | `SERMON_RUNTIME=appwrite`, `APPWRITE_SERMON_FUNCTION_ID`, `APPWRITE_SERMON_BUCKET_ID`, plus the root application's existing `DATABASE_URL` and Appwrite server/client variables |
+| Appwrite Python Function | `services/sermon-evaluator/.env.template` | `SERMON_RUNTIME=appwrite`, `SERMON_EVALUATOR_PROVIDER=gemini`, `SERMON_DATABASE_URL`, `SERMON_AUDIO_BUCKET_ID`, `GEMINI_API_KEY`, model and execution-limit variables, plus Appwrite-injected Function variables |
 
 Use development Appwrite resources for Vercel Preview/Development and production resources only for Vercel Production. Environment-variable changes apply only to subsequent deployments, so redeploy after adding them. [Vercel Docs, [Environment variables](https://vercel.com/docs/environment-variables), “variables are scoped by environment and changes only affect new deployments”]
+
+For localhost, copy the root `.env.template`: it defaults `SERMON_RUNTIME=local` and does not require the Vercel sermon Function or bucket variables to be populated. A root `GEMINI_API_KEY` may still be needed by other application features; it does not configure the deployed Function, which must receive its own worker credential in Appwrite.
 
 The Vercel `APPWRITE_API_KEY` must remain server-only and have only the capabilities used here: file metadata/deletion, file-token creation, and Function execution. The browser receives only the `NEXT_PUBLIC_*` identifiers and a short-lived user JWT. [Source: [appwrite.ts:20](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/appwrite.ts:20), “server key performs storage, token, and Function operations”]

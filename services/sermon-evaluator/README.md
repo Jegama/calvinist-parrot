@@ -14,7 +14,7 @@ This directory is the canonical, platform-neutral Python sermon evaluator copied
 
 ## Environment contract
 
-Appwrite supplies `APPWRITE_FUNCTION_API_ENDPOINT`, `APPWRITE_FUNCTION_PROJECT_ID`, and `APPWRITE_FUNCTION_API_KEY`. Configure these Function variables separately in development and production:
+Appwrite supplies `APPWRITE_FUNCTION_API_ENDPOINT`, `APPWRITE_FUNCTION_PROJECT_ID`, and `APPWRITE_FUNCTION_API_KEY`. `services/sermon-evaluator/.env.template` is the authoritative list of variables to configure separately in each development and production Function:
 
 - `SERMON_RUNTIME`: `appwrite`.
 - `SERMON_EVALUATOR_PROVIDER`: `gemini`.
@@ -41,15 +41,15 @@ Run tests:
 zsh -ic 'workon cp_evals && cd services/sermon-evaluator && python -m pytest'
 ```
 
-For the complete local application flow, copy `.env.template` to `.env`, configure the application's normal Appwrite authentication values, and run:
+The canonical application setup is documented in `docs/technical/Local Development.md`. From the repository root, normal development runs:
 
 ```bash
-npm run dev:sermon
+npm run dev
 ```
 
-That command starts Docker Postgres, applies and seeds Prisma, starts Next.js, and starts the Python poller through `workon cp_evals`. `SERMON_RUNTIME=local` stores uploads under the ignored `.data/sermon-audio/` directory. `SERMON_EVALUATOR_PROVIDER=fixture` produces deterministic extraction, scoring, coaching, and reports without a Gemini key. The authenticated `test@test.com` account receives sermon administrator capabilities only while Next is in development mode and the sermon runtime is local.
+The root process owns both Next.js and this worker through `workon cp_evals`; this service is not started as a separate application. `npm run dev:local` additionally starts Docker Postgres, deploys committed migrations, and seeds fixtures before entering that same root process. In local runtime, audio defaults to `.data/sermon-audio/` and deterministic fixture evaluation requires no Gemini key.
 
-To run only the worker, including a single recovery pass useful for diagnostics:
+For worker-only diagnostics:
 
 ```bash
 npm run sermon:worker

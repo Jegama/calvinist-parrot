@@ -14,8 +14,6 @@ dotenv.config({
 });
 
 function localDatabaseUrl() {
-  const configured = process.env.SERMON_LOCAL_DATABASE_URL?.trim();
-  if (configured) return configured;
   const applicationUrl = process.env.DATABASE_URL?.trim();
   if (!applicationUrl) {
     throw new Error(
@@ -23,11 +21,14 @@ function localDatabaseUrl() {
     );
   }
   const parsed = new URL(applicationUrl);
+  const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
+  if (!localHosts.has(parsed.hostname)) {
+    throw new Error(
+      "The local sermon worker only accepts DATABASE_URL on localhost.",
+    );
+  }
   parsed.searchParams.delete("schema");
-  if (
-    (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") &&
-    !parsed.searchParams.has("sslmode")
-  ) {
+  if (!parsed.searchParams.has("sslmode")) {
     parsed.searchParams.set("sslmode", "disable");
   }
   return parsed.toString();

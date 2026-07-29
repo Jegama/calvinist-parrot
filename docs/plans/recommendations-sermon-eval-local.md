@@ -1,6 +1,6 @@
 # Local sermon evaluation recommendation
 
-Status: implemented on `codex/sermon-eval-feature`. The Python 3.14 move was committed separately before the local runtime work.
+Status: implemented on `codex/sermon-eval-feature` and consolidated into the repository's canonical root development lifecycle. The Python 3.14 move was committed separately before the local runtime work.
 
 ## What local independence should look like
 
@@ -26,10 +26,10 @@ To implement the independent middle layer:
    - Production: existing Appwrite `createExecution()`.
    - Local: leave the evaluation `QUEUED`; a local Python poller claims jobs using the existing lease tables.
 
-4. Add a local Python command such as `npm run sermon:worker` and a combined `npm run dev:sermon` that starts Postgres, migrations, Next.js, and the worker.
+4. Keep `npm run sermon:worker` for worker-only diagnostics, while the root `npm run dev` process owns Next.js and the worker and `npm run dev:local` additionally owns database startup, committed migrations, and seeds.
 
 5. Add `SERMON_EVALUATOR_PROVIDER=fixture|gemini`. Fixture mode would complete deterministic UI testing without Gemini cost; real Gemini remains available for a deliberate smoke test.
 
 6. Add a strictly server-side development access override for `test@test.com`, guarded by `NODE_ENV === "development"`. The existing Church Finder behavior is not applied because sermon authorization only checks `sermon-evaluator-beta` and `sermon-evaluator-admin`. [Source: [auth.ts:8](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/auth.ts:8), “only the two sermon labels grant access”]
 
-The implementation now provides `npm run sermon:worker` and `npm run dev:sermon`, separates the local and deployed environment contracts in `.env.template`, and includes an opt-in Docker Postgres end-to-end test that verifies local WAV storage through completed fixture reports.
+The implementation now makes the sermon worker part of normal root development, separates root and Appwrite Function environment templates, and includes an opt-in Docker Postgres end-to-end test that verifies local WAV storage through completed fixture reports.

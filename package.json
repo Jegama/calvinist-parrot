@@ -6,9 +6,9 @@
     "node": "24.x"
   },
   "scripts": {
-    "dev": "next dev",
-    "dev:local": "npm run db:up && npm run db:migrate && npm run db:seed && next dev",
-    "dev:sermon": "npm run db:up && npm run db:deploy && npm run db:seed && node scripts/run-sermon-local.mjs",
+    "dev": "node scripts/run-local.mjs",
+    "dev:web": "next dev",
+    "dev:local": "npm run db:up && npm run db:deploy && npm run db:seed && npm run dev",
     "sermon:worker": "node scripts/run-sermon-worker-local.mjs",
     "build": "prisma generate && next build",
     "start": "next start",
