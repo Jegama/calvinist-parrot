@@ -380,6 +380,7 @@ function extractAnalyticsResult(result: Prisma.JsonValue | null) {
 
 function serializeEvaluationSummary(evaluation: {
   id: string;
+  fingerprintId: string;
   title: string;
   preacher: { id: string; displayName: string };
   preachedOn: Date;
@@ -397,6 +398,7 @@ function serializeEvaluationSummary(evaluation: {
 }) {
   return {
     id: evaluation.id,
+    fingerprintId: evaluation.fingerprintId,
     title: evaluation.title,
     preacher: {
       id: evaluation.preacher.id,
@@ -1217,6 +1219,7 @@ export async function handleGetSermonAnalytics() {
         const analytics = extractAnalyticsResult(evaluation.result);
         return {
           evaluationId: evaluation.id,
+          fingerprintId: evaluation.fingerprintId,
           preacherId: evaluation.preacher.id,
           preacher: evaluation.preacher.displayName,
           title: evaluation.title,

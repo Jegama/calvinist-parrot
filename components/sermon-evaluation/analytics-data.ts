@@ -47,6 +47,36 @@ export function scoreForSermonMetric(
   return point.aggregateScores[metric] ?? null;
 }
 
+export function latestEvaluationPerSermon(
+  evaluations: readonly SermonAnalyticsPoint[],
+): SermonAnalyticsPoint[] {
+  const latestByFingerprint = new Map<string, SermonAnalyticsPoint>();
+
+  for (const evaluation of evaluations) {
+    const current = latestByFingerprint.get(evaluation.fingerprintId);
+    const parsedEvaluationCreatedAt = Date.parse(evaluation.createdAt);
+    const parsedCurrentCreatedAt = current
+      ? Date.parse(current.createdAt)
+      : Number.NEGATIVE_INFINITY;
+    const evaluationCreatedAt = Number.isNaN(parsedEvaluationCreatedAt)
+      ? Number.NEGATIVE_INFINITY
+      : parsedEvaluationCreatedAt;
+    const currentCreatedAt = Number.isNaN(parsedCurrentCreatedAt)
+      ? Number.NEGATIVE_INFINITY
+      : parsedCurrentCreatedAt;
+    if (
+      !current ||
+      evaluationCreatedAt > currentCreatedAt ||
+      (evaluationCreatedAt === currentCreatedAt &&
+        evaluation.id > current.id)
+    ) {
+      latestByFingerprint.set(evaluation.fingerprintId, evaluation);
+    }
+  }
+
+  return [...latestByFingerprint.values()];
+}
+
 export function buildSermonTrendRows(
   evaluations: SermonAnalyticsPoint[],
   metric: string,

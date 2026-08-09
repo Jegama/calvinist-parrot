@@ -35,6 +35,7 @@ export type RunCredits = {
 
 export type SermonEvaluationListItem = {
   id: string;
+  fingerprintId: string;
   title: string;
   preacher: string;
   preachedOn: string;

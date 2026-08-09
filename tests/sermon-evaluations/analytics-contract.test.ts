@@ -20,6 +20,7 @@ function responseWithAggregateScores(
     series: [
       {
         evaluationId: "evaluation-1",
+        fingerprintId: "fingerprint-1",
         preacherId: "preacher-1",
         preacher: "Pastor",
         title: "Sermon",

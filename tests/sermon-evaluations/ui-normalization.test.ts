@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildSermonMetricAverageRows,
   buildSermonTrendRows,
+  latestEvaluationPerSermon,
   listAvailableSermonMetrics,
 } from "@/components/sermon-evaluation/analytics-data";
 import {
@@ -18,6 +19,7 @@ function sermonAnalyticsPoint(
 ): SermonAnalyticsPoint {
   return {
     id: "evaluation",
+    fingerprintId: "fingerprint",
     title: "Sermon",
     preacher: "John Calvin",
     preachedOn: "2026-07-27",
@@ -398,6 +400,50 @@ describe("sermon result normalization", () => {
 });
 
 describe("sermon UI data helpers", () => {
+  it("keeps only the newest evaluation for each retained sermon", () => {
+    const evaluations = [
+      sermonAnalyticsPoint({
+        id: "original",
+        fingerprintId: "fingerprint-a",
+        createdAt: "2026-07-27T12:00:00.000Z",
+        status: "COMPLETE_WITH_WARNINGS",
+      }),
+      sermonAnalyticsPoint({
+        id: "failed-rerun",
+        fingerprintId: "fingerprint-a",
+        createdAt: "2026-07-28T12:00:00.000Z",
+        status: "FAILED",
+      }),
+      sermonAnalyticsPoint({
+        id: "latest-rerun",
+        fingerprintId: "fingerprint-a",
+        createdAt: "2026-07-29T12:00:00.000Z",
+        status: "COMPLETE",
+      }),
+      sermonAnalyticsPoint({
+        id: "distinct-sermon",
+        fingerprintId: "fingerprint-b",
+        title: "Sermon",
+        preachedOn: "2026-07-27",
+        createdAt: "2026-07-27T12:00:00.000Z",
+      }),
+      sermonAnalyticsPoint({
+        id: "offset-older",
+        fingerprintId: "fingerprint-c",
+        createdAt: "2026-07-29T12:00:00.000+02:00",
+      }),
+      sermonAnalyticsPoint({
+        id: "utc-newer",
+        fingerprintId: "fingerprint-c",
+        createdAt: "2026-07-29T10:30:00.000Z",
+      }),
+    ];
+
+    expect(
+      latestEvaluationPerSermon(evaluations).map((evaluation) => evaluation.id),
+    ).toEqual(["latest-rerun", "distinct-sermon", "utc-newer"]);
+  });
+
   it("formats a date-only preached date without shifting it across time zones", () => {
     const value = "2026-07-27";
     const expected = new Intl.DateTimeFormat(undefined, {
@@ -435,18 +481,20 @@ describe("sermon UI data helpers", () => {
       aggregateScores: {},
     } satisfies Omit<
       SermonAnalyticsPoint,
-      "id" | "title" | "overallImpactBase"
+      "id" | "fingerprintId" | "title" | "overallImpactBase"
     >;
     const evaluations: SermonAnalyticsPoint[] = [
       {
         ...common,
         id: "morning",
+        fingerprintId: "morning-fingerprint",
         title: "Morning sermon",
         overallImpactBase: 3.5,
       },
       {
         ...common,
         id: "evening",
+        fingerprintId: "evening-fingerprint",
         title: "Evening sermon",
         overallImpactBase: 4.25,
       },

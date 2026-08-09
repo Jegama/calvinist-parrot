@@ -367,47 +367,75 @@ function ReevaluateDialog({
         </DialogHeader>
         <div className="space-y-3">
           <label
-            className={`block rounded-xl border p-4 ${
-              preset === "STANDARD" ? "border-primary bg-primary/5" : "border-border"
+            className={`block rounded-xl border-2 p-4 transition-colors ${
+              preset === "STANDARD"
+                ? "border-primary bg-primary/10 shadow-sm"
+                : "border-foreground/20 bg-card hover:border-primary/60 hover:bg-primary/5"
             } ${standardAvailable ? "cursor-pointer" : "opacity-60"}`}
           >
-            <input
-              type="radio"
-              name="reevaluate-preset"
-              value="STANDARD"
-              checked={preset === "STANDARD"}
-              onChange={() => setPreset("STANDARD")}
-              disabled={!standardAvailable || busy}
-              className="sr-only"
-            />
-            <span className="flex items-center justify-between gap-3 font-medium">
-              Standard
-              <span>1 run credit</span>
-            </span>
-            <span className="mt-1 block text-sm text-muted-foreground">
-              One complete scoring run. {standardAvailable ? "Available." : "Not enough credits."}
+            <span className="flex items-start gap-3">
+              <input
+                type="radio"
+                name="reevaluate-preset"
+                value="STANDARD"
+                checked={preset === "STANDARD"}
+                onChange={() => setPreset("STANDARD")}
+                disabled={!standardAvailable || busy}
+                className="mt-1 h-4 w-4 shrink-0 accent-primary"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center justify-between gap-3 font-medium">
+                  <span>Standard</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      preset === "STANDARD"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-secondary-foreground"
+                    }`}
+                  >
+                    1 run credit
+                  </span>
+                </span>
+                <span className="mt-1 block text-sm text-muted-foreground">
+                  One complete scoring run. {standardAvailable ? "Available." : "Not enough credits."}
+                </span>
+              </span>
             </span>
           </label>
           <label
-            className={`block rounded-xl border p-4 ${
-              preset === "HIGH_CONFIDENCE" ? "border-primary bg-primary/5" : "border-border"
+            className={`block rounded-xl border-2 p-4 transition-colors ${
+              preset === "HIGH_CONFIDENCE"
+                ? "border-primary bg-primary/10 shadow-sm"
+                : "border-foreground/20 bg-card hover:border-primary/60 hover:bg-primary/5"
             } ${highAvailable ? "cursor-pointer" : "opacity-60"}`}
           >
-            <input
-              type="radio"
-              name="reevaluate-preset"
-              value="HIGH_CONFIDENCE"
-              checked={preset === "HIGH_CONFIDENCE"}
-              onChange={() => setPreset("HIGH_CONFIDENCE")}
-              disabled={!highAvailable || busy}
-              className="sr-only"
-            />
-            <span className="flex items-center justify-between gap-3 font-medium">
-              Self-consistency
-              <span>3 run credits</span>
-            </span>
-            <span className="mt-1 block text-sm text-muted-foreground">
-              Three concurrent runs. {highAvailable ? "Available." : "Not enough credits."}
+            <span className="flex items-start gap-3">
+              <input
+                type="radio"
+                name="reevaluate-preset"
+                value="HIGH_CONFIDENCE"
+                checked={preset === "HIGH_CONFIDENCE"}
+                onChange={() => setPreset("HIGH_CONFIDENCE")}
+                disabled={!highAvailable || busy}
+                className="mt-1 h-4 w-4 shrink-0 accent-primary"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center justify-between gap-3 font-medium">
+                  <span>Self-consistency</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      preset === "HIGH_CONFIDENCE"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-secondary-foreground"
+                    }`}
+                  >
+                    3 run credits
+                  </span>
+                </span>
+                <span className="mt-1 block text-sm text-muted-foreground">
+                  Three concurrent runs. {highAvailable ? "Available." : "Not enough credits."}
+                </span>
+              </span>
             </span>
           </label>
           <p className="text-xs text-muted-foreground">

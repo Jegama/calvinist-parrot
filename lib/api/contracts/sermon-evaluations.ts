@@ -201,6 +201,7 @@ export const createSermonEvaluationRequestSchema = z.discriminatedUnion(
 
 const sermonEvaluationSummarySchema = z.strictObject({
   id: resourceIdSchema,
+  fingerprintId: resourceIdSchema,
   title: z.string(),
   preacher: z.strictObject({
     id: resourceIdSchema,
@@ -324,6 +325,7 @@ export const sermonAnalyticsResponseSchema = z.strictObject({
   series: z.array(
     z.strictObject({
       evaluationId: resourceIdSchema,
+      fingerprintId: resourceIdSchema,
       preacherId: resourceIdSchema,
       preacher: z.string(),
       title: z.string(),

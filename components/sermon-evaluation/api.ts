@@ -111,6 +111,10 @@ function readListItem(value: unknown): SermonEvaluationListItem {
   const runCredits = readCredits(source);
   return {
     id: asString(source.id ?? source.evaluationId),
+    fingerprintId: asString(
+      source.fingerprintId,
+      asString(source.id ?? source.evaluationId),
+    ),
     title: asString(source.title, "Untitled sermon"),
     preacher: asString(
       typeof source.preacher === "string" ? source.preacher : preacherSource.displayName,

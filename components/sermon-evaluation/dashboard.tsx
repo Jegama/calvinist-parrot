@@ -91,7 +91,7 @@ export function SermonDashboard({
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard icon={BookOpenCheck} label="Sermons" value={String(filtered.length)} detail="Private evaluations" />
+        <KpiCard icon={BookOpenCheck} label="Sermons" value={String(filtered.length)} detail="Latest evaluations only" />
         <KpiCard icon={Users} label="Preachers" value={String(filteredPreacherCount)} detail="In the current filter" />
         <KpiCard
           icon={Gauge}
@@ -190,9 +190,9 @@ export function SermonDashboard({
           <Card>
             <CardContent className="pt-6">
               <div className="mb-4">
-                <h2 className="font-serif text-lg font-semibold">Evaluation records</h2>
+                <h2 className="font-serif text-lg font-semibold">Latest evaluation records</h2>
                 <p className="text-sm text-muted-foreground">
-                  Filterable aggregates use Base Overall Impact unless you explicitly select the adjusted metric.
+                  Only the newest evaluation for each retained sermon appears here. Earlier runs and their versioned reports remain available from evaluation history.
                 </p>
               </div>
               <div className="overflow-x-auto">

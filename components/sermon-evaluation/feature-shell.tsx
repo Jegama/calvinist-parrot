@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchSermonAnalytics, fetchSermonCapabilities, fetchSermonEvaluations } from "./api";
+import { latestEvaluationPerSermon } from "./analytics-data";
 import { SermonDashboard } from "./dashboard";
 import { SermonUploadForm } from "./upload-form";
 import type { SermonAnalyticsPoint } from "./types";
@@ -63,8 +64,13 @@ export function SermonEvaluationFeature() {
             : evaluation,
         );
       }
-      return [...byId.values()].sort(
-        (left, right) => new Date(right.preachedOn).valueOf() - new Date(left.preachedOn).valueOf(),
+      return latestEvaluationPerSermon([...byId.values()]).sort(
+        (left, right) =>
+          new Date(right.preachedOn).valueOf() -
+            new Date(left.preachedOn).valueOf() ||
+          new Date(right.createdAt).valueOf() -
+            new Date(left.createdAt).valueOf() ||
+          right.id.localeCompare(left.id),
       );
     },
     enabled: capabilitiesQuery.data?.hasAccess === true,

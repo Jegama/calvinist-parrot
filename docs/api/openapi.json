@@ -4986,6 +4986,12 @@
                 "maxLength": 191,
                 "description": "An opaque resource identifier."
               },
+              "fingerprintId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 191,
+                "description": "An opaque resource identifier."
+              },
               "title": {
                 "type": "string"
               },
@@ -5103,6 +5109,7 @@
             },
             "required": [
               "id",
+              "fingerprintId",
               "title",
               "preacher",
               "preachedOn",
@@ -5140,6 +5147,12 @@
               "type": "object",
               "properties": {
                 "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 191,
+                  "description": "An opaque resource identifier."
+                },
+                "fingerprintId": {
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 191,
@@ -5262,6 +5275,7 @@
               },
               "required": [
                 "id",
+                "fingerprintId",
                 "title",
                 "preacher",
                 "preachedOn",
@@ -5367,6 +5381,12 @@
             "type": "object",
             "properties": {
               "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 191,
+                "description": "An opaque resource identifier."
+              },
+              "fingerprintId": {
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 191,
@@ -5997,6 +6017,7 @@
             },
             "required": [
               "id",
+              "fingerprintId",
               "title",
               "preacher",
               "preachedOn",
@@ -6422,6 +6443,12 @@
                   "maxLength": 191,
                   "description": "An opaque resource identifier."
                 },
+                "fingerprintId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 191,
+                  "description": "An opaque resource identifier."
+                },
                 "preacherId": {
                   "type": "string",
                   "minLength": 1,
@@ -6660,6 +6687,7 @@
               },
               "required": [
                 "evaluationId",
+                "fingerprintId",
                 "preacherId",
                 "preacher",
                 "title",
