@@ -64,7 +64,16 @@ describe("sermon evaluation contracts", () => {
     expect(
       prepareSermonUploadRequestSchema.safeParse({
         sha256,
-        byteSize: 62_914_561,
+        byteSize: 104_857_600,
+        filename: "sermon.mp3",
+        mimeType: "audio/mpeg",
+        preset: "standard",
+      }).success,
+    ).toBe(true);
+    expect(
+      prepareSermonUploadRequestSchema.safeParse({
+        sha256,
+        byteSize: 104_857_601,
         filename: "sermon.mp3",
         mimeType: "audio/mpeg",
         preset: "standard",

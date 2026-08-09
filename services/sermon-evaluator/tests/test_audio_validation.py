@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from struct import pack
 from types import SimpleNamespace
 from typing import Any
 
@@ -38,6 +39,38 @@ def _fake_container(
         "MutagenFile",
         lambda _path: containers[actual_container](),
     )
+
+
+def _mpeg1_layer3_frame(bitrate_index: int) -> bytes:
+    bitrate_kbps = [
+        0,
+        32,
+        40,
+        48,
+        56,
+        64,
+        80,
+        96,
+        112,
+        128,
+        160,
+        192,
+        224,
+        256,
+        320,
+        0,
+    ][bitrate_index]
+    sample_rate = 48_000
+    header = (
+        0xFFE00000
+        | (0b11 << 19)
+        | (0b01 << 17)
+        | (1 << 16)
+        | (bitrate_index << 12)
+        | (0b01 << 10)
+    )
+    frame_length = 144 * bitrate_kbps * 1000 // sample_rate
+    return pack(">I", header) + bytes(frame_length - 4)
 
 
 @pytest.mark.parametrize(
@@ -108,3 +141,22 @@ def test_declared_mime_and_extension_must_agree_before_processing(
             declared_mime_type="audio/x-wav",
             declared_extension=".mp3",
         )
+
+
+def test_headerless_vbr_mp3_duration_counts_frames_instead_of_first_bitrate(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "headerless-vbr.mp3"
+    frames = [_mpeg1_layer3_frame(9)] + [
+        _mpeg1_layer3_frame(13) for _ in range(99)
+    ]
+    path.write_bytes(b"".join(frames))
+
+    _, _, duration = AudioFileManager.validate_local_audio(
+        path,
+        declared_mime_type="audio/mpeg",
+        declared_extension=".mp3",
+    )
+
+    assert duration == pytest.approx(2.4)
+    assert AudioFileManager.get_audio_duration(str(path)) == pytest.approx(2.4)

@@ -31,6 +31,13 @@ const rejectedAudioCleanupMigration = fs.readFileSync(
   ),
   "utf8",
 );
+const raisedAudioLimitMigration = fs.readFileSync(
+  path.join(
+    process.cwd(),
+    "prisma/migrations/20260809120000_raise_sermon_audio_limit/migration.sql",
+  ),
+  "utf8",
+);
 describe("sermon evaluation migration invariants", () => {
   it("enforces one active evaluation per owner with a partial index", () => {
     expect(migration).toContain(
@@ -162,5 +169,15 @@ describe("sermon evaluation migration invariants", () => {
     expect(rejectedAudioCleanupMigration).toContain(
       '"appwriteBucketId" IS NULL AND "appwriteFileId" IS NULL',
     );
+  });
+
+  it("raises both durable sermon audio byte limits to 100 MiB", () => {
+    expect(raisedAudioLimitMigration).toContain(
+      'DROP CONSTRAINT IF EXISTS "sermonUploadReservation_byte_size_check"',
+    );
+    expect(raisedAudioLimitMigration).toContain(
+      'DROP CONSTRAINT IF EXISTS "sermonAudioAsset_byte_size_check"',
+    );
+    expect(raisedAudioLimitMigration.match(/104857600/g)).toHaveLength(2);
   });
 });

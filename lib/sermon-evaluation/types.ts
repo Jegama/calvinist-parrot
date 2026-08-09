@@ -4,7 +4,8 @@ import type {
   sermonAudioFingerprint,
 } from "@prisma/client";
 
-export const SERMON_AUDIO_MAX_BYTES = 62_914_560;
+export const SERMON_AUDIO_MAX_MIB = 100;
+export const SERMON_AUDIO_MAX_BYTES = SERMON_AUDIO_MAX_MIB * 1024 * 1024;
 export const SERMON_AUDIO_MAX_DURATION_SECONDS = 10_800;
 export const SERMON_RUN_CREDITS_LIMIT = 9;
 export const SERMON_DAILY_RUN_LIMIT = 6;

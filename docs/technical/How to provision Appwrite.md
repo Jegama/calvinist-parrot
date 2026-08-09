@@ -23,12 +23,12 @@ Skip this step for the local runtime.
 Create a bucket such as `sermon-audio-dev` with:
 
 - File Security enabled.
-- Maximum file size: `62,914,560` bytes.
+- Maximum file size: `104,857,600` bytes.
 - Extensions: `mp3`, `m4a`, `wav`.
 - Create permission for both sermon labels.
 - No public read permission.
 
-The client sets owner-only permissions on each uploaded file, and those file permissions only take effect when File Security is enabled. [Source: [types.ts:7](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/types.ts:7), “60 MiB upload limit”] [Source: [upload.ts:26](/Users/omni_jgmancilla/Dev/calvinist-parrot/components/sermon-evaluation/upload.ts:26), “uploaded files receive owner permissions”] [Appwrite Docs, [Storage permissions](https://appwrite.io/docs/products/storage/permissions), “file-level permissions require File Security”]
+The client sets owner-only permissions on each uploaded file, and those file permissions only take effect when File Security is enabled. [Source: [types.ts:7](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/types.ts:7), “100 MiB upload limit”] [Source: [upload.ts:26](/Users/omni_jgmancilla/Dev/calvinist-parrot/components/sermon-evaluation/upload.ts:26), “uploaded files receive owner permissions”] [Appwrite Docs, [Storage permissions](https://appwrite.io/docs/products/storage/permissions), “file-level permissions require File Security”]
 
 #### 3. Connect the Function to GitHub
 

@@ -13,6 +13,10 @@ import {
 } from "lucide-react";
 import type { AppwriteUser } from "@/hooks/use-auth";
 import { hashFileIncrementally } from "@/lib/sermon-evaluation/hash-file.client";
+import {
+  SERMON_AUDIO_MAX_BYTES,
+  SERMON_AUDIO_MAX_MIB,
+} from "@/lib/sermon-evaluation/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,7 +47,6 @@ import type {
 } from "./types";
 import { uploadSermonAudioDirectly } from "./upload";
 
-const MAX_AUDIO_BYTES = 62_914_560;
 const ACCEPTED_EXTENSIONS = new Set(["mp3", "m4a", "wav"]);
 const ACCEPTED_MIME_TYPES = new Set([
   "audio/mpeg",
@@ -60,8 +63,8 @@ function validateReattachment(file: File): string | null {
   if (!ACCEPTED_EXTENSIONS.has(extension) || !ACCEPTED_MIME_TYPES.has(file.type.toLowerCase())) {
     return "Choose the original MP3, M4A, or WAV audio.";
   }
-  if (file.size === 0 || file.size > MAX_AUDIO_BYTES) {
-    return "Audio must be non-empty and no larger than 60 MiB.";
+  if (file.size === 0 || file.size > SERMON_AUDIO_MAX_BYTES) {
+    return `Audio must be non-empty and no larger than ${SERMON_AUDIO_MAX_MIB} MiB.`;
   }
   return null;
 }

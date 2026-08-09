@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SERMON_AUDIO_MAX_BYTES } from "@/lib/sermon-evaluation/types";
 
 import { isoDateTimeSchema, resourceIdSchema } from "./common";
 
@@ -76,7 +77,7 @@ const sha256Schema = z
 
 const sermonUploadMetadataSchema = z.strictObject({
   sha256: sha256Schema,
-  byteSize: z.number().int().min(1).max(62_914_560),
+  byteSize: z.number().int().min(1).max(SERMON_AUDIO_MAX_BYTES),
   filename: z.string().trim().min(1).max(255),
   mimeType: z.enum([
     "audio/mpeg",

@@ -6,7 +6,7 @@
 - Preserve the Python evaluator kernel while replacing the production CLI and local-file shell with Appwrite Storage, an asynchronous Appwrite Python Function, direct pooled Neon persistence, and a protected Next.js experience.
 - Keep the evaluator package platform-neutral under `services/sermon-evaluator/`; configure that directory as the Appwrite Function root rather than making Appwrite deployment folders the package boundary.
 - Use stable `gemini-3.6-flash` for all v1 production evaluations. [Gemini 3.6 Flash model](https://ai.google.dev/gemini-api/docs/models/gemini-3.6-flash)
-- Store sermon audio in a private Appwrite bucket with a 60 MiB (`62,914,560` byte) maximum and a three-hour duration maximum. The earlier 500 MB proposal is rejected.
+- Store sermon audio in a private Appwrite bucket with a 100 MiB (`104,857,600` byte) maximum and a three-hour duration maximum. The earlier 500 MB proposal is rejected.
 - Hash audio in the browser before requesting upload authorization. When the authenticated owner has already submitted the same exact bytes, do not upload another copy; return the latest evaluation for that audio and route the user to its detail page.
 - Give each owner-plus-audio-hash combination nine lifetime scoring-run credits, including the original evaluation. Standard costs one credit, High confidence costs three, mixed preset use deducts the actual requested runs, and retry attempts for the same evaluation consume no additional credits.
 - Run Standard, High-confidence, and admin-configured scoring runs concurrently, never sequentially. Standard uses one scoring run, High confidence uses three, and admins may request one through nine concurrent runs.
@@ -19,7 +19,7 @@
 
 - Keep the Next.js frontend, authenticated APIs, OpenAPI contracts, and the existing devotional cron on Vercel.
 - Keep the sermon worker on Appwrite because:
-  - The browser already uploads audio directly to Appwrite Storage, so a same-provider Appwrite worker avoids downloading every 60 MiB file across providers before sending it to Gemini.
+  - The browser already uploads audio directly to Appwrite Storage, so a same-provider Appwrite worker avoids downloading every 100 MiB file across providers before sending it to Gemini.
   - Appwrite asynchronous executions provide the required background queue without holding a Vercel request open. [Appwrite execution modes](https://appwrite.io/docs/products/functions/execute)
   - Appwrite’s 900-second function maximum is sufficient for the explicit 15-minute evaluation-attempt budget. [Appwrite Function timeout](https://appwrite.io/docs/products/functions/functions)
   - The worker can use an Appwrite dynamic API key with least-privilege Storage scopes and does not need a user session or a public function domain.
@@ -319,11 +319,11 @@ zsh -ic 'workon cp_evals && python -m sermon_evaluator.cli --audio data/sermons/
   - Create permission granted to either the `sermon-evaluator-beta` or `sermon-evaluator-admin` label, because the admin label implies feature access.
   - Owner-only file read, update, and delete permissions.
   - Allowed extensions and validated MIME types: MP3, M4A, and WAV.
-  - Maximum file size: 60 MiB (`62,914,560` bytes).
+  - Maximum file size: 100 MiB (`104,857,600` bytes).
   - Maximum decoded duration: three hours.
   - Compression and image transformation disabled.
 - Upload flow:
-  1. The browser validates extension, declared MIME type, and the 60 MiB limit, then hashes `File.stream()` incrementally in a Web Worker without loading the complete audio file into JavaScript memory.
+  1. The browser validates extension, declared MIME type, and the 100 MiB limit, then hashes `File.stream()` incrementally in a Web Worker without loading the complete audio file into JavaScript memory.
   2. `POST /api/v1/sermon-evaluations/uploads/prepare` authenticates through the Appwrite session cookie, requires either sermon-evaluator label, and accepts the claimed SHA-256, byte size, filename, MIME type, and requested preset.
   3. The prepare endpoint performs an owner-scoped lookup by SHA-256 before creating any Appwrite upload authorization. Its response is a discriminated union:
      - `existing_evaluation`: return the latest evaluation ID, canonical detail URL, remaining lifetime run credits, retained-audio state, and evaluation-history summary. The client uses `router.replace()` to load that page and does not upload.
@@ -341,7 +341,7 @@ zsh -ic 'workon cp_evals && python -m sermon_evaluator.cli --audio data/sermons/
 
 ## Authenticated API surface and contracts
 
-- Add strict Zod contracts under `lib/api/contracts/sermon-evaluations.ts`, register them in `lib/api/spec.ts`, run `npm run openapi:generate`, and commit `docs/api/openapi.json`.
+- Add strict Zod contracts under `lib/api/contracts/sermon-evaluations.ts`, but keep the label-gated private-beta routes and schemas out of the public `lib/api/spec.ts` registry and generated `docs/api/openapi.json` document.
 - Implement:
   - `POST /api/v1/sermon-evaluations/uploads/prepare`
   - `POST /api/v1/sermon-evaluations/uploads/finalize`
@@ -375,7 +375,7 @@ zsh -ic 'workon cp_evals && python -m sermon_evaluator.cli --audio data/sermons/
   - Standard or High-confidence preset for regular users.
   - Admin-only one-through-nine run selector with explicit cost, limited by the same fingerprint’s remaining lifetime credits even when the admin is exempt from the daily quota.
   - Advanced-options disclosure containing the off-by-default duration adjustment.
-  - Client validation for file type and the 60 MiB limit, followed by a visible “Checking for an existing evaluation” hashing state before any upload begins.
+  - Client validation for file type and the 100 MiB limit, followed by a visible “Checking for an existing evaluation” hashing state before any upload begins.
   - When the pre-upload lookup finds the same owner/file hash, replace the form route with the latest evaluation detail page and show “You already evaluated this audio” plus its history and remaining run credits. Do not show an upload confirmation or create another Appwrite file.
   - Hashing, duplicate redirect, upload, reattach, queue, stage, parallel-run, cancellation, warning, timeout, and completion states.
 - Dashboard:
@@ -413,7 +413,7 @@ zsh -ic 'workon cp_evals && python -m sermon_evaluator.cli --audio data/sermons/
 - Add database integration tests for compare-and-set transitions, duplicate executions, lease expiry, one-active-evaluation enforcement, daily quota reservation, atomic nine-credit lifetime enforcement, mixed Standard/High-confidence spending, same-evaluation retry without an extra charge, nonrefundable consumed credits after deletion, cancellation races, report publication, and Python SQL compatibility with the Prisma migration.
 - Add upload-contract tests proving that hashing precedes `uploads/prepare`, an owner-scoped duplicate returns `existing_evaluation` without minting a JWT or calling Appwrite upload APIs, two simultaneous tabs converge on one canonical asset, reattachment preserves history and credits, and a falsified client hash cannot bypass deduplication or the credit limit.
 - Add authorization tests proving beta-label access, admin-label implied access, unlabeled denial, server rejection of spoofed admin fields, custom-run denial after label revocation, daily-quota exemption audit, and the rule that `ADMIN_ID` alone does not grant sermon-admin access. Retain regression coverage showing existing `lib/admin.ts` behavior is unchanged for Church Finder.
-- Add Appwrite development-project tests for JWT upload, unlabeled denial, upload permission through either sermon label, owner-only permissions, 60 MiB boundary behavior, chunked upload, finalize-time metadata verification, file tokens, final-reference deletion, retained fingerprint tombstones, and cross-user isolation.
+- Add Appwrite development-project tests for JWT upload, unlabeled denial, upload permission through either sermon label, owner-only permissions, 100 MiB boundary behavior, chunked upload, finalize-time metadata verification, file tokens, final-reference deletion, retained fingerprint tombstones, and cross-user isolation.
 - Compare the original CLI and canonical local runner on the same private audio with `gemini-3.6-flash`:
   - Prompt hashes, schemas, initial seeds, run count, deterministic post-processing, and report sections must match.
   - Live Gemini scores are not required to be byte-identical; parity requires schema completeness, successful stage execution, preserved methodology, and exact deterministic calculations from captured raw outputs.

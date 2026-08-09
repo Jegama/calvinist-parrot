@@ -61,18 +61,17 @@ describe("sermon upload form", () => {
     vi.unstubAllGlobals();
   });
 
-  it("does not let native file validation reject drag-and-drop state", async () => {
+  async function renderForm() {
     await act(async () => {
       root.render(
         <SermonUploadForm capabilities={capabilities} user={user} />,
       );
     });
+  }
 
+  async function dropFile(file: File) {
     const dropZone =
       dom.window.document.querySelector<HTMLDivElement>(".border-dashed");
-    const file = new dom.window.File(["sermon audio"], "sermon.mp3", {
-      type: "audio/mpeg",
-    });
     const dropEvent = new dom.window.Event("drop", {
       bubbles: true,
       cancelable: true,
@@ -84,6 +83,15 @@ describe("sermon upload form", () => {
     await act(async () => {
       dropZone?.dispatchEvent(dropEvent);
     });
+    return dropZone;
+  }
+
+  it("does not let native file validation reject drag-and-drop state", async () => {
+    await renderForm();
+    const file = new dom.window.File(["sermon audio"], "sermon.mp3", {
+      type: "audio/mpeg",
+    });
+    const dropZone = await dropFile(file);
 
     const fileInput =
       dom.window.document.querySelector<HTMLInputElement>("#sermon-audio");
@@ -94,5 +102,41 @@ describe("sermon upload form", () => {
     expect(fileInput).not.toBeNull();
     expect(fileInput?.required).toBe(false);
     expect(fileInput?.getAttribute("aria-required")).toBe("true");
+  });
+
+  it("accepts exactly 100 MiB", async () => {
+    await renderForm();
+    const file = new dom.window.File(["sermon audio"], "boundary.mp3", {
+      type: "audio/mpeg",
+    });
+    Object.defineProperty(file, "size", { value: 104_857_600 });
+
+    await dropFile(file);
+
+    expect(dom.window.document.body.textContent).toContain("boundary.mp3");
+    expect(dom.window.document.body.textContent).not.toContain("Audio wasn't added");
+  });
+
+  it("shows an oversized-file error next to the audio control", async () => {
+    await renderForm();
+    const file = new dom.window.File(["sermon audio"], "oversized.mp3", {
+      type: "audio/mpeg",
+    });
+    Object.defineProperty(file, "size", { value: 104_857_601 });
+
+    const dropZone = await dropFile(file);
+    const error = dom.window.document.getElementById("sermon-audio-error");
+    const title = dom.window.document.getElementById("sermon-title");
+    const fileInput =
+      dom.window.document.querySelector<HTMLInputElement>("#sermon-audio");
+
+    expect(error?.textContent).toContain("Audio wasn't added");
+    expect(error?.textContent).toContain("100 MiB or smaller");
+    expect(dropZone?.parentElement?.contains(error)).toBe(true);
+    expect(
+      error!.compareDocumentPosition(title!) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(fileInput?.getAttribute("aria-invalid")).toBe("true");
+    expect(fileInput?.getAttribute("aria-describedby")).toBe("sermon-audio-error");
   });
 });

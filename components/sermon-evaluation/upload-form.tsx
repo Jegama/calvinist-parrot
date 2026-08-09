@@ -15,6 +15,10 @@ import {
 } from "lucide-react";
 import type { AppwriteUser } from "@/hooks/use-auth";
 import { hashFileIncrementally } from "@/lib/sermon-evaluation/hash-file.client";
+import {
+  SERMON_AUDIO_MAX_BYTES,
+  SERMON_AUDIO_MAX_MIB,
+} from "@/lib/sermon-evaluation/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +34,6 @@ import type {
 } from "./types";
 import { uploadSermonAudioDirectly } from "./upload";
 
-const MAX_AUDIO_BYTES = 62_914_560;
 const ACCEPTED_EXTENSIONS = new Set(["mp3", "m4a", "wav"]);
 const ACCEPTED_MIME_TYPES = new Set([
   "audio/mpeg",
@@ -66,8 +69,8 @@ function validateAudioFile(file: File): string | null {
   if (file.size === 0) {
     return "The selected audio file is empty.";
   }
-  if (file.size > MAX_AUDIO_BYTES) {
-    return `Audio must be 60 MiB or smaller. This file is ${formatBytes(file.size)}.`;
+  if (file.size > SERMON_AUDIO_MAX_BYTES) {
+    return `Audio must be ${SERMON_AUDIO_MAX_MIB} MiB or smaller. This file is ${formatBytes(file.size)}.`;
   }
   return null;
 }
@@ -111,10 +114,12 @@ export function SermonUploadForm({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState<UploadProgressState>(INITIAL_PROGRESS);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const chooseFile = (file: File | null) => {
+    setAudioError(null);
     setError(null);
     setProgress(INITIAL_PROGRESS);
     if (!file) {
@@ -127,7 +132,7 @@ export function SermonUploadForm({
     const validationError = validateAudioFile(file);
     if (validationError) {
       setAudio(null);
-      setError(validationError);
+      setAudioError(validationError);
       if (inputRef.current) {
         inputRef.current.value = "";
       }
@@ -164,15 +169,17 @@ export function SermonUploadForm({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setAudioError(null);
     setError(null);
     if (!audio) {
-      setError("Choose the sermon audio before continuing.");
+      setAudioError("Choose the sermon audio before continuing.");
       inputRef.current?.focus();
       return;
     }
     const validationError = validateAudioFile(audio);
     if (validationError) {
-      setError(validationError);
+      setAudioError(validationError);
+      inputRef.current?.focus();
       return;
     }
     if (!title.trim() || !preacher.trim() || !preachedOn) {
@@ -316,10 +323,16 @@ export function SermonUploadForm({
               onChange={handleFileChange}
               disabled={busy}
               aria-required="true"
+              aria-invalid={audioError ? "true" : undefined}
+              aria-describedby={audioError ? "sermon-audio-error" : undefined}
             />
             <div
               className={`rounded-xl border-2 border-dashed p-5 text-center transition-colors ${
-                dragging ? "border-primary bg-primary/5" : "border-border bg-muted/30"
+                audioError
+                  ? "border-destructive bg-destructive/5"
+                  : dragging
+                    ? "border-primary bg-primary/5"
+                    : "border-border bg-muted/30"
               }`}
               onDragEnter={(event) => {
                 event.preventDefault();
@@ -357,7 +370,7 @@ export function SermonUploadForm({
                 <>
                   <UploadCloud className="mx-auto mb-3 h-8 w-8 text-primary" aria-hidden="true" />
                   <p className="font-medium text-foreground">Drop sermon audio here</p>
-                  <p className="mt-1 text-sm text-muted-foreground">MP3, M4A, or WAV · up to 60 MiB · up to 3 hours</p>
+                  <p className="mt-1 text-sm text-muted-foreground">MP3, M4A, or WAV · up to {SERMON_AUDIO_MAX_MIB} MiB · up to 3 hours</p>
                   <Button
                     type="button"
                     variant="outline"
@@ -370,6 +383,12 @@ export function SermonUploadForm({
                 </>
               )}
             </div>
+            {audioError && (
+              <Alert id="sermon-audio-error" variant="destructive">
+                <AlertTitle>Audio wasn&apos;t added</AlertTitle>
+                <AlertDescription>{audioError}</AlertDescription>
+              </Alert>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

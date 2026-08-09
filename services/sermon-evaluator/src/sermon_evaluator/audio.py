@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, Optional, Tuple
 
 from mutagen import File as MutagenFile
-from mutagen.mp3 import MP3
+from mutagen.mp3 import BitrateMode, HeaderNotFoundError, MP3, MPEGFrame
 from mutagen.mp4 import MP4
 from mutagen.wave import WAVE
 
@@ -27,7 +27,8 @@ ALLOWED_AUDIO_MIME_TYPES = {
     "audio/wave",
     "audio/x-wav",
 }
-MAX_AUDIO_BYTES = 60 * 1024 * 1024
+MAX_AUDIO_MIB = 100
+MAX_AUDIO_BYTES = MAX_AUDIO_MIB * 1024 * 1024
 MAX_AUDIO_DURATION_SECONDS = 3 * 60 * 60
 CONTAINER_BY_EXTENSION = {
     ".mp3": "mpeg",
@@ -60,6 +61,48 @@ class AudioFileManager:
             self.audio_cache_path.write_text("{}", encoding="utf-8")
 
     @staticmethod
+    def _exact_mp3_duration(path: Path, audio: MP3) -> float:
+        """Count MPEG frames when an MP3 has no trustworthy VBR header.
+
+        Mutagen estimates UNKNOWN-bitrate MP3 duration from the first frame's
+        bitrate. That can substantially overstate headerless VBR recordings.
+        Summing each frame's sample duration matches the decodable timeline.
+        """
+
+        info = audio.info
+        if getattr(info, "bitrate_mode", None) != BitrateMode.UNKNOWN:
+            return float(info.length)
+
+        frame_offset = getattr(info, "frame_offset", None)
+        if not isinstance(frame_offset, int) or frame_offset < 0:
+            return float(info.length)
+
+        duration = 0.0
+        frame_count = 0
+        file_size = path.stat().st_size
+        with path.open("rb") as source:
+            source.seek(frame_offset)
+            while source.tell() < file_size:
+                previous_offset = source.tell()
+                try:
+                    frame = MPEGFrame(source)
+                except HeaderNotFoundError:
+                    break
+                samples_per_frame = (
+                    384
+                    if frame.layer == 1
+                    else 576
+                    if frame.version >= 2 and frame.layer == 3
+                    else 1152
+                )
+                duration += samples_per_frame / frame.sample_rate
+                frame_count += 1
+                if source.tell() <= previous_offset:
+                    break
+
+        return duration if frame_count > 0 else float(info.length)
+
+    @staticmethod
     def get_audio_duration(file_path: str) -> Optional[float]:
         """Return duration in seconds using mutagen only.
 
@@ -76,6 +119,10 @@ class AudioFileManager:
                 reader = readers.get(extension)
                 audio = reader(file_path) if reader else None
             if audio is not None and getattr(audio, "info", None):
+                if isinstance(audio, MP3):
+                    return AudioFileManager._exact_mp3_duration(
+                        Path(file_path), audio
+                    )
                 return float(audio.info.length)
         except (OSError, AttributeError, ValueError, TypeError):
             return None
@@ -122,7 +169,9 @@ class AudioFileManager:
                 )
         sha256, byte_count = cls.stream_sha256(path)
         if byte_count > MAX_AUDIO_BYTES:
-            raise InvalidAudioError("Audio exceeds the 60 MiB limit")
+            raise InvalidAudioError(
+                f"Audio exceeds the {MAX_AUDIO_MIB} MiB limit"
+            )
         if expected_size is not None and byte_count != expected_size:
             raise InvalidAudioError("Downloaded audio size does not match its metadata")
         if expected_sha256 is not None and sha256 != expected_sha256.lower():
@@ -158,7 +207,11 @@ class AudioFileManager:
             raise InvalidAudioError(
                 "Audio container does not match its declared MIME type"
             )
-        duration = float(audio.info.length)
+        duration = (
+            cls._exact_mp3_duration(path, audio)
+            if isinstance(audio, MP3)
+            else float(audio.info.length)
+        )
         if duration > MAX_AUDIO_DURATION_SECONDS:
             raise InvalidAudioError("Audio exceeds the three-hour duration limit")
         return sha256, byte_count, duration
@@ -220,7 +273,9 @@ class AudioFileManager:
         except OSError as error:
             raise InvalidAudioError(f"Audio file is unavailable: {error}") from error
         if size > MAX_AUDIO_BYTES:
-            raise InvalidAudioError("Audio exceeds the 60 MiB limit")
+            raise InvalidAudioError(
+                f"Audio exceeds the {MAX_AUDIO_MIB} MiB limit"
+            )
 
         with self.upload_indicator(message="Uploading to Gemini"):
             file_object = provider.upload_file(absolute_path)
@@ -240,6 +295,7 @@ __all__ = [
     "ALLOWED_AUDIO_EXTENSIONS",
     "ALLOWED_AUDIO_MIME_TYPES",
     "MAX_AUDIO_BYTES",
+    "MAX_AUDIO_MIB",
     "MAX_AUDIO_DURATION_SECONDS",
     "AudioFileManager",
     "InvalidAudioError",
