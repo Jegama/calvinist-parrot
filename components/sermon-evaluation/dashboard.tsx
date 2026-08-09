@@ -180,7 +180,7 @@ export function SermonDashboard({
             </div>
             <h2 className="mt-4 font-serif text-xl font-semibold">Your sermon coaching dashboard is ready</h2>
             <p className="mt-2 max-w-lg text-sm text-muted-foreground">
-              Start a private evaluation to populate preached-date trends, aggregate comparisons, and run uncertainty.
+              Start a private evaluation to populate preached-date trends, aggregate comparisons, and self-consistency score spreads.
             </p>
           </CardContent>
         </Card>

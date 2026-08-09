@@ -4,6 +4,8 @@ Step 1: Deterministic structural extraction to JSON.
 Step 2: Analytical scoring with 1–5 integers and concise coaching.
 """
 
+from .rubric import AGGREGATES, DOCTRINAL_GATE_CAP, render_scoring_rubrics
+
 BASIC_OVERVIEW = """An effective sermon does more than transfer doctrinal data; it uncovers the *purpose* (divine intent) of the biblical passage and weds that purpose to the real, shared condition of the congregation. Thus evaluation gives sustained attention to whether the preacher has:
 
 * Identified the *subject* and *purpose* of the text (what the passage is about and what it is doing).
@@ -11,6 +13,8 @@ BASIC_OVERVIEW = """An effective sermon does more than transfer doctrinal data; 
 * Surfaced a biblically rooted, specific **Fallen Condition Focus (FCF)**—the aspect of human fallenness, limitation, rebellion, insufficiency, disordered desire, or need that the text addresses (not always an overt sin list, but the shared condition that necessitates divine grace).
 * Moved listeners from **need (FCF)** to **Christ‑centered provision**, showing how the gospel—person and work of Christ applied by the Spirit—answers the passage's burden.
 * Converted exposition into **transformational, grace‑powered application** (the "so what?") that is concrete, pastorally sensitive, and derived organically from the text rather than appended moralism.
+* Exercised **delegated authority with shared subjection**—proclaiming God's Word boldly while visibly remaining under that Word with the hearers as a fellow sinner, sufferer, and dependent recipient of Christ's grace.
+* Preserved **doctrinal fidelity and pastoral safety** so that strong rhetoric, structure, or warmth cannot compensate for contradiction of essential Christian truth, manipulation, misuse of power, or unethical illustration.
 
 ### The Centrality of the FCF
 Because the FCF mediates between the ancient text and contemporary hearts, a sermon is assessed on how specifically and accurately it names the human condition the passage exposes or heals. A vague "we all struggle" is inadequate; specificity sharpens gospel clarity. Evaluation asks: Is the FCF narrow enough to drive structure, yet pastorally broad enough to connect? Is it kept God‑centered (our need before *Him*) rather than human‑centered self‑improvement? Does the sermon resolve the FCF in Christ's redemptive provision instead of pragmatic advice or behavior modification?
@@ -27,7 +31,9 @@ Interpretation is complete only when the Spirit's intended *purpose* for the tex
 2. FCF Precision – Is the fallen condition concrete, text‑tethered, and determinative for structure?
 3. Christ‑Centered Resolution – Does the gospel (person/work of Christ) resolve the need organically?
 4. Transformational Application – Are applications specific, heart + life oriented, and grace‑driven?
-5. Structural Cohesion – Do proposition, points, transitions, and conclusion all coherently serve the stated purpose?"""
+5. Structural Cohesion – Do proposition, points, transitions, and conclusion all coherently serve the stated purpose?
+6. Doctrinal Fidelity – Does the sermon affirm rather than contradict implicated core doctrines while treating secondary and tertiary matters proportionately and charitably?
+7. Pastoral Posture – Does the preacher exercise delegated authority with shared subjection, differentiated care, ethical influence, and hope in Christ?"""
 
 # ------------------------- Step 1: Extraction Prompts -------------------------
 
@@ -104,13 +110,36 @@ For each main point:
   - **Test unity:** Can the points be reordered without loss of logic? If yes, they lack progressive structure. State this explicitly.
   - **Identify verse-by-verse exposition:** If points simply follow textual sequence without a unifying argument, state: "Structure follows verse order but lacks homiletical argument; feels more like commentary than sermon."
 * **Explanation Comments** – Depth of exegesis, context (historical, literary), handling of difficult phrases, theological integration.
+* **Illustration Ethics Comments** – Identify evidence about confidentiality, consent, anonymization, dignity, stereotypes, vulnerable people, and use of family, congregants, or counselees. Do not infer an ethical breach merely because permission is not discussed; distinguish "not evidenced" from actual contrary evidence.
 
 ### 7. Fallen Condition Focus (FCF)
 
 * **FCF** – The shared human brokenness, limitation, or need (not always explicit sin) addressed by the text. Specific and text‑rooted.
 * **Comments** – Distinguish between surface problem and deeper gospel issue; confirm alignment with main points and applications; guard against purely behavioral framing; note if FCF is missing, too broad, or misaligned.
 
-### 8. Extraction Confidence
+### 8. Pastoral Posture Evidence
+
+Collect semantic, location-grounded examples for each field. When audio is available, include approximate timestamps; otherwise quote or closely paraphrase the relevant passage. Do not count pronouns, require performative confession, or infer humility from phrases alone.
+
+* **Shared Subjection Evidence** – Where the preacher receives or applies the text as one addressed by it, acknowledges shared need, or depends on the same grace offered to hearers.
+* **Servant Authority Evidence** – Where authority is located in Scripture and Christ, command is distinguished from counsel, or the preacher acknowledges appropriate limits.
+* **Courageous Gentle Care Evidence** – Where sin and Christ's standard are named with clarity, affection, patience, hope, and gospel sufficiency.
+* **Differentiated Application Evidence** – Where the sermon distinguishes the rebellious, repentant, weak, doubting, suffering, or victimized.
+* **Pastoral Power Evidence** – Where influence is used protectively and transparently, or where fear, humiliation, loyalty demands, retaliation, manipulation, or conscience-binding appears.
+* **Contrary Evidence** – Specific examples of self-exemption, superiority, self-centering, coercion, contempt, or other contradictions of humble pastoral authority.
+* Absence of explicit autobiography is not itself contrary evidence. A preacher may demonstrate shared subjection implicitly; disclosure can also be self-promoting or imprudent.
+
+### 9. Doctrinal Fidelity Evidence
+
+Evaluate claims semantically and in context against the ministry's doctrinal tiers supplied in the scoring instructions. Do not use keywords as substitutes for meaning.
+
+* **Core Doctrines Implicated** – List only doctrines materially implicated by the passage or sermon claims.
+* **Affirming Evidence** – Capture specific accurate affirmations.
+* **Contradicting Evidence** – Capture only explicit denials or material distortions, with location and context.
+* **Secondary/Tertiary Handling** – Describe accuracy, proportionality, humility, and charity where such disagreements arise.
+* Omission of a doctrine not implicated by the sermon is not a contradiction.
+
+### 10. Extraction Confidence
 
 * A floating value (0–1) reflecting internal model confidence in extraction accuracy.  
 * Should consider transcript completeness, clarity, audio artifacts (if hinted), structural ambiguity, or missing proposition.
@@ -139,89 +168,13 @@ SCORING_SYSTEM_PROMPT = f"""You are a master homiletics evaluator and coach, app
 
 Your task is to assess the sermon structure provided in a Step 1 JSON object and produce a Step 2 scoring and feedback JSON object. You must score every sub-criterion with an integer from 1 to 5. Your output must be ONLY a single, valid JSON object with no surrounding text, commentary, or markdown."""
 
-SCORING_RUBRICS = """### A. Introduction
-
-Sub‑Criteria:
-1. **FCF Introduced** *(a specific fallen condition is derived from the preached text and previewed)*
-2. **Arouses Attention** *(opens with text‑relevant tension/need rather than unrelated anecdotes)*
-Feedback: Holistic, actionable coaching (affirm + improve).
-
-### B. Proposition
-
-Sub‑Criteria:
-1. **Principle + Application Wed** *(Subject + complement form a single gospel principle with an implied or explicit response.)*
-2. **Establishes Main Theme** *(Controls scope & governs all points; no competing propositions.)*
-3. **Summarizes Introduction** *(Carries forward the tension/need terms raised earlier.)*
-Feedback: Strengths + surgical improvements.
-
-### C. Main Points
-
-Sub‑Criteria:
-1. **Clarity** *(Succinct, memorable phrasing—typically ≤12 words.)*
-2. **Hortatory Universal Truths** *(States timeless truths that call hearers to trust/obey—**not** mere narrative recap)*
-3. **Proportional & Coexistent** *(each point meaningfully ADVANCES the single proposition through distinct theological moves—not repetition in different spheres or orphan points; points build toward climax, not just cover consecutive verses)*
-4. **Exposition Quality** *(Explains text meaning in context before application.)*
-5. **Illustration Quality** *(Illustrations illuminate the stated point & remain proportionate.)*
-6. **Application Quality** *(Specific, grace‑motivated, heart + life oriented.)*
-Feedback: Cohesion, pacing, balance suggestions.
-
-#### Hortatory Universal Truths – Boundary Examples
-
-Definition: A main point that expresses a timeless, text‑derived principle/doctrinal assertion or imperative implication rather than a mere chronological or descriptive recap.
-
-Examples:
-* PASS: "God's mercy transforms our identity" (Principial, transferable.)
-* PASS: "Because Christ reigns, believers resist despair" (Doctrinal + implied exhortation.)
-* FAIL: "Paul moves to verse 3 where he talks about wrath" (Narrative recap only.)
-* FAIL: "Verses 4–7 are about grace" (Label without hortatory force or principle.)
-
-Scoring Heuristics for Hortatory Universal Truths:
-* 5 – All points principial & action‑orienting or doctrinally robust; none are mere captions.
-* 3 – Mixed: at least one point drifts into recap/caption.
-* 1 – Majority are narrative descriptions with no transferable principle.
-
-### D. Exegetical Support
-
-Sub‑Criteria:
-1. **Alignment with Text** *(Structure & emphasis mirror the passage's burden.)*
-2. **Handles Difficulties** *(Engages key interpretive/translation/theological tensions honestly.)*
-3. **Proof Accuracy & Clarity** *(Supports claims with sound, digestible reasoning.)*
-4. **Context & Genre Considered** *(Honors literary, historical, redemptive context.)*
-5. **Not Belabored** *(Stops proving once sufficient; avoids pedantic overload.)*
-6. **Aids Rather Than Impresses** *(Content serves listener understanding, not scholar display.)*
-Feedback: Depth vs brevity, clarity, balance.
-
-### E. Application
-
-Sub‑Criteria:
-1. **Clear & Practical** *(Concrete next steps or heart postures identifiable.)*
-2. **Redemptive Focus** *(Motivated by Christ's person/work & grace, not bare willpower.)*
-3. **Mandate vs Idea Distinction** *(Explicitly marks divine commands vs pastoral wisdom suggestions.)*
-4. **Passage Supported** *(Flows organically from explained meaning; no bolt‑ons.)*
-Feedback: Sharpen, contextualize, motivate.
-
-### F. Illustrations
-
-Sub‑Criteria:
-1. **Lived‑Body Detail** *(Concrete, sensory realism that builds credibility.)*
-2. **Strengthens Points** *(Illumines stated truth without hijacking focus.)*
-3. **Proportion** *(Length & frequency economical; avoids narrative domination.)*
-Feedback: Trim / diversify / anchor to text.
-
-### G. Conclusion
-
-Sub‑Criteria:
-1. **Summary** *(Concise recapitulation of proposition & main movements.)*
-2. **Compelling Exhortation** *(Specific, gospel‑rooted call to response.)*
-3. **Climax** *(Appropriate theological/pastoral crescendo, not emotional manipulation.)*
-4. **Pointed End** *(Decisive landing—no meandering fade.)*
-Feedback: Intensify, focus, seal."""
+SCORING_RUBRICS = render_scoring_rubrics()
 
 SCORING_INSTRUCTIONS = f"""Based on the Step 1 sermon extraction JSON below, evaluate the sermon's quality against the following 'Sermon Evaluation Framework' rubrics.
 
 **Audio Verification (when available):** When audio is provided alongside the Step 1 JSON extraction, use it to verify key structural claims and assess vocal delivery. Specifically:
 - Check proposition wording, main point phrasing, and FCF specificity against what was actually spoken.
-- Evaluate vocal tone, emphasis, pacing, and emotional cadence—these affect pastoral impact and should inform scores for Introduction (Arouses_Attention), Main_Points (Clarity, Exposition_Quality), Application (Clear_and_Practical), and Conclusion (Compelling_Exhortation, Climax).
+- Evaluate vocal tone, emphasis, pacing, and emotional cadence—these affect pastoral impact and should inform Introduction, Main Points, Application, Conclusion, and Pastoral Posture scores.
 - Adjust scores if extraction misses or misrepresents significant vocal dynamics.
 - Do not penalize technical audio quality (background noise, mic issues); focus on homiletical content and delivery.
 
@@ -231,7 +184,7 @@ SCORING_INSTRUCTIONS = f"""Based on the Step 1 sermon extraction JSON below, eva
 
 Be a tough but fair grader. The goal is to help the preacher improve, not just to affirm. A score of 3 is not a failure; it is the baseline for a competent sermon with clear areas for growth. Do not award 4s or 5s lightly.
 
-**Calibration Check:** Gemini models often drift toward generosity (4s and 5s). You must actively resist this. A '3' is a success. A '5' is a rare feat. If you find yourself giving many 4s, pause and ask: "Is this truly better than the standard competent sermon?"
+**Score Distribution Check:** Do not drift toward generosity. A '3' is a success and a '5' is rare. If you find yourself giving many 4s, ask whether the evidence is truly stronger than a competent sermon.
 
 Scoring scale (integers only; no 0, null, or N/A):
 1 — **Deficient**: Absent, inaccurate, misleading, or counter‑productive. A fundamental element is missing or flawed.
@@ -245,12 +198,17 @@ Produce a single, valid JSON object matching the Step 2 scoring schema (no aggre
 Key requirements (compliance checklist):
 1. Score every sub‑criterion with an integer 1–5. Do not use 0, null, or N/A.
 2. If a component is missing or explicitly weak (e.g., “No explicit proposition stated” or “No explicit conclusion provided”), assign 1 for the related sub‑criteria and reference the absence in Feedback.
-3. Provide concise, actionable “Feedback” for each major category (A–G). Your feedback is the primary tool for coaching.
+3. Provide concise, actionable “Feedback” for each major category (A–I). Your feedback is the primary tool for coaching.
 4. Populate “Strengths”, “Growth_Areas”, and “Next_Steps” with short, bullet‑style strings (no paragraphs). Be specific and avoid platitudes.
 5. Set “Scoring_Confidence” to a 0.0–1.0 float reflecting certainty given Step 1 quality; if the extraction is sparse or ambiguous, lower it.
-6. Output only a single valid JSON object that matches the Step 2 schema; do not include markdown or extra fields.
+6. Score pastoral posture semantically from the Step 1 evidence and audio. Do not use pronoun counts, required phrases, or the mere presence or absence of personal confession as a shortcut.
+7. Set `Core_Doctrine_Gate` to `FAIL` only for a specifically evidenced denial or material distortion of an implicated core doctrine; populate `Gate_Reason` with the claim and location. Otherwise set it to `PASS`.
+8. The ministry's core doctrines are: the Trinity; Christ's true deity and humanity; Scripture's inspiration, inerrancy, infallibility, and final authority; the incarnation and virgin birth; the historical gospel of Christ's death, burial, and bodily resurrection; justification by grace alone through faith alone in Christ alone apart from works; the necessity and sufficiency of Christ's atoning death; Christ's bodily return and final judgment; and God's holy, sovereign, immutable, faithful, good, patient, gracious, merciful, loving, and just character, including his real wrath against sin.
+9. Treat baptism, polity, the Lord's Supper, gifts, sanctification, covenantal systems, perseverance, and atonement models as secondary; treat eschatological timelines, worship style, counseling approaches, creation timelines, liberty questions, discipline practices, parachurch structures, and marriage-role debates as tertiary unless a claim also contradicts a core doctrine.
+10. Do not score or discuss sermon duration, preach time, or sermon length. The optional duration policy is computed separately and is not a homiletical criterion.
+11. Output only a single valid JSON object that matches the Step 2 schema; do not include markdown or extra fields.
 
-Tie-breakers (to improve calibration):
+Tie-breakers (to improve scoring consistency):
 - When in doubt, default to the lower score. Challenge the sermon to earn a high score.
 - Use 3 as a true midpoint (adequate), not a soft pass. A sermon full of 3s is a sermon with significant potential for growth.
 - **Evidence Requirement:** For every score other than 3, you must be able to point to specific evidence in the extraction.
@@ -291,7 +249,7 @@ HARMONIZE_INSTRUCTIONS = """You are harmonizing feedback from multiple independe
 3. Confidence scores from each evaluator
 
 Your task:
-- Synthesize a single concise feedback string per rubric category (Introduction, Proposition, Main_Points, etc.)
+- Synthesize a single concise feedback string for every rubric category, including Doctrinal_Fidelity and Pastoral_Posture
 - Reflect majority consensus where evaluators agree on key points
 - Note minority perspectives when they provide valuable nuance (e.g., "Most evaluators praised X, though one noted Y")
 - Weight insights implicitly by evaluator confidence scores—feedback from high-confidence runs (>0.8) should carry more weight
@@ -299,9 +257,9 @@ Your task:
 - Maintain a pastoral, constructive tone
 
 Output format:
-- Return a single JSON object matching the `SermonScoringStep2Raw` schema
-- Populate ONLY the text feedback fields (Feedback, Strengths, Growth_Areas, Next_Steps)
-- Leave integer score fields empty—they are already averaged
+- Return a single JSON object matching the feedback-only `SermonHarmonizedFeedback` schema
+- Populate the nine section feedback strings, `Doctrinal_Gate_Reason` when the averaged gate is `FAIL`, and the Strengths/Growth_Areas/Next_Steps arrays
+- Do not return any numeric scores; they are already averaged by the application
 - Do not include markdown, bullet lists outside the Strengths/Growth_Areas/Next_Steps arrays, or commentary outside the JSON
 
 Key principles (inspired by self-consistency literature):
@@ -318,26 +276,33 @@ Input:
 
 Output Feedback: "Proposition is well-structured and governs the sermon effectively (consensus). However, two evaluators noted it could be more explicitly Christ-centered or gospel-oriented (minority but high-confidence insight). Next time, ensure the proposition directly references Christ's person or work where the text warrants."
 
-Do NOT include the averaged integer scores in your output—they are already computed. Focus solely on harmonizing the qualitative feedback."""
+Do NOT include averaged integer scores or confidence values. Focus solely on harmonizing qualitative feedback."""
 
 # ------------------------- Aggregated Summary Feedback Prompts -------------------------
 
 AGG_SUMMARY_SYSTEM_PROMPT = """You are an executive homiletics coach. Combine rubric literacy with pastoral warmth to write concise, insight-rich explanations of aggregated sermon scores. Highlight concrete evidence from the scoring data, celebrate strength with specificity, and coach toward improvement without condemnation."""
 
-AGG_SUMMARY_INSTRUCTIONS = """Craft an executive summary that is both an evaluation and a coaching plan. Use the Step 1 extraction, Step 2 scoring, and the aggregated scores to provide specific, actionable feedback. The goal is to give the preacher concrete next steps for their next sermon.
+_AGGREGATE_DERIVATIONS = "\n".join(
+    f"* {aggregate.key} ({aggregate.weight * 100:.0f}%) = avg({', '.join(aggregate.members)})"
+    for aggregate in AGGREGATES
+)
+
+AGG_SUMMARY_INSTRUCTIONS = f"""Craft an executive summary that is both an evaluation and a coaching plan. Use the Step 1 extraction, Step 2 scoring, and the aggregated scores to provide specific, actionable feedback. The goal is to give the preacher concrete next steps for their next sermon.
 
 Output requirements:
 1. Return a single JSON object matching the `AggregatedSummaryFeedback` schema.
-2. For each metric, write 2–3 sentences:
+2. For each weighted metric and `Doctrinal_Fidelity`, write 2–3 sentences:
    - The first sentence must state the score and briefly mention the sub‑scores it's derived from. For example: "Textual Fidelity scored 3.20, reflecting the average of 'Alignment with Text' and 'Context & Genre' among others."
    - The next sentence must provide the primary reason for the score, citing specific evidence from the Step 1 extraction or Step 2 feedback (e.g., "Handled difficulties well, but historical context was thin.").
    - The final sentence(s) must provide a concrete, actionable recommendation for improvement. Frame it as a "next time" goal (e.g., "Next time, add one historical detail in the intro that clarifies audience and setting.").
 3. For the `Overall_Impact` field, do all of the following:
-   - Explain the components that contributed to the score (e.g., "Textual Fidelity at 3.8 buoyed the composite, while Proposition Clarity at 2.9 dragged it down").
+   - Explain the components that contributed to the base homiletical score (e.g., "Textual Fidelity at 3.8 buoyed the composite, while Proposition Clarity at 2.9 dragged it down").
+   - If and only if `doctrinal_gate_applied` is true, state that the core-doctrine gate capped Overall Impact at {DOCTRINAL_GATE_CAP:.1f} and identify the evidenced contradiction.
    - Close with one practical, highest‑leverage “next time” coaching move that would most improve the overall score.
 4. Maintain a pastoral, constructive tone. The feedback should feel like a partnership in the service of the Gospel, not a judgment. Ensure the tone is encouraging but uncompromising on truth.
 5. Use the actual numbers provided to you; keep decimals to two places.
-6. Do not include markdown, bullet lists, or commentary outside the JSON object.
+6. Do not mention sermon duration, preach time, sermon length, a duration penalty, or a hypothetical adjustment. Duration is an optional reporting policy outside homiletical coaching.
+7. Do not include markdown, bullet lists, or commentary outside the JSON object.
 
 Actionable Feedback Examples:
 - Instead of: "Illustrations need work."
@@ -346,20 +311,9 @@ Actionable Feedback Examples:
 - Instead of: "FCF was unclear."
 - Use: "Introduction was 2.00 (from 'FCF Introduced' and 'Arouses Attention'). For your next outline, write the FCF at the top and ensure each main point explicitly advances its resolution in Christ."
 
-Metric derivations reminder:
-* Textual_Fidelity ≈ avg(Exegetical Support.*, Main_Points.Exposition_Quality)
-* Proposition_Clarity ≈ avg(Proposition.Principle_and_Application_Wed, Proposition.Establishes_Main_Theme, Proposition.Summarizes_Introduction)
-* Introduction ≈ avg(Introduction.FCF_Introduced, Introduction.Arouses_Attention)
-* Application_Effectiveness ≈ avg(Application.*, Main_Points.Application_Quality, Conclusion.Compelling_Exhortation, Conclusion.Climax)
-* Structure_Cohesion ≈ avg(Prop.Establishes_Main_Theme, Main_Points.Proportional_and_Coexistent, Main_Points.Clarity, Main_Points.Hortatory_Universal_Truths, Conclusion.Summary, Conclusion.Pointed_End)
-* Illustrations ≈ avg(Main_Points.Illustration_Quality, Illustrations.Lived_Body_Detail, Illustrations.Strengthens_Points, Illustrations.Proportion)
-* Overall_Impact = **weighted average** using "Pillars First" weights:
-  - Textual_Fidelity × 0.24
-  - Application_Effectiveness × 0.24
-  - Structure_Cohesion × 0.20
-  - Proposition_Clarity × 0.12
-  - Illustrations × 0.10
-  - Introduction × 0.10
-  Then subtract any Duration_Penalty (if sermon is < 35 or > 50 minutes).
+Metric derivations and weights:
+{_AGGREGATE_DERIVATIONS}
 
-Important: When explaining Overall_Impact, account for the differential weighting. For example, a 0.5-point deficit in Textual_Fidelity (24% weight) has 2.4× the impact of a 0.5-point deficit in Introduction (10% weight). Prioritize coaching on the highest-weighted deficits."""
+`Doctrinal_Fidelity` is a gate-only section, not a weighted aggregate. An evidenced core contradiction cannot be offset by stronger scores elsewhere.
+
+Important: When explaining Overall_Impact, account for differential weighting and prioritize the highest-weighted deficits rather than treating every metric as equally influential."""

@@ -3,6 +3,8 @@
   "sourceCommit": "4fc02cb2da2c7c8c51ac84558bf9f592cf2d0485",
   "copiedInto": "Calvinist Parrot",
   "copyPolicy": "One-time provenance-recorded sermon-only transfer; source hashes are frozen and target hashes identify the initial adapted implementation.",
+  "currentRubricVersion": "sermon-rubric-v2",
+  "evolutionPolicy": "Initial target hashes are historical transfer evidence, not checksums of the evolving canonical implementation.",
   "files": [
     {
       "source": "cp_eval_sermons.py",
@@ -37,7 +39,8 @@
       "sourceSha256": "03ee331df3c00073e2bbc7bcd5c3cd0a7129d99d738516f60e39899a634e0742",
       "target": "src/sermon_evaluator/calibration.py",
       "targetSha256": "d204d001a1806b1d918bf59bdc3860138d6d4a0cf004999cd7d169ca9f2bdca4",
-      "adaptation": "Only the package-local schema import changed."
+      "adaptation": "Only the package-local schema import changed.",
+      "retiredInRubricVersion": "sermon-rubric-v2"
     },
     {
       "source": "parrot_ai/sermon_evals/harmonization.py",
@@ -79,7 +82,8 @@
       "sourceSha256": "7ed562e290459eaef144c22c85da991882ccd6b63183e7216752ab9152311686",
       "target": "tests/test_sermon_calibration.py",
       "targetSha256": "35d09f0e83d86406b7a6a0cae67726f4f8da92c664810bb65e239f5466dd01f1",
-      "adaptation": "Assertions preserved; only import paths changed."
+      "adaptation": "Assertions preserved; only import paths changed.",
+      "retiredInRubricVersion": "sermon-rubric-v2"
     }
   ]
 }

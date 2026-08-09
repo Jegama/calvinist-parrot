@@ -17,7 +17,7 @@ export const SERMON_ACTIVE_STATUSES: SermonEvaluationStatus[] = [
   "EXTRACTING",
   "SCORING",
   "HARMONIZING",
-  "CALIBRATING",
+  "AGGREGATING",
   "SUMMARIZING",
 ];
 
@@ -71,4 +71,3 @@ export function startOfCurrentUtcDay(now = new Date()) {
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
   );
 }
-

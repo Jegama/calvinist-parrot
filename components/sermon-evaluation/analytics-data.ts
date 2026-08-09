@@ -1,14 +1,10 @@
+import { SERMON_AGGREGATES } from "@/lib/sermon-evaluation/rubric.generated";
 import { formatDate } from "./format";
 import type { SermonAnalyticsPoint } from "./types";
 
-const CANONICAL_AGGREGATE_METRICS = [
-  "textualFidelity",
-  "propositionClarity",
-  "introduction",
-  "applicationEffectiveness",
-  "structureCohesion",
-  "illustrations",
-] as const;
+const CANONICAL_AGGREGATE_METRICS = SERMON_AGGREGATES.map(
+  (aggregate) => aggregate.clientKey,
+);
 
 function aggregateMetricKeys(
   evaluations: readonly SermonAnalyticsPoint[],

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from ..rubric import AGGREGATES
 from ..schemas import SermonExtractionStep1, SermonScoringStep2
 
 FIELDNAMES = [
@@ -16,12 +17,11 @@ FIELDNAMES = [
     "model",
     "preacher",
     "preached_date",
-    "Textual_Fidelity",
-    "Proposition_Clarity",
-    "Introduction",
-    "Application_Effectiveness",
-    "Structure_Cohesion",
-    "Illustrations",
+    *(aggregate.key for aggregate in AGGREGATES),
+    "Doctrinal_Fidelity",
+    "Core_Doctrine_Gate",
+    "doctrinal_gate_applied",
+    "doctrinal_gate_cap",
     "Overall_Impact_Base",
     "Overall_Impact_Adjusted",
     "Overall_Impact",
@@ -57,12 +57,22 @@ def _row(
         "model": model,
         "preacher": preacher.replace("_", " "),
         "preached_date": preached_date or "",
-        "Textual_Fidelity": summary.Textual_Fidelity,
-        "Proposition_Clarity": summary.Proposition_Clarity,
-        "Introduction": summary.Introduction,
-        "Application_Effectiveness": summary.Application_Effectiveness,
-        "Structure_Cohesion": summary.Structure_Cohesion,
-        "Illustrations": summary.Illustrations,
+        **{
+            aggregate.key: getattr(summary, aggregate.key, "")
+            for aggregate in AGGREGATES
+        },
+        "Doctrinal_Fidelity": (
+            scoring.Doctrinal_Fidelity.Overall
+            if scoring.Doctrinal_Fidelity is not None
+            else ""
+        ),
+        "Core_Doctrine_Gate": (
+            scoring.Doctrinal_Fidelity.Core_Doctrine_Gate
+            if scoring.Doctrinal_Fidelity is not None
+            else ""
+        ),
+        "doctrinal_gate_applied": summary.doctrinal_gate_applied,
+        "doctrinal_gate_cap": summary.doctrinal_gate_cap,
         "Overall_Impact_Base": summary.Overall_Impact_Base,
         "Overall_Impact_Adjusted": summary.Overall_Impact_Adjusted,
         "Overall_Impact": summary.Overall_Impact,

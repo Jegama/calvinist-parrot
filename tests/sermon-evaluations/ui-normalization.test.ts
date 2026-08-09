@@ -120,6 +120,7 @@ const canonicalResult = {
       Lived_Body_Detail: 3,
       Strengthens_Points: 4,
       Proportion: 4,
+      Ethical_Use: 5,
       Overall: 4,
       Feedback: "The debt image serves the main claim.",
     },
@@ -130,6 +131,24 @@ const canonicalResult = {
       Pointed_End: 4,
       Overall: 4,
       Feedback: "The conclusion lands on Christ.",
+    },
+    Doctrinal_Fidelity: {
+      Core_Doctrine_Fidelity: 5,
+      Doctrinal_Proportionality: 4,
+      Secondary_and_Tertiary_Charity: 4,
+      Overall: 4,
+      Core_Doctrine_Gate: "PASS",
+      Gate_Reason: null,
+      Feedback: "The sermon faithfully presents justification in Christ.",
+    },
+    Pastoral_Posture: {
+      Shared_Subjection_and_Self_Application: 4,
+      Servant_Authority: 5,
+      Courageous_and_Gentle_Care: 4,
+      Differentiated_Pastoral_Application: 3,
+      Pastoral_Use_of_Power: 5,
+      Overall: 4,
+      Feedback: "The preacher stands under the same grace proclaimed to hearers.",
     },
     Strengths: ["The sermon keeps Christ's finished work central."],
     Growth_Areas: ["Clarify the transition from verdict to walk."],
@@ -142,6 +161,7 @@ const canonicalResult = {
       Application_Effectiveness: 4.25,
       Structure_Cohesion: 4,
       Illustrations: 3.75,
+      Pastoral_Posture: 4.2,
       Overall_Impact_Base: 4.04,
       Overall_Impact_Adjusted: null,
       Overall_Impact: 4.04,
@@ -155,25 +175,31 @@ const canonicalResult = {
       Application_Effectiveness: "Applications are redemptive and concrete.",
       Structure_Cohesion: "The structure follows the flow of Romans 8.",
       Illustrations: "The illustration serves rather than distracts.",
+      Pastoral_Posture: "Authority is delegated and pastorally exercised.",
+      Doctrinal_Fidelity: "No core contradiction is present.",
       Overall_Impact: "A faithful and pastorally useful sermon.",
     },
   },
 };
 
 describe("sermon result normalization", () => {
-  it("preserves the canonical Step 1, seven-section rubric, aggregates, and coaching", () => {
+  it("preserves the canonical Step 1, nine-section rubric, aggregates, and coaching", () => {
     const normalized = normalizeSermonResult(canonicalResult);
 
-    expect(Object.keys(normalized.aggregateScores)).toHaveLength(6);
-    expect(Object.keys(normalized.aggregateFeedback)).toHaveLength(6);
-    expect(normalized.rubricSections).toHaveLength(7);
+    expect(Object.keys(normalized.aggregateScores)).toHaveLength(7);
+    expect(Object.keys(normalized.aggregateFeedback)).toHaveLength(7);
+    expect(normalized.rubricSections).toHaveLength(9);
     expect(
       normalized.rubricSections.reduce(
         (total, section) => total + section.subcriteria.length,
         0,
       ),
-    ).toBe(28);
+    ).toBe(37);
     expect(normalized.scoringConfidence).toBe(0.87);
+    expect(normalized.doctrinalGate).toEqual({
+      status: "PASS",
+      reason: null,
+    });
     expect(normalized.structure).toMatchObject({
       scriptureIntroduction: "Romans 8:1–4",
       sermonIntroduction:
@@ -468,8 +494,8 @@ describe("sermon UI data helpers", () => {
       "overallImpactBase",
       "overallImpactAdjusted",
       "textualFidelity",
-      "introduction",
       "illustrations",
+      "introduction",
       "deliveryPresence",
     ]);
   });

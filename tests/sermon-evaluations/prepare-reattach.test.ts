@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({
   createSermonUploadJwt: vi.fn(),
   fingerprintFindUnique: vi.fn(),
   reservationCreate: vi.fn(),
-  reservationAggregate: vi.fn(),
+  reservationFindMany: vi.fn(),
   targetFindFirst: vi.fn(),
 }));
 
@@ -17,7 +17,7 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: mocks.targetFindFirst,
     },
     sermonRunCreditReservation: {
-      aggregate: mocks.reservationAggregate,
+      findMany: mocks.reservationFindMany,
     },
     sermonUploadReservation: {
       create: mocks.reservationCreate,
@@ -118,9 +118,7 @@ function request(reattachEvaluationId?: string) {
 describe("sermon upload reattachment preparation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.reservationAggregate.mockResolvedValue({
-      _sum: { requestedCredits: 0 },
-    });
+    mocks.reservationFindMany.mockResolvedValue([]);
     mocks.createSermonUploadJwt.mockResolvedValue("upload-jwt");
     mocks.reservationCreate.mockResolvedValue({
       id: "reservation-1",

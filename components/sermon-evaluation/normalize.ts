@@ -1,3 +1,7 @@
+import {
+  SERMON_AGGREGATES,
+  SERMON_RUBRIC_SECTIONS,
+} from "@/lib/sermon-evaluation/rubric.generated";
 import type {
   SermonEvaluationDetail,
   SermonRubricSection,
@@ -10,74 +14,12 @@ type NormalizedSermonResult = Pick<
   SermonEvaluationDetail,
   | "aggregateScores"
   | "aggregateFeedback"
+  | "doctrinalGate"
   | "rubricSections"
   | "scoringConfidence"
   | "structure"
   | "coaching"
 >;
-
-const AGGREGATE_FIELDS = [
-  ["Textual_Fidelity", "textualFidelity"],
-  ["Proposition_Clarity", "propositionClarity"],
-  ["Introduction", "introduction"],
-  ["Application_Effectiveness", "applicationEffectiveness"],
-  ["Structure_Cohesion", "structureCohesion"],
-  ["Illustrations", "illustrations"],
-] as const;
-
-const RUBRIC_SECTIONS = [
-  {
-    key: "Introduction",
-    criteria: ["FCF_Introduced", "Arouses_Attention"],
-  },
-  {
-    key: "Proposition",
-    criteria: [
-      "Principle_and_Application_Wed",
-      "Establishes_Main_Theme",
-      "Summarizes_Introduction",
-    ],
-  },
-  {
-    key: "Main_Points",
-    criteria: [
-      "Clarity",
-      "Hortatory_Universal_Truths",
-      "Proportional_and_Coexistent",
-      "Exposition_Quality",
-      "Illustration_Quality",
-      "Application_Quality",
-    ],
-  },
-  {
-    key: "Exegetical_Support",
-    criteria: [
-      "Alignment_with_Text",
-      "Handles_Difficulties",
-      "Proof_Accuracy_and_Clarity",
-      "Context_and_Genre_Considered",
-      "Not_Belabored",
-      "Aids_Rather_Than_Impresses",
-    ],
-  },
-  {
-    key: "Application",
-    criteria: [
-      "Clear_and_Practical",
-      "Redemptive_Focus",
-      "Mandate_vs_Idea_Distinction",
-      "Passage_Supported",
-    ],
-  },
-  {
-    key: "Illustrations",
-    criteria: ["Lived_Body_Detail", "Strengthens_Points", "Proportion"],
-  },
-  {
-    key: "Conclusion",
-    criteria: ["Summary", "Compelling_Exhortation", "Climax", "Pointed_End"],
-  },
-] as const;
 
 function asRecord(value: unknown): JsonRecord {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -110,33 +52,29 @@ function readStrings(value: unknown): string[] {
     .filter((item): item is string => item !== null);
 }
 
-function humanize(value: string): string {
-  return value
-    .replaceAll(/([a-z])([A-Z])/g, "$1 $2")
-    .replaceAll(/[_-]+/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
 function readCanonicalRubric(scoring: JsonRecord): SermonRubricSection[] {
-  const hasCanonicalSection = RUBRIC_SECTIONS.some(
+  const hasCanonicalSection = SERMON_RUBRIC_SECTIONS.some(
     ({ key }) => Object.keys(asRecord(scoring[key])).length > 0,
   );
   if (!hasCanonicalSection) {
     return [];
   }
-  return RUBRIC_SECTIONS.map(({ key, criteria }) => {
+  return SERMON_RUBRIC_SECTIONS.flatMap(({ key, label, criteria }) => {
     const section = asRecord(scoring[key]);
-    return {
+    if (Object.keys(section).length === 0) {
+      return [];
+    }
+    return [{
       key,
-      label: humanize(key),
+      label,
       score: asNumber(section.Overall),
       feedback: asString(section.Feedback),
       subcriteria: criteria.map((criterion) => ({
-        key: criterion,
-        label: humanize(criterion),
-        score: asNumber(section[criterion]),
+        key: criterion.key,
+        label: criterion.label,
+        score: asNumber(section[criterion.key]),
       })),
-    };
+    }];
   });
 }
 
@@ -219,10 +157,11 @@ export function normalizeSermonResult(value: unknown): NormalizedSermonResult {
       root.scores,
   );
   const summaryFeedback = asRecord(scoring.Aggregated_Summary_Feedback);
+  const doctrinalFidelity = asRecord(scoring.Doctrinal_Fidelity);
 
   const aggregateScores: Record<string, number> = {};
   const aggregateFeedback: Record<string, string> = {};
-  for (const [canonicalKey, clientKey] of AGGREGATE_FIELDS) {
+  for (const { key: canonicalKey, clientKey } of SERMON_AGGREGATES) {
     const score = asNumber(summary[canonicalKey] ?? summary[clientKey]);
     if (score !== null) {
       aggregateScores[clientKey] = score;
@@ -259,6 +198,14 @@ export function normalizeSermonResult(value: unknown): NormalizedSermonResult {
   return {
     aggregateScores,
     aggregateFeedback,
+    doctrinalGate: {
+      status:
+        doctrinalFidelity.Core_Doctrine_Gate === "PASS" ||
+        doctrinalFidelity.Core_Doctrine_Gate === "FAIL"
+          ? doctrinalFidelity.Core_Doctrine_Gate
+          : null,
+      reason: asString(doctrinalFidelity.Gate_Reason),
+    },
     rubricSections:
       rubricSections.length > 0 ? rubricSections : readGenericRubric(root),
     scoringConfidence: asNumber(

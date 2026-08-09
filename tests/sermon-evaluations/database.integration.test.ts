@@ -256,6 +256,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
         where: { evaluationId },
         data: {
           state: "CONSUMED",
+          consumedCredits: requestedCredits,
           consumedAt: new Date(),
         },
       }),

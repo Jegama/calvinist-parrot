@@ -4,7 +4,7 @@ export const SERMON_STATUSES = [
   "EXTRACTING",
   "SCORING",
   "HARMONIZING",
-  "CALIBRATING",
+  "AGGREGATING",
   "SUMMARIZING",
   "COMPLETE",
   "COMPLETE_WITH_WARNINGS",
@@ -110,6 +110,10 @@ export type SermonEvaluationDetail = SermonEvaluationListItem & {
   calculatedDurationPenalty: number | null;
   aggregateScores: Record<string, number>;
   aggregateFeedback: Record<string, string>;
+  doctrinalGate: {
+    status: "PASS" | "FAIL" | null;
+    reason: string | null;
+  };
   rubricSections: SermonRubricSection[];
   scoringConfidence: number | null;
   structure: {
@@ -221,7 +225,7 @@ export const ACTIVE_SERMON_STATUSES = new Set<SermonStatus>([
   "EXTRACTING",
   "SCORING",
   "HARMONIZING",
-  "CALIBRATING",
+  "AGGREGATING",
   "SUMMARIZING",
 ]);
 

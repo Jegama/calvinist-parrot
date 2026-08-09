@@ -97,6 +97,7 @@ function retryableEvaluation(
     creditReservation: {
       id: "credit-1",
       requestedCredits: 3,
+      consumedCredits: reservationState === "CONSUMED" ? 3 : 0,
       state: reservationState,
     },
   };

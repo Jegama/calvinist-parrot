@@ -12,7 +12,7 @@ const CONTENT_TOP = 72;
 const CONTENT_BOTTOM = 48;
 const BODY_SIZE = 10;
 const BODY_LEADING = 13.5;
-const REPORT_RENDERER_VERSION = "1";
+const REPORT_RENDERER_VERSION = "2";
 
 const COLORS = {
   accent: rgb(0.04, 0.36, 0.37),
@@ -257,7 +257,7 @@ class PdfReportWriter {
           : Array.from({ length: columnCount }, () => 1 / columnCount);
     const widths = proportions.map((proportion) => tableWidth * proportion);
 
-    rows.forEach((sourceRow, rowIndex) => {
+    const laidOutRows = rows.map((sourceRow, rowIndex) => {
       const row = Array.from({ length: columnCount }, (_, index) =>
         stripInlineMarkdown(sourceRow[index] ?? ""),
       );
@@ -268,6 +268,17 @@ class PdfReportWriter {
       );
       const rowHeight =
         Math.max(...cellLines.map((lines) => lines.length)) * 11 + 9;
+      return { cellLines, font, rowHeight, size };
+    });
+    const tableHeight =
+      laidOutRows.reduce((total, row) => total + row.rowHeight, 0) + 9;
+    const pageContentHeight =
+      this.page.getHeight() - CONTENT_TOP - CONTENT_BOTTOM;
+    if (tableHeight <= pageContentHeight) {
+      this.ensureSpace(tableHeight);
+    }
+
+    laidOutRows.forEach(({ cellLines, font, rowHeight, size }, rowIndex) => {
       this.ensureSpace(rowHeight + (rowIndex === 0 ? 4 : 0));
       const bottom = this.y - rowHeight + 4;
       if (rowIndex === 0) {

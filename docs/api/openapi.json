@@ -846,7 +846,7 @@
                 "EXTRACTING",
                 "SCORING",
                 "HARMONIZING",
-                "CALIBRATING",
+                "AGGREGATING",
                 "SUMMARIZING",
                 "COMPLETE",
                 "COMPLETE_WITH_WARNINGS",
@@ -4286,7 +4286,7 @@
                         "EXTRACTING",
                         "SCORING",
                         "HARMONIZING",
-                        "CALIBRATING",
+                        "AGGREGATING",
                         "SUMMARIZING",
                         "COMPLETE",
                         "COMPLETE_WITH_WARNINGS",
@@ -4444,7 +4444,7 @@
                         "EXTRACTING",
                         "SCORING",
                         "HARMONIZING",
-                        "CALIBRATING",
+                        "AGGREGATING",
                         "SUMMARIZING",
                         "COMPLETE",
                         "COMPLETE_WITH_WARNINGS",
@@ -4741,7 +4741,7 @@
                         "EXTRACTING",
                         "SCORING",
                         "HARMONIZING",
-                        "CALIBRATING",
+                        "AGGREGATING",
                         "SUMMARIZING",
                         "COMPLETE",
                         "COMPLETE_WITH_WARNINGS",
@@ -5037,7 +5037,7 @@
                   "EXTRACTING",
                   "SCORING",
                   "HARMONIZING",
-                  "CALIBRATING",
+                  "AGGREGATING",
                   "SUMMARIZING",
                   "COMPLETE",
                   "COMPLETE_WITH_WARNINGS",
@@ -5196,7 +5196,7 @@
                     "EXTRACTING",
                     "SCORING",
                     "HARMONIZING",
-                    "CALIBRATING",
+                    "AGGREGATING",
                     "SUMMARIZING",
                     "COMPLETE",
                     "COMPLETE_WITH_WARNINGS",
@@ -5423,7 +5423,7 @@
                   "EXTRACTING",
                   "SCORING",
                   "HARMONIZING",
-                  "CALIBRATING",
+                  "AGGREGATING",
                   "SUMMARIZING",
                   "COMPLETE",
                   "COMPLETE_WITH_WARNINGS",
@@ -5596,7 +5596,7 @@
                       "EXTRACTING",
                       "SCORING",
                       "HARMONIZING",
-                      "CALIBRATING",
+                      "AGGREGATING",
                       "SUMMARIZING",
                       "COMPLETE",
                       "COMPLETE_WITH_WARNINGS",
@@ -5847,7 +5847,7 @@
                         "EXTRACTING",
                         "SCORING",
                         "HARMONIZING",
-                        "CALIBRATING",
+                        "AGGREGATING",
                         "SUMMARIZING",
                         "COMPLETE",
                         "COMPLETE_WITH_WARNINGS",
@@ -6071,7 +6071,7 @@
                     "EXTRACTING",
                     "SCORING",
                     "HARMONIZING",
-                    "CALIBRATING",
+                    "AGGREGATING",
                     "SUMMARIZING",
                     "COMPLETE",
                     "COMPLETE_WITH_WARNINGS",
@@ -6186,7 +6186,7 @@
                   "EXTRACTING",
                   "SCORING",
                   "HARMONIZING",
-                  "CALIBRATING",
+                  "AGGREGATING",
                   "SUMMARIZING",
                   "COMPLETE",
                   "COMPLETE_WITH_WARNINGS",
@@ -6594,6 +6594,16 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "pastoralPosture": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -6602,7 +6612,8 @@
                     "introduction",
                     "applicationEffectiveness",
                     "structureCohesion",
-                    "illustrations"
+                    "illustrations",
+                    "pastoralPosture"
                   ],
                   "additionalProperties": false
                 },
@@ -6637,7 +6648,7 @@
                     "EXTRACTING",
                     "SCORING",
                     "HARMONIZING",
-                    "CALIBRATING",
+                    "AGGREGATING",
                     "SUMMARIZING",
                     "COMPLETE",
                     "COMPLETE_WITH_WARNINGS",
@@ -6696,7 +6707,7 @@
               "EXTRACTING",
               "SCORING",
               "HARMONIZING",
-              "CALIBRATING",
+              "AGGREGATING",
               "SUMMARIZING",
               "COMPLETE",
               "COMPLETE_WITH_WARNINGS",

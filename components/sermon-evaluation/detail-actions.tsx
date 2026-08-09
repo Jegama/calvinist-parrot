@@ -128,7 +128,7 @@ export function SermonDetailActions({
     "EXTRACTING",
     "SCORING",
     "HARMONIZING",
-    "CALIBRATING",
+    "AGGREGATING",
     "SUMMARIZING",
   ].includes(evaluation.status);
   const canRetry = evaluation.status === "FAILED" || evaluation.status === "TIMED_OUT";
@@ -403,7 +403,7 @@ function ReevaluateDialog({
               className="sr-only"
             />
             <span className="flex items-center justify-between gap-3 font-medium">
-              High confidence
+              Self-consistency
               <span>3 run credits</span>
             </span>
             <span className="mt-1 block text-sm text-muted-foreground">
@@ -587,7 +587,7 @@ function ReattachDialog({
               onClick={() => setPreset("HIGH_CONFIDENCE")}
               disabled={busy || !highAvailable}
             >
-              High confidence · 3 credits
+              Self-consistency · 3 credits
             </Button>
           </div>
           {busy && (

@@ -21,7 +21,7 @@ class EvaluationStatus(StrEnum):
     EXTRACTING = "EXTRACTING"
     SCORING = "SCORING"
     HARMONIZING = "HARMONIZING"
-    CALIBRATING = "CALIBRATING"
+    AGGREGATING = "AGGREGATING"
     SUMMARIZING = "SUMMARIZING"
     COMPLETE = "COMPLETE"
     COMPLETE_WITH_WARNINGS = "COMPLETE_WITH_WARNINGS"
@@ -45,7 +45,7 @@ STAGE_ORDER = (
     EvaluationStatus.EXTRACTING,
     EvaluationStatus.SCORING,
     EvaluationStatus.HARMONIZING,
-    EvaluationStatus.CALIBRATING,
+    EvaluationStatus.AGGREGATING,
     EvaluationStatus.SUMMARIZING,
 )
 
@@ -79,13 +79,13 @@ ALLOWED_TRANSITIONS: Mapping[EvaluationStatus, frozenset[EvaluationStatus]] = {
     ),
     EvaluationStatus.HARMONIZING: frozenset(
         {
-            EvaluationStatus.CALIBRATING,
+            EvaluationStatus.AGGREGATING,
             EvaluationStatus.FAILED,
             EvaluationStatus.TIMED_OUT,
             EvaluationStatus.CANCELED,
         }
     ),
-    EvaluationStatus.CALIBRATING: frozenset(
+    EvaluationStatus.AGGREGATING: frozenset(
         {
             EvaluationStatus.SUMMARIZING,
             EvaluationStatus.FAILED,

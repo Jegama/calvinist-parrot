@@ -28,7 +28,7 @@ export function serializeSermonHistory(
       | "EXTRACTING"
       | "SCORING"
       | "HARMONIZING"
-      | "CALIBRATING"
+      | "AGGREGATING"
       | "SUMMARIZING"
       | "COMPLETE"
       | "COMPLETE_WITH_WARNINGS"

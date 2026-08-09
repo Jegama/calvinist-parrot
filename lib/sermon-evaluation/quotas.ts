@@ -91,15 +91,26 @@ async function enforceDailyQuota(
   if (exempt) {
     return;
   }
-  const aggregate = await tx.sermonRunCreditReservation.aggregate({
+  const reservations = await tx.sermonRunCreditReservation.findMany({
     where: {
       actorId,
       reservedAt: { gte: startOfCurrentUtcDay() },
       state: { in: ["RESERVED", "CONSUMED"] },
     },
-    _sum: { requestedCredits: true },
+    select: {
+      state: true,
+      requestedCredits: true,
+      consumedCredits: true,
+    },
   });
-  const used = aggregate._sum.requestedCredits ?? 0;
+  const used = reservations.reduce(
+    (total, reservation) =>
+      total +
+      (reservation.state === "RESERVED"
+        ? reservation.requestedCredits
+        : reservation.consumedCredits),
+    0,
+  );
   if (used + requestedRuns > SERMON_DAILY_RUN_LIMIT) {
     throw new SermonQuotaError(
       `The daily sermon evaluation limit is ${SERMON_DAILY_RUN_LIMIT} scoring runs`,
@@ -297,7 +308,8 @@ export async function releaseQueuedCreditReservation(
         where: { id: evaluation.fingerprintId },
         data: {
           runCreditsReserved: {
-            decrement: reservation.requestedCredits,
+            decrement:
+              reservation.requestedCredits - reservation.consumedCredits,
           },
         },
       });

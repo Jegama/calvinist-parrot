@@ -16,7 +16,7 @@ def render_json(
 ) -> str:
     return json.dumps(
         {
-            "reportVersion": "1.0.0",
+            "reportVersion": "2.0.0",
             "metadata": dict(metadata),
             "extraction": extraction.model_dump(mode="json"),
             "scoring": scoring.model_dump(mode="json"),

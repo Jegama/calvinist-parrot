@@ -108,6 +108,7 @@ function queuedEvaluation(state: ReservationState) {
     creditReservation: {
       id: "reservation-1",
       requestedCredits: 3,
+      consumedCredits: state === "CONSUMED" ? 3 : 0,
       state,
     },
   };

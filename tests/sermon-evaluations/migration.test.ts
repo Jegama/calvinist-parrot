@@ -10,6 +10,27 @@ const migration = fs.readFileSync(
   ),
   "utf8",
 );
+const rubricV2Migration = fs.readFileSync(
+  path.join(
+    process.cwd(),
+    "prisma/migrations/20260808120000_sermon_evaluation_rubric_v2/migration.sql",
+  ),
+  "utf8",
+);
+const successfulCreditSettlementMigration = fs.readFileSync(
+  path.join(
+    process.cwd(),
+    "prisma/migrations/20260808221500_successful_sermon_run_credit_settlement/migration.sql",
+  ),
+  "utf8",
+);
+const rejectedAudioCleanupMigration = fs.readFileSync(
+  path.join(
+    process.cwd(),
+    "prisma/migrations/20260808223000_align_rejected_audio_cleanup_constraint/migration.sql",
+  ),
+  "utf8",
+);
 describe("sermon evaluation migration invariants", () => {
   it("enforces one active evaluation per owner with a partial index", () => {
     expect(migration).toContain(
@@ -78,6 +99,68 @@ describe("sermon evaluation migration invariants", () => {
     );
     expect(migration).toContain(
       '("status", "durationPolicyUpdatedAt")',
+    );
+  });
+
+  it("charges only completed scoring rounds and releases terminal failures", () => {
+    expect(successfulCreditSettlementMigration).toContain(
+      'ADD COLUMN IF NOT EXISTS "consumedCredits" INTEGER NOT NULL DEFAULT 0',
+    );
+    expect(successfulCreditSettlementMigration).toContain(
+      "THEN LEAST(",
+    );
+    expect(successfulCreditSettlementMigration).toContain(
+      "ELSE 'TERMINAL_EVALUATION_NOT_CHARGED'",
+    );
+    expect(successfulCreditSettlementMigration).toContain(
+      '"consumedCredits" <= "requestedCredits"',
+    );
+    expect(successfulCreditSettlementMigration).toContain(
+      'reservation."state" = \'CONSUMED\'',
+    );
+    expect(successfulCreditSettlementMigration).toContain(
+      '"state" = \'RESERVED\'',
+    );
+    expect(successfulCreditSettlementMigration).toContain(
+      "'HARMONIZING', 'AGGREGATING', 'SUMMARIZING'",
+    );
+  });
+
+  it("fences and re-extracts active v1 evaluations before v2 replay", () => {
+    expect(rubricV2Migration).toContain(
+      'ALTER TYPE "SermonEvaluationStatus" RENAME VALUE \'CALIBRATING\' TO \'AGGREGATING\'',
+    );
+    expect(rubricV2Migration).toContain(
+      'UPDATE "sermonWorkerLease" lease',
+    );
+    expect(rubricV2Migration).toContain(
+      'DELETE FROM "sermonScoringRun" run',
+    );
+    expect(rubricV2Migration).toContain(
+      '"status" = \'QUEUED\'',
+    );
+    expect(rubricV2Migration).toContain(
+      '"resumeReason" = \'rubric-v2-requeued\'',
+    );
+    expect(rubricV2Migration).toContain(
+      '"attemptDeadlineAt" = NULL',
+    );
+    expect(rubricV2Migration).toContain("- 'extraction'");
+    expect(rubricV2Migration).toContain("- 'scoringRuns'");
+    expect(rubricV2Migration).toContain(
+      '"version" = "version" + 1',
+    );
+  });
+
+  it("converges existing databases on rejected-audio pointer cleanup", () => {
+    expect(rejectedAudioCleanupMigration).toContain(
+      'DROP CONSTRAINT IF EXISTS "sermonAudioAsset_storage_pointer_check"',
+    );
+    expect(rejectedAudioCleanupMigration).toContain(
+      '"verificationState" = \'REJECTED\'',
+    );
+    expect(rejectedAudioCleanupMigration).toContain(
+      '"appwriteBucketId" IS NULL AND "appwriteFileId" IS NULL',
     );
   });
 });

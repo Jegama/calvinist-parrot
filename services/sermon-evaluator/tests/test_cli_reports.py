@@ -90,6 +90,17 @@ def test_reports_include_structure_scores_and_metadata(extraction, scoring) -> N
     assert "Step 1 – Structural Extraction" in markdown
     assert "Step 2 – Analytical Scoring" in markdown
     assert "Aggregated Summary" in markdown
+    assert markdown.index("## Aggregated Summary") < markdown.index(
+        "## Evaluation Metadata"
+    )
+    assert markdown.index("| Metric | Score |") < markdown.index(
+        "Generated:"
+    )
+    assert "## Aggregate Coaching" in markdown
+    assert markdown.index("| Metric | Score |") < markdown.index(
+        "## Aggregate Coaching"
+    )
+    assert markdown.rstrip().endswith("Duration Adjustment: Disabled")
     report = json.loads(
         render_json(extraction, scoring, metadata={"responseId": "response-1"})
     )
@@ -104,9 +115,9 @@ def test_duration_adjustment_is_off_by_default(extraction, scoring) -> None:
     summary = aggregator.apply_duration_penalty(
         summary, extraction.audio_duration, enabled=False
     )
-    assert summary.duration_penalty == 1.0
+    assert summary.duration_penalty is None
     assert summary.Overall_Impact == summary.Overall_Impact_Base
-    assert summary.Overall_Impact_Adjusted < summary.Overall_Impact_Base
+    assert summary.Overall_Impact_Adjusted is None
 
 
 def test_report_regeneration_is_no_llm_and_idempotent(extraction, scoring) -> None:
@@ -145,6 +156,7 @@ def test_report_regeneration_is_no_llm_and_idempotent(extraction, scoring) -> No
             evaluation_id,
             reports,
             *,
+            result,
             expected_duration_adjustment_enabled,
             expected_duration_policy_updated_at,
         ):
@@ -152,6 +164,9 @@ def test_report_regeneration_is_no_llm_and_idempotent(extraction, scoring) -> No
             assert expected_duration_policy_updated_at == datetime(
                 2026, 7, 28, tzinfo=timezone.utc
             )
+            assert result["scoring"]["Aggregated_Summary"][
+                "duration_adjustment_enabled"
+            ] is True
             if self.published is None:
                 self.published = reports
             else:
@@ -182,3 +197,58 @@ def test_report_regeneration_is_no_llm_and_idempotent(extraction, scoring) -> No
     assert csv_row["label"] == "Romans 8: No Condemnation"
     assert csv_row["preacher"] == "Pastor"
     assert csv_row["preached_date"] == "2026-07-27"
+
+
+def test_report_regeneration_replays_v1_illustration_payloads(
+    extraction, scoring
+) -> None:
+    aggregator = SermonAggregator()
+    scoring.Aggregated_Summary = aggregator.apply_duration_penalty(
+        aggregator.compute_aggregates(scoring, extraction),
+        extraction.audio_duration,
+        enabled=False,
+    )
+    legacy_scoring = scoring.model_dump(mode="json")
+    legacy_scoring["Illustrations"].pop("Ethical_Use")
+    legacy_scoring.pop("Doctrinal_Fidelity")
+    legacy_scoring.pop("Pastoral_Posture")
+    legacy_scoring["Aggregated_Summary"].pop("Pastoral_Posture")
+
+    class FakePersistence:
+        published_result = None
+
+        def fetch_completed_report_state(self, evaluation_id):
+            return {
+                "evaluationId": evaluation_id,
+                "title": "Legacy sermon",
+                "status": "COMPLETE",
+                "requestedRuns": 1,
+                "completedRuns": 1,
+                "durationAdjustmentEnabled": False,
+                "durationPolicyUpdatedAt": None,
+                "preachedOn": date(2026, 7, 27),
+                "preacherName": "Legacy Pastor",
+                "result": {
+                    "extraction": extraction.model_dump(mode="json"),
+                    "scoring": legacy_scoring,
+                },
+                "provenance": {"configuredModelAlias": DEFAULT_MODEL},
+            }
+
+        def publish_report_set(self, evaluation_id, reports, *, result, **kwargs):
+            del evaluation_id, reports, kwargs
+            self.published_result = result
+            return 3
+
+    persistence = FakePersistence()
+    service = SermonEvaluationService(
+        persistence=persistence, storage=None, provider=None
+    )
+
+    regenerated = service.regenerate_reports("legacy-evaluation")
+
+    assert regenerated["reportVersion"] == 3
+    assert persistence.published_result is not None
+    assert persistence.published_result["scoring"]["Illustrations"][
+        "Ethical_Use"
+    ] is None

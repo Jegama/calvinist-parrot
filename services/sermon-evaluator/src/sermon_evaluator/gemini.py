@@ -4,11 +4,17 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import threading
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Callable, Optional, TypeVar
+
+import httpx
+
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -43,6 +49,9 @@ class GeminiProvider:
         *,
         api_key: Optional[str] = None,
         default_timeout_seconds: int = 300,
+        max_transient_attempts: int = 4,
+        retry_initial_delay_seconds: float = 1.0,
+        retry_max_delay_seconds: float = 8.0,
     ) -> None:
         try:
             from google import genai
@@ -57,6 +66,11 @@ class GeminiProvider:
             raise ValueError("GEMINI_API_KEY must be configured")
         self.model_name = model
         self.default_timeout_seconds = default_timeout_seconds
+        if max_transient_attempts < 1:
+            raise ValueError("max_transient_attempts must be at least one")
+        self.max_transient_attempts = max_transient_attempts
+        self.retry_initial_delay_seconds = retry_initial_delay_seconds
+        self.retry_max_delay_seconds = retry_max_delay_seconds
         self._clients: dict[int, Any] = {}
         self._response_local = threading.local()
 
@@ -84,13 +98,85 @@ class GeminiProvider:
         system: Optional[str],
         seed: Optional[int],
     ) -> Any:
+        if hasattr(response_schema, "model_json_schema"):
+            json_schema = response_schema.model_json_schema()
+        elif isinstance(response_schema, dict):
+            json_schema = response_schema
+        elif response_schema is dict:
+            json_schema = {"type": "object"}
+        else:
+            raise TypeError(
+                "response_schema must be a Pydantic model or JSON Schema mapping"
+            )
         return self._types.GenerateContentConfig(
             seed=seed,
             system_instruction=system or None,
             response_mime_type="application/json",
-            response_schema=response_schema,
+            response_json_schema=json_schema,
             thinking_config=self._types.ThinkingConfig(thinking_level="medium"),
         )
+
+    @staticmethod
+    def _is_transient_error(error: BaseException) -> bool:
+        code = getattr(error, "code", None)
+        try:
+            status_code = int(code)
+        except (TypeError, ValueError):
+            status_code = None
+        if status_code in {408, 429, 500, 502, 503, 504}:
+            return True
+        return isinstance(
+            error,
+            (
+                httpx.TimeoutException,
+                httpx.ConnectError,
+                httpx.NetworkError,
+                httpx.RemoteProtocolError,
+            ),
+        )
+
+    def _with_transient_retry(
+        self,
+        operation: str,
+        timeout_seconds: Optional[float],
+        call: Callable[[float], T],
+    ) -> T:
+        timeout = float(timeout_seconds or self.default_timeout_seconds)
+        deadline = time.monotonic() + max(1.0, timeout)
+        for attempt in range(1, self.max_transient_attempts + 1):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f"{operation} exhausted its provider timeout")
+            try:
+                return call(remaining)
+            except BaseException as error:
+                if (
+                    not self._is_transient_error(error)
+                    or attempt >= self.max_transient_attempts
+                ):
+                    raise
+                exponential_delay = min(
+                    self.retry_max_delay_seconds,
+                    self.retry_initial_delay_seconds * (2 ** (attempt - 1)),
+                )
+                delay = exponential_delay * random.uniform(0.5, 1.5)
+                if delay >= deadline - time.monotonic():
+                    raise
+                print(
+                    json.dumps(
+                        {
+                            "event": "gemini-transient-retry",
+                            "operation": operation,
+                            "attempt": attempt,
+                            "maxAttempts": self.max_transient_attempts,
+                            "error": error.__class__.__name__,
+                            "delaySeconds": round(delay, 2),
+                        }
+                    ),
+                    flush=True,
+                )
+                time.sleep(delay)
+        raise AssertionError("Transient retry loop ended unexpectedly")
 
     def _parse(self, response: Any) -> dict[str, Any]:
         self._response_local.metadata = ProviderResponseMetadata(
@@ -113,10 +199,15 @@ class GeminiProvider:
         seed: Optional[int] = 1689,
         timeout_seconds: Optional[float] = None,
     ) -> dict[str, Any]:
-        response = self._client(timeout_seconds).models.generate_content(
-            model=model or self.model_name,
-            contents=prompt,
-            config=self._config(response_schema, system, seed),
+        config = self._config(response_schema, system, seed)
+        response = self._with_transient_retry(
+            "generate_structured",
+            timeout_seconds,
+            lambda remaining: self._client(remaining).models.generate_content(
+                model=model or self.model_name,
+                contents=prompt,
+                config=config,
+            ),
         )
         return self._parse(response)
 
@@ -129,17 +220,26 @@ class GeminiProvider:
         seed: Optional[int] = 1689,
         timeout_seconds: Optional[float] = None,
     ) -> dict[str, Any]:
-        response = self._client(timeout_seconds).models.generate_content(
-            model=model or self.model_name,
-            contents=contents,
-            config=self._config(response_schema, system, seed),
+        config = self._config(response_schema, system, seed)
+        response = self._with_transient_retry(
+            "generate_structured_with_contents",
+            timeout_seconds,
+            lambda remaining: self._client(remaining).models.generate_content(
+                model=model or self.model_name,
+                contents=contents,
+                config=config,
+            ),
         )
         return self._parse(response)
 
     def upload_file(
         self, file_path: str, *, timeout_seconds: Optional[float] = None
     ) -> Any:
-        return self._client(timeout_seconds).files.upload(file=file_path)
+        return self._with_transient_retry(
+            "upload_file",
+            timeout_seconds,
+            lambda remaining: self._client(remaining).files.upload(file=file_path),
+        )
 
     def get_file(
         self, file_name_or_id: str, *, timeout_seconds: Optional[float] = None
@@ -149,7 +249,11 @@ class GeminiProvider:
             if str(file_name_or_id).startswith("files/")
             else f"files/{file_name_or_id}"
         )
-        return self._client(timeout_seconds).files.get(name=name)
+        return self._with_transient_retry(
+            "get_file",
+            timeout_seconds,
+            lambda remaining: self._client(remaining).files.get(name=name),
+        )
 
     def wait_until_active(
         self,

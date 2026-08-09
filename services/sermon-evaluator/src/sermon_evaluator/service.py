@@ -16,7 +16,6 @@ from typing import Any, Callable, Mapping, Optional
 from . import __version__, prompts
 from .aggregation import SermonAggregator
 from .audio import InvalidAudioError
-from .calibration import SermonScoreCalibrator
 from .gemini import GeminiProvider, ProviderResponseMetadata
 from .fixture import FixtureProvider
 from .harmonization import SermonHarmonizer
@@ -31,6 +30,7 @@ from .persistence import (
     PsycopgPersistence,
 )
 from .reports import render_csv, render_json, render_markdown
+from .rubric import RUBRIC_VERSION
 from .schemas import (
     SermonExtractionStep1,
     SermonScoringStep2,
@@ -45,9 +45,8 @@ from .stages import (
 )
 from .storage import AppwriteStorage, LocalFilesystemStorage
 
-PROMPT_VERSION = "cp-evals-4fc02cb2"
-RUBRIC_VERSION = "cp-evals-4fc02cb2"
-REPORT_VERSION = 1
+PROMPT_VERSION = "sermon-eval-2026-08-08-v2"
+REPORT_VERSION = 2
 SOURCE_COMMIT = "4fc02cb2da2c7c8c51ac84558bf9f592cf2d0485"
 
 
@@ -152,10 +151,25 @@ def _to_full_scoring(raw: SermonScoringStep2Raw) -> SermonScoringStep2:
         Application=raw.Application,
         Illustrations=raw.Illustrations,
         Conclusion=raw.Conclusion,
+        Doctrinal_Fidelity=raw.Doctrinal_Fidelity,
+        Pastoral_Posture=raw.Pastoral_Posture,
         Strengths=raw.Strengths,
         Growth_Areas=raw.Growth_Areas,
         Next_Steps=raw.Next_Steps,
         Scoring_Confidence=raw.Scoring_Confidence,
+    )
+
+
+def _build_scoring_prompt(extraction: SermonExtractionStep1) -> str:
+    """Serialize only homiletical evidence for durable worker scoring."""
+
+    extraction_json = json.dumps(
+        extraction.model_dump(mode="json", exclude={"audio_duration"}),
+        ensure_ascii=False,
+    )
+    return (
+        f"{prompts.SCORING_INSTRUCTIONS}\\n\\n"
+        f"Step 1 JSON below:\\n\\n{extraction_json}"
     )
 
 
@@ -616,7 +630,6 @@ class SermonEvaluationService:
             raw_runs = [SermonScoringStep2Raw(**item) for item in outcome_data["runs"]]
             completed_runs = len(raw_runs)
         elif status == EvaluationStatus.SCORING:
-            self.persistence.consume_run_credits(job.id, lease=lease)
             previous_values, attempt_counts, used_seeds = (
                 self.persistence.scoring_resume_state(job.id)
             )
@@ -630,13 +643,7 @@ class SermonEvaluationService:
                     self.persistence, lease, assert_lease_owned
                 ),
             )
-            extraction_json = json.dumps(
-                extraction.model_dump(), ensure_ascii=False
-            )
-            scoring_prompt = (
-                f"{prompts.SCORING_INSTRUCTIONS}\\n\\n"
-                f"Step 1 JSON below:\\n\\n{extraction_json}"
-            )
+            scoring_prompt = _build_scoring_prompt(extraction)
 
             def score(
                 ordinal: int, seed: int, attempt_number: int, timeout: float
@@ -697,12 +704,12 @@ class SermonEvaluationService:
         scoring_data = result.get("scoring")
         if scoring_data and status not in {
             EvaluationStatus.HARMONIZING,
-            EvaluationStatus.CALIBRATING,
+            EvaluationStatus.AGGREGATING,
         }:
             scoring = SermonScoringStep2(**scoring_data)
         elif result.get("harmonized") and status == EvaluationStatus.HARMONIZING:
             scoring = SermonScoringStep2(**result["harmonized"])
-            transition(EvaluationStatus.CALIBRATING)
+            transition(EvaluationStatus.AGGREGATING)
         elif status == EvaluationStatus.HARMONIZING:
             harmonizer = SermonHarmonizer(
                 bound_provider,
@@ -723,24 +730,20 @@ class SermonEvaluationService:
                 lease=lease,
             )
             result["harmonized"] = scoring.model_dump(mode="json")
-            transition(EvaluationStatus.CALIBRATING)
+            transition(EvaluationStatus.AGGREGATING)
         else:
             scoring = SermonScoringStep2(**result["harmonized"])
 
-        if status == EvaluationStatus.CALIBRATING:
-            if len(raw_runs) == 1:
-                calibrator = SermonScoreCalibrator()
-                aggregator = SermonAggregator()
-                scoring = calibrator.apply_strict_calibration(scoring, extraction)
-                scoring = calibrator.apply_ceiling_compression(scoring, extraction)
-                scoring.Aggregated_Summary = aggregator.compute_aggregates(
-                    scoring, extraction
-                )
-                scoring.Aggregated_Summary = aggregator.apply_duration_penalty(
-                    scoring.Aggregated_Summary,
-                    extraction.audio_duration,
-                    enabled=job.duration_adjustment_enabled,
-                )
+        if status == EvaluationStatus.AGGREGATING:
+            aggregator = SermonAggregator()
+            scoring.Aggregated_Summary = aggregator.compute_aggregates(
+                scoring, extraction
+            )
+            scoring.Aggregated_Summary = aggregator.apply_duration_penalty(
+                scoring.Aggregated_Summary,
+                extraction.audio_duration,
+                enabled=job.duration_adjustment_enabled,
+            )
             scoring_data = scoring.model_dump(mode="json")
             self.persistence.save_stage_output(
                 job.id, "scoring", scoring_data, lease=lease
@@ -1003,12 +1006,15 @@ class SermonEvaluationService:
         if summary is None:
             raise ValueError("Completed evaluation has no aggregate summary")
         enabled = bool(state["durationAdjustmentEnabled"])
-        summary.duration_adjustment_enabled = enabled
-        summary.Overall_Impact = (
-            summary.Overall_Impact_Adjusted
-            if enabled and summary.Overall_Impact_Adjusted is not None
-            else summary.Overall_Impact_Base
+        scoring.Aggregated_Summary = SermonAggregator().apply_duration_penalty(
+            summary,
+            extraction.audio_duration,
+            enabled=enabled,
         )
+        updated_result = {
+            **result,
+            "scoring": scoring.model_dump(mode="json"),
+        }
         updated_at = state["durationPolicyUpdatedAt"]
         generated_at = (
             updated_at.isoformat()
@@ -1054,6 +1060,7 @@ class SermonEvaluationService:
                 format_name: text.encode("utf-8")
                 for format_name, text in report_text.items()
             },
+            result=updated_result,
             expected_duration_adjustment_enabled=enabled,
             expected_duration_policy_updated_at=updated_at,
         )

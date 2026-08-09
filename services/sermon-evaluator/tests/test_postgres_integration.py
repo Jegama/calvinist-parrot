@@ -343,8 +343,6 @@ def test_psycopg_persistence_against_prisma_schema() -> None:
             target_status=EvaluationStatus.SCORING,
             lease=lease,
         )
-        persistence.consume_run_credits(main_evaluation_id, lease=lease)
-
         spec = AttemptSpec(
             ordinal=1,
             attempt_number=1,
@@ -364,14 +362,14 @@ def test_psycopg_persistence_against_prisma_schema() -> None:
         )
         for target in (
             EvaluationStatus.HARMONIZING,
-            EvaluationStatus.CALIBRATING,
+            EvaluationStatus.AGGREGATING,
             EvaluationStatus.SUMMARIZING,
         ):
             current = EvaluationStatus(
                 {
                     EvaluationStatus.HARMONIZING: "SCORING",
-                    EvaluationStatus.CALIBRATING: "HARMONIZING",
-                    EvaluationStatus.SUMMARIZING: "CALIBRATING",
+                    EvaluationStatus.AGGREGATING: "HARMONIZING",
+                    EvaluationStatus.SUMMARIZING: "AGGREGATING",
                 }[target]
             )
             version = persistence.compare_and_set_status(
@@ -586,10 +584,6 @@ def test_psycopg_persistence_against_prisma_schema() -> None:
                 WHERE "id" = %s
                 """,
                 (canceled_evaluation_id,),
-            )
-        with pytest.raises(EvaluationCanceled):
-            persistence.consume_run_credits(
-                canceled_evaluation_id, lease=canceled_lease
             )
         with pytest.raises(EvaluationCanceled):
             persistence.compare_and_set_status(

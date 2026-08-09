@@ -1,6 +1,6 @@
 # Calvinist Parrot Sermon Evaluator
 
-This directory is the canonical, platform-neutral Python sermon evaluator copied from CP-Evals-Lab commit `4fc02cb2da2c7c8c51ac84558bf9f592cf2d0485`. `SOURCE_PROVENANCE.json` records the one-time source map and hashes. The copied prompt, rubric, calibration, aggregation, confidence weighting, feedback synthesis, and report behavior remain available through the compatibility CLI, while `entrypoints/appwrite.py` is the Appwrite deployment adapter and `sermon_evaluator.worker` is the local polling adapter around the same package.
+This directory is the canonical, platform-neutral Python sermon evaluator originally transferred from CP-Evals-Lab commit `4fc02cb2da2c7c8c51ac84558bf9f592cf2d0485`. `SOURCE_PROVENANCE.json` preserves that one-time source history while the active evaluator evolves here. Rubric v2 uses a machine-readable registry, strict provider schemas, semantic LLM judgment without lexical calibration, self-consistency aggregation, a non-compensatory core-doctrine gate, pastoral-posture scoring, and versioned reports. The compatibility CLI, Appwrite adapter, and local polling worker all use the same package.
 
 ## Runtime boundaries
 

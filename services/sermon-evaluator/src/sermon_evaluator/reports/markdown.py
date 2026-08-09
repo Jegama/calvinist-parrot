@@ -1,18 +1,12 @@
-"""Markdown renderer for sermon evaluation results.
-
-Produces a concise, human-friendly report combining Step 1 extraction and
-Step 2 scoring, including Aggregated Summary roll-ups.
-"""
+"""Human-readable Markdown report renderer."""
 
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
 
-from ..schemas import (
-    SermonExtractionStep1,
-    SermonScoringStep2,
-)
+from ..rubric import AGGREGATES, RUBRIC_SECTIONS
+from ..schemas import SermonExtractionStep1, SermonScoringStep2
 
 
 def _fmt_opt(text: Optional[str]) -> str:
@@ -29,225 +23,197 @@ def render_markdown(
     num_scoring_runs: int = 1,
     generated_at: Optional[str] = None,
 ) -> str:
-    ts = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    del provider
+    timestamp = generated_at or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     title = (
-        f"Sermon Evaluation Report — {label}" if label else "Sermon Evaluation Report"
+        f"Sermon Evaluation Report — {label}"
+        if label
+        else "Sermon Evaluation Report"
     )
 
-    # Duration Analysis (if available)
-    duration_md = ""
-    if extraction.audio_duration is not None:
-        duration_minutes = round(extraction.audio_duration / 60.0, 2)
-        penalty_text = ""
-        if (
-            scoring.Aggregated_Summary
-            and scoring.Aggregated_Summary.duration_adjustment_enabled
-            and scoring.Aggregated_Summary.duration_penalty is not None
-        ):
-            penalty = scoring.Aggregated_Summary.duration_penalty
-            penalty_text = f" (penalty applied: {penalty:.2f})"
-        duration_md = (
-            f"\n**Audio Duration:** {duration_minutes} minutes{penalty_text}\n"
-        )
-
-    # Evaluation Methodology (if multi-run)
-    methodology_md = ""
-    if num_scoring_runs > 1:
-        methodology_md = f"""
-**Evaluation Methodology:** This sermon was evaluated using {num_scoring_runs} independent scoring runs with confidence-weighted harmonization. Each run used a different random seed to reduce bias. Final scores represent confidence-weighted averages, and feedback was synthesized by a meta-evaluator LLM to capture consensus insights while noting minority perspectives.
-"""
-
-    # Aggregated Summary (if present)
-    agg_md = ""
+    aggregate_markdown = ""
     if scoring.Aggregated_Summary is not None:
-        a = scoring.Aggregated_Summary
-        fb = getattr(scoring, "Aggregated_Summary_Feedback", None)
+        summary = scoring.Aggregated_Summary
+        feedback = scoring.Aggregated_Summary_Feedback
 
-        def _agg_fb(field: str) -> str:
-            if fb is None:
-                return "-"
-            value = getattr(fb, field, None)
+        def aggregate_feedback(field: str) -> str:
+            value = None if feedback is None else getattr(feedback, field, None)
             return (value or "-").replace("\n", " ")
 
-        raw_overall_fb = None if fb is None else getattr(fb, "Overall_Impact", None)
-        overall_fb = (raw_overall_fb or "-").strip()
-        agg_md = f"""
+        rows = []
+        coaching_sections = []
+        for aggregate in AGGREGATES:
+            value = getattr(summary, aggregate.key, None)
+            if value is not None:
+                rows.append(f"| {aggregate.label} | {value} |")
+                coaching_sections.append(
+                    f"### {aggregate.label}\n\n"
+                    f"{aggregate_feedback(aggregate.key)}"
+                )
+        if scoring.Doctrinal_Fidelity is not None:
+            doctrine_feedback = aggregate_feedback("Doctrinal_Fidelity")
+            rows.append(
+                "| Doctrinal Fidelity (gate) | "
+                f"{scoring.Doctrinal_Fidelity.Overall} |"
+            )
+            coaching_sections.append(
+                "### Doctrinal Fidelity (gate)\n\n"
+                f"{doctrine_feedback}"
+            )
+
+        overall_feedback = (
+            None if feedback is None else feedback.Overall_Impact
+        ) or "-"
+        gate_notice = ""
+        if summary.doctrinal_gate_applied:
+            gate_reason = (
+                scoring.Doctrinal_Fidelity.Gate_Reason
+                if scoring.Doctrinal_Fidelity is not None
+                else None
+            )
+            gate_notice = (
+                f"\n\n**Core-doctrine gate applied:** Overall Impact was capped at "
+                f"{summary.doctrinal_gate_cap:.1f}. {_fmt_opt(gate_reason)}"
+            )
+        aggregate_markdown = f"""
 ## Aggregated Summary
 
-**Overall Impact: {a.Overall_Impact}**
+**Overall Impact: {summary.Overall_Impact}**
 
-{overall_fb}
-{duration_md}
-| Metric | Score | Feedback |
-|---|---:|---|
-| Textual Fidelity | {a.Textual_Fidelity} | {_agg_fb("Textual_Fidelity")} |
-| Proposition Clarity | {a.Proposition_Clarity} | {_agg_fb("Proposition_Clarity")} |
-| Introduction | {a.Introduction} | {_agg_fb("Introduction")} |
-| Application Effectiveness | {a.Application_Effectiveness} | {_agg_fb("Application_Effectiveness")} |
-| Structure Cohesion | {a.Structure_Cohesion} | {_agg_fb("Structure_Cohesion")} |
-| Illustrations | {a.Illustrations} | {_agg_fb("Illustrations")} |
+| Metric | Score |
+|---|---:|
+{chr(10).join(rows)}
+
+### Overall Coaching
+
+{overall_feedback.strip()}{gate_notice}
+
+## Aggregate Coaching
+
+{chr(10).join(coaching_sections)}
 """.strip()
 
-    # Step 1: Structure
-    points_md_lines = []
-    for idx, p in enumerate(extraction.Body, start=1):
-        subpoints = "\n".join([f"  * {s}" for s in (p.Subpoints or [])])
-        illus = "\n".join([f"  * {s}" for s in (p.Illustrations or [])])
-        apps = "\n".join([f"  * {s}" for s in (p.Application or [])])
-        points_md_lines.append(
+    points_markdown: list[str] = []
+    for index, point in enumerate(extraction.Body, start=1):
+        subpoints = "\n".join(f"  * {item}" for item in point.Subpoints)
+        illustrations = "\n".join(
+            f"  * {item}" for item in point.Illustrations
+        )
+        applications = "\n".join(f"  * {item}" for item in point.Application)
+        points_markdown.append(
             f"""
-### {idx}. {p.Point}{f" ({p.Verses})" if p.Verses else ""}
+### {index}. {point.Point}{f" ({point.Verses})" if point.Verses else ""}
 
-Summary: {p.Summary}
+Summary: {point.Summary}
 
 * Subpoints:
 {subpoints or "  * (none)"}
 * Illustrations:
-{illus or "  * (none)"}
+{illustrations or "  * (none)"}
 * Applications:
-{apps or "  * (none)"}
+{applications or "  * (none)"}
 
-Comments: {_fmt_opt(p.Comments)}
+Comments: {_fmt_opt(point.Comments)}
 
-Feedback: {_fmt_opt(p.Feedback)}
+Feedback: {_fmt_opt(point.Feedback)}
 """.strip()
         )
-    points_md = "\n\n".join(points_md_lines)
 
-    # Scoring breakdown (compact per category)
-    def cat_table(
-        title: str, mapping: dict, overall: int, feedback: Optional[str]
-    ) -> str:
+    scoring_sections: list[str] = []
+    for section_definition in RUBRIC_SECTIONS:
+        section = getattr(scoring, section_definition.key, None)
+        if section is None:
+            continue
         rows = "\n".join(
-            [f"| {k.replace('_', ' ')} | {v} |" for k, v in mapping.items()]
+            f"| {criterion.label} | {value} |"
+            for criterion in section_definition.criteria
+            if (value := getattr(section, criterion.key, None)) is not None
         )
-        return f"""
-### {title}
+        gate = ""
+        if section_definition.key == "Doctrinal_Fidelity":
+            gate = (
+                f"\nCore Doctrine Gate: {section.Core_Doctrine_Gate}"
+                f"\nGate Reason: {_fmt_opt(section.Gate_Reason)}"
+            )
+        scoring_sections.append(
+            f"""
+### {section_definition.label}
 
 | Criterion | Score |
 |---|---:|
 {rows}
 
-Overall: {overall}
-Feedback: {_fmt_opt(feedback)}
+Overall: {section.Overall}{gate}
+
+Feedback: {_fmt_opt(section.Feedback)}
 """.strip()
+        )
 
-    intro_map = {
-        "FCF Introduced": scoring.Introduction.FCF_Introduced,
-        "Arouses Attention": scoring.Introduction.Arouses_Attention,
-    }
-    prop_map = {
-        "Principle + Application Wed": scoring.Proposition.Principle_and_Application_Wed,
-        "Establishes Main Theme": scoring.Proposition.Establishes_Main_Theme,
-        "Summarizes Introduction": scoring.Proposition.Summarizes_Introduction,
-    }
-    mp_map = {
-        "Clarity": scoring.Main_Points.Clarity,
-        "Hortatory Universal Truths": scoring.Main_Points.Hortatory_Universal_Truths,
-        "Proportional & Coexistent": scoring.Main_Points.Proportional_and_Coexistent,
-        "Exposition Quality": scoring.Main_Points.Exposition_Quality,
-        "Illustration Quality": scoring.Main_Points.Illustration_Quality,
-        "Application Quality": scoring.Main_Points.Application_Quality,
-    }
-    exg_map = {
-        "Alignment with Text": scoring.Exegetical_Support.Alignment_with_Text,
-        "Handles Difficulties": scoring.Exegetical_Support.Handles_Difficulties,
-        "Proof Accuracy & Clarity": scoring.Exegetical_Support.Proof_Accuracy_and_Clarity,
-        "Context & Genre Considered": scoring.Exegetical_Support.Context_and_Genre_Considered,
-        "Not Belabored": scoring.Exegetical_Support.Not_Belabored,
-        "Aids Rather Than Impresses": scoring.Exegetical_Support.Aids_Rather_Than_Impresses,
-    }
-    app_map = {
-        "Clear & Practical": scoring.Application.Clear_and_Practical,
-        "Redemptive Focus": scoring.Application.Redemptive_Focus,
-        "Mandate vs Idea Distinction": scoring.Application.Mandate_vs_Idea_Distinction,
-        "Passage Supported": scoring.Application.Passage_Supported,
-    }
-    ill_map = {
-        "Lived-Body Detail": scoring.Illustrations.Lived_Body_Detail,
-        "Strengthens Points": scoring.Illustrations.Strengthens_Points,
-        "Proportion": scoring.Illustrations.Proportion,
-    }
-    con_map = {
-        "Summary": scoring.Conclusion.Summary,
-        "Compelling Exhortation": scoring.Conclusion.Compelling_Exhortation,
-        "Climax": scoring.Conclusion.Climax,
-        "Pointed End": scoring.Conclusion.Pointed_End,
-    }
-
-    scoring_md = "\n\n".join(
-        [
-            cat_table(
-                "Introduction",
-                intro_map,
-                scoring.Introduction.Overall,
-                scoring.Introduction.Feedback,
-            ),
-            cat_table(
-                "Proposition",
-                prop_map,
-                scoring.Proposition.Overall,
-                scoring.Proposition.Feedback,
-            ),
-            cat_table(
-                "Main Points",
-                mp_map,
-                scoring.Main_Points.Overall,
-                scoring.Main_Points.Feedback,
-            ),
-            cat_table(
-                "Exegetical Support",
-                exg_map,
-                scoring.Exegetical_Support.Overall,
-                scoring.Exegetical_Support.Feedback,
-            ),
-            cat_table(
-                "Application",
-                app_map,
-                scoring.Application.Overall,
-                scoring.Application.Feedback,
-            ),
-            cat_table(
-                "Illustrations",
-                ill_map,
-                scoring.Illustrations.Overall,
-                scoring.Illustrations.Feedback,
-            ),
-            cat_table(
-                "Conclusion",
-                con_map,
-                scoring.Conclusion.Overall,
-                scoring.Conclusion.Feedback,
-            ),
-        ]
+    strengths = "\n".join(f"* {item}" for item in scoring.Strengths) or "* (none)"
+    growth_areas = (
+        "\n".join(f"* {item}" for item in scoring.Growth_Areas) or "* (none)"
     )
+    next_steps = "\n".join(f"* {item}" for item in scoring.Next_Steps) or "* (none)"
 
-    strengths_md = (
-        "\n".join([f"* {s}" for s in (scoring.Strengths or [])]) or "* (none)"
-    )
-    growth_md = (
-        "\n".join([f"* {s}" for s in (scoring.Growth_Areas or [])]) or "* (none)"
-    )
-    next_md = "\n".join([f"* {s}" for s in (scoring.Next_Steps or [])]) or "* (none)"
+    evidence_sections = ""
+    if extraction.Pastoral_Posture_Evidence is not None:
+        evidence = extraction.Pastoral_Posture_Evidence
+        evidence_sections += f"""
 
-    md = f"""
+### Pastoral Posture Evidence
+* Shared subjection: {"; ".join(evidence.Shared_Subjection_Evidence) or "(none identified)"}
+* Servant authority: {"; ".join(evidence.Servant_Authority_Evidence) or "(none identified)"}
+* Courageous and gentle care: {"; ".join(evidence.Courageous_Gentle_Care_Evidence) or "(none identified)"}
+* Differentiated application: {"; ".join(evidence.Differentiated_Application_Evidence) or "(none identified)"}
+* Pastoral use of power: {"; ".join(evidence.Pastoral_Power_Evidence) or "(none identified)"}
+* Contrary evidence: {"; ".join(evidence.Contrary_Evidence) or "(none identified)"}
+"""
+    if extraction.Doctrinal_Fidelity_Evidence is not None:
+        evidence = extraction.Doctrinal_Fidelity_Evidence
+        evidence_sections += f"""
+
+### Doctrinal Fidelity Evidence
+* Core doctrines implicated: {", ".join(evidence.Core_Doctrines_Implicated) or "(none identified)"}
+* Affirming evidence: {"; ".join(evidence.Affirming_Evidence) or "(none identified)"}
+* Contradicting evidence: {"; ".join(evidence.Contradicting_Evidence) or "(none identified)"}
+* Secondary/tertiary handling: {_fmt_opt(evidence.Secondary_Tertiary_Handling) or "(not implicated)"}
+"""
+
+    methodology = (
+        f"Self-consistency: {num_scoring_runs} independent scoring runs were "
+        "combined using confidence-weighted score aggregation and feedback synthesis."
+        if num_scoring_runs > 1
+        else "Standard: one scoring run."
+    )
+    duration_metadata = ""
+    if extraction.audio_duration is not None:
+        duration_metadata = (
+            f"\nAudio Duration: {extraction.audio_duration / 60.0:.2f} minutes"
+        )
+    if (
+        scoring.Aggregated_Summary is not None
+        and scoring.Aggregated_Summary.duration_adjustment_enabled
+    ):
+        duration_metadata += (
+            "\nDuration Adjustment: Enabled"
+            f"\nDuration Penalty: {scoring.Aggregated_Summary.duration_penalty:.2f}"
+        )
+    else:
+        duration_metadata += "\nDuration Adjustment: Disabled"
+
+    return f"""
 # {title}
 
-Generated: {ts} 
-Model: {model or "-"} 
-Extraction Confidence: {extraction.Extraction_Confidence} 
-Scoring Confidence: {scoring.Scoring_Confidence} 
-{methodology_md}
-{agg_md}
+{aggregate_markdown}
 
 ### Strengths
-{strengths_md}
+{strengths}
 
 ### Growth Areas
-{growth_md}
+{growth_areas}
 
 ### Next Steps
-{next_md}
+{next_steps}
 
 ## Step 1 – Structural Extraction
 
@@ -266,7 +232,7 @@ Scoring Confidence: {scoring.Scoring_Confidence}
 Comments: {_fmt_opt(extraction.Fallen_Condition_Focus.Comments)}
 
 ### Body
-{points_md}
+{chr(10).join(points_markdown)}
 
 ### Conclusion
 {extraction.Conclusion}
@@ -275,10 +241,18 @@ Comments: {_fmt_opt(extraction.Fallen_Condition_Focus.Comments)}
 * Content: {_fmt_opt(extraction.General_Comments.Content_Comments)}
 * Structure: {_fmt_opt(extraction.General_Comments.Structure_Comments)}
 * Explanation: {_fmt_opt(extraction.General_Comments.Explanation_Comments)}
+* Illustration ethics: {_fmt_opt(extraction.General_Comments.Illustration_Ethics_Comments)}
+{evidence_sections}
 
 ## Step 2 – Analytical Scoring
 
-{scoring_md}
-""".strip()
+{chr(10).join(scoring_sections)}
 
-    return md
+## Evaluation Metadata
+
+Generated: {timestamp}
+Model: {model or "-"}
+Extraction Confidence: {extraction.Extraction_Confidence}
+Scoring Confidence: {scoring.Scoring_Confidence}
+Evaluation Methodology: {methodology}{duration_metadata}
+""".strip()

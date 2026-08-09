@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/use-auth";
 import type { AppwriteUser } from "@/hooks/use-auth";
 import { ProtectedView } from "@/components/ProtectedView";
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
+import { SERMON_CRITERIA_COUNT } from "@/lib/sermon-evaluation/rubric.generated";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -293,9 +294,9 @@ function SermonDetail({
 
       {evaluation.status === "COMPLETE_WITH_WARNINGS" && (
         <Alert className="border-warning/50 bg-warning/15">
-          <AlertTitle>Completed with reduced confidence</AlertTitle>
+          <AlertTitle>Completed with fewer self-consistency runs</AlertTitle>
           <AlertDescription>
-            {evaluation.completedRuns} of {evaluation.requestedRuns} requested scoring runs completed. Coaching feedback is available, but the uncertainty is wider than requested.
+            {evaluation.completedRuns} of {evaluation.requestedRuns} requested scoring runs completed. Coaching feedback is available, but the score spread reflects fewer independent judgments than requested.
           </AlertDescription>
         </Alert>
       )}
@@ -305,13 +306,24 @@ function SermonDetail({
           <AlertDescription>{warning.message}</AlertDescription>
         </Alert>
       ))}
+      {evaluation.doctrinalGate.status === "FAIL" && (
+        <Alert variant="destructive">
+          <AlertTitle>Core-doctrine gate applied</AlertTitle>
+          <AlertDescription>
+            Overall Impact was capped because the evaluator identified an explicit contradiction of an implicated core doctrine.
+            {evaluation.doctrinalGate.reason
+              ? ` ${evaluation.doctrinalGate.reason}`
+              : " Review the doctrinal-fidelity rubric feedback for the supporting evidence."}
+          </AlertDescription>
+        </Alert>
+      )}
       {(evaluation.status === "FAILED" || evaluation.status === "TIMED_OUT") && (
         <Alert variant="destructive">
           <AlertTitle>
             {evaluation.status === "TIMED_OUT" ? "The 15-minute attempt deadline was reached" : "Evaluation attempt failed"}
           </AlertTitle>
           <AlertDescription>
-            {evaluation.errorMessage ?? "This evaluation can be retried without consuming additional sermon run credits."}
+            {evaluation.errorMessage ?? "Failed evaluations do not consume sermon run credits; only successful rounds in completed evaluations count."}
             {evaluation.errorCode ? ` (${evaluation.errorCode})` : ""}
           </AlertDescription>
         </Alert>
@@ -338,7 +350,7 @@ function SermonDetail({
               <Tabs defaultValue="coaching" className="space-y-4">
                 <TabsList className="h-auto max-w-full justify-start overflow-x-auto">
                   <TabsTrigger value="coaching">Coaching</TabsTrigger>
-                  <TabsTrigger value="rubric">Rubric · 28 criteria</TabsTrigger>
+                  <TabsTrigger value="rubric">Rubric · {SERMON_CRITERIA_COUNT} criteria</TabsTrigger>
                   <TabsTrigger value="structure">Sermon structure</TabsTrigger>
                   <TabsTrigger value="history">Evaluation history</TabsTrigger>
                 </TabsList>
@@ -480,8 +492,9 @@ function RunCreditCard({ evaluation }: { evaluation: SermonEvaluationDetail }) {
         </div>
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
           <span>Standard costs one credit.</span>
-          <span>High confidence costs three.</span>
+          <span>Self-consistency costs three.</span>
           {reserved > 0 && <span>{reserved} currently reserved.</span>}
+          <span>Failed evaluations release their reservations.</span>
           <span>Consumed credits are not restored by deletion.</span>
         </div>
       </CardContent>
@@ -521,7 +534,7 @@ function AggregateFeedback({
           Aggregate coaching
         </CardTitle>
         <CardDescription>
-          Canonical feedback for each of the six weighted aggregate dimensions.
+          Canonical feedback for each weighted aggregate dimension and the doctrinal gate.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5 lg:grid-cols-2">

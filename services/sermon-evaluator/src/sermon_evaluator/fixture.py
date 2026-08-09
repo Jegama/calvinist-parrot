@@ -11,6 +11,7 @@ from .gemini import GeminiFileMetadata, ProviderResponseMetadata
 from .schemas import (
     AggregatedSummaryFeedback,
     SermonExtractionStep1,
+    SermonHarmonizedFeedback,
     SermonScoringStep2Raw,
 )
 
@@ -78,6 +79,7 @@ def _scoring(seed: Optional[int]) -> dict[str, Any]:
             "Lived_Body_Detail": 3,
             "Strengthens_Points": 4,
             "Proportion": 4,
+            "Ethical_Use": 4,
             "Overall": 4,
             "Feedback": _feedback("illustrations"),
         },
@@ -88,6 +90,24 @@ def _scoring(seed: Optional[int]) -> dict[str, Any]:
             "Pointed_End": 4,
             "Overall": 4,
             "Feedback": _feedback("the conclusion"),
+        },
+        "Doctrinal_Fidelity": {
+            "Core_Doctrine_Fidelity": 4,
+            "Doctrinal_Proportionality": 4,
+            "Secondary_and_Tertiary_Charity": 4,
+            "Overall": 4,
+            "Core_Doctrine_Gate": "PASS",
+            "Gate_Reason": None,
+            "Feedback": _feedback("doctrinal fidelity"),
+        },
+        "Pastoral_Posture": {
+            "Shared_Subjection_and_Self_Application": 4,
+            "Servant_Authority": 4,
+            "Courageous_and_Gentle_Care": 4,
+            "Differentiated_Pastoral_Application": 3,
+            "Pastoral_Use_of_Power": 4,
+            "Overall": 4,
+            "Feedback": _feedback("pastoral posture"),
         },
         "Strengths": [
             "The fixture sermon keeps its proposition visible throughout the outline.",
@@ -151,15 +171,48 @@ class FixtureProvider:
                     "Content_Comments": "Fixture content for local workflow testing.",
                     "Structure_Comments": "Two main points support one proposition.",
                     "Explanation_Comments": "The passage drives the outline.",
+                    "Illustration_Ethics_Comments": "The examples preserve dignity and do not expose identifiable people.",
                 },
                 "Fallen_Condition_Focus": {
                     "FCF": "Sinners trust their own merit instead of God's grace.",
                     "Comments": "The gospel answers human boasting.",
                 },
+                "Pastoral_Posture_Evidence": {
+                    "Shared_Subjection_Evidence": ["The preacher includes himself among sinners saved by grace."],
+                    "Servant_Authority_Evidence": ["Commands are grounded in Ephesians 2."],
+                    "Courageous_Gentle_Care_Evidence": ["The sermon names boasting and offers hope in Christ."],
+                    "Differentiated_Application_Evidence": ["The proud are warned and weary believers are invited to rest."],
+                    "Pastoral_Power_Evidence": ["Loyalty is directed to Christ rather than the preacher."],
+                    "Contrary_Evidence": [],
+                    "Comments": "Fixture pastoral evidence.",
+                },
+                "Doctrinal_Fidelity_Evidence": {
+                    "Core_Doctrines_Implicated": ["Gospel", "Justification by faith"],
+                    "Affirming_Evidence": ["Salvation is by grace through faith, not works."],
+                    "Contradicting_Evidence": [],
+                    "Secondary_Tertiary_Handling": None,
+                    "Comments": "Fixture doctrinal evidence.",
+                },
                 "Extraction_Confidence": 0.94,
             }
         if response_schema is SermonScoringStep2Raw:
             return _scoring(seed)
+        if response_schema is SermonHarmonizedFeedback:
+            return {
+                "Introduction": _feedback("the introduction"),
+                "Proposition": _feedback("the proposition"),
+                "Main_Points": _feedback("the main points"),
+                "Exegetical_Support": _feedback("exegetical support"),
+                "Application": _feedback("application"),
+                "Illustrations": _feedback("illustrations"),
+                "Conclusion": _feedback("the conclusion"),
+                "Doctrinal_Fidelity": _feedback("doctrinal fidelity"),
+                "Pastoral_Posture": _feedback("pastoral posture"),
+                "Doctrinal_Gate_Reason": None,
+                "Strengths": ["Fixture harmonized strength."],
+                "Growth_Areas": ["Fixture harmonized growth area."],
+                "Next_Steps": ["Fixture harmonized next step."],
+            }
         if response_schema is AggregatedSummaryFeedback:
             return {
                 "Textual_Fidelity": _feedback("textual fidelity"),
@@ -168,6 +221,8 @@ class FixtureProvider:
                 "Application_Effectiveness": _feedback("application effectiveness"),
                 "Structure_Cohesion": _feedback("structure cohesion"),
                 "Illustrations": _feedback("illustrations"),
+                "Pastoral_Posture": _feedback("pastoral posture"),
+                "Doctrinal_Fidelity": _feedback("doctrinal fidelity"),
                 "Overall_Impact": _feedback("overall impact"),
             }
         return response_schema().model_dump()

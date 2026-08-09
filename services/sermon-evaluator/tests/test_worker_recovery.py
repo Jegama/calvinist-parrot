@@ -30,6 +30,7 @@ from sermon_evaluator.persistence import (
 from sermon_evaluator.service import (
     LeaseScopedScoringPersistence,
     SermonEvaluationService,
+    _build_scoring_prompt,
 )
 from sermon_evaluator.stages import (
     DeadlineExceeded,
@@ -390,12 +391,14 @@ class _Cursor:
             self.current = {"slotId": 1}
         elif (
             'FROM "sermonRunCreditReservation"' in normalized
-            and '"state" = \'RESERVED\'' in normalized
+            and 'WHERE "evaluationId" = %s' in normalized
         ):
             self.current = {
                 "id": "reservation-1",
                 "fingerprintId": "fingerprint-1",
                 "requestedCredits": 1,
+                "consumedCredits": 0,
+                "state": "RESERVED",
             }
         elif normalized.startswith('UPDATE "sermonEvaluation"'):
             self.rowcount = 1
@@ -539,6 +542,52 @@ def test_terminal_hash_mismatch_atomically_rejects_and_closes_attempt() -> None:
     assert 'UPDATE "sermonEvaluationAttempt"' in sql
 
 
+def test_credit_settlement_consumes_only_successful_rounds() -> None:
+    class ThreeRunCursor(_Cursor):
+        def execute(self, query: str, params: Any = None) -> None:
+            super().execute(query, params)
+            if 'FROM "sermonRunCreditReservation"' in " ".join(query.split()):
+                self.current = {
+                    "id": "reservation-1",
+                    "fingerprintId": "fingerprint-1",
+                    "requestedCredits": 3,
+                    "consumedCredits": 0,
+                    "state": "RESERVED",
+                }
+
+    cursor = ThreeRunCursor()
+    persistence = PsycopgPersistence(pool=_Pool(cursor))
+
+    released = persistence._settle_run_credits(
+        cursor,
+        "evaluation-1",
+        successful_credits=2,
+        release_reason="UNUSED_SCORING_RUNS",
+    )
+
+    assert released == 1
+    fingerprint_update = next(
+        params
+        for query, params in cursor.executions
+        if query.startswith('UPDATE "sermonAudioFingerprint"')
+    )
+    assert fingerprint_update == (3, 2, "fingerprint-1", 3, 2)
+    reservation_update = next(
+        params
+        for query, params in cursor.executions
+        if query.startswith('UPDATE "sermonRunCreditReservation"')
+    )
+    assert reservation_update == (
+        2,
+        2,
+        2,
+        1,
+        1,
+        "UNUSED_SCORING_RUNS",
+        "reservation-1",
+    )
+
+
 def test_scoring_write_checks_exact_lease_in_the_same_transaction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -559,7 +608,7 @@ def test_scoring_write_checks_exact_lease_in_the_same_transaction(
     )
 
 
-def test_cancellation_blocks_transition_and_credit_consumption_atomically(
+def test_cancellation_blocks_transition_and_credit_settlement_atomically(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cursor = _Cursor()
@@ -584,8 +633,6 @@ def test_cancellation_blocks_transition_and_credit_consumption_atomically(
             target_status=EvaluationStatus.PREPARING_AUDIO,
             lease=lease,
         )
-    with pytest.raises(EvaluationCanceled):
-        persistence.consume_run_credits("evaluation-1", lease=lease)
     with pytest.raises(EvaluationCanceled):
         persistence.finish(
             evaluation_id="evaluation-1",
@@ -687,6 +734,15 @@ def test_report_regeneration_rejects_a_changed_duration_policy() -> None:
         persistence.publish_report_set(
             "evaluation-1",
             {"MARKDOWN": b"md", "JSON": b"json", "CSV": b"csv"},
+            result={
+                "scoring": {
+                    "Aggregated_Summary": {
+                        "Overall_Impact_Base": 4.2,
+                        "duration_penalty": 0.2,
+                        "Overall_Impact_Adjusted": 4.0,
+                    }
+                }
+            },
             expected_duration_adjustment_enabled=True,
             expected_duration_policy_updated_at=expected_at,
         )
@@ -694,6 +750,58 @@ def test_report_regeneration_rejects_a_changed_duration_policy() -> None:
     assert '"durationAdjustmentEnabled" = %s' in sql
     assert '"durationPolicyUpdatedAt" IS NOT DISTINCT FROM %s' in sql
     assert 'INSERT INTO "sermonReportArtifact"' not in sql
+
+
+def test_report_publication_persists_duration_derived_state() -> None:
+    class PublicationCursor(_Cursor):
+        def execute(self, query: str, params: Any = None) -> None:
+            super().execute(query, params)
+            normalized = " ".join(query.split())
+            if normalized.startswith('SELECT "id" FROM "sermonEvaluation"'):
+                self.current = {"id": "evaluation-1"}
+            elif 'SELECT COALESCE(MAX("reportVersion"), 0)' in normalized:
+                self.current = {"version": 0}
+
+    cursor = PublicationCursor()
+    persistence = PsycopgPersistence(pool=_Pool(cursor))
+    result = {
+        "scoring": {
+            "Aggregated_Summary": {
+                "Overall_Impact_Base": 4.2,
+                "duration_penalty": None,
+                "Overall_Impact_Adjusted": None,
+            }
+        }
+    }
+
+    version = persistence.publish_report_set(
+        "evaluation-1",
+        {"MARKDOWN": b"md", "JSON": b"json", "CSV": b"csv"},
+        result=result,
+        expected_duration_adjustment_enabled=False,
+        expected_duration_policy_updated_at=None,
+    )
+
+    assert version == 1
+    sql = "\n".join(query for query, _ in cursor.executions)
+    assert 'SET "result" = %s::jsonb' in sql
+    assert '"calculatedDurationPenalty" = %s' in sql
+    assert '"overallImpactAdjusted" = %s' in sql
+    evaluation_update = next(
+        params
+        for query, params in cursor.executions
+        if query.startswith('UPDATE "sermonEvaluation"')
+    )
+    assert evaluation_update[1:4] == (4.2, None, None)
+
+
+def test_durable_worker_scoring_prompt_excludes_audio_duration(extraction) -> None:
+    extraction.audio_duration = 56.3 * 60
+
+    prompt = _build_scoring_prompt(extraction)
+
+    assert "audio_duration" not in prompt
+    assert "3378" not in prompt
 
 
 class _MaintenancePersistence:
@@ -897,6 +1005,8 @@ def test_timeout_sweeper_closes_attempt_and_releases_matching_lease() -> None:
 
     assert 'SET "terminalOutcome" = \'TIMED_OUT\'' in sql
     assert '"endedAt" = NOW()' in sql
+    assert 'UPDATE "sermonAudioFingerprint"' in sql
+    assert 'UPDATE "sermonRunCreditReservation"' in sql
     assert 'UPDATE "sermonWorkerLease"' in sql
     assert '"evaluationAttemptId" = NULL' in sql
 
@@ -1054,6 +1164,9 @@ def test_aggregate_feedback_never_swallows_worker_control_flow(
         Provider(),
         "gemini-3.6-flash",
         prompts,
+    )
+    scoring.Aggregated_Summary = SermonAggregator().compute_aggregates(
+        scoring, extraction
     )
 
     with pytest.raises(type(control_error), match=str(control_error)):

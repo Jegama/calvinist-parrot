@@ -10,7 +10,7 @@ export function formatSermonStatus(status: SermonStatus): string {
 
 export function formatSermonPreset(preset: SermonPreset): string {
   if (preset === "HIGH_CONFIDENCE") {
-    return "High confidence";
+    return "Self-consistency";
   }
   if (preset === "CUSTOM") {
     return "Admin custom";

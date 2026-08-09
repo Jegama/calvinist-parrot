@@ -296,7 +296,7 @@ class PsycopgPersistence(ScoringPersistence):
                   AND attempt."endedAt" IS NULL
                   AND evaluation."status" IN (
                     'QUEUED', 'PREPARING_AUDIO', 'EXTRACTING', 'SCORING',
-                    'HARMONIZING', 'CALIBRATING', 'SUMMARIZING'
+                    'HARMONIZING', 'AGGREGATING', 'SUMMARIZING'
                   )
                 FOR UPDATE OF evaluation, attempt
                 """,
@@ -620,119 +620,103 @@ class PsycopgPersistence(ScoringPersistence):
                 canonical_evaluation_id=canonical_evaluation_id
             )
 
-    def consume_run_credits(self, evaluation_id: str, *, lease: Lease) -> None:
-        """Move a single evaluation reservation to consumed exactly once."""
-
-        if evaluation_id != lease.evaluation_id:
-            raise LeaseLost("Run-credit lease targets another evaluation")
-        with self.pool.connection() as connection, connection.cursor() as cursor:
-            owned = self._lock_owned_evaluation(cursor, lease)
-            if owned is None:
-                raise LeaseLost("Run-credit consumption lost its worker lease")
-            if owned["cancelRequestedAt"] is not None:
-                raise EvaluationCanceled("Evaluation cancellation was requested")
-            cursor.execute(
-                """
-                SELECT r."id", r."fingerprintId", r."requestedCredits", r."state"::text
-                FROM "sermonRunCreditReservation" r
-                WHERE r."evaluationId" = %s
-                FOR UPDATE
-                """,
-                (evaluation_id,),
-            )
-            reservation = cursor.fetchone()
-            if reservation is None:
-                raise PersistenceError("Run-credit reservation is missing")
-            if reservation["state"] == "CONSUMED":
-                return
-            if reservation["state"] != "RESERVED":
-                raise PersistenceError("Run-credit reservation is not consumable")
-            cursor.execute(
-                """
-                UPDATE "sermonAudioFingerprint"
-                SET "runCreditsReserved" = "runCreditsReserved" - %s,
-                    "runCreditsConsumed" = "runCreditsConsumed" + %s,
-                    "lastSeenAt" = NOW()
-                WHERE "id" = %s
-                  AND "runCreditsReserved" >= %s
-                  AND "runCreditsConsumed" + %s <= "runCreditsLimit"
-                """,
-                (
-                    reservation["requestedCredits"],
-                    reservation["requestedCredits"],
-                    reservation["fingerprintId"],
-                    reservation["requestedCredits"],
-                    reservation["requestedCredits"],
-                ),
-            )
-            if cursor.rowcount != 1:
-                raise PersistenceError("Run-credit invariant rejected consumption")
-            cursor.execute(
-                """
-                UPDATE "sermonRunCreditReservation"
-                SET "state" = 'CONSUMED', "consumedAt" = NOW(), "updatedAt" = NOW()
-                WHERE "id" = %s AND "state" = 'RESERVED'
-                """,
-                (reservation["id"],),
-            )
-
     @staticmethod
-    def _release_reserved_run_credits(
-        cursor: Any, evaluation_id: str, reason: str
-    ) -> bool:
-        if reason not in {
-            "AUDIO_VERIFICATION_FAILED",
-            "CANCELED_BEFORE_SCORING",
-        }:
-            raise ValueError(
-                "Reserved credits may only be released for invalid audio or "
-                "pre-scoring cancellation"
-            )
+    def _settle_run_credits(
+        cursor: Any,
+        evaluation_id: str,
+        *,
+        successful_credits: int,
+        release_reason: str,
+    ) -> int:
+        """Consume completed rounds and release every unused reservation."""
+
         cursor.execute(
             """
-            SELECT "id", "fingerprintId", "requestedCredits"
+            SELECT "id", "fingerprintId", "requestedCredits",
+                   "consumedCredits", "state"::text
             FROM "sermonRunCreditReservation"
-            WHERE "evaluationId" = %s AND "state" = 'RESERVED'
+            WHERE "evaluationId" = %s
             FOR UPDATE
             """,
             (evaluation_id,),
         )
         reservation = cursor.fetchone()
         if reservation is None:
-            return False
+            raise PersistenceError("Run-credit reservation is missing")
+        requested_credits = reservation["requestedCredits"]
+        if not 0 <= successful_credits <= requested_credits:
+            raise PersistenceError(
+                "Successful run-credit count exceeds the reservation"
+            )
+        if reservation["state"] != "RESERVED":
+            if (
+                reservation["state"] == "CONSUMED"
+                and reservation["consumedCredits"] == successful_credits
+            ) or (
+                reservation["state"] == "RELEASED"
+                and successful_credits == 0
+                and reservation["consumedCredits"] == 0
+            ):
+                return 0
+            raise PersistenceError("Run-credit reservation is not settleable")
+        released_credits = requested_credits - successful_credits
         cursor.execute(
             """
             UPDATE "sermonAudioFingerprint"
             SET "runCreditsReserved" = "runCreditsReserved" - %s,
+                "runCreditsConsumed" = "runCreditsConsumed" + %s,
                 "lastSeenAt" = NOW()
             WHERE "id" = %s AND "runCreditsReserved" >= %s
+              AND "runCreditsConsumed" + %s <= "runCreditsLimit"
             """,
             (
-                reservation["requestedCredits"],
+                requested_credits,
+                successful_credits,
                 reservation["fingerprintId"],
-                reservation["requestedCredits"],
+                requested_credits,
+                successful_credits,
             ),
         )
         if cursor.rowcount != 1:
-            raise PersistenceError("Run-credit invariant rejected release")
+            raise PersistenceError("Run-credit invariant rejected settlement")
         cursor.execute(
             """
             UPDATE "sermonRunCreditReservation"
-            SET "state" = 'RELEASED', "releasedAt" = NOW(),
-                "releaseReason" = %s, "updatedAt" = NOW()
+            SET "state" = CASE
+                    WHEN %s > 0 THEN 'CONSUMED'::"SermonRunCreditReservationState"
+                    ELSE 'RELEASED'::"SermonRunCreditReservationState"
+                END,
+                "consumedCredits" = %s,
+                "consumedAt" = CASE WHEN %s > 0 THEN NOW() ELSE NULL END,
+                "releasedAt" = CASE WHEN %s > 0 THEN NOW() ELSE NULL END,
+                "releaseReason" = CASE WHEN %s > 0 THEN %s ELSE NULL END,
+                "updatedAt" = NOW()
             WHERE "id" = %s AND "state" = 'RESERVED'
             """,
-            (reason, reservation["id"]),
+            (
+                successful_credits,
+                successful_credits,
+                successful_credits,
+                released_credits,
+                released_credits,
+                release_reason,
+                reservation["id"],
+            ),
         )
         if cursor.rowcount != 1:
             raise CompareAndSetConflict(
-                "Run-credit reservation changed during release"
+                "Run-credit reservation changed during settlement"
             )
-        return True
+        return released_credits
 
     def release_run_credits(self, evaluation_id: str, reason: str) -> None:
         with self.pool.connection() as connection, connection.cursor() as cursor:
-            self._release_reserved_run_credits(cursor, evaluation_id, reason)
+            self._settle_run_credits(
+                cursor,
+                evaluation_id,
+                successful_credits=0,
+                release_reason=reason,
+            )
 
     # ScoringPersistence implementation
     def prepare_scoring_runs(
@@ -1050,6 +1034,12 @@ class PsycopgPersistence(ScoringPersistence):
                 raise CompareAndSetConflict(
                     "Final publication lost its active attempt"
                 )
+            self._settle_run_credits(
+                cursor,
+                evaluation_id,
+                successful_credits=completed_runs,
+                release_reason="UNUSED_SCORING_RUNS",
+            )
 
     def mark_terminal(
         self,
@@ -1102,7 +1092,7 @@ class PsycopgPersistence(ScoringPersistence):
                     EvaluationStatus.EXTRACTING.value,
                     EvaluationStatus.SCORING.value,
                     EvaluationStatus.HARMONIZING.value,
-                    EvaluationStatus.CALIBRATING.value,
+                    EvaluationStatus.AGGREGATING.value,
                     EvaluationStatus.SUMMARIZING.value,
                 }
             ):
@@ -1146,11 +1136,15 @@ class PsycopgPersistence(ScoringPersistence):
             )
             if cursor.rowcount != 1:
                 return False
-            released_reserved_credits = False
-            if release_credit_reason is not None:
-                released_reserved_credits = self._release_reserved_run_credits(
-                    cursor, evaluation_id, release_credit_reason
-                )
+            released_reserved_credits = self._settle_run_credits(
+                cursor,
+                evaluation_id,
+                successful_credits=0,
+                release_reason=(
+                    release_credit_reason
+                    or f"{status.value}_EVALUATION_NOT_CHARGED"
+                ),
+            )
             if rejected_audio_asset_id is not None:
                 if not released_reserved_credits:
                     raise CompareAndSetConflict(
@@ -1234,7 +1228,7 @@ class PsycopgPersistence(ScoringPersistence):
                   )
                   AND evaluation."status" IN (
                     'QUEUED', 'PREPARING_AUDIO', 'EXTRACTING', 'SCORING',
-                    'HARMONIZING', 'CALIBRATING', 'SUMMARIZING'
+                    'HARMONIZING', 'AGGREGATING', 'SUMMARIZING'
                   )
                 FOR UPDATE OF evaluation, attempt
                 """,
@@ -1263,6 +1257,12 @@ class PsycopgPersistence(ScoringPersistence):
             )
             if cursor.rowcount != 1:
                 return False
+            self._settle_run_credits(
+                cursor,
+                evaluation_id,
+                successful_credits=0,
+                release_reason="TIMED_OUT_EVALUATION_NOT_CHARGED",
+            )
             cursor.execute(
                 """
                 UPDATE "sermonEvaluationAttempt"
@@ -1318,20 +1318,27 @@ class PsycopgPersistence(ScoringPersistence):
         evaluation_id: str,
         reports: Mapping[str, bytes],
         *,
+        result: Mapping[str, Any],
         expected_duration_adjustment_enabled: bool,
         expected_duration_policy_updated_at: Optional[datetime],
     ) -> int:
-        """Publish one immutable report version, idempotent by all checksums."""
+        """Publish reports and their duration-derived evaluation state atomically."""
 
         checksums = {
             format_name: hashlib.sha256(content).hexdigest()
             for format_name, content in reports.items()
         }
+        summary = result.get("scoring", {}).get("Aggregated_Summary", {})
+        persisted_result = Jsonb(dict(result))
+        overall_impact_base = summary.get("Overall_Impact_Base")
+        duration_penalty = summary.get("duration_penalty")
+        overall_impact_adjusted = summary.get("Overall_Impact_Adjusted")
         with self.pool.connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT "id" FROM "sermonEvaluation"
                 WHERE "id" = %s
+                  AND "deletedAt" IS NULL
                   AND "status" IN ('COMPLETE', 'COMPLETE_WITH_WARNINGS')
                   AND "durationAdjustmentEnabled" = %s
                   AND "durationPolicyUpdatedAt" IS NOT DISTINCT FROM %s
@@ -1347,6 +1354,34 @@ class PsycopgPersistence(ScoringPersistence):
                 raise CompareAndSetConflict(
                     "Duration policy changed during report regeneration"
                 )
+            cursor.execute(
+                """
+                UPDATE "sermonEvaluation"
+                SET "result" = %s::jsonb,
+                    "overallImpactBase" = %s,
+                    "calculatedDurationPenalty" = %s,
+                    "overallImpactAdjusted" = %s,
+                    "updatedAt" = NOW(), "version" = "version" + 1
+                WHERE "id" = %s
+                  AND (
+                    "result" IS DISTINCT FROM %s::jsonb
+                    OR "overallImpactBase" IS DISTINCT FROM %s
+                    OR "calculatedDurationPenalty" IS DISTINCT FROM %s
+                    OR "overallImpactAdjusted" IS DISTINCT FROM %s
+                  )
+                """,
+                (
+                    persisted_result,
+                    overall_impact_base,
+                    duration_penalty,
+                    overall_impact_adjusted,
+                    evaluation_id,
+                    persisted_result,
+                    overall_impact_base,
+                    duration_penalty,
+                    overall_impact_adjusted,
+                ),
+            )
             cursor.execute(
                 """
                 SELECT COALESCE(MAX("reportVersion"), 0) AS version
@@ -1408,7 +1443,7 @@ class PsycopgPersistence(ScoringPersistence):
                     OR (
                         e."status" IN (
                             'PREPARING_AUDIO', 'EXTRACTING', 'SCORING',
-                            'HARMONIZING', 'CALIBRATING', 'SUMMARIZING'
+                            'HARMONIZING', 'AGGREGATING', 'SUMMARIZING'
                         )
                         AND e."attemptDeadlineAt" > NOW()
                     )
@@ -1433,7 +1468,7 @@ class PsycopgPersistence(ScoringPersistence):
                  AND attempt."endedAt" IS NULL
                 WHERE evaluation."status" IN (
                     'QUEUED', 'PREPARING_AUDIO', 'EXTRACTING', 'SCORING',
-                    'HARMONIZING', 'CALIBRATING', 'SUMMARIZING'
+                    'HARMONIZING', 'AGGREGATING', 'SUMMARIZING'
                 )
                   AND attempt."deadlineAt" <= NOW()
                   AND NOT EXISTS (
@@ -1463,6 +1498,12 @@ class PsycopgPersistence(ScoringPersistence):
                 )
                 if cursor.rowcount != 1:
                     continue
+                self._settle_run_credits(
+                    cursor,
+                    row["id"],
+                    successful_credits=0,
+                    release_reason="TIMED_OUT_EVALUATION_NOT_CHARGED",
+                )
                 cursor.execute(
                     """
                     UPDATE "sermonEvaluationAttempt"

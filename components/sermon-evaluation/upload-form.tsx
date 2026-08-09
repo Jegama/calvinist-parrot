@@ -415,7 +415,7 @@ export function SermonUploadForm({
           </div>
 
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium text-foreground">Confidence</legend>
+            <legend className="text-sm font-medium text-foreground">Evaluation method</legend>
             <div className="grid gap-3 sm:grid-cols-2">
               <label
                 className={`cursor-pointer rounded-xl border p-4 transition-colors ${
@@ -456,11 +456,11 @@ export function SermonUploadForm({
                   className="sr-only"
                 />
                 <span className="flex items-center justify-between gap-3">
-                  <span className="font-medium">High confidence</span>
+                  <span className="font-medium">Self-consistency</span>
                   <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold">3 run credits</span>
                 </span>
                 <span className="mt-1 block text-sm text-muted-foreground">
-                  Three parallel scoring runs with harmonized feedback and uncertainty.
+                  Three independent scoring runs with confidence-weighted aggregation and harmonized feedback.
                 </span>
               </label>
             </div>
@@ -523,7 +523,7 @@ export function SermonUploadForm({
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              Each exact audio fingerprint has nine lifetime sermon run credits. Deleting an evaluation does not restore them.
+              Each exact audio fingerprint has nine lifetime sermon run credits. Only successful rounds in completed evaluations are consumed; failed evaluations release their reservations. Deleting a completed evaluation does not restore consumed credits.
             </p>
           </fieldset>
 

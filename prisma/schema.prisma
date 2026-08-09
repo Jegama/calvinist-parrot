@@ -556,6 +556,7 @@ model sermonRunCreditReservation {
   fingerprintId    String
   evaluationId     String                          @unique
   requestedCredits Int
+  consumedCredits  Int                             @default(0)
   preset           SermonEvaluationPreset
   state            SermonRunCreditReservationState @default(RESERVED)
   actorId          String
@@ -690,7 +691,7 @@ enum SermonEvaluationStatus {
   EXTRACTING
   SCORING
   HARMONIZING
-  CALIBRATING
+  AGGREGATING
   SUMMARIZING
   COMPLETE
   COMPLETE_WITH_WARNINGS

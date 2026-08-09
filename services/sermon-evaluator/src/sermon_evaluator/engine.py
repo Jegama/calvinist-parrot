@@ -16,16 +16,16 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Optional
 
+from . import prompts
+from .aggregation import SermonAggregator
+from .audio import AudioFileManager
+from .gemini import ParrotAIGemini
+from .harmonization import SermonHarmonizer
 from .schemas import (
     SermonExtractionStep1,
     SermonScoringStep2,
     SermonScoringStep2Raw,
 )
-from .gemini import ParrotAIGemini
-from .audio import AudioFileManager
-from .calibration import SermonScoreCalibrator
-from .aggregation import SermonAggregator
-from .harmonization import SermonHarmonizer
 
 def _load_sermon_prompts():
     return prompts
@@ -34,8 +34,7 @@ def _load_sermon_prompts():
 class SermonEvaluationEngine:
     """Two-step sermon evaluation runner.
 
-    Note: Language-agnostic; assumes English prompts. For other languages, add a new
-    prompts module or extend routing.
+    Semantic evidence and scoring prompts are designed to remain language-agnostic.
     """
 
     def __init__(
@@ -54,7 +53,6 @@ class SermonEvaluationEngine:
 
         # Initialize helper components
         self.audio_manager = AudioFileManager()
-        self.calibrator = SermonScoreCalibrator()
         self.aggregator = SermonAggregator()
         self.harmonizer = SermonHarmonizer(
             self.provider,
@@ -124,7 +122,12 @@ class SermonEvaluationEngine:
         audio_file_obj: Optional[Any] = None,
     ) -> SermonScoringStep2:
         """Score sermon from Step 1 extraction (single run)."""
-        extraction_json = json.dumps(extraction.model_dump(), ensure_ascii=False)
+        extraction_json = json.dumps(
+            extraction.model_dump(
+                mode="json", exclude={"audio_duration"}
+            ),
+            ensure_ascii=False,
+        )
         scoring_prompt = (
             f"{self.prompts.SCORING_INSTRUCTIONS}\\n\\n"
             f"Step 1 JSON below:\\n\\n{extraction_json}"
@@ -160,25 +163,23 @@ class SermonEvaluationEngine:
             Application=raw_scoring.Application,
             Illustrations=raw_scoring.Illustrations,
             Conclusion=raw_scoring.Conclusion,
+            Doctrinal_Fidelity=raw_scoring.Doctrinal_Fidelity,
+            Pastoral_Posture=raw_scoring.Pastoral_Posture,
             Strengths=raw_scoring.Strengths,
             Growth_Areas=raw_scoring.Growth_Areas,
             Next_Steps=raw_scoring.Next_Steps,
             Scoring_Confidence=raw_scoring.Scoring_Confidence,
         )
 
-        # Apply post-processing pipeline: strict -> ceiling compression -> aggregates -> duration
-        scoring = self.calibrator.apply_strict_calibration(scoring, extraction)
-        scoring = self.calibrator.apply_ceiling_compression(scoring, extraction)
         scoring.Aggregated_Summary = self.aggregator.compute_aggregates(
             scoring, extraction
         )
 
-        if extraction.audio_duration is not None:
-            scoring.Aggregated_Summary = self.aggregator.apply_duration_penalty(
-                scoring.Aggregated_Summary,
-                extraction.audio_duration,
-                enabled=self.apply_duration_adjustment,
-            )
+        scoring.Aggregated_Summary = self.aggregator.apply_duration_penalty(
+            scoring.Aggregated_Summary,
+            extraction.audio_duration,
+            enabled=self.apply_duration_adjustment,
+        )
 
         # Generate aggregate feedback
         self._generate_aggregate_feedback(scoring, extraction, num_runs=1)
@@ -197,7 +198,19 @@ class SermonEvaluationEngine:
         until num_runs successful results are obtained. Returns harmonized scoring with
         averaged integers and synthesized feedback.
         """
-        return self.harmonizer.score_multi_run(extraction, audio_file_obj, num_runs)
+        scoring = self.harmonizer.score_multi_run(
+            extraction, audio_file_obj, num_runs
+        )
+        scoring.Aggregated_Summary = self.aggregator.compute_aggregates(
+            scoring, extraction
+        )
+        scoring.Aggregated_Summary = self.aggregator.apply_duration_penalty(
+            scoring.Aggregated_Summary,
+            extraction.audio_duration,
+            enabled=self.apply_duration_adjustment,
+        )
+        self._generate_aggregate_feedback(scoring, extraction, num_runs=num_runs)
+        return scoring
 
     def _generate_aggregate_feedback(
         self,

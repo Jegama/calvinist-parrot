@@ -3,7 +3,7 @@
 from .engine import SermonEvaluationEngine
 from .schemas import SermonExtractionStep1, SermonScoringStep2
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 __all__ = [
     "SermonEvaluationEngine",

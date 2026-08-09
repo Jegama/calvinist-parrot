@@ -17,6 +17,7 @@ import {
 } from "@/lib/api/contracts";
 import { parseJsonRequest } from "@/lib/api/handlers/http";
 import prisma from "@/lib/prisma";
+import { SERMON_AGGREGATES } from "@/lib/sermon-evaluation/rubric.generated";
 
 import {
   getSermonEvaluationCapabilities,
@@ -231,7 +232,7 @@ function average(values: Array<number | null>) {
     : null;
 }
 
-function rawRunOverallImpact(run: unknown) {
+function legacyRawRunOverallImpact(run: unknown) {
   const scoring = jsonRecord(run);
   const textualFidelity = average([
     nestedNumber(scoring, "Exegetical_Support", "Alignment_with_Text"),
@@ -324,6 +325,34 @@ function rawRunOverallImpact(run: unknown) {
   );
 }
 
+function rawRunOverallImpact(run: unknown) {
+  const scoring = jsonRecord(run);
+  const aggregateValues = SERMON_AGGREGATES.map((aggregate) => {
+    const value = average(
+      aggregate.members.map((member) => {
+        const [section, field] = member.split(".");
+        if (!section || !field) {
+          return null;
+        }
+        return nestedNumber(scoring, section, field);
+      }),
+    );
+    return value === null ? null : { value, weight: aggregate.weight };
+  });
+  if (aggregateValues.some((entry) => entry === null)) {
+    return legacyRawRunOverallImpact(run);
+  }
+  const weighted = aggregateValues.reduce(
+    (total, entry) => total + (entry?.value ?? 0) * (entry?.weight ?? 0),
+    0,
+  );
+  const doctrinalGate =
+    jsonRecord(scoring?.Doctrinal_Fidelity)?.Core_Doctrine_Gate;
+  return Number(
+    Math.min(weighted, doctrinalGate === "FAIL" ? 3 : 5).toFixed(2),
+  );
+}
+
 function extractAnalyticsResult(result: Prisma.JsonValue | null) {
   const root = jsonRecord(result);
   const scoring = jsonRecord(root?.scoring);
@@ -336,16 +365,12 @@ function extractAnalyticsResult(result: Prisma.JsonValue | null) {
     .map(rawRunOverallImpact)
     .filter((value): value is number => value !== null);
   return {
-    aggregateScores: {
-      textualFidelity: finiteNumber(summary?.Textual_Fidelity),
-      propositionClarity: finiteNumber(summary?.Proposition_Clarity),
-      introduction: finiteNumber(summary?.Introduction),
-      applicationEffectiveness: finiteNumber(
-        summary?.Application_Effectiveness,
-      ),
-      structureCohesion: finiteNumber(summary?.Structure_Cohesion),
-      illustrations: finiteNumber(summary?.Illustrations),
-    },
+    aggregateScores: Object.fromEntries(
+      SERMON_AGGREGATES.map((aggregate) => {
+        const value = finiteNumber(summary?.[aggregate.key]);
+        return [aggregate.clientKey, value];
+      }),
+    ),
     uncertaintyLow:
       runImpacts.length > 1 ? Math.min(...runImpacts) : null,
     uncertaintyHigh:
@@ -467,17 +492,28 @@ async function preflightDailyQuota(
   exempt: boolean,
 ) {
   if (exempt) return;
-  const aggregate = await prisma.sermonRunCreditReservation.aggregate({
+  const reservations = await prisma.sermonRunCreditReservation.findMany({
     where: {
       actorId: ownerId,
       reservedAt: { gte: startOfCurrentUtcDay() },
       state: { in: ["RESERVED", "CONSUMED"] },
     },
-    _sum: { requestedCredits: true },
+    select: {
+      state: true,
+      requestedCredits: true,
+      consumedCredits: true,
+    },
   });
+  const used = reservations.reduce(
+    (total, reservation) =>
+      total +
+      (reservation.state === "RESERVED"
+        ? reservation.requestedCredits
+        : reservation.consumedCredits),
+    0,
+  );
   if (
-    (aggregate._sum.requestedCredits ?? 0) + requestedRuns >
-    SERMON_DAILY_RUN_LIMIT
+    used + requestedRuns > SERMON_DAILY_RUN_LIMIT
   ) {
     throw new SermonQuotaError(
       `The daily sermon evaluation limit is ${SERMON_DAILY_RUN_LIMIT} scoring runs`,
@@ -1239,12 +1275,14 @@ export async function handleCancelSermonEvaluation(id: string) {
         if (current.status === "QUEUED") {
           const canceledAt = new Date();
           if (current.creditReservation?.state === "RESERVED") {
+            const reservedCredits =
+              current.creditReservation.requestedCredits -
+              current.creditReservation.consumedCredits;
             await tx.sermonAudioFingerprint.update({
               where: { id: current.fingerprintId },
               data: {
                 runCreditsReserved: {
-                  decrement:
-                    current.creditReservation.requestedCredits,
+                  decrement: reservedCredits,
                 },
               },
             });
@@ -1339,14 +1377,16 @@ export async function handleRetrySermonEvaluation(id: string) {
             409,
           );
         }
-        if (reservation.state === "RELEASED") {
+        const creditsToReserve =
+          reservation.requestedCredits - reservation.consumedCredits;
+        if (reservation.state !== "RESERVED" && creditsToReserve > 0) {
           const restored = await tx.$queryRaw<Array<{ id: string }>>`
             UPDATE "sermonAudioFingerprint"
             SET
-              "runCreditsReserved" = "runCreditsReserved" + ${reservation.requestedCredits},
+              "runCreditsReserved" = "runCreditsReserved" + ${creditsToReserve},
               "lastSeenAt" = CURRENT_TIMESTAMP
             WHERE "id" = ${current.fingerprintId}
-              AND "runCreditsConsumed" + "runCreditsReserved" + ${reservation.requestedCredits}
+              AND "runCreditsConsumed" + "runCreditsReserved" + ${creditsToReserve}
                 <= "runCreditsLimit"
             RETURNING "id"
           `;
@@ -1360,7 +1400,7 @@ export async function handleRetrySermonEvaluation(id: string) {
             await tx.sermonRunCreditReservation.updateMany({
               where: {
                 id: reservation.id,
-                state: "RELEASED",
+                state: reservation.state,
               },
               data: {
                 state: "RESERVED",

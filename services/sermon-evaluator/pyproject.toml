@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "calvinist-parrot-sermon-evaluator"
-version = "1.0.0"
+version = "2.0.0"
 description = "Canonical platform-neutral Calvinist Parrot sermon evaluator"
 readme = "README.md"
 requires-python = ">=3.14,<3.15"
@@ -12,6 +12,7 @@ license = { text = "Proprietary" }
 dependencies = [
   "appwrite>=22,<23",
   "google-genai>=2.14,<3",
+  "httpx>=0.28,<1",
   "mutagen>=1.47,<2",
   "psycopg[binary,pool]>=3.2,<4",
   "pydantic>=2.12,<3",

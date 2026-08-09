@@ -131,15 +131,18 @@ export function SermonAnalyticsCharts({
         evaluation.uncertaintyLow !== null &&
         evaluation.uncertaintyHigh !== null,
     )
-    .map((evaluation) => ({
-      title: evaluation.title,
-      preacher: evaluation.preacher,
-      score: evaluation.overallImpactBase as number,
-      uncertainty: [
-        Math.max(0, (evaluation.overallImpactBase as number) - (evaluation.uncertaintyLow as number)),
-        Math.max(0, (evaluation.uncertaintyHigh as number) - (evaluation.overallImpactBase as number)),
-      ],
-    }));
+    .map((evaluation) => {
+      const low = evaluation.uncertaintyLow as number;
+      const high = evaluation.uncertaintyHigh as number;
+      const midpoint = (low + high) / 2;
+      return {
+        title: evaluation.title,
+        preacher: evaluation.preacher,
+        score: midpoint,
+        finalScore: evaluation.overallImpactBase as number,
+        uncertainty: [midpoint - low, high - midpoint],
+      };
+    });
 
   const metricKeys = availableMetrics.filter(
     (availableMetric) =>
@@ -406,7 +409,7 @@ export function SermonAnalyticsCharts({
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-serif text-lg">High-confidence uncertainty</CardTitle>
+          <CardTitle className="font-serif text-lg">Self-consistency score spread</CardTitle>
           <CardDescription>Score range from successful parallel runs, where available.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -436,7 +439,7 @@ export function SermonAnalyticsCharts({
                     width={36}
                   />
                   <Tooltip content={<ChartTooltip />} />
-                  <Scatter data={uncertaintyRows} dataKey="score" name="Base impact" fill="hsl(var(--chart-5))">
+                  <Scatter data={uncertaintyRows} dataKey="score" name="Run-score midpoint" fill="hsl(var(--chart-5))">
                     <ErrorBar
                       dataKey="uncertainty"
                       direction="y"
@@ -449,7 +452,7 @@ export function SermonAnalyticsCharts({
               </ResponsiveContainer>
             </div>
           ) : (
-            <EmptyChart message="High-confidence evaluations with multiple successful runs will show ranges here." />
+            <EmptyChart message="Self-consistency evaluations with multiple successful runs will show score ranges here." />
           )}
         </CardContent>
       </Card>
