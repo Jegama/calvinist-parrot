@@ -12,7 +12,7 @@ const CONTENT_TOP = 72;
 const CONTENT_BOTTOM = 48;
 const BODY_SIZE = 10;
 const BODY_LEADING = 13.5;
-const REPORT_RENDERER_VERSION = "2";
+const REPORT_RENDERER_VERSION = "3";
 
 const COLORS = {
   accent: rgb(0.04, 0.36, 0.37),
@@ -136,6 +136,7 @@ class PdfReportWriter {
   readonly metadata: SermonPdfMetadata;
   page: PDFPage;
   y: number;
+  private pageHasContent = false;
 
   constructor(
     document: PDFDocument,
@@ -151,6 +152,7 @@ class PdfReportWriter {
 
   private addPage(): PDFPage {
     const page = this.document.addPage(PageSizes.A4);
+    this.pageHasContent = false;
     const { height, width } = page.getSize();
     page.drawText("CALVINIST PARROT  |  SERMON EVALUATION", {
       x: PAGE_MARGIN,
@@ -174,6 +176,12 @@ class PdfReportWriter {
     this.y = this.page.getHeight() - CONTENT_TOP;
   }
 
+  startNewPage() {
+    if (!this.pageHasContent) return;
+    this.page = this.addPage();
+    this.y = this.page.getHeight() - CONTENT_TOP;
+  }
+
   spacer(height = 7) {
     this.y -= height;
   }
@@ -186,6 +194,7 @@ class PdfReportWriter {
       thickness: 0.7,
       color: COLORS.border,
     });
+    this.pageHasContent = true;
     this.y -= 12;
   }
 
@@ -199,6 +208,7 @@ class PdfReportWriter {
       leading = BODY_LEADING,
       before = 0,
       after = 4,
+      keepWithNext = 0,
     }: {
       font?: PDFFont;
       size?: number;
@@ -207,12 +217,14 @@ class PdfReportWriter {
       leading?: number;
       before?: number;
       after?: number;
+      keepWithNext?: number;
     } = {},
   ) {
     const availableWidth =
       this.page.getWidth() - PAGE_MARGIN * 2 - Math.max(indent, 0);
     const lines = wrapText(value, font, size, availableWidth);
-    const requiredHeight = before + lines.length * leading + after;
+    const requiredHeight =
+      before + lines.length * leading + after + keepWithNext;
     this.ensureSpace(requiredHeight);
     this.y -= before;
     for (const line of lines) {
@@ -224,6 +236,7 @@ class PdfReportWriter {
           font,
           color,
         });
+        this.pageHasContent = true;
       }
       this.y -= leading;
     }
@@ -240,6 +253,7 @@ class PdfReportWriter {
     this.text(value, {
       font: this.fonts.bold,
       color: level === 1 ? COLORS.heading : COLORS.accent,
+      keepWithNext: BODY_LEADING + 4,
       ...style,
     });
   }
@@ -279,8 +293,11 @@ class PdfReportWriter {
     }
 
     laidOutRows.forEach(({ cellLines, font, rowHeight, size }, rowIndex) => {
-      this.ensureSpace(rowHeight + (rowIndex === 0 ? 4 : 0));
-      const bottom = this.y - rowHeight + 4;
+      const pageBeforeRow = this.page;
+      this.ensureSpace(rowHeight);
+      const rowStartsPage = this.page !== pageBeforeRow;
+      const top = this.y;
+      const bottom = top - rowHeight;
       if (rowIndex === 0) {
         this.page.drawRectangle({
           x: PAGE_MARGIN,
@@ -290,21 +307,35 @@ class PdfReportWriter {
           color: COLORS.accentSoft,
         });
       }
+
+      if (rowIndex === 0 || rowStartsPage) {
+        this.page.drawLine({
+          start: { x: PAGE_MARGIN, y: top },
+          end: { x: PAGE_MARGIN + tableWidth, y: top },
+          thickness: 0.5,
+          color: COLORS.border,
+        });
+      }
+      this.page.drawLine({
+        start: { x: PAGE_MARGIN, y: bottom },
+        end: { x: PAGE_MARGIN + tableWidth, y: bottom },
+        thickness: 0.5,
+        color: COLORS.border,
+      });
+
       let x = PAGE_MARGIN;
       cellLines.forEach((lines, columnIndex) => {
-        this.page.drawRectangle({
-          x,
-          y: bottom,
-          width: widths[columnIndex],
-          height: rowHeight,
-          borderColor: COLORS.border,
-          borderWidth: 0.5,
+        this.page.drawLine({
+          start: { x, y: bottom },
+          end: { x, y: top },
+          thickness: 0.5,
+          color: COLORS.border,
         });
         lines.forEach((line, lineIndex) => {
           if (!line) return;
           this.page.drawText(line, {
             x: x + 5,
-            y: this.y - 7 - lineIndex * 11,
+            y: top - 11 - lineIndex * 11,
             size,
             font,
             color: COLORS.text,
@@ -312,6 +343,13 @@ class PdfReportWriter {
         });
         x += widths[columnIndex];
       });
+      this.page.drawLine({
+        start: { x, y: bottom },
+        end: { x, y: top },
+        thickness: 0.5,
+        color: COLORS.border,
+      });
+      this.pageHasContent = true;
       this.y = bottom;
     });
     this.y -= 9;
@@ -413,10 +451,11 @@ export async function renderSermonMarkdownPdf(
     }
     const heading = /^(#{1,3})\s+(.+)$/.exec(trimmed);
     if (heading) {
-      writer.heading(
-        stripInlineMarkdown(heading[2]),
-        heading[1].length,
-      );
+      const headingText = stripInlineMarkdown(heading[2]);
+      if (heading[1].length === 2 && /^Step [12]\b/i.test(headingText)) {
+        writer.startNewPage();
+      }
+      writer.heading(headingText, heading[1].length);
       continue;
     }
     const bullet = /^[-*+]\s+(.+)$/.exec(trimmed);

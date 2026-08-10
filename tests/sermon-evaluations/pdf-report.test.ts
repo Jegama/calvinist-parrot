@@ -52,4 +52,46 @@ describe("sermon Markdown PDF rendering", () => {
 
     expect(document.getPageCount()).toBeGreaterThan(2);
   });
+
+  it("starts the two report phases on fresh pages without creating a blank first page", async () => {
+    const bytes = await renderSermonMarkdownPdf(
+      `# Sermon Evaluation Report
+
+## Coaching
+
+Keep the text central and make the application concrete.
+
+## Step 1 – Structural Extraction
+
+### Proposition
+
+Christ sustains his people in suffering.
+
+## Step 2 – Analytical Scoring
+
+### Introduction
+
+| Criterion | Score |
+|---|---:|
+| FCF Introduced | 4 |`,
+      { title: "Section pagination" },
+    );
+    const document = await PDFDocument.load(bytes);
+
+    expect(document.getPageCount()).toBe(3);
+
+    const phaseOnlyBytes = await renderSermonMarkdownPdf(
+      `## Step 1 – Structural Extraction
+
+Extraction content.
+
+## Step 2 – Analytical Scoring
+
+Scoring content.`,
+      { title: "No blank first page" },
+    );
+    const phaseOnlyDocument = await PDFDocument.load(phaseOnlyBytes);
+
+    expect(phaseOnlyDocument.getPageCount()).toBe(2);
+  });
 });
