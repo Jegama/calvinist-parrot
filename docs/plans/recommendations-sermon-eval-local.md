@@ -9,7 +9,7 @@ I recommend three explicit test levels:
 | Level | Dependencies | Purpose |
 |---|---|---|
 | Unit/integration | Test database, fixtures | Auth, quotas, persistence, reports |
-| Local end-to-end | Docker Postgres, filesystem storage, local Python worker, fake Gemini provider | Exercise upload → queue → worker → report without cloud infrastructure |
+| Local end-to-end | Docker Postgres, filesystem storage, local Python worker, real Gemini | Exercise upload → queue → worker → report with the production evaluator provider |
 | Cloud smoke/parity | Development Appwrite project, development Neon, real Gemini | Validate production adapters and real evaluator behavior |
 
 To implement the independent middle layer:
@@ -28,8 +28,8 @@ To implement the independent middle layer:
 
 4. Keep `npm run sermon:worker` for worker-only diagnostics, while the root `npm run dev` process owns Next.js and the worker and `npm run dev:local` additionally owns database startup, committed migrations, and seeds.
 
-5. Add `SERMON_EVALUATOR_PROVIDER=fixture|gemini`. Fixture mode would complete deterministic UI testing without Gemini cost; real Gemini remains available for a deliberate smoke test.
+5. Use Gemini in every runtime. Do not expose a provider selector or maintain a second evaluator implementation for local development.
 
 6. Add a strictly server-side development access override for `test@test.com`, guarded by `NODE_ENV === "development"`. The existing Church Finder behavior is not applied because sermon authorization only checks `sermon-evaluator-beta` and `sermon-evaluator-admin`. [Source: [auth.ts:8](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/auth.ts:8), “only the two sermon labels grant access”]
 
-The implementation now makes the sermon worker part of normal root development, separates root and Appwrite Function environment templates, and includes an opt-in Docker Postgres end-to-end test that verifies local WAV storage through completed fixture reports.
+The implementation now makes the Gemini-backed sermon worker part of normal root development and separates root and Appwrite Function environment templates. Local development retains filesystem audio and the lease-backed polling worker without maintaining a separate evaluator provider.

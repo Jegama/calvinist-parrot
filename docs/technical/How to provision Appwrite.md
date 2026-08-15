@@ -57,7 +57,6 @@ The repository's `appwrite.json` records the Function definition, but it deliber
 
 ```text
 SERMON_RUNTIME=appwrite
-SERMON_EVALUATOR_PROVIDER=gemini
 SERMON_DATABASE_URL=<development Neon URL, dedicated worker role>
 GEMINI_API_KEY=<worker Gemini key>
 SERMON_AUDIO_BUCKET_ID=<the bucket ID above>
@@ -77,10 +76,10 @@ Vercel needs only the variables consumed by Next.js because it deploys the contr
 | Runtime owner | Source of truth | Sermon-related configuration |
 |---|---|---|
 | Vercel / Next.js control plane | Root `.env.template` | `SERMON_RUNTIME=appwrite`, `APPWRITE_SERMON_FUNCTION_ID`, `APPWRITE_SERMON_BUCKET_ID`, plus the root application's existing `DATABASE_URL` and Appwrite server/client variables |
-| Appwrite Python Function | `services/sermon-evaluator/.env.template` | `SERMON_RUNTIME=appwrite`, `SERMON_EVALUATOR_PROVIDER=gemini`, `SERMON_DATABASE_URL`, `SERMON_AUDIO_BUCKET_ID`, `GEMINI_API_KEY`, model and execution-limit variables, plus Appwrite-injected Function variables |
+| Appwrite Python Function | `services/sermon-evaluator/.env.template` | `SERMON_RUNTIME=appwrite`, `SERMON_DATABASE_URL`, `SERMON_AUDIO_BUCKET_ID`, `GEMINI_API_KEY`, model and execution-limit variables, plus Appwrite-injected Function variables |
 
 Use development Appwrite resources for Vercel Preview/Development and production resources only for Vercel Production. Environment-variable changes apply only to subsequent deployments, so redeploy after adding them. [Vercel Docs, [Environment variables](https://vercel.com/docs/environment-variables), “variables are scoped by environment and changes only affect new deployments”]
 
-For localhost, copy the root `.env.template`: it defaults `SERMON_RUNTIME=local` and does not require the Vercel sermon Function or bucket variables to be populated. A root `GEMINI_API_KEY` may still be needed by other application features; it does not configure the deployed Function, which must receive its own worker credential in Appwrite.
+For localhost, copy the root `.env.template`: it defaults `SERMON_RUNTIME=local` and does not require the Vercel sermon Function or bucket variables to be populated. The local sermon worker requires the root `GEMINI_API_KEY`; that value does not configure the deployed Function, which must receive its own worker credential in Appwrite.
 
 The Vercel `APPWRITE_API_KEY` must remain server-only and have only the capabilities used here: file metadata/deletion, file-token creation, and Function execution. The browser receives only the `NEXT_PUBLIC_*` identifiers and a short-lived user JWT. [Source: [appwrite.ts:20](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/appwrite.ts:20), “server key performs storage, token, and Function operations”]

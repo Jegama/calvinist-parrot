@@ -1,18 +1,15 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from sermon_evaluator.fixture import FixtureProvider
-from sermon_evaluator.schemas import (
-    AggregatedSummaryFeedback,
-    SermonExtractionStep1,
-    SermonScoringStep2Raw,
-)
+from sermon_evaluator.gemini import GeminiProvider
 from sermon_evaluator.service import SermonEvaluationService
 from sermon_evaluator.storage import LocalFilesystemStorage
+from sermon_evaluator.worker import main as worker_main
 
 
 def test_local_storage_copies_private_audio_and_deletes_source(
@@ -38,30 +35,12 @@ def test_local_storage_copies_private_audio_and_deletes_source(
     assert not metadata.exists()
 
 
-def test_fixture_provider_returns_valid_deterministic_schemas() -> None:
-    provider = FixtureProvider()
-    extraction = SermonExtractionStep1.model_validate(
-        provider.generate_structured("", SermonExtractionStep1)
-    )
-    scoring = SermonScoringStep2Raw.model_validate(
-        provider.generate_structured("", SermonScoringStep2Raw, seed=1689)
-    )
-    feedback = AggregatedSummaryFeedback.model_validate(
-        provider.generate_structured("", AggregatedSummaryFeedback)
-    )
-    assert extraction.Proposition.startswith("God saves")
-    assert scoring.Scoring_Confidence == pytest.approx(0.91)
-    assert feedback.Overall_Impact
-    assert provider.last_response_metadata.model_version == (
-        "fixture-sermon-evaluator-v1"
-    )
-
-
-def test_local_environment_selects_filesystem_and_fixture(
+def test_local_environment_selects_filesystem_and_gemini(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("SERMON_RUNTIME", "local")
-    monkeypatch.setenv("SERMON_EVALUATOR_PROVIDER", "fixture")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("SERMON_GEMINI_MODEL", "gemini-test-model")
     monkeypatch.setenv("SERMON_LOCAL_AUDIO_DIR", str(tmp_path))
     monkeypatch.setattr(
         "sermon_evaluator.service.PsycopgPersistence",
@@ -70,13 +49,29 @@ def test_local_environment_selects_filesystem_and_fixture(
 
     service = SermonEvaluationService.from_environment()
     assert isinstance(service.storage, LocalFilesystemStorage)
-    assert isinstance(service.provider, FixtureProvider)
+    assert isinstance(service.provider, GeminiProvider)
+    assert service.provider.model_name == "gemini-test-model"
 
 
-def test_fixture_provider_is_rejected_outside_local_runtime(
+def test_worker_readiness_reports_gemini(
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    monkeypatch.setenv("SERMON_RUNTIME", "appwrite")
-    monkeypatch.setenv("SERMON_EVALUATOR_PROVIDER", "fixture")
-    with pytest.raises(ValueError, match="restricted to local runtime"):
-        SermonEvaluationService.from_environment()
+    service = SimpleNamespace(
+        persistence=SimpleNamespace(pool=None),
+        recover=lambda *, limit: [],
+    )
+    monkeypatch.setenv("SERMON_RUNTIME", "local")
+    monkeypatch.setattr(
+        "sermon_evaluator.worker.SermonEvaluationService.from_environment",
+        lambda: service,
+    )
+
+    assert worker_main(["--once"]) == 0
+    readiness = json.loads(capsys.readouterr().out)
+    assert readiness == {
+        "event": "sermon-worker-ready",
+        "runtime": "local",
+        "provider": "gemini",
+        "batchSize": 2,
+    }

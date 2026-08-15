@@ -17,7 +17,6 @@ from . import __version__, prompts
 from .aggregation import SermonAggregator
 from .audio import InvalidAudioError
 from .gemini import GeminiProvider, ProviderResponseMetadata
-from .fixture import FixtureProvider
 from .harmonization import SermonHarmonizer
 from .persistence import (
     AudioHashMismatch,
@@ -224,23 +223,7 @@ class SermonEvaluationService:
         runtime = os.getenv("SERMON_RUNTIME", "appwrite").strip().lower()
         if runtime not in {"local", "appwrite"}:
             raise ValueError("SERMON_RUNTIME must be either local or appwrite")
-        provider_name = os.getenv(
-            "SERMON_EVALUATOR_PROVIDER",
-            "fixture" if runtime == "local" else "gemini",
-        ).strip().lower()
-        if provider_name not in {"fixture", "gemini"}:
-            raise ValueError(
-                "SERMON_EVALUATOR_PROVIDER must be either fixture or gemini"
-            )
-        if provider_name == "fixture" and runtime != "local":
-            raise ValueError(
-                "The fixture sermon evaluator provider is restricted to local runtime"
-            )
-        model = (
-            "fixture-sermon-evaluator-v1"
-            if provider_name == "fixture"
-            else os.getenv("SERMON_GEMINI_MODEL", "gemini-3.6-flash")
-        )
+        model = os.getenv("SERMON_GEMINI_MODEL", "gemini-3.6-flash")
         return cls(
             persistence=PsycopgPersistence(),
             storage=(
@@ -248,11 +231,7 @@ class SermonEvaluationService:
                 if runtime == "local"
                 else AppwriteStorage()
             ),
-            provider=(
-                FixtureProvider(model=model)
-                if provider_name == "fixture"
-                else GeminiProvider(model=model)
-            ),
+            provider=GeminiProvider(model=model),
             soft_deadline_seconds=int(
                 os.getenv("SERMON_SOFT_DEADLINE_SECONDS", "840")
             ),

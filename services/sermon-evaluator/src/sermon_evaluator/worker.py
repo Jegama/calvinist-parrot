@@ -46,7 +46,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             {
                 "event": "sermon-worker-ready",
                 "runtime": os.getenv("SERMON_RUNTIME", "appwrite"),
-                "provider": os.getenv("SERMON_EVALUATOR_PROVIDER", "default"),
+                "provider": "gemini",
                 "batchSize": batch_size,
             }
         ),

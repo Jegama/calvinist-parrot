@@ -45,7 +45,7 @@ Or use the one-command local path:
 npm run dev:local
 ```
 
-`npm run dev` starts Next.js and, when `SERMON_RUNTIME=local`, the sermon evaluation worker. The worker derives its connection from the same local `DATABASE_URL`, reads private audio from the ignored `.data/sermon-audio/` directory, and uses deterministic fixture evaluation by default. If either required process exits, the root supervisor stops the other instead of leaving a partially working development stack.
+`npm run dev` starts Next.js and, when `SERMON_RUNTIME=local`, the sermon evaluation worker. The worker derives its connection from the same local `DATABASE_URL`, reads private audio from the ignored `.data/sermon-audio/` directory, and always evaluates with Gemini, so `GEMINI_API_KEY` must be configured. If either required process exits, the root supervisor stops the other instead of leaving a partially working development stack.
 
 `npm run dev:web` is an explicit web-only diagnostic escape hatch. It does not start the sermon worker, so locally queued sermon evaluations will not complete. `npm run sermon:worker` likewise remains available for worker-only diagnostics; neither command is the canonical application startup path.
 

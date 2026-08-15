@@ -251,7 +251,7 @@ class _Provider:
 
 def test_harmonization_uses_feedback_only_schema(extraction) -> None:
     provider = _Provider()
-    harmonizer = SermonHarmonizer(provider, "fixture", _Prompts())
+    harmonizer = SermonHarmonizer(provider, "gemini-test-model", _Prompts())
     harmonizer.audio_manager = _Audio()
 
     scoring = harmonizer.harmonize_runs(
@@ -274,7 +274,7 @@ def test_harmonized_gate_reason_is_empty_when_weighted_gate_passes(
     failing.Doctrinal_Fidelity.Core_Doctrine_Gate = "FAIL"
     failing.Doctrinal_Fidelity.Gate_Reason = "A lower-weight run found a denial."
     provider = _Provider()
-    harmonizer = SermonHarmonizer(provider, "fixture", _Prompts())
+    harmonizer = SermonHarmonizer(provider, "gemini-test-model", _Prompts())
     harmonizer.audio_manager = _Audio()
 
     scoring = harmonizer.harmonize_runs(
@@ -297,7 +297,7 @@ def test_disabled_duration_policy_is_not_exposed_to_coaching_prompt(
         enabled=False,
     )
     provider = _Provider()
-    harmonizer = SermonHarmonizer(provider, "fixture", _Prompts())
+    harmonizer = SermonHarmonizer(provider, "gemini-test-model", _Prompts())
     harmonizer.audio_manager = _Audio()
 
     harmonizer._generate_aggregate_feedback(scoring, extraction, 1)
@@ -312,7 +312,7 @@ def test_disabled_duration_policy_is_not_exposed_to_coaching_prompt(
 def test_duration_is_not_exposed_to_scoring_prompt(extraction) -> None:
     extraction.audio_duration = 56.3 * 60
     provider = _Provider()
-    harmonizer = SermonHarmonizer(provider, "fixture", _Prompts())
+    harmonizer = SermonHarmonizer(provider, "gemini-test-model", _Prompts())
 
     scoring = harmonizer.score_single_run(extraction, None, 1689)
 

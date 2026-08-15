@@ -6,7 +6,7 @@ This directory is the canonical, platform-neutral Python sermon evaluator origin
 
 - Next.js authenticates and authorizes users, reserves lifetime run credits, creates durable Postgres jobs, and dispatches them to the selected runtime with only an opaque `evaluationId`.
 - This Function reads the private Appwrite audio file with Appwrite's injected dynamic API key, verifies its bytes and duration, calls Gemini, and writes only sermon tables through a dedicated pooled Neon URL.
-- The local runtime reads ignored filesystem audio, polls the same lease-backed queue, and uses deterministic fixture responses by default. It requires neither Appwrite Storage, an Appwrite Function, Neon, nor Gemini.
+- The local runtime reads ignored filesystem audio, polls the same lease-backed queue, and evaluates with Gemini. It requires neither Appwrite Storage, an Appwrite Function, nor Neon, but it does require `GEMINI_API_KEY`.
 - Prisma is the sole schema and migration owner. Python has no migration framework.
 - Production uses `gemini-3.6-flash`, medium thinking, structured output, and Gemini Files. The CLI model override is developer-only.
 - One Appwrite execution has a 900-second hard timeout and an 840-second soft deadline. A call is not started with less than 60 seconds remaining.
@@ -17,7 +17,6 @@ This directory is the canonical, platform-neutral Python sermon evaluator origin
 Appwrite supplies `APPWRITE_FUNCTION_API_ENDPOINT`, `APPWRITE_FUNCTION_PROJECT_ID`, and `APPWRITE_FUNCTION_API_KEY`. `services/sermon-evaluator/.env.template` is the authoritative list of variables to configure separately in each development and production Function:
 
 - `SERMON_RUNTIME`: `appwrite`.
-- `SERMON_EVALUATOR_PROVIDER`: `gemini`.
 - `SERMON_DATABASE_URL`: dedicated least-privileged pooled Neon URL with `sslmode=require`.
 - `GEMINI_API_KEY`: worker-only Gemini key.
 - `SERMON_AUDIO_BUCKET_ID`: private sermon bucket for the same environment.
@@ -47,7 +46,7 @@ The canonical application setup is documented in `docs/technical/Local Developme
 npm run dev
 ```
 
-The root process owns both Next.js and this worker through `workon cp_evals`; this service is not started as a separate application. `npm run dev:local` additionally starts Docker Postgres, deploys committed migrations, and seeds fixtures before entering that same root process. In local runtime, audio defaults to `.data/sermon-audio/` and deterministic fixture evaluation requires no Gemini key.
+The root process owns both Next.js and this worker through `workon cp_evals`; this service is not started as a separate application. `npm run dev:local` additionally starts Docker Postgres, deploys committed migrations, and seeds development data before entering that same root process. In local runtime, audio defaults to `.data/sermon-audio/` and evaluation always uses Gemini, so `GEMINI_API_KEY` must be configured.
 
 For worker-only diagnostics:
 
@@ -55,8 +54,6 @@ For worker-only diagnostics:
 npm run sermon:worker
 npm run sermon:worker -- --once
 ```
-
-Set `SERMON_EVALUATOR_PROVIDER=gemini` locally only when deliberately testing the real provider and supplying `GEMINI_API_KEY`.
 
 Run the source-compatible CLI:
 

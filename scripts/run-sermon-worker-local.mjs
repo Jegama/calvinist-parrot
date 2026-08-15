@@ -37,8 +37,6 @@ function localDatabaseUrl() {
 const environment = {
   ...process.env,
   SERMON_RUNTIME: "local",
-  SERMON_EVALUATOR_PROVIDER:
-    process.env.SERMON_EVALUATOR_PROVIDER?.trim() || "fixture",
   SERMON_DATABASE_URL: localDatabaseUrl(),
   SERMON_LOCAL_AUDIO_DIR:
     process.env.SERMON_LOCAL_AUDIO_DIR?.trim() ||
