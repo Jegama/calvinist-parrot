@@ -169,6 +169,33 @@ describe("sermon upload reattachment preparation", () => {
     });
   });
 
+  it("rejects reattachment while a deleted storage pointer is awaiting cleanup", async () => {
+    mocks.targetFindFirst.mockResolvedValue({
+      id: "evaluation-older",
+      fingerprint: {
+        ...fingerprint(requestedSha),
+        audioAsset: {
+          id: "asset-1",
+          appwriteFileId: "file-pending-delete",
+          deletedAt: new Date("2026-07-28T00:00:00.000Z"),
+          verificationState: "DELETED",
+        },
+      },
+    });
+
+    const response = await handlePrepareSermonUpload(
+      request("evaluation-older"),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error:
+        "The previous audio file is still awaiting storage cleanup; retry after cleanup completes",
+    });
+    expect(mocks.reservationCreate).not.toHaveBeenCalled();
+    expect(mocks.createSermonUploadJwt).not.toHaveBeenCalled();
+  });
+
   it("starts a clean upload after rejected verification without presenting provisional history as canonical", async () => {
     mocks.fingerprintFindUnique.mockResolvedValue({
       ...fingerprint(requestedSha),

@@ -298,10 +298,9 @@ class ParallelScoringCoordinator:
                 if attempt_number > MAX_REPLACEMENT_ATTEMPTS + 1:
                     continue
                 retry_wave = attempt_number - 1
-                if attempt_number == 1:
-                    seed = SCORING_SEEDS[ordinal - 1]
-                    if seed in used_seeds:
-                        raise ValueError(f"Primary seed {seed} was already persisted")
+                primary_seed = SCORING_SEEDS[ordinal - 1]
+                if attempt_number == 1 and primary_seed not in used_seeds:
+                    seed = primary_seed
                 else:
                     seed = replacement_seed(
                         evaluation_id=evaluation_id,

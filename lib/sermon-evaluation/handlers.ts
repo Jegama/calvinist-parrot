@@ -562,9 +562,21 @@ export async function handlePrepareSermonUpload(request: Request) {
         })
       : null;
     if (requestedReattach) {
+      const audioAsset = reattachTarget?.fingerprint.audioAsset;
+      const cleanupPending = Boolean(
+        audioAsset?.appwriteFileId &&
+          (audioAsset.deletedAt ||
+            audioAsset.verificationState === "DELETED" ||
+            audioAsset.verificationState === "REJECTED"),
+      );
+      if (cleanupPending) {
+        throw new SermonApiError(
+          "The previous audio file is still awaiting storage cleanup; retry after cleanup completes",
+          409,
+        );
+      }
       const retainedAudio = Boolean(
-        reattachTarget?.fingerprint.audioAsset?.appwriteFileId &&
-          !reattachTarget.fingerprint.audioAsset.deletedAt,
+        audioAsset?.appwriteFileId && !audioAsset.deletedAt,
       );
       if (
         !reattachTarget ||
@@ -1264,6 +1276,9 @@ export async function handleCancelSermonEvaluation(id: string) {
         await tx.$executeRaw`
           SELECT pg_advisory_xact_lock(hashtextextended(${`sermon-owner:${userId}`}, 0))
         `;
+        await tx.$executeRaw`
+          SELECT pg_advisory_xact_lock(hashtextextended(${`sermon-evaluation:${id}`}, 0))
+        `;
         const current = await tx.sermonEvaluation.findFirst({
           where: { id, ownerId: userId, deletedAt: null },
           include: { creditReservation: true },
@@ -1300,7 +1315,7 @@ export async function handleCancelSermonEvaluation(id: string) {
               },
             });
           }
-          return tx.sermonEvaluation.update({
+          const canceled = await tx.sermonEvaluation.update({
             where: { id: current.id },
             data: {
               status: "CANCELED",
@@ -1309,6 +1324,17 @@ export async function handleCancelSermonEvaluation(id: string) {
               version: { increment: 1 },
             },
           });
+          await tx.sermonEvaluationAttempt.updateMany({
+            where: {
+              evaluationId: current.id,
+              endedAt: null,
+            },
+            data: {
+              terminalOutcome: "CANCELED",
+              endedAt: canceledAt,
+            },
+          });
+          return canceled;
         }
         return tx.sermonEvaluation.update({
           where: { id: current.id },
@@ -1432,6 +1458,7 @@ export async function handleRetrySermonEvaluation(id: string) {
             cancelRequestedAt: null,
             canceledAt: null,
             attemptDeadlineAt: null,
+            retryWave: 0,
             errorCode: null,
             errorMessage: null,
             version: { increment: 1 },

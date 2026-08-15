@@ -33,6 +33,8 @@ from sermon_evaluator.service import (
     _build_scoring_prompt,
 )
 from sermon_evaluator.stages import (
+    AttemptResult,
+    AttemptSpec,
     DeadlineExceeded,
     EvaluationCanceled,
     EvaluationStatus,
@@ -457,6 +459,70 @@ def test_claim_lease_serializes_and_rejects_an_existing_live_lease() -> None:
     assert 'UPDATE "sermonWorkerLease"' not in sql
 
 
+def test_scoring_resume_counts_only_the_current_evaluation_attempt() -> None:
+    class ResumeCursor(_Cursor):
+        def __init__(self) -> None:
+            super().__init__()
+            self.rows: list[dict[str, Any]] = []
+
+        def execute(self, query: str, params: Any = None) -> None:
+            super().execute(query, params)
+            normalized = " ".join(query.split())
+            if normalized.startswith('SELECT run."ordinal"'):
+                self.rows = [
+                    {"ordinal": 1, "rawScore": None, "attempts": 0}
+                ]
+            elif normalized.startswith('SELECT "seed"'):
+                self.rows = [{"seed": 1689}, {"seed": 2025}]
+
+        def fetchall(self) -> list[dict[str, Any]]:
+            return self.rows
+
+    cursor = ResumeCursor()
+    persistence = PsycopgPersistence(pool=_Pool(cursor))
+
+    values, attempt_counts, seeds = persistence.scoring_resume_state(
+        "evaluation-1", "attempt-2"
+    )
+
+    assert values == {}
+    assert attempt_counts == {1: 0}
+    assert seeds == {1689, 2025}
+    resume_query, resume_params = next(
+        (query, params)
+        for query, params in cursor.executions
+        if query.startswith('SELECT run."ordinal"')
+    )
+    assert 'attempt."evaluationAttemptId" = %s' in resume_query
+    assert resume_params == ("attempt-2", "evaluation-1")
+
+
+def test_scoring_results_update_only_the_current_evaluation_attempt() -> None:
+    cursor = _Cursor()
+    persistence = PsycopgPersistence(pool=_Pool(cursor))
+    lease = Lease(1, "worker-1", "evaluation-1", "attempt-2")
+    spec = AttemptSpec(
+        ordinal=1,
+        attempt_number=1,
+        seed=3141,
+        retry_wave=0,
+    )
+
+    persistence.record_attempt_result(
+        "evaluation-1",
+        AttemptResult(spec=spec, error=RuntimeError("provider failed")),
+        lease=lease,
+    )
+
+    update_query, update_params = next(
+        (query, params)
+        for query, params in cursor.executions
+        if query.startswith('UPDATE "sermonScoringAttempt" attempt')
+    )
+    assert 'attempt."evaluationAttemptId" = %s' in update_query
+    assert update_params[-4:] == ("evaluation-1", "attempt-2", 1, 1)
+
+
 def test_lost_lease_cannot_mutate_terminal_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -536,8 +602,12 @@ def test_terminal_hash_mismatch_atomically_rejects_and_closes_attempt() -> None:
     )
     sql = "\n".join(query for query, _ in cursor.executions)
     assert "'canonicalEvaluationId'" in sql
-    assert '"verificationState" = \'REJECTED\'' in sql
+    assert 'WHEN "verificationState" = \'PROVISIONAL\'' in sql
+    assert "ELSE \"verificationState\"" in sql
+    assert "'PROVISIONAL', 'VERIFIED'" in sql
     assert '"verificationState" = \'PENDING\'' in sql
+    assert '"referenceCount" = 0' in sql
+    assert 'SET "audioAssetId" = NULL' in sql
     assert 'FROM "sermonRunCreditReservation"' in sql
     assert 'UPDATE "sermonEvaluationAttempt"' in sql
 
@@ -1171,6 +1241,37 @@ def test_aggregate_feedback_never_swallows_worker_control_flow(
 
     with pytest.raises(type(control_error), match=str(control_error)):
         harmonizer._generate_aggregate_feedback(scoring, extraction, 3)
+
+
+def test_aggregate_feedback_provider_failure_is_not_published_as_complete(
+    monkeypatch: pytest.MonkeyPatch,
+    extraction: Any,
+    scoring: Any,
+) -> None:
+    class Provider:
+        def generate_structured(self, **_: Any) -> dict[str, Any]:
+            raise RuntimeError("aggregate provider failed")
+
+    monkeypatch.setattr(
+        harmonization_module,
+        "AudioFileManager",
+        lambda: SimpleNamespace(
+            upload_indicator=lambda **_: nullcontext()
+        ),
+    )
+    harmonizer = SermonHarmonizer(
+        Provider(),
+        "gemini-3.6-flash",
+        prompts,
+    )
+    scoring.Aggregated_Summary = SermonAggregator().compute_aggregates(
+        scoring, extraction
+    )
+
+    with pytest.raises(RuntimeError, match="aggregate provider failed"):
+        harmonizer._generate_aggregate_feedback(scoring, extraction, 3)
+
+    assert scoring.Aggregated_Summary_Feedback is None
 
 
 class _ResumePersistence:

@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => {
   const evaluationFindUnique = vi.fn();
   const evaluationUpdate = vi.fn();
   const evaluationUpdateMany = vi.fn();
+  const evaluationAttemptUpdateMany = vi.fn();
   const executeRaw = vi.fn();
   const fingerprintUpdate = vi.fn();
   const invokeWorker = vi.fn();
@@ -25,6 +26,9 @@ const mocks = vi.hoisted(() => {
           update: typeof evaluationUpdate;
           updateMany: typeof evaluationUpdateMany;
         };
+        sermonEvaluationAttempt: {
+          updateMany: typeof evaluationAttemptUpdateMany;
+        };
         sermonRunCreditReservation: {
           update: typeof reservationUpdate;
           updateMany: typeof reservationUpdateMany;
@@ -43,6 +47,9 @@ const mocks = vi.hoisted(() => {
           update: evaluationUpdate,
           updateMany: evaluationUpdateMany,
         },
+        sermonEvaluationAttempt: {
+          updateMany: evaluationAttemptUpdateMany,
+        },
         sermonRunCreditReservation: {
           update: reservationUpdate,
           updateMany: reservationUpdateMany,
@@ -54,6 +61,7 @@ const mocks = vi.hoisted(() => {
     evaluationFindUnique,
     evaluationUpdate,
     evaluationUpdateMany,
+    evaluationAttemptUpdateMany,
     executeRaw,
     fingerprintUpdate,
     invokeWorker,
@@ -144,6 +152,7 @@ describe("queued sermon cancellation", () => {
         status: data.status ?? "QUEUED",
       }),
     );
+    mocks.evaluationAttemptUpdateMany.mockResolvedValue({ count: 1 });
   });
 
   it("cancels QUEUED work and releases only a RESERVED credit reservation", async () => {
@@ -182,6 +191,17 @@ describe("queued sermon cancellation", () => {
         version: { increment: 1 },
       },
     });
+    expect(mocks.executeRaw).toHaveBeenCalledTimes(2);
+    expect(mocks.evaluationAttemptUpdateMany).toHaveBeenCalledWith({
+      where: {
+        evaluationId: "evaluation-1",
+        endedAt: null,
+      },
+      data: {
+        terminalOutcome: "CANCELED",
+        endedAt: expect.any(Date),
+      },
+    });
   });
 
   it("cancels QUEUED work while preserving CONSUMED credits nonrefundably", async () => {
@@ -206,6 +226,16 @@ describe("queued sermon cancellation", () => {
         cancelRequestedAt: expect.any(Date),
         canceledAt: expect.any(Date),
       }),
+    });
+    expect(mocks.evaluationAttemptUpdateMany).toHaveBeenCalledWith({
+      where: {
+        evaluationId: "evaluation-1",
+        endedAt: null,
+      },
+      data: {
+        terminalOutcome: "CANCELED",
+        endedAt: expect.any(Date),
+      },
     });
   });
 
@@ -268,5 +298,6 @@ describe("queued sermon cancellation", () => {
     expect(status).toBe("CANCELED");
     expect(mocks.fingerprintUpdate).not.toHaveBeenCalled();
     expect(mocks.reservationUpdate).not.toHaveBeenCalled();
+    expect(mocks.evaluationAttemptUpdateMany).toHaveBeenCalledOnce();
   });
 });

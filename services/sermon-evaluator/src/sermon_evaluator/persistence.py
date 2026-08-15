@@ -763,14 +763,17 @@ class PsycopgPersistence(ScoringPersistence):
             cursor.execute(
                 """
                 INSERT INTO "sermonScoringAttempt"
-                    ("id", "evaluationId", "scoringRunId", "attemptNumber",
-                     "seed", "status", "startedAt", "updatedAt")
-                VALUES (%s, %s, %s, %s, %s, 'RUNNING', NOW(), NOW())
-                ON CONFLICT ("scoringRunId", "attemptNumber") DO NOTHING
+                    ("id", "evaluationId", "evaluationAttemptId",
+                     "scoringRunId", "attemptNumber", "seed", "status",
+                     "startedAt", "updatedAt")
+                VALUES (%s, %s, %s, %s, %s, %s, 'RUNNING', NOW(), NOW())
+                ON CONFLICT ("scoringRunId", "evaluationAttemptId",
+                             "attemptNumber") DO NOTHING
                 """,
                 (
                     _new_id(),
                     evaluation_id,
+                    lease.evaluation_attempt_id,
                     run["id"],
                     spec.attempt_number,
                     spec.seed,
@@ -826,6 +829,7 @@ class PsycopgPersistence(ScoringPersistence):
                 FROM "sermonScoringRun" run
                 WHERE attempt."scoringRunId" = run."id"
                   AND attempt."evaluationId" = %s
+                  AND attempt."evaluationAttemptId" = %s
                   AND run."ordinal" = %s
                   AND attempt."attemptNumber" = %s
                 """,
@@ -837,6 +841,7 @@ class PsycopgPersistence(ScoringPersistence):
                     error_code,
                     error_message,
                     evaluation_id,
+                    lease.evaluation_attempt_id,
                     result.spec.ordinal,
                     result.spec.attempt_number,
                 ),
@@ -879,7 +884,7 @@ class PsycopgPersistence(ScoringPersistence):
             return {row["seed"] for row in cursor.fetchall()}
 
     def scoring_resume_state(
-        self, evaluation_id: str
+        self, evaluation_id: str, evaluation_attempt_id: str
     ) -> tuple[dict[int, Any], dict[int, int], set[int]]:
         with self.pool.connection() as connection, connection.cursor() as cursor:
             cursor.execute(
@@ -889,11 +894,12 @@ class PsycopgPersistence(ScoringPersistence):
                 FROM "sermonScoringRun" run
                 LEFT JOIN "sermonScoringAttempt" attempt
                   ON attempt."scoringRunId" = run."id"
+                 AND attempt."evaluationAttemptId" = %s
                 WHERE run."evaluationId" = %s
                 GROUP BY run."ordinal", run."rawScore"
                 ORDER BY run."ordinal"
                 """,
-                (evaluation_id,),
+                (evaluation_attempt_id, evaluation_id),
             )
             rows = cursor.fetchall()
             cursor.execute(
@@ -1153,21 +1159,26 @@ class PsycopgPersistence(ScoringPersistence):
                 cursor.execute(
                     """
                     UPDATE "sermonAudioFingerprint"
-                    SET "verificationState" = 'REJECTED',
+                    SET "verificationState" = CASE
+                          WHEN "verificationState" = 'PROVISIONAL'
+                            THEN 'REJECTED'::"SermonFingerprintState"
+                          ELSE "verificationState"
+                        END,
                         "lastSeenAt" = NOW()
                     WHERE "id" = %s
-                      AND "verificationState" = 'PROVISIONAL'
+                      AND "verificationState" IN ('PROVISIONAL', 'VERIFIED')
                     """,
                     (rejected_fingerprint_id,),
                 )
                 if cursor.rowcount != 1:
                     raise CompareAndSetConflict(
-                        "Fingerprint rejection lost its provisional state"
+                        "Fingerprint rejection lost its verifiable state"
                     )
                 cursor.execute(
                     """
                     UPDATE "sermonAudioAsset"
                     SET "verificationState" = 'REJECTED',
+                        "referenceCount" = 0,
                         "updatedAt" = NOW()
                     WHERE "id" = %s
                       AND "verificationState" = 'PENDING'
@@ -1178,6 +1189,14 @@ class PsycopgPersistence(ScoringPersistence):
                     raise CompareAndSetConflict(
                         "Audio asset rejection lost its pending state"
                     )
+                cursor.execute(
+                    """
+                    UPDATE "sermonEvaluation"
+                    SET "audioAssetId" = NULL, "updatedAt" = NOW()
+                    WHERE "audioAssetId" = %s
+                    """,
+                    (rejected_audio_asset_id,),
+                )
             cursor.execute(
                 """
                 UPDATE "sermonEvaluationAttempt"

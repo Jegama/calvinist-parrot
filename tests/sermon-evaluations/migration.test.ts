@@ -38,6 +38,13 @@ const raisedAudioLimitMigration = fs.readFileSync(
   ),
   "utf8",
 );
+const scopedScoringRetriesMigration = fs.readFileSync(
+  path.join(
+    process.cwd(),
+    "prisma/migrations/20260815120000_scope_sermon_scoring_retry_attempts/migration.sql",
+  ),
+  "utf8",
+);
 describe("sermon evaluation migration invariants", () => {
   it("enforces one active evaluation per owner with a partial index", () => {
     expect(migration).toContain(
@@ -179,5 +186,20 @@ describe("sermon evaluation migration invariants", () => {
       'DROP CONSTRAINT IF EXISTS "sermonAudioAsset_byte_size_check"',
     );
     expect(raisedAudioLimitMigration.match(/104857600/g)).toHaveLength(2);
+  });
+
+  it("scopes each three-attempt scoring budget to a durable evaluation attempt", () => {
+    expect(scopedScoringRetriesMigration).toContain(
+      'ADD COLUMN "evaluationAttemptId" TEXT',
+    );
+    expect(scopedScoringRetriesMigration).toContain(
+      'ALTER COLUMN "evaluationAttemptId" SET NOT NULL',
+    );
+    expect(scopedScoringRetriesMigration).toContain(
+      'ON "sermonScoringAttempt"("scoringRunId", "evaluationAttemptId", "attemptNumber")',
+    );
+    expect(scopedScoringRetriesMigration).toContain(
+      'ADD CONSTRAINT "sermonScoringAttempt_evaluationAttemptId_fkey"',
+    );
   });
 });

@@ -358,23 +358,18 @@ class SermonHarmonizer:
             f"{json.dumps(summary_payload, ensure_ascii=False)}"
         )
 
-        try:
-            with self.audio_manager.upload_indicator(
-                message="Generating aggregate feedback"
-            ):
-                feedback_data = self.provider.generate_structured(
-                    prompt=aggregate_prompt,
-                    response_schema=AggregatedSummaryFeedback,
-                    system=self.prompts.AGG_SUMMARY_SYSTEM_PROMPT,
-                    model=self.model,
-                )
-            scoring.Aggregated_Summary_Feedback = AggregatedSummaryFeedback(
-                **feedback_data
+        with self.audio_manager.upload_indicator(
+            message="Generating aggregate feedback"
+        ):
+            feedback_data = self.provider.generate_structured(
+                prompt=aggregate_prompt,
+                response_schema=AggregatedSummaryFeedback,
+                system=self.prompts.AGG_SUMMARY_SYSTEM_PROMPT,
+                model=self.model,
             )
-        except (DeadlineExceeded, EvaluationCanceled):
-            raise
-        except Exception as exc:
-            print(f"[sermons] Warning: could not generate aggregate feedback: {exc}")
+        scoring.Aggregated_Summary_Feedback = AggregatedSummaryFeedback(
+            **feedback_data
+        )
 
 
 __all__ = ["SermonHarmonizer"]

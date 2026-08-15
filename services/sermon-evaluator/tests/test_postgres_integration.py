@@ -416,6 +416,7 @@ def test_psycopg_persistence_against_prisma_schema() -> None:
                 asset_id=mismatch_asset_id,
                 evaluation_id=mismatch_evaluation_id,
                 sha256="d" * 64,
+                fingerprint_state="VERIFIED",
             )
 
         mismatch_job = persistence.fetch_evaluation(mismatch_evaluation_id)
@@ -480,7 +481,7 @@ def test_psycopg_persistence_against_prisma_schema() -> None:
             assert cursor.fetchone() == {
                 "status": "PREPARING_AUDIO",
                 "result": {},
-                "fingerprintState": "PROVISIONAL",
+                "fingerprintState": "VERIFIED",
                 "runCreditsReserved": 1,
                 "runCreditsConsumed": 0,
                 "assetState": "PENDING",
@@ -512,11 +513,13 @@ def test_psycopg_persistence_against_prisma_schema() -> None:
             cursor.execute(
                 """
                 SELECT evaluation."status"::text, evaluation."result",
+                       evaluation."audioAssetId",
                        fingerprint."verificationState"::text
                          AS "fingerprintState",
                        fingerprint."runCreditsReserved",
                        fingerprint."runCreditsConsumed",
                        asset."verificationState"::text AS "assetState",
+                       asset."referenceCount",
                        reservation."state"::text AS "creditState",
                        reservation."releaseReason",
                        attempt."terminalOutcome"::text,
@@ -525,22 +528,24 @@ def test_psycopg_persistence_against_prisma_schema() -> None:
                 JOIN "sermonAudioFingerprint" fingerprint
                   ON fingerprint."id" = evaluation."fingerprintId"
                 JOIN "sermonAudioAsset" asset
-                  ON asset."id" = evaluation."audioAssetId"
+                  ON asset."id" = %s
                 JOIN "sermonRunCreditReservation" reservation
                   ON reservation."evaluationId" = evaluation."id"
                 JOIN "sermonEvaluationAttempt" attempt
                   ON attempt."evaluationId" = evaluation."id"
                 WHERE evaluation."id" = %s
                 """,
-                (mismatch_evaluation_id,),
+                (mismatch_asset_id, mismatch_evaluation_id),
             )
             assert cursor.fetchone() == {
                 "status": "FAILED",
                 "result": {"canonicalEvaluationId": main_evaluation_id},
-                "fingerprintState": "REJECTED",
+                "audioAssetId": None,
+                "fingerprintState": "VERIFIED",
                 "runCreditsReserved": 0,
                 "runCreditsConsumed": 0,
                 "assetState": "REJECTED",
+                "referenceCount": 0,
                 "creditState": "RELEASED",
                 "releaseReason": "AUDIO_VERIFICATION_FAILED",
                 "terminalOutcome": "FAILED",
@@ -739,6 +744,107 @@ def test_psycopg_persistence_against_prisma_schema() -> None:
                 "verificationState": "VERIFIED",
                 "runCreditsConsumed": 2,
             }
+
+        retry_run_id = f"integration-retry-run-{suffix}"
+        with pool.connection() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO "sermonScoringRun"
+                    ("id", "evaluationId", "ordinal", "status",
+                     "createdAt", "updatedAt")
+                VALUES (%s, %s, 1, 'FAILED', NOW(), NOW())
+                """,
+                (retry_run_id, mismatch_evaluation_id),
+            )
+            for attempt_number, seed in enumerate((101, 102, 103), start=1):
+                cursor.execute(
+                    """
+                    INSERT INTO "sermonScoringAttempt"
+                        ("id", "evaluationId", "evaluationAttemptId",
+                         "scoringRunId", "attemptNumber", "seed", "status",
+                         "startedAt", "completedAt", "createdAt", "updatedAt")
+                    VALUES (%s, %s, %s, %s, %s, %s, 'FAILED',
+                            NOW(), NOW(), NOW(), NOW())
+                    """,
+                    (
+                        f"integration-historical-scoring-{attempt_number}-{suffix}",
+                        mismatch_evaluation_id,
+                        mismatch_attempt_id,
+                        retry_run_id,
+                        attempt_number,
+                        seed,
+                    ),
+                )
+            cursor.execute(
+                """
+                UPDATE "sermonEvaluation"
+                SET "status" = 'QUEUED', "errorCode" = NULL,
+                    "errorMessage" = NULL, "updatedAt" = NOW()
+                WHERE "id" = %s
+                """,
+                (mismatch_evaluation_id,),
+            )
+
+        retry_attempt_id, _ = persistence.create_evaluation_attempt(
+            mismatch_evaluation_id,
+            deadline_at=datetime.now(timezone.utc) + timedelta(minutes=15),
+            appwrite_execution_id=f"execution-manual-retry-{suffix}",
+            resume_reason="integration-manual-retry",
+        )
+        retry_lease = persistence.claim_lease(
+            evaluation_id=mismatch_evaluation_id,
+            evaluation_attempt_id=retry_attempt_id,
+            lease_owner=f"worker-manual-retry-{suffix}",
+        )
+        previous_values, retry_attempt_counts, historical_seeds = (
+            persistence.scoring_resume_state(
+                mismatch_evaluation_id, retry_attempt_id
+            )
+        )
+        assert previous_values == {}
+        assert retry_attempt_counts == {1: 0}
+        assert historical_seeds == {101, 102, 103}
+
+        retry_spec = AttemptSpec(
+            ordinal=1,
+            attempt_number=1,
+            seed=104,
+            retry_wave=0,
+        )
+        persistence.record_attempt_started(
+            mismatch_evaluation_id, retry_spec, lease=retry_lease
+        )
+        persistence.record_attempt_result(
+            mismatch_evaluation_id,
+            AttemptResult(
+                spec=retry_spec,
+                error=RuntimeError("manual retry provider failure"),
+            ),
+            lease=retry_lease,
+        )
+        with pool.connection() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS "attemptCount",
+                       COUNT(DISTINCT "evaluationAttemptId") AS "scopeCount"
+                FROM "sermonScoringAttempt"
+                WHERE "evaluationId" = %s
+                """,
+                (mismatch_evaluation_id,),
+            )
+            assert cursor.fetchone() == {
+                "attemptCount": 4,
+                "scopeCount": 2,
+            }
+        assert persistence.mark_terminal(
+            evaluation_id=mismatch_evaluation_id,
+            evaluation_attempt_id=retry_attempt_id,
+            status=EvaluationStatus.FAILED,
+            error_code="PROVIDER_FAILURE",
+            error_message="manual retry provider failure",
+            lease=retry_lease,
+        )
+        persistence.release_lease(retry_lease)
     finally:
         try:
             _cleanup_owner(pool, owner_id)

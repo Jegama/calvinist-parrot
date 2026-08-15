@@ -510,6 +510,7 @@ model sermonScoringRun {
 model sermonScoringAttempt {
   id                   String                     @id @default(cuid())
   evaluationId         String
+  evaluationAttemptId  String
   scoringRunId         String
   attemptNumber        Int
   seed                 Int
@@ -524,11 +525,13 @@ model sermonScoringAttempt {
   createdAt            DateTime                   @default(now())
   updatedAt            DateTime                   @updatedAt
   evaluation           sermonEvaluation           @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  evaluationAttempt    sermonEvaluationAttempt    @relation(fields: [evaluationAttemptId], references: [id], onDelete: Cascade)
   scoringRun           sermonScoringRun           @relation(fields: [scoringRunId], references: [id], onDelete: Cascade)
 
-  @@unique([scoringRunId, attemptNumber])
+  @@unique([scoringRunId, evaluationAttemptId, attemptNumber])
   @@unique([evaluationId, seed])
   @@index([evaluationId, status])
+  @@index([evaluationAttemptId])
 }
 
 model sermonEvaluationAttempt {
@@ -544,6 +547,7 @@ model sermonEvaluationAttempt {
   createdAt           DateTime                        @default(now())
   updatedAt           DateTime                        @updatedAt
   evaluation          sermonEvaluation                @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  scoringAttempts     sermonScoringAttempt[]
   workerLeases        sermonWorkerLease[]
 
   @@unique([evaluationId, attemptNumber])

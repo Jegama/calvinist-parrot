@@ -610,7 +610,7 @@ class SermonEvaluationService:
             completed_runs = len(raw_runs)
         elif status == EvaluationStatus.SCORING:
             previous_values, attempt_counts, used_seeds = (
-                self.persistence.scoring_resume_state(job.id)
+                self.persistence.scoring_resume_state(job.id, attempt_id)
             )
             previous_values = {
                 ordinal: SermonScoringStep2Raw(**value)

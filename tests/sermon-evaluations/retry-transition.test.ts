@@ -166,6 +166,11 @@ describe("sermon retry transition", () => {
         releaseReason: null,
       },
     });
+    expect(mocks.evaluationUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ retryWave: 0 }),
+      }),
+    );
     expect(mocks.invokeWorker).toHaveBeenCalledOnce();
   });
 

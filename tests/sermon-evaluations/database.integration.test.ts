@@ -75,6 +75,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
   let sharedPrisma: PrismaClient;
   let createReservedSermonEvaluation: typeof import("@/lib/sermon-evaluation/quotas").createReservedSermonEvaluation;
   let releaseQueuedCreditReservation: typeof import("@/lib/sermon-evaluation/quotas").releaseQueuedCreditReservation;
+  let handleCancelSermonEvaluation: typeof import("@/lib/sermon-evaluation/handlers").handleCancelSermonEvaluation;
   let handleDeleteSermonAudio: typeof import("@/lib/sermon-evaluation/handlers").handleDeleteSermonAudio;
   let handleDeleteSermonEvaluation: typeof import("@/lib/sermon-evaluation/handlers").handleDeleteSermonEvaluation;
   let handleRetrySermonEvaluation: typeof import("@/lib/sermon-evaluation/handlers").handleRetrySermonEvaluation;
@@ -94,6 +95,8 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
     const handlers = await import(
       "@/lib/sermon-evaluation/handlers"
     );
+    handleCancelSermonEvaluation =
+      handlers.handleCancelSermonEvaluation;
     handleDeleteSermonAudio = handlers.handleDeleteSermonAudio;
     handleDeleteSermonEvaluation =
       handlers.handleDeleteSermonEvaluation;
@@ -651,6 +654,41 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
       _sum: { requestedCredits: 3 },
     });
     expect(handlerMocks.invokeWorker).toHaveBeenCalledOnce();
+  });
+
+  it("atomically closes an active worker attempt when queued work is canceled", async () => {
+    const fixture = await createFixture("cancel-worker-attempt");
+    handlerMocks.userId = fixture.ownerId;
+    const evaluation = await createEvaluation(
+      fixture,
+      "Cancel queued worker attempt",
+    );
+    const attempt = await prisma.sermonEvaluationAttempt.create({
+      data: {
+        evaluationId: evaluation.id,
+        attemptNumber: 1,
+        startedAt: new Date(),
+        deadlineAt: new Date(Date.now() + 60_000),
+      },
+    });
+
+    const response = await handleCancelSermonEvaluation(
+      evaluation.id,
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      evaluationId: evaluation.id,
+      status: "CANCELED",
+    });
+    await expect(
+      prisma.sermonEvaluationAttempt.findUniqueOrThrow({
+        where: { id: attempt.id },
+      }),
+    ).resolves.toMatchObject({
+      terminalOutcome: "CANCELED",
+      endedAt: expect.any(Date),
+    });
   });
 
   it.each(["audio", "evaluation"] as const)(

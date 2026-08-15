@@ -112,3 +112,42 @@ def test_resume_does_not_repeat_completed_slots() -> None:
     )
     assert set(calls) == {2, 3}
     assert outcome.completed_runs == 3
+
+
+def test_new_evaluation_attempt_gets_a_fresh_budget_without_reusing_seeds() -> None:
+    primary_seed = SCORING_SEEDS[0]
+    second_seed = replacement_seed(
+        evaluation_id="manual-retry",
+        ordinal=1,
+        attempt_number=2,
+        prompt_version="v1",
+        used_seeds={primary_seed},
+    )
+    third_seed = replacement_seed(
+        evaluation_id="manual-retry",
+        ordinal=1,
+        attempt_number=3,
+        prompt_version="v1",
+        used_seeds={primary_seed, second_seed},
+    )
+    historical_seeds = {primary_seed, second_seed, third_seed}
+    calls: list[tuple[int, int]] = []
+
+    def score(ordinal: int, seed: int, attempt: int, timeout: float) -> int:
+        del ordinal, timeout
+        calls.append((attempt, seed))
+        return 1
+
+    outcome = ParallelScoringCoordinator().run(
+        evaluation_id="manual-retry",
+        requested_runs=1,
+        prompt_version="v1",
+        deadline=SoftDeadline.from_budget(300),
+        scoring_call=score,
+        prior_attempt_counts={1: 0},
+        preexisting_seeds=historical_seeds,
+    )
+
+    assert calls[0][0] == 1
+    assert calls[0][1] not in historical_seeds
+    assert outcome.completed_runs == 1
