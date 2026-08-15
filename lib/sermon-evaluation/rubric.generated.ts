@@ -219,7 +219,7 @@ export const SERMON_AGGREGATES = [
     "key": "Textual_Fidelity",
     "clientKey": "textualFidelity",
     "label": "Textual Fidelity",
-    "weight": 0.21,
+    "weight": 0.25,
     "members": [
       "Exegetical_Support.Alignment_with_Text",
       "Exegetical_Support.Handles_Difficulties",
@@ -234,7 +234,7 @@ export const SERMON_AGGREGATES = [
     "key": "Application_Effectiveness",
     "clientKey": "applicationEffectiveness",
     "label": "Application Effectiveness",
-    "weight": 0.21,
+    "weight": 0.24,
     "members": [
       "Application.Clear_and_Practical",
       "Application.Redemptive_Focus",
@@ -249,9 +249,8 @@ export const SERMON_AGGREGATES = [
     "key": "Structure_Cohesion",
     "clientKey": "structureCohesion",
     "label": "Structure Cohesion",
-    "weight": 0.17,
+    "weight": 0.16,
     "members": [
-      "Proposition.Establishes_Main_Theme",
       "Main_Points.Proportional_and_Coexistent",
       "Main_Points.Clarity",
       "Main_Points.Hortatory_Universal_Truths",
@@ -260,10 +259,23 @@ export const SERMON_AGGREGATES = [
     ]
   },
   {
+    "key": "Pastoral_Posture",
+    "clientKey": "pastoralPosture",
+    "label": "Pastoral Posture and Humble Authority",
+    "weight": 0.15,
+    "members": [
+      "Pastoral_Posture.Shared_Subjection_and_Self_Application",
+      "Pastoral_Posture.Servant_Authority",
+      "Pastoral_Posture.Courageous_and_Gentle_Care",
+      "Pastoral_Posture.Differentiated_Pastoral_Application",
+      "Pastoral_Posture.Pastoral_Use_of_Power"
+    ]
+  },
+  {
     "key": "Proposition_Clarity",
     "clientKey": "propositionClarity",
     "label": "Proposition Clarity",
-    "weight": 0.1,
+    "weight": 0.09,
     "members": [
       "Proposition.Principle_and_Application_Wed",
       "Proposition.Establishes_Main_Theme",
@@ -287,23 +299,10 @@ export const SERMON_AGGREGATES = [
     "key": "Introduction",
     "clientKey": "introduction",
     "label": "Introduction",
-    "weight": 0.08,
+    "weight": 0.03,
     "members": [
       "Introduction.FCF_Introduced",
       "Introduction.Arouses_Attention"
-    ]
-  },
-  {
-    "key": "Pastoral_Posture",
-    "clientKey": "pastoralPosture",
-    "label": "Pastoral Posture and Humble Authority",
-    "weight": 0.15,
-    "members": [
-      "Pastoral_Posture.Shared_Subjection_and_Self_Application",
-      "Pastoral_Posture.Servant_Authority",
-      "Pastoral_Posture.Courageous_and_Gentle_Care",
-      "Pastoral_Posture.Differentiated_Pastoral_Application",
-      "Pastoral_Posture.Pastoral_Use_of_Power"
     ]
   }
 ] as const;

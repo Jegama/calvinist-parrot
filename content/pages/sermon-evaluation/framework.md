@@ -196,13 +196,35 @@ Sub-Criteria:
 <!-- BEGIN GENERATED: AGGREGATES -->
 | Aggregate | Weight | Members |
 |---|---:|---|
-| Textual Fidelity | 21% | `Exegetical_Support.Alignment_with_Text`, `Exegetical_Support.Handles_Difficulties`, `Exegetical_Support.Proof_Accuracy_and_Clarity`, `Exegetical_Support.Context_and_Genre_Considered`, `Exegetical_Support.Not_Belabored`, `Exegetical_Support.Aids_Rather_Than_Impresses`, `Main_Points.Exposition_Quality` |
-| Application Effectiveness | 21% | `Application.Clear_and_Practical`, `Application.Redemptive_Focus`, `Application.Mandate_vs_Idea_Distinction`, `Application.Passage_Supported`, `Main_Points.Application_Quality`, `Conclusion.Compelling_Exhortation`, `Conclusion.Climax` |
-| Structure Cohesion | 17% | `Proposition.Establishes_Main_Theme`, `Main_Points.Proportional_and_Coexistent`, `Main_Points.Clarity`, `Main_Points.Hortatory_Universal_Truths`, `Conclusion.Summary`, `Conclusion.Pointed_End` |
-| Proposition Clarity | 10% | `Proposition.Principle_and_Application_Wed`, `Proposition.Establishes_Main_Theme`, `Proposition.Summarizes_Introduction` |
-| Illustrations | 8% | `Main_Points.Illustration_Quality`, `Illustrations.Lived_Body_Detail`, `Illustrations.Strengthens_Points`, `Illustrations.Proportion`, `Illustrations.Ethical_Use` |
-| Introduction | 8% | `Introduction.FCF_Introduced`, `Introduction.Arouses_Attention` |
+| Textual Fidelity | 25% | `Exegetical_Support.Alignment_with_Text`, `Exegetical_Support.Handles_Difficulties`, `Exegetical_Support.Proof_Accuracy_and_Clarity`, `Exegetical_Support.Context_and_Genre_Considered`, `Exegetical_Support.Not_Belabored`, `Exegetical_Support.Aids_Rather_Than_Impresses`, `Main_Points.Exposition_Quality` |
+| Application Effectiveness | 24% | `Application.Clear_and_Practical`, `Application.Redemptive_Focus`, `Application.Mandate_vs_Idea_Distinction`, `Application.Passage_Supported`, `Main_Points.Application_Quality`, `Conclusion.Compelling_Exhortation`, `Conclusion.Climax` |
+| Structure Cohesion | 16% | `Main_Points.Proportional_and_Coexistent`, `Main_Points.Clarity`, `Main_Points.Hortatory_Universal_Truths`, `Conclusion.Summary`, `Conclusion.Pointed_End` |
 | Pastoral Posture and Humble Authority | 15% | `Pastoral_Posture.Shared_Subjection_and_Self_Application`, `Pastoral_Posture.Servant_Authority`, `Pastoral_Posture.Courageous_and_Gentle_Care`, `Pastoral_Posture.Differentiated_Pastoral_Application`, `Pastoral_Posture.Pastoral_Use_of_Power` |
+| Proposition Clarity | 9% | `Proposition.Principle_and_Application_Wed`, `Proposition.Establishes_Main_Theme`, `Proposition.Summarizes_Introduction` |
+| Illustrations | 8% | `Main_Points.Illustration_Quality`, `Illustrations.Lived_Body_Detail`, `Illustrations.Strengthens_Points`, `Illustrations.Proportion`, `Illustrations.Ethical_Use` |
+| Introduction | 3% | `Introduction.FCF_Introduced`, `Introduction.Arouses_Attention` |
+
+### Weighting rationale
+
+These weights balance two considerations: the ministry priorities represented by each aggregate and the breadth of the rubric questions used to measure it. They are not assigned mechanically from member count alone, because the number of questions in an aggregate is itself a rubric-design choice. The aggregate order reflects the intended priority: textual fidelity, application effectiveness, structure cohesion, pastoral posture, proposition clarity, illustrations, and introduction.
+
+To keep a narrow aggregate from accidentally giving each of its questions more leverage than questions in higher-priority, broader aggregates, the selection also considers the effective weight assigned to each member in the composite: `aggregate weight / number of members`. A one-point increase in a member changes the 1–5 `Overall_Impact_Base` by the corresponding coefficient expressed as a decimal; for example, a member with 3.00% effective weight changes it by 0.03 points.
+
+| Aggregate | Members | Effective weight per member |
+|---|---:|---:|
+| Textual Fidelity | 7 | 3.57% |
+| Application Effectiveness | 7 | 3.43% |
+| Structure Cohesion | 5 | 3.20% |
+| Pastoral Posture and Humble Authority | 5 | 3.00% |
+| Proposition Clarity | 3 | 3.00% |
+| Illustrations | 5 | 1.60% |
+| Introduction | 2 | 1.50% |
+
+This distribution keeps textual fidelity and application effectiveness primary; places structure and pastoral posture next; gives pastoral posture and proposition clarity equal 3.00% influence per member while assigning pastoral posture the larger aggregate share because it covers five distinct concerns rather than three; and treats illustrations and introduction as supporting dimensions.
+
+Every non-gate Step 2 rubric criterion appears in exactly one aggregate, so no weighted criterion is omitted or double-counted. Doctrinal Fidelity remains intentionally outside the weighted average and is enforced through the non-compensatory doctrine gate.
+
+The weights should be revisited if aggregate membership changes or human calibration data shows that the composite no longer reflects the intended ministry priorities.
 
 `Overall_Impact_Base` is the weighted average of the seven aggregates above.
 

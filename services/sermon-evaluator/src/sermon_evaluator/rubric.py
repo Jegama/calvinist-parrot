@@ -334,7 +334,7 @@ AGGREGATES = (
         "Textual_Fidelity",
         "textualFidelity",
         "Textual Fidelity",
-        0.21,
+        0.25,
         (
             "Exegetical_Support.Alignment_with_Text",
             "Exegetical_Support.Handles_Difficulties",
@@ -349,7 +349,7 @@ AGGREGATES = (
         "Application_Effectiveness",
         "applicationEffectiveness",
         "Application Effectiveness",
-        0.21,
+        0.24,
         (
             "Application.Clear_and_Practical",
             "Application.Redemptive_Focus",
@@ -364,9 +364,8 @@ AGGREGATES = (
         "Structure_Cohesion",
         "structureCohesion",
         "Structure Cohesion",
-        0.17,
+        0.16,
         (
-            "Proposition.Establishes_Main_Theme",
             "Main_Points.Proportional_and_Coexistent",
             "Main_Points.Clarity",
             "Main_Points.Hortatory_Universal_Truths",
@@ -375,10 +374,23 @@ AGGREGATES = (
         ),
     ),
     AggregateDefinition(
+        "Pastoral_Posture",
+        "pastoralPosture",
+        "Pastoral Posture and Humble Authority",
+        0.15,
+        (
+            "Pastoral_Posture.Shared_Subjection_and_Self_Application",
+            "Pastoral_Posture.Servant_Authority",
+            "Pastoral_Posture.Courageous_and_Gentle_Care",
+            "Pastoral_Posture.Differentiated_Pastoral_Application",
+            "Pastoral_Posture.Pastoral_Use_of_Power",
+        ),
+    ),
+    AggregateDefinition(
         "Proposition_Clarity",
         "propositionClarity",
         "Proposition Clarity",
-        0.10,
+        0.09,
         (
             "Proposition.Principle_and_Application_Wed",
             "Proposition.Establishes_Main_Theme",
@@ -402,23 +414,10 @@ AGGREGATES = (
         "Introduction",
         "introduction",
         "Introduction",
-        0.08,
+        0.03,
         (
             "Introduction.FCF_Introduced",
             "Introduction.Arouses_Attention",
-        ),
-    ),
-    AggregateDefinition(
-        "Pastoral_Posture",
-        "pastoralPosture",
-        "Pastoral Posture and Humble Authority",
-        0.15,
-        (
-            "Pastoral_Posture.Shared_Subjection_and_Self_Application",
-            "Pastoral_Posture.Servant_Authority",
-            "Pastoral_Posture.Courageous_and_Gentle_Care",
-            "Pastoral_Posture.Differentiated_Pastoral_Application",
-            "Pastoral_Posture.Pastoral_Use_of_Power",
         ),
     ),
 )
@@ -477,6 +476,30 @@ def render_framework_aggregates() -> str:
         )
     rows.extend(
         [
+            "",
+            "### Weighting rationale",
+            "",
+            "These weights balance two considerations: the ministry priorities represented by each aggregate and the breadth of the rubric questions used to measure it. They are not assigned mechanically from member count alone, because the number of questions in an aggregate is itself a rubric-design choice. The aggregate order reflects the intended priority: textual fidelity, application effectiveness, structure cohesion, pastoral posture, proposition clarity, illustrations, and introduction.",
+            "",
+            "To keep a narrow aggregate from accidentally giving each of its questions more leverage than questions in higher-priority, broader aggregates, the selection also considers the effective weight assigned to each member in the composite: `aggregate weight / number of members`. A one-point increase in a member changes the 1–5 `Overall_Impact_Base` by the corresponding coefficient expressed as a decimal; for example, a member with 3.00% effective weight changes it by 0.03 points.",
+            "",
+            "| Aggregate | Members | Effective weight per member |",
+            "|---|---:|---:|",
+        ]
+    )
+    for aggregate in AGGREGATES:
+        per_member_influence = aggregate.weight / len(aggregate.members)
+        rows.append(
+            f"| {aggregate.label} | {len(aggregate.members)} | {per_member_influence * 100:.2f}% |"
+        )
+    rows.extend(
+        [
+            "",
+            "This distribution keeps textual fidelity and application effectiveness primary; places structure and pastoral posture next; gives pastoral posture and proposition clarity equal 3.00% influence per member while assigning pastoral posture the larger aggregate share because it covers five distinct concerns rather than three; and treats illustrations and introduction as supporting dimensions.",
+            "",
+            "Every non-gate Step 2 rubric criterion appears in exactly one aggregate, so no weighted criterion is omitted or double-counted. Doctrinal Fidelity remains intentionally outside the weighted average and is enforced through the non-compensatory doctrine gate.",
+            "",
+            "The weights should be revisited if aggregate membership changes or human calibration data shows that the composite no longer reflects the intended ministry priorities.",
             "",
             "`Overall_Impact_Base` is the weighted average of the seven aggregates above.",
             "",

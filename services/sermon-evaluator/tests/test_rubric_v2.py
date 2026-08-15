@@ -12,6 +12,7 @@ from sermon_evaluator.rubric import (
     CRITERIA_COUNT,
     RUBRIC_SECTIONS,
     RUBRIC_VERSION,
+    render_framework_aggregates,
 )
 from sermon_evaluator.schemas import (
     AggregatedSummary,
@@ -32,7 +33,59 @@ def test_registry_is_the_complete_v2_rubric() -> None:
         "Pastoral_Posture",
     ]
     assert sum(aggregate.weight for aggregate in AGGREGATES) == pytest.approx(1.0)
-    assert [aggregate.key for aggregate in AGGREGATES][-1] == "Pastoral_Posture"
+    assert [aggregate.key for aggregate in AGGREGATES] == [
+        "Textual_Fidelity",
+        "Application_Effectiveness",
+        "Structure_Cohesion",
+        "Pastoral_Posture",
+        "Proposition_Clarity",
+        "Illustrations",
+        "Introduction",
+    ]
+    assert [aggregate.weight for aggregate in AGGREGATES] == pytest.approx(
+        [0.25, 0.24, 0.16, 0.15, 0.09, 0.08, 0.03]
+    )
+
+
+def test_aggregate_members_cover_every_weighted_criterion_once() -> None:
+    weighted_criteria = {
+        f"{section.key}.{criterion.key}"
+        for section in RUBRIC_SECTIONS
+        if not section.gate_only
+        for criterion in section.criteria
+    }
+    members = [
+        member
+        for aggregate in AGGREGATES
+        for member in aggregate.members
+    ]
+
+    assert len(members) == len(set(members))
+    assert set(members) == weighted_criteria
+
+
+def test_framework_explains_weighting_rationale_and_per_member_weight() -> None:
+    rendered = render_framework_aggregates()
+
+    assert "### Weighting rationale" in rendered
+    assert "`aggregate weight / number of members`" in rendered
+    for aggregate in AGGREGATES:
+        per_member_influence = aggregate.weight / len(aggregate.members)
+        assert (
+            f"| {aggregate.label} | {len(aggregate.members)} | "
+            f"{per_member_influence * 100:.2f}% |"
+        ) in rendered
+
+
+def test_section_overall_rollups_are_not_aggregate_inputs(extraction) -> None:
+    scoring = SermonScoringStep2(**make_raw(score=3).model_dump(mode="json"))
+    aggregator = SermonAggregator()
+    baseline = aggregator.compute_aggregates(scoring, extraction)
+
+    for section in RUBRIC_SECTIONS:
+        getattr(scoring, section.key).Overall = 1
+
+    assert aggregator.compute_aggregates(scoring, extraction) == baseline
 
 
 def test_registry_matches_llm_and_aggregate_schemas() -> None:
