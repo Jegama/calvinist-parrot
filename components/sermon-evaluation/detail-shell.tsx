@@ -803,12 +803,15 @@ function HistoryDetail({ evaluation }: { evaluation: SermonEvaluationDetail }) {
   );
 }
 
-function PrivateAudioCard({ evaluation }: { evaluation: SermonEvaluationDetail }) {
+export function PrivateAudioCard({ evaluation }: { evaluation: SermonEvaluationDetail }) {
   const [authorization, setAuthorization] =
     useState<SermonPlaybackAuthorization | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const playbackButtonRef = useRef<HTMLButtonElement>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const playAfterAuthorizationRef = useRef(false);
   const mediaRetryUsedRef = useRef(false);
   const [playing, setPlaying] = useState(false);
 
@@ -888,6 +891,37 @@ function PrivateAudioCard({ evaluation }: { evaluation: SermonEvaluationDetail }
     }
   };
 
+  const startPrivatePlayback = async () => {
+    playAfterAuthorizationRef.current = true;
+    const nextAuthorization = await authorizeAudio();
+    if (!nextAuthorization) {
+      playAfterAuthorizationRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (!authorization || !playAfterAuthorizationRef.current) {
+      return;
+    }
+
+    const audio = audioRef.current;
+    if (!audio) {
+      return;
+    }
+
+    playAfterAuthorizationRef.current = false;
+    playbackButtonRef.current?.focus();
+    void audio.play().catch(() => {
+      setError("Private audio is ready. Select Play to start it.");
+    });
+  }, [authorization]);
+
+  useEffect(() => {
+    if (error) {
+      errorRef.current?.focus();
+    }
+  }, [error]);
+
   return (
     <Card>
       <CardHeader>
@@ -897,7 +931,7 @@ function PrivateAudioCard({ evaluation }: { evaluation: SermonEvaluationDetail }
         </CardTitle>
         <CardDescription>Playback uses a short-lived, owner-authorized private audio URL.</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent aria-busy={loading}>
         {!evaluation.hasRetainedAudio ? (
           <Alert className="border-warning/50 bg-warning/15">
             <AlertTitle>Audio deleted</AlertTitle>
@@ -915,6 +949,7 @@ function PrivateAudioCard({ evaluation }: { evaluation: SermonEvaluationDetail }
                   void refreshAndResume(event.currentTarget, true, false);
                   return;
                 }
+                setError(null);
                 setPlaying(true);
               }}
               onPause={() => setPlaying(false)}
@@ -952,12 +987,14 @@ function PrivateAudioCard({ evaluation }: { evaluation: SermonEvaluationDetail }
               Your browser does not support private audio playback.
             </audio>
             <Button
+              ref={playbackButtonRef}
               variant="outline"
               className="w-full"
               onClick={() => {
                 const audio = audioRef.current;
                 if (!audio) return;
                 if (audio.paused) {
+                  setError(null);
                   if (!authorizationIsFresh(authorization)) {
                     void refreshAndResume(audio, true, false);
                   } else {
@@ -969,9 +1006,17 @@ function PrivateAudioCard({ evaluation }: { evaluation: SermonEvaluationDetail }
                   audio.pause();
                 }
               }}
+              disabled={loading}
+              aria-describedby={error ? "private-audio-error" : undefined}
             >
-              {playing ? <Pause /> : <Play />}
-              {playing ? "Pause" : "Play"}
+              {loading ? (
+                <Loader2 className="animate-spin motion-reduce:animate-none" />
+              ) : playing ? (
+                <Pause />
+              ) : (
+                <Play />
+              )}
+              {loading ? "Refreshing private audio…" : playing ? "Pause" : "Play"}
             </Button>
           </div>
         ) : (
@@ -1005,15 +1050,26 @@ function PrivateAudioCard({ evaluation }: { evaluation: SermonEvaluationDetail }
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => void authorizeAudio()}
+              onClick={() => void startPrivatePlayback()}
               disabled={loading}
+              aria-describedby={error ? "private-audio-error" : undefined}
             >
               {loading ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : <Play />}
-              Authorize playback
+              {loading ? "Starting private audio…" : "Play private audio"}
             </Button>
           </>
         )}
-        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+        {error && (
+          <p
+            ref={errorRef}
+            id="private-audio-error"
+            role="alert"
+            tabIndex={-1}
+            className="mt-3 text-sm text-destructive outline-none"
+          >
+            {error}
+          </p>
+        )}
       </CardContent>
     </Card>
   );

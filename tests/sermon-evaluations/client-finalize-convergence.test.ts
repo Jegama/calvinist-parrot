@@ -52,7 +52,7 @@ describe("sermon upload client finalization", () => {
     await createSermonEvaluation({
       reservationId: finalized.reservationId,
       title: "Sermon",
-      preacher: "Pastor",
+      preacherId: "preacher-1",
       preachedOn: "2026-07-27",
       preset: "STANDARD",
       durationAdjustmentEnabled: false,
@@ -63,6 +63,7 @@ describe("sermon upload client finalization", () => {
       | undefined;
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
       uploadReservationId: "reservation-winner",
+      preacherId: "preacher-1",
     });
   });
 
@@ -84,5 +85,30 @@ describe("sermon upload client finalization", () => {
         sha256: "a".repeat(64),
       }),
     ).rejects.toThrow("canonical audio reservation");
+  });
+
+  it("sends an explicitly created preacher name without an ID", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        evaluation: { id: "evaluation-1" },
+        detailUrl: "/sermon-evaluation/evaluation-1",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createSermonEvaluation({
+      reservationId: "reservation-1",
+      title: "Sermon",
+      newPreacherName: "New Pastor",
+      preachedOn: "2026-07-27",
+      preset: "STANDARD",
+      durationAdjustmentEnabled: false,
+    });
+
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+    const body = JSON.parse(String(request?.body));
+    expect(body).toMatchObject({ newPreacherName: "New Pastor" });
+    expect(body).not.toHaveProperty("preacherId");
+    expect(body).not.toHaveProperty("preacher");
   });
 });

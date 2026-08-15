@@ -1,9 +1,18 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   CalendarDays,
+  Check,
   CheckCircle2,
   ChevronDown,
   FileAudio,
@@ -11,6 +20,7 @@ import {
   Loader2,
   ShieldCheck,
   UploadCloud,
+  UserPlus,
   X,
 } from "lucide-react";
 import type { AppwriteUser } from "@/hooks/use-auth";
@@ -25,10 +35,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createSermonEvaluation, finalizeSermonUpload, prepareSermonUpload } from "./api";
 import type {
   SermonCapabilities,
+  SermonPreacherOption,
+  SermonPreacherSelection,
   SermonPreset,
   UploadProgressState,
 } from "./types";
@@ -95,18 +112,226 @@ function requestedRunsFor(preset: SermonPreset, customRuns: number): number {
   return 1;
 }
 
+function normalizePreacherName(value: string): string {
+  return value.trim().toLocaleLowerCase("en-US").replace(/\s+/g, " ");
+}
+
+type PreacherChoice = {
+  key: string;
+  label: string;
+  selection: SermonPreacherSelection;
+};
+
+export function buildPreacherChoices(
+  preachers: SermonPreacherOption[],
+  query: string,
+): PreacherChoice[] {
+  const normalizedQuery = normalizePreacherName(query);
+  const distinctPreachers = Array.from(
+    new Map(preachers.map((preacher) => [preacher.id, preacher])).values(),
+  ).sort((left, right) => left.displayName.localeCompare(right.displayName));
+  const matches = distinctPreachers.filter((preacher) =>
+    normalizePreacherName(preacher.displayName).includes(normalizedQuery),
+  );
+  const existingChoices = matches.map((preacher) => ({
+    key: `existing-${preacher.id}`,
+    label: preacher.displayName,
+    selection: {
+      kind: "existing" as const,
+      preacherId: preacher.id,
+      displayName: preacher.displayName,
+    },
+  }));
+  const exactMatch = distinctPreachers.some(
+    (preacher) =>
+      normalizePreacherName(preacher.displayName) === normalizedQuery,
+  );
+  const newName = query.trim();
+  return newName && !exactMatch
+    ? [
+        ...existingChoices,
+        {
+          key: `new-${normalizedQuery}`,
+          label: `Create new preacher: “${newName}”`,
+          selection: {
+            kind: "new" as const,
+            displayName: newName,
+          },
+        },
+      ]
+    : existingChoices;
+}
+
+export function PreacherCombobox({
+  preachers,
+  selection,
+  onSelectionChange,
+  disabled = false,
+  invalid = false,
+}: {
+  preachers: SermonPreacherOption[];
+  selection: SermonPreacherSelection | null;
+  onSelectionChange: (selection: SermonPreacherSelection | null) => void;
+  disabled?: boolean;
+  invalid?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(selection?.displayName ?? "");
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const choices = useMemo(
+    () => buildPreacherChoices(preachers, query),
+    [preachers, query],
+  );
+
+  const choose = (choice: PreacherChoice) => {
+    setQuery(choice.selection.displayName);
+    onSelectionChange(choice.selection);
+    setOpen(false);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setOpen(true);
+      setActiveIndex((current) => {
+        if (!choices.length) return -1;
+        const direction = event.key === "ArrowDown" ? 1 : -1;
+        if (current < 0) {
+          return direction > 0 ? 0 : choices.length - 1;
+        }
+        return (current + direction + choices.length) % choices.length;
+      });
+      return;
+    }
+    if (event.key === "Enter" && open && choices[activeIndex]) {
+      event.preventDefault();
+      choose(choices[activeIndex]);
+      return;
+    }
+    if (event.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) setActiveIndex(-1);
+      }}
+    >
+      <PopoverAnchor asChild>
+        <div className="relative">
+          <Input
+            id="sermon-preacher"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={open}
+            aria-controls="sermon-preacher-options"
+            aria-activedescendant={
+              open && choices[activeIndex]
+                ? `sermon-preacher-option-${activeIndex}`
+                : undefined
+            }
+            aria-invalid={invalid || undefined}
+            aria-describedby={
+              invalid
+                ? "sermon-preacher-help sermon-preacher-error"
+                : "sermon-preacher-help"
+            }
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              onSelectionChange(null);
+              setActiveIndex(-1);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            onClick={() => setOpen(true)}
+            onKeyDown={handleKeyDown}
+            placeholder="Search or add a preacher"
+            maxLength={120}
+            disabled={disabled}
+            required
+            className="pr-9"
+          />
+          <ChevronDown
+            aria-hidden="true"
+            className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-muted-foreground"
+          />
+        </div>
+      </PopoverAnchor>
+      <PopoverContent
+        id="sermon-preacher-options"
+        role="listbox"
+        align="start"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        className="w-[var(--radix-popover-anchor-width)] min-w-64 p-1"
+      >
+        {choices.length ? (
+          choices.map((choice, index) => {
+            const selected =
+              selection?.kind === choice.selection.kind &&
+              (selection.kind === "existing" &&
+              choice.selection.kind === "existing"
+                ? selection.preacherId === choice.selection.preacherId
+                : selection.displayName === choice.selection.displayName);
+            return (
+              <Button
+                key={choice.key}
+                id={`sermon-preacher-option-${index}`}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                variant="ghost"
+                className={`h-auto w-full justify-start whitespace-normal px-3 py-2 text-left ${
+                  index === activeIndex
+                    ? "bg-accent text-accent-foreground"
+                    : ""
+                }`}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => choose(choice)}
+              >
+                {choice.selection.kind === "new" ? (
+                  <UserPlus aria-hidden="true" />
+                ) : (
+                  <Check
+                    aria-hidden="true"
+                    className={selected ? "opacity-100" : "opacity-0"}
+                  />
+                )}
+                {choice.label}
+              </Button>
+            );
+          })
+        ) : (
+          <p className="px-3 py-2 text-sm text-muted-foreground">
+            Type a preacher&apos;s name to create the first entry.
+          </p>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function SermonUploadForm({
   capabilities,
   user,
+  preachers,
 }: {
   capabilities: SermonCapabilities;
   user: AppwriteUser;
+  preachers: SermonPreacherOption[];
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [audio, setAudio] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [preacher, setPreacher] = useState("");
+  const [preacherSelection, setPreacherSelection] =
+    useState<SermonPreacherSelection | null>(null);
+  const [preacherError, setPreacherError] = useState<string | null>(null);
   const [preachedOn, setPreachedOn] = useState("");
   const [preset, setPreset] = useState<SermonPreset>("STANDARD");
   const [customRuns, setCustomRuns] = useState(1);
@@ -182,8 +407,14 @@ export function SermonUploadForm({
       inputRef.current?.focus();
       return;
     }
-    if (!title.trim() || !preacher.trim() || !preachedOn) {
-      setError("Sermon title, preacher, and preached date are required.");
+    if (!preacherSelection) {
+      setPreacherError(
+        "Select an existing preacher or choose the create-new option.",
+      );
+      return;
+    }
+    if (!title.trim() || !preachedOn) {
+      setError("Sermon title and preached date are required.");
       return;
     }
 
@@ -275,7 +506,9 @@ export function SermonUploadForm({
       const created = await createSermonEvaluation({
         reservationId: finalized.reservationId,
         title: title.trim(),
-        preacher: preacher.trim(),
+        ...(preacherSelection.kind === "existing"
+          ? { preacherId: preacherSelection.preacherId }
+          : { newPreacherName: preacherSelection.displayName }),
         preachedOn,
         preset,
         requestedRuns: preset === "CUSTOM" ? requestedRuns : undefined,
@@ -406,15 +639,33 @@ export function SermonUploadForm({
             </div>
             <div className="space-y-2">
               <Label htmlFor="sermon-preacher">Preacher</Label>
-              <Input
-                id="sermon-preacher"
-                value={preacher}
-                onChange={(event) => setPreacher(event.target.value)}
-                placeholder="Preacher name"
-                maxLength={120}
+              <PreacherCombobox
+                preachers={preachers}
+                selection={preacherSelection}
+                onSelectionChange={(nextSelection) => {
+                  setPreacherSelection(nextSelection);
+                  setPreacherError(null);
+                }}
                 disabled={busy}
-                required
+                invalid={Boolean(preacherError)}
               />
+              <p
+                id="sermon-preacher-help"
+                className="text-xs text-muted-foreground"
+              >
+                Select an existing preacher to keep dashboard trends together.
+                If the preacher isn&apos;t listed, type the name and choose the
+                create-new option.
+              </p>
+              {preacherError && (
+                <p
+                  id="sermon-preacher-error"
+                  role="alert"
+                  className="text-sm text-destructive"
+                >
+                  {preacherError}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="sermon-date">Date preached</Label>

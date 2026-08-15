@@ -20,6 +20,7 @@ export class SermonQuotaError extends Error {
       | "RUN_CREDITS_EXHAUSTED"
       | "AUDIO_NOT_RETAINED"
       | "UPLOAD_RESERVATION_INVALID"
+      | "PREACHER_NOT_FOUND"
       | "ACTIVE_EVALUATION_EXISTS",
   ) {
     super(message);
@@ -119,6 +120,10 @@ async function enforceDailyQuota(
   }
 }
 
+type SermonPreacherSelection =
+  | { preacherId: string; newPreacherName?: never }
+  | { preacherId?: never; newPreacherName: string };
+
 type CreateReservedEvaluationInput = {
   ownerId: string;
   actorId: string;
@@ -126,13 +131,12 @@ type CreateReservedEvaluationInput = {
   fingerprintId: string;
   audioAssetId: string;
   title: string;
-  preacher: string;
   preachedOn: Date;
   selection: SermonRunSelection;
   durationAdjustmentEnabled: boolean;
   uploadReservationId?: string;
   sourceEvaluationId?: string;
-};
+} & SermonPreacherSelection;
 
 export async function createReservedSermonEvaluation(
   input: CreateReservedEvaluationInput,
@@ -187,24 +191,47 @@ export async function createReservedSermonEvaluation(
           input.selection.requestedRuns,
         );
 
-        const normalizedName = input.preacher
-          .trim()
-          .toLocaleLowerCase("en-US")
-          .replace(/\s+/g, " ");
-        const preacher = await tx.sermonPreacher.upsert({
-          where: {
-            ownerId_normalizedName: {
+        let preacher;
+        if (input.preacherId) {
+          preacher = await tx.sermonPreacher.findFirst({
+            where: {
+              id: input.preacherId,
               ownerId: input.ownerId,
+            },
+          });
+          if (!preacher) {
+            throw new SermonQuotaError(
+              "The selected preacher is not available for this account",
+              "PREACHER_NOT_FOUND",
+            );
+          }
+        } else {
+          const newPreacherName = input.newPreacherName;
+          if (!newPreacherName) {
+            throw new SermonQuotaError(
+              "A new preacher name is required",
+              "PREACHER_NOT_FOUND",
+            );
+          }
+          const displayName = newPreacherName.trim();
+          const normalizedName = displayName
+            .toLocaleLowerCase("en-US")
+            .replace(/\s+/g, " ");
+          preacher = await tx.sermonPreacher.upsert({
+            where: {
+              ownerId_normalizedName: {
+                ownerId: input.ownerId,
+                normalizedName,
+              },
+            },
+            create: {
+              ownerId: input.ownerId,
+              displayName,
               normalizedName,
             },
-          },
-          create: {
-            ownerId: input.ownerId,
-            displayName: input.preacher.trim(),
-            normalizedName,
-          },
-          update: { displayName: input.preacher.trim() },
-        });
+            update: { displayName },
+          });
+        }
 
         const evaluation = await tx.sermonEvaluation.create({
           data: {

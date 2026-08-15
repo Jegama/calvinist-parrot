@@ -33,10 +33,20 @@ export type RunCredits = {
   remaining: number;
 };
 
+export type SermonPreacherOption = {
+  id: string;
+  displayName: string;
+};
+
+export type SermonPreacherSelection =
+  | { kind: "existing"; preacherId: string; displayName: string }
+  | { kind: "new"; displayName: string };
+
 export type SermonEvaluationListItem = {
   id: string;
   fingerprintId: string;
   title: string;
+  preacherId: string;
   preacher: string;
   preachedOn: string;
   createdAt: string;

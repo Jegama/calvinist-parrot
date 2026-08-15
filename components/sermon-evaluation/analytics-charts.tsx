@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Bar,
   BarChart,
@@ -17,8 +16,6 @@ import {
   YAxis,
 } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   buildSermonMetricAverageRows,
   buildSermonTrendRows,
@@ -80,22 +77,30 @@ export function SermonAnalyticsCharts({
   metric: string;
 }) {
   const availableMetrics = listAvailableSermonMetrics(evaluations);
-  const [requestedTrendMetric, setRequestedTrendMetric] = useState("overallImpactBase");
-  const trendMetric = availableMetrics.includes(requestedTrendMetric)
-    ? requestedTrendMetric
-    : (availableMetrics[0] ?? "overallImpactBase");
+  const trendMetric = metric;
   const sorted = [...evaluations].sort(
     (left, right) => new Date(left.preachedOn).valueOf() - new Date(right.preachedOn).valueOf(),
   );
-  const preacherCounts = new Map<string, number>();
+  const preacherCounts = new Map<string, { count: number; name: string }>();
   for (const evaluation of sorted) {
-    preacherCounts.set(evaluation.preacher, (preacherCounts.get(evaluation.preacher) ?? 0) + 1);
+    const current = preacherCounts.get(evaluation.preacherId);
+    preacherCounts.set(evaluation.preacherId, {
+      count: (current?.count ?? 0) + 1,
+      name: evaluation.preacher,
+    });
   }
   const preachers = [...preacherCounts.entries()]
-    .sort((left, right) => right[1] - left[1])
+    .sort((left, right) => right[1].count - left[1].count || left[1].name.localeCompare(right[1].name))
     .slice(0, 5)
-    .map(([preacher]) => preacher);
-  const trendRows = buildSermonTrendRows(sorted, trendMetric, preachers);
+    .map(([id, details]) => ({ id, name: details.name }));
+  const trendRows = buildSermonTrendRows(sorted, trendMetric, preachers.map((preacher) => preacher.id));
+  const accessibleTrendRows = sorted.flatMap((evaluation) => {
+    if (!preachers.some((preacher) => preacher.id === evaluation.preacherId)) return [];
+    const score = scoreForSermonMetric(evaluation, trendMetric);
+    return score === null
+      ? []
+      : [[evaluation.preachedOn.slice(0, 10), evaluation.title, evaluation.preacher, formatScore(score)]];
+  });
 
   const scatterData = sorted
     .map((evaluation) => ({
@@ -112,12 +117,12 @@ export function SermonAnalyticsCharts({
 
   const trailingRows = preachers.map((preacher) => {
     const scores = sorted
-      .filter((evaluation) => evaluation.preacher === preacher)
+      .filter((evaluation) => evaluation.preacherId === preacher.id)
       .map((evaluation) => scoreForSermonMetric(evaluation, metric))
       .filter((score): score is number => score !== null)
       .slice(-3);
     return {
-      preacher,
+      preacher: preacher.name,
       average: scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : null,
       sermons: scores.length,
     };
@@ -158,7 +163,7 @@ export function SermonAnalyticsCharts({
   return (
     <div className="grid gap-6 xl:grid-cols-2">
       <Card className="xl:col-span-2">
-        <CardHeader className="gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <CardHeader>
           <div className="space-y-1.5">
             <CardTitle className="font-serif text-lg">
               {formatMetricLabel(trendMetric)} over preached date
@@ -167,28 +172,10 @@ export function SermonAnalyticsCharts({
               Compare any available scoring metric over the date each sermon was preached, grouped by preacher.
             </CardDescription>
           </div>
-          <div className="w-full shrink-0 space-y-2 sm:w-64">
-            <Label htmlFor="sermon-trend-metric">Trend metric</Label>
-            <Select
-              value={trendMetric}
-              onValueChange={setRequestedTrendMetric}
-            >
-              <SelectTrigger id="sermon-trend-metric">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableMetrics.map((availableMetric) => (
-                  <SelectItem key={availableMetric} value={availableMetric}>
-                    {formatMetricLabel(availableMetric)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </CardHeader>
         <CardContent>
           {trendRows.length > 0 ? (
-            <div className="h-80 min-w-0">
+            <div className="h-80 min-w-0" aria-hidden="true">
               <ResponsiveContainer
                 width="100%"
                 height="100%"
@@ -215,10 +202,10 @@ export function SermonAnalyticsCharts({
                   <Legend wrapperStyle={{ color: "hsl(var(--foreground))", fontSize: 12 }} />
                   {preachers.map((preacher, index) => (
                     <Line
-                      key={preacher}
+                      key={preacher.id}
                       type="monotone"
-                      dataKey={`score:${preacher}`}
-                      name={preacher}
+                      dataKey={`score:${preacher.id}`}
+                      name={preacher.name}
                       connectNulls
                       stroke={CHART_COLORS[index % CHART_COLORS.length]}
                       strokeWidth={2}
@@ -232,6 +219,18 @@ export function SermonAnalyticsCharts({
           ) : (
             <EmptyChart message="Completed sermon scores will appear here." />
           )}
+          {preacherCounts.size > 5 ? (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Showing the five preachers with the most scored sermons. Use the Preacher filter to focus on someone else.
+            </p>
+          ) : null}
+          {accessibleTrendRows.length > 0 ? (
+            <ChartDataDetails
+              caption={`${formatMetricLabel(trendMetric)} trend data`}
+              headers={["Preached", "Sermon", "Preacher", "Score"]}
+              rows={accessibleTrendRows}
+            />
+          ) : null}
         </CardContent>
       </Card>
 
@@ -325,7 +324,7 @@ export function SermonAnalyticsCharts({
         </CardHeader>
         <CardContent>
           {scatterData.length > 0 ? (
-            <div className="h-72 min-w-0">
+            <div className="h-72 min-w-0" aria-hidden="true">
               <ResponsiveContainer
                 width="100%"
                 height="100%"
@@ -360,6 +359,18 @@ export function SermonAnalyticsCharts({
           ) : (
             <EmptyChart message="Duration data will appear after audio preparation completes." />
           )}
+          {scatterData.length > 0 ? (
+            <ChartDataDetails
+              caption={`Duration versus ${formatMetricLabel(metric)} data`}
+              headers={["Sermon", "Preacher", "Duration in minutes", "Score"]}
+              rows={scatterData.map((point) => [
+                point.title,
+                point.preacher,
+                point.durationMinutes.toFixed(1),
+                formatScore(point.impact),
+              ])}
+            />
+          ) : null}
         </CardContent>
       </Card>
 
@@ -372,7 +383,7 @@ export function SermonAnalyticsCharts({
         </CardHeader>
         <CardContent>
           {trailingRows.length > 0 ? (
-            <div className="h-72 min-w-0">
+            <div className="h-72 min-w-0" aria-hidden="true">
               <ResponsiveContainer
                 width="100%"
                 height="100%"
@@ -404,6 +415,13 @@ export function SermonAnalyticsCharts({
           ) : (
             <EmptyChart message="Preacher comparisons need at least one completed sermon." />
           )}
+          {trailingRows.length > 0 ? (
+            <ChartDataDetails
+              caption="Preacher trailing average data"
+              headers={["Preacher", "Average score", "Sermons"]}
+              rows={trailingRows.map((row) => [row.preacher, formatScore(row.average), String(row.sermons)])}
+            />
+          ) : null}
         </CardContent>
       </Card>
 
@@ -414,7 +432,7 @@ export function SermonAnalyticsCharts({
         </CardHeader>
         <CardContent>
           {uncertaintyRows.length > 0 ? (
-            <div className="h-72 min-w-0">
+            <div className="h-72 min-w-0" aria-hidden="true">
               <ResponsiveContainer
                 width="100%"
                 height="100%"
@@ -454,6 +472,19 @@ export function SermonAnalyticsCharts({
           ) : (
             <EmptyChart message="Self-consistency evaluations with multiple successful runs will show score ranges here." />
           )}
+          {uncertaintyRows.length > 0 ? (
+            <ChartDataDetails
+              caption="Self-consistency score spread data"
+              headers={["Sermon", "Preacher", "Final score", "Low", "High"]}
+              rows={uncertaintyRows.map((row) => [
+                row.title,
+                row.preacher,
+                formatScore(row.finalScore),
+                formatScore(row.score - row.uncertainty[0]),
+                formatScore(row.score + row.uncertainty[1]),
+              ])}
+            />
+          ) : null}
         </CardContent>
       </Card>
 
@@ -466,7 +497,7 @@ export function SermonAnalyticsCharts({
         </CardHeader>
         <CardContent>
           {metricAverageRows.length > 0 ? (
-            <div className="h-72 min-w-0">
+            <div className="h-72 min-w-0" aria-hidden="true">
               <ResponsiveContainer
                 width="100%"
                 height="100%"
@@ -511,6 +542,13 @@ export function SermonAnalyticsCharts({
           ) : (
             <EmptyChart message="Aggregate averages will appear after an evaluation completes." />
           )}
+          {metricAverageRows.length > 0 ? (
+            <ChartDataDetails
+              caption="Average aggregate profile data"
+              headers={["Metric", "Average score", "Sermons"]}
+              rows={metricAverageRows.map((row) => [row.title, formatScore(row.average), String(row.sermons)])}
+            />
+          ) : null}
         </CardContent>
       </Card>
     </div>
@@ -522,5 +560,48 @@ function EmptyChart({ message }: { message: string }) {
     <div className="flex min-h-52 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
       {message}
     </div>
+  );
+}
+
+function ChartDataDetails({
+  caption,
+  headers,
+  rows,
+}: {
+  caption: string;
+  headers: string[];
+  rows: Array<Array<string | number>>;
+}) {
+  return (
+    <details className="mt-4 rounded-lg border border-border bg-muted/20 text-sm">
+      <summary className="cursor-pointer px-4 py-3 font-medium text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        View chart data
+      </summary>
+      <div className="overflow-x-auto border-t border-border p-3">
+        <table className="min-w-full text-left text-xs">
+          <caption className="sr-only">{caption}</caption>
+          <thead>
+            <tr>
+              {headers.map((header) => (
+                <th key={header} scope="col" className="whitespace-nowrap px-2 py-2 font-medium text-muted-foreground">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rowIndex) => (
+              <tr key={`${caption}:${rowIndex}`} className="border-t border-border/60">
+                {row.map((value, columnIndex) => (
+                  <td key={`${rowIndex}:${columnIndex}`} className="whitespace-nowrap px-2 py-2 tabular-nums">
+                    {value}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
   );
 }

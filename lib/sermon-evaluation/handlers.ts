@@ -980,7 +980,9 @@ export async function handleCreateSermonEvaluation(request: Request) {
       fingerprintId: upload.fingerprint.id,
       audioAssetId: upload.fingerprint.audioAsset.id,
       title: parsed.data.title,
-      preacher: parsed.data.preacher,
+      ...(parsed.data.preacherId
+        ? { preacherId: parsed.data.preacherId }
+        : { newPreacherName: parsed.data.newPreacherName! }),
       preachedOn: new Date(`${parsed.data.preachedOn}T00:00:00.000Z`),
       selection,
       durationAdjustmentEnabled:
@@ -1514,7 +1516,7 @@ export async function handleReevaluateSermon(
       fingerprintId: source.fingerprintId,
       audioAssetId: source.audioAsset.id,
       title: source.title,
-      preacher: source.preacher.displayName,
+      preacherId: source.preacher.id,
       preachedOn: source.preachedOn,
       selection,
       durationAdjustmentEnabled:

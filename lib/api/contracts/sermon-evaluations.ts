@@ -179,7 +179,8 @@ const preachedOnSchema = z
 const createSermonEvaluationBaseSchema = z.strictObject({
   uploadReservationId: resourceIdSchema,
   title: z.string().trim().min(1).max(200),
-  preacher: z.string().trim().min(1).max(120),
+  preacherId: resourceIdSchema.optional(),
+  newPreacherName: z.string().trim().min(1).max(120).optional(),
   preachedOn: preachedOnSchema,
   durationAdjustmentEnabled: z.boolean().default(false),
 });
@@ -198,7 +199,19 @@ export const createSermonEvaluationRequestSchema = z.discriminatedUnion(
       requestedRuns: z.number().int().min(1).max(9),
     }),
   ],
-);
+).superRefine((value, context) => {
+  const selectionCount =
+    Number(value.preacherId !== undefined) +
+    Number(value.newPreacherName !== undefined);
+  if (selectionCount !== 1) {
+    context.addIssue({
+      code: "custom",
+      message:
+        "Select one existing preacher or explicitly create one new preacher",
+      path: ["preacherId"],
+    });
+  }
+});
 
 const sermonEvaluationSummarySchema = z.strictObject({
   id: resourceIdSchema,

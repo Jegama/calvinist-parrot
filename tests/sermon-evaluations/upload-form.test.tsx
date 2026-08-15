@@ -13,7 +13,10 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-import { SermonUploadForm } from "@/components/sermon-evaluation/upload-form";
+import {
+  buildPreacherChoices,
+  SermonUploadForm,
+} from "@/components/sermon-evaluation/upload-form";
 
 const capabilities: SermonCapabilities = {
   hasAccess: true,
@@ -39,6 +42,15 @@ describe("sermon upload form", () => {
     vi.stubGlobal("document", dom.window.document);
     vi.stubGlobal("navigator", dom.window.navigator);
     vi.stubGlobal("HTMLElement", dom.window.HTMLElement);
+    vi.stubGlobal("Element", dom.window.Element);
+    vi.stubGlobal("Node", dom.window.Node);
+    vi.stubGlobal("Event", dom.window.Event);
+    vi.stubGlobal("CustomEvent", dom.window.CustomEvent);
+    vi.stubGlobal("MutationObserver", dom.window.MutationObserver);
+    Object.assign(dom.window.HTMLElement.prototype, {
+      attachEvent: () => undefined,
+      detachEvent: () => undefined,
+    });
     vi.stubGlobal(
       "getComputedStyle",
       dom.window.getComputedStyle.bind(dom.window),
@@ -64,7 +76,14 @@ describe("sermon upload form", () => {
   async function renderForm() {
     await act(async () => {
       root.render(
-        <SermonUploadForm capabilities={capabilities} user={user} />,
+        <SermonUploadForm
+          capabilities={capabilities}
+          user={user}
+          preachers={[
+            { id: "preacher-1", displayName: "John Calvin" },
+            { id: "preacher-2", displayName: "Martin Bucer" },
+          ]}
+        />,
       );
     });
   }
@@ -138,5 +157,55 @@ describe("sermon upload form", () => {
     ).toBeTruthy();
     expect(fileInput?.getAttribute("aria-invalid")).toBe("true");
     expect(fileInput?.getAttribute("aria-describedby")).toBe("sermon-audio-error");
+  });
+
+  it("explains how preacher identity affects dashboard trends", async () => {
+    await renderForm();
+
+    expect(
+      dom.window.document.getElementById("sermon-preacher-help")?.textContent,
+    ).toContain(
+      "Select an existing preacher to keep dashboard trends together",
+    );
+    expect(
+      dom.window.document.getElementById("sermon-preacher-help")?.textContent,
+    ).toContain("isn't listed");
+  });
+
+  it("selects an existing preacher by stable ID", async () => {
+    const choices = buildPreacherChoices(
+      [
+        { id: "preacher-1", displayName: "John Calvin" },
+        { id: "preacher-2", displayName: "Martin Bucer" },
+      ],
+      "  john   calvin ",
+    );
+
+    expect(choices).toEqual([
+      {
+        key: "existing-preacher-1",
+        label: "John Calvin",
+        selection: {
+          kind: "existing",
+          preacherId: "preacher-1",
+          displayName: "John Calvin",
+        },
+      },
+    ]);
+  });
+
+  it("does not create an unmatched preacher until the explicit option is chosen", async () => {
+    const choices = buildPreacherChoices(
+      [{ id: "preacher-1", displayName: "John Calvin" }],
+      " New Pastor ",
+    );
+
+    expect(choices).toEqual([
+      {
+        key: "new-new pastor",
+        label: "Create new preacher: “New Pastor”",
+        selection: { kind: "new", displayName: "New Pastor" },
+      },
+    ]);
   });
 });

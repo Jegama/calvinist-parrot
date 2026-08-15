@@ -11,10 +11,33 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchSermonAnalytics, fetchSermonCapabilities, fetchSermonEvaluations } from "./api";
-import { latestEvaluationPerSermon } from "./analytics-data";
+import {
+  latestCompletedEvaluationPerSermon,
+  latestEvaluationPerSermon,
+} from "./analytics-data";
 import { SermonDashboard } from "./dashboard";
 import { SermonUploadForm } from "./upload-form";
-import type { SermonAnalyticsPoint } from "./types";
+import type { SermonAnalyticsPoint, SermonPreacherOption } from "./types";
+
+type DashboardSource = "analytics" | "evaluations";
+
+type DashboardData = {
+  analyticsEvaluations: SermonAnalyticsPoint[];
+  evaluations: SermonAnalyticsPoint[];
+  preachers: SermonPreacherOption[];
+  unavailableSources: DashboardSource[];
+};
+
+function sortDashboardEvaluations(evaluations: SermonAnalyticsPoint[]) {
+  return evaluations.sort(
+    (left, right) =>
+      new Date(right.preachedOn).valueOf() -
+        new Date(left.preachedOn).valueOf() ||
+      new Date(right.createdAt).valueOf() -
+        new Date(left.createdAt).valueOf() ||
+      right.id.localeCompare(left.id),
+  );
+}
 
 export function SermonEvaluationFeature() {
   const { user, loading: authLoading } = useAuth();
@@ -39,6 +62,13 @@ export function SermonEvaluationFeature() {
       const analytics =
         analyticsResult.status === "fulfilled" ? analyticsResult.value.evaluations : [];
       const list = listResult.status === "fulfilled" ? listResult.value : [];
+      const unavailableSources: DashboardSource[] = [];
+      if (analyticsResult.status === "rejected") {
+        unavailableSources.push("analytics");
+      }
+      if (listResult.status === "rejected") {
+        unavailableSources.push("evaluations");
+      }
       const byId = new Map<string, SermonAnalyticsPoint>();
       for (const evaluation of list) {
         byId.set(evaluation.id, { ...evaluation, aggregateScores: {} });
@@ -50,28 +80,35 @@ export function SermonEvaluationFeature() {
           existing
             ? {
                 ...existing,
-                preacher: evaluation.preacher,
-                preachedOn: evaluation.preachedOn,
-                status: evaluation.status,
-                overallImpactBase: evaluation.overallImpactBase,
-                overallImpactAdjusted: evaluation.overallImpactAdjusted,
-                durationAdjustmentEnabled: evaluation.durationAdjustmentEnabled,
                 durationSeconds: evaluation.durationSeconds ?? existing.durationSeconds,
                 uncertaintyLow: evaluation.uncertaintyLow ?? existing.uncertaintyLow,
                 uncertaintyHigh: evaluation.uncertaintyHigh ?? existing.uncertaintyHigh,
+                hasRetainedAudio: evaluation.hasRetainedAudio,
+                runCredits: evaluation.runCredits,
                 aggregateScores: evaluation.aggregateScores,
               }
             : evaluation,
         );
       }
-      return latestEvaluationPerSermon([...byId.values()]).sort(
-        (left, right) =>
-          new Date(right.preachedOn).valueOf() -
-            new Date(left.preachedOn).valueOf() ||
-          new Date(right.createdAt).valueOf() -
-            new Date(left.createdAt).valueOf() ||
-          right.id.localeCompare(left.id),
-      );
+      const merged = [...byId.values()];
+      const preachers = [
+        ...new Map(
+          merged.map((evaluation) => [
+            evaluation.preacherId,
+            { id: evaluation.preacherId, displayName: evaluation.preacher },
+          ]),
+        ).values(),
+      ].sort((left, right) => left.displayName.localeCompare(right.displayName));
+      return {
+        analyticsEvaluations: sortDashboardEvaluations(
+          latestCompletedEvaluationPerSermon(merged),
+        ),
+        evaluations: sortDashboardEvaluations(
+          latestEvaluationPerSermon(merged),
+        ),
+        preachers,
+        unavailableSources,
+      } satisfies DashboardData;
     },
     enabled: capabilitiesQuery.data?.hasAccess === true,
     staleTime: 30_000,
@@ -159,25 +196,52 @@ export function SermonEvaluationFeature() {
                   </span>
                 )}
               </div>
+              {dataQuery.isError ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Sermon data could not be loaded</AlertTitle>
+                  <AlertDescription className="flex flex-col items-start gap-3">
+                    <span>
+                      {dataQuery.error instanceof Error ? dataQuery.error.message : "Please try again."}
+                    </span>
+                    <Button variant="outline" size="sm" onClick={() => void dataQuery.refetch()}>
+                      <RefreshCw />
+                      Reload sermon data
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              {dataQuery.data && dataQuery.data.unavailableSources.length > 0 ? (
+                <Alert>
+                  <ShieldAlert />
+                  <AlertTitle>Some sermon data is temporarily unavailable</AlertTitle>
+                  <AlertDescription className="flex flex-col items-start gap-3">
+                    <span>
+                      {dataQuery.data.unavailableSources.includes("analytics")
+                        ? "Score charts, aggregate metrics, and existing-preacher suggestions may be incomplete because analytics could not be loaded."
+                        : "Recent evaluation statuses may be incomplete because the evaluation list could not be loaded."}
+                    </span>
+                    <Button variant="outline" size="sm" onClick={() => void dataQuery.refetch()}>
+                      <RefreshCw />
+                      Retry missing data
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
               <TabsContent value="dashboard">
-                {dataQuery.isError && (
-                  <Alert variant="destructive" className="mb-6">
-                    <AlertTitle>Dashboard data could not be loaded</AlertTitle>
-                    <AlertDescription className="flex flex-col items-start gap-3">
-                      <span>
-                        {dataQuery.error instanceof Error ? dataQuery.error.message : "Please try again."}
-                      </span>
-                      <Button variant="outline" size="sm" onClick={() => void dataQuery.refetch()}>
-                        <RefreshCw />
-                        Reload dashboard
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
-                )}
-                <SermonDashboard evaluations={dataQuery.data ?? []} loading={dataQuery.isPending} />
+                {!dataQuery.isError ? (
+                  <SermonDashboard
+                    evaluations={dataQuery.data?.evaluations ?? []}
+                    analyticsEvaluations={dataQuery.data?.analyticsEvaluations ?? []}
+                    loading={dataQuery.isPending}
+                  />
+                ) : null}
               </TabsContent>
               <TabsContent value="new" className="mx-auto max-w-4xl">
-                <SermonUploadForm capabilities={capabilitiesQuery.data} user={user} />
+                <SermonUploadForm
+                  capabilities={capabilitiesQuery.data}
+                  user={user}
+                  preachers={dataQuery.data?.preachers ?? []}
+                />
               </TabsContent>
             </Tabs>
           ) : null}

@@ -2,6 +2,8 @@ import { SERMON_AGGREGATES } from "@/lib/sermon-evaluation/rubric.generated";
 import { formatDate } from "./format";
 import type { SermonAnalyticsPoint } from "./types";
 
+const COMPLETED_STATUSES = new Set(["COMPLETE", "COMPLETE_WITH_WARNINGS"]);
+
 const CANONICAL_AGGREGATE_METRICS = SERMON_AGGREGATES.map(
   (aggregate) => aggregate.clientKey,
 );
@@ -77,6 +79,16 @@ export function latestEvaluationPerSermon(
   return [...latestByFingerprint.values()];
 }
 
+export function latestCompletedEvaluationPerSermon(
+  evaluations: readonly SermonAnalyticsPoint[],
+): SermonAnalyticsPoint[] {
+  return latestEvaluationPerSermon(
+    evaluations.filter((evaluation) =>
+      COMPLETED_STATUSES.has(evaluation.status),
+    ),
+  );
+}
+
 export function buildSermonTrendRows(
   evaluations: SermonAnalyticsPoint[],
   metric: string,
@@ -84,7 +96,7 @@ export function buildSermonTrendRows(
 ): Array<Record<string, unknown>> {
   const included = new Set(includedPreachers);
   return evaluations.flatMap((evaluation) => {
-    if (!included.has(evaluation.preacher)) {
+    if (!included.has(evaluation.preacherId)) {
       return [];
     }
     const score = scoreForSermonMetric(evaluation, metric);
@@ -98,7 +110,8 @@ export function buildSermonTrendRows(
         label: formatDate(evaluation.preachedOn),
         title: evaluation.title,
         preacher: evaluation.preacher,
-        [`score:${evaluation.preacher}`]: score,
+        preacherId: evaluation.preacherId,
+        [`score:${evaluation.preacherId}`]: score,
       },
     ];
   });

@@ -21,6 +21,7 @@ function sermonAnalyticsPoint(
     id: "evaluation",
     fingerprintId: "fingerprint",
     title: "Sermon",
+    preacherId: "preacher-john-calvin",
     preacher: "John Calvin",
     preachedOn: "2026-07-27",
     createdAt: "2026-07-27T12:00:00.000Z",
@@ -458,6 +459,7 @@ describe("sermon UI data helpers", () => {
 
   it("keeps distinct sermons preached on the same date in the trend data", () => {
     const common = {
+      preacherId: "preacher-john-calvin",
       preacher: "John Calvin",
       preachedOn: "2026-07-27",
       createdAt: "2026-07-27T12:00:00.000Z",
@@ -503,7 +505,7 @@ describe("sermon UI data helpers", () => {
     const rows = buildSermonTrendRows(
       evaluations,
       "overallImpactBase",
-      ["John Calvin"],
+      ["preacher-john-calvin"],
     );
 
     expect(rows).toHaveLength(2);
@@ -511,7 +513,9 @@ describe("sermon UI data helpers", () => {
       "morning",
       "evening",
     ]);
-    expect(rows.map((row) => row["score:John Calvin"])).toEqual([3.5, 4.25]);
+    expect(
+      rows.map((row) => row["score:preacher-john-calvin"]),
+    ).toEqual([3.5, 4.25]);
   });
 
   it("offers every available sermon metric in a stable, meaningful order", () => {

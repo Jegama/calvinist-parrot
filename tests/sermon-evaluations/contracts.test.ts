@@ -52,7 +52,7 @@ describe("sermon evaluation contracts", () => {
       createSermonEvaluationRequestSchema.safeParse({
         uploadReservationId: "upload-1",
         title: "Grace Alone",
-        preacher: "Example Pastor",
+        newPreacherName: "Example Pastor",
         preachedOn: "2026-07-27",
         preset: "standard",
         ownerId: "someone-else",
@@ -126,7 +126,7 @@ describe("sermon evaluation contracts", () => {
       createSermonEvaluationRequestSchema.safeParse({
         uploadReservationId: "upload-1",
         title: "Grace Alone",
-        preacher: "Example Pastor",
+        newPreacherName: "Example Pastor",
         preachedOn: "2026-02-31",
         preset: "standard",
       }).success,
@@ -135,11 +135,49 @@ describe("sermon evaluation contracts", () => {
       createSermonEvaluationRequestSchema.safeParse({
         uploadReservationId: "upload-1",
         title: "Grace Alone",
-        preacher: "Example Pastor",
+        preacherId: "preacher-1",
         preachedOn: "2024-02-29",
         preset: "standard",
       }).success,
     ).toBe(true);
+  });
+
+  it("requires one explicit existing-or-new preacher selection", () => {
+    const base = {
+      uploadReservationId: "upload-1",
+      title: "Grace Alone",
+      preachedOn: "2026-07-27",
+      preset: "standard" as const,
+    };
+
+    expect(
+      createSermonEvaluationRequestSchema.safeParse({
+        ...base,
+        preacherId: "preacher-1",
+      }).success,
+    ).toBe(true);
+    expect(
+      createSermonEvaluationRequestSchema.safeParse({
+        ...base,
+        newPreacherName: "  Example   Pastor  ",
+      }).success,
+    ).toBe(true);
+    expect(
+      createSermonEvaluationRequestSchema.safeParse(base).success,
+    ).toBe(false);
+    expect(
+      createSermonEvaluationRequestSchema.safeParse({
+        ...base,
+        preacherId: "preacher-1",
+        newPreacherName: "Example Pastor",
+      }).success,
+    ).toBe(false);
+    expect(
+      createSermonEvaluationRequestSchema.safeParse({
+        ...base,
+        preacher: "Example Pastor",
+      }).success,
+    ).toBe(false);
   });
 });
 

@@ -366,7 +366,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
           fingerprintId: fixture.fingerprint.id,
           audioAssetId: fixture.audioAsset.id,
           title: `Mixed spend ${index + 1}`,
-          preacher: fixture.preacher.displayName,
+          preacherId: fixture.preacher.id,
           preachedOn: new Date("2026-07-27T00:00:00.000Z"),
           selection,
           durationAdjustmentEnabled: false,
@@ -386,7 +386,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
         fingerprintId: fixture.fingerprint.id,
         audioAssetId: fixture.audioAsset.id,
         title: "Budget overflow",
-        preacher: fixture.preacher.displayName,
+        preacherId: fixture.preacher.id,
         preachedOn: new Date("2026-07-27T00:00:00.000Z"),
         selection: { preset: "STANDARD", requestedRuns: 1 },
         durationAdjustmentEnabled: false,
@@ -422,6 +422,51 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
     ).resolves.toBe(5);
   });
 
+  it("uses only owner-scoped preacher IDs and normalizes explicitly new names", async () => {
+    const first = await createFixture("preacher-owner-first");
+    const second = await createFixture("preacher-owner-second");
+
+    await expect(
+      createReservedSermonEvaluation({
+        ownerId: second.ownerId,
+        actorId: second.ownerId,
+        isAdmin: true,
+        fingerprintId: second.fingerprint.id,
+        audioAssetId: second.audioAsset.id,
+        title: "Cross-owner preacher",
+        preacherId: first.preacher.id,
+        preachedOn: new Date("2026-07-27T00:00:00.000Z"),
+        selection: { preset: "STANDARD", requestedRuns: 1 },
+        durationAdjustmentEnabled: false,
+      }),
+    ).rejects.toMatchObject({ code: "PREACHER_NOT_FOUND" });
+
+    await expect(
+      prisma.sermonEvaluation.count({
+        where: { ownerId: second.ownerId },
+      }),
+    ).resolves.toBe(0);
+
+    const evaluation = await createReservedSermonEvaluation({
+      ownerId: second.ownerId,
+      actorId: second.ownerId,
+      isAdmin: true,
+      fingerprintId: second.fingerprint.id,
+      audioAssetId: second.audioAsset.id,
+      title: "New preacher",
+      newPreacherName: "  New   Pastor  ",
+      preachedOn: new Date("2026-07-27T00:00:00.000Z"),
+      selection: { preset: "STANDARD", requestedRuns: 1 },
+      durationAdjustmentEnabled: false,
+    });
+
+    expect(evaluation.preacher).toMatchObject({
+      ownerId: second.ownerId,
+      displayName: "New   Pastor",
+      normalizedName: "new pastor",
+    });
+  });
+
   it("enforces the six-run daily quota and audits an administrator bypass", async () => {
     const first = await createFixture("daily-quota");
     const second = await createAudioFixture(
@@ -446,7 +491,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
           fingerprintId: fixture.fingerprint.id,
           audioAssetId: fixture.audioAsset.id,
           title: `Daily quota spend ${index + 1}`,
-          preacher: fixture.preacher.displayName,
+          preacherId: fixture.preacher.id,
           preachedOn: new Date("2026-07-27T00:00:00.000Z"),
           selection: {
             preset: "HIGH_CONFIDENCE",
@@ -469,7 +514,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
         fingerprintId: overflow.fingerprint.id,
         audioAssetId: overflow.audioAsset.id,
         title: "Daily quota overflow",
-        preacher: overflow.preacher.displayName,
+        preacherId: overflow.preacher.id,
         preachedOn: new Date("2026-07-27T00:00:00.000Z"),
         selection: { preset: "STANDARD", requestedRuns: 1 },
         durationAdjustmentEnabled: false,
@@ -486,7 +531,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
         fingerprintId: admin.fingerprint.id,
         audioAssetId: admin.audioAsset.id,
         title: "Audited daily quota bypass",
-        preacher: admin.preacher.displayName,
+        preacherId: admin.preacher.id,
         preachedOn: new Date("2026-07-27T00:00:00.000Z"),
         selection: { preset: "STANDARD", requestedRuns: 1 },
         durationAdjustmentEnabled: false,
@@ -534,7 +579,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
         fingerprintId: fixture.fingerprint.id,
         audioAssetId: fixture.audioAsset.id,
         title: "Retry reservation reuse",
-        preacher: fixture.preacher.displayName,
+        preacherId: fixture.preacher.id,
         preachedOn: new Date("2026-07-27T00:00:00.000Z"),
         selection: {
           preset: "HIGH_CONFIDENCE",
@@ -623,7 +668,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
           fingerprintId: fixture.fingerprint.id,
           audioAssetId: fixture.audioAsset.id,
           title: `Consumed ${deletionKind} deletion`,
-          preacher: fixture.preacher.displayName,
+          preacherId: fixture.preacher.id,
           preachedOn: new Date("2026-07-27T00:00:00.000Z"),
           selection: { preset: "STANDARD", requestedRuns: 1 },
           durationAdjustmentEnabled: false,

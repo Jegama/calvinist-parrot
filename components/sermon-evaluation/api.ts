@@ -116,6 +116,10 @@ function readListItem(value: unknown): SermonEvaluationListItem {
       asString(source.id ?? source.evaluationId),
     ),
     title: asString(source.title, "Untitled sermon"),
+    preacherId: asString(
+      source.preacherId ?? preacherSource.id,
+      asString(source.id ?? source.evaluationId),
+    ),
     preacher: asString(
       typeof source.preacher === "string" ? source.preacher : preacherSource.displayName,
       "Unknown preacher",
@@ -482,12 +486,19 @@ export async function finalizeSermonUpload(input: {
 export async function createSermonEvaluation(input: {
   reservationId: string;
   title: string;
-  preacher: string;
   preachedOn: string;
   preset: SermonPreset;
   requestedRuns?: number;
   durationAdjustmentEnabled: boolean;
-}): Promise<{ evaluationId: string; detailUrl: string }> {
+} & (
+  | { preacherId: string; newPreacherName?: never }
+  | { preacherId?: never; newPreacherName: string }
+)): Promise<{ evaluationId: string; detailUrl: string }> {
+  if (Boolean(input.preacherId) === Boolean(input.newPreacherName)) {
+    throw new Error(
+      "Select one existing preacher or explicitly create one new preacher.",
+    );
+  }
   const preset =
     input.preset === "HIGH_CONFIDENCE"
       ? "high_confidence"
@@ -500,7 +511,9 @@ export async function createSermonEvaluation(input: {
       body: JSON.stringify({
         uploadReservationId: input.reservationId,
         title: input.title,
-        preacher: input.preacher,
+        ...(input.preacherId
+          ? { preacherId: input.preacherId }
+          : { newPreacherName: input.newPreacherName }),
         preachedOn: input.preachedOn,
         preset,
         ...(input.requestedRuns === undefined ? {} : { requestedRuns: input.requestedRuns }),
