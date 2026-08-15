@@ -4,6 +4,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAutoGrowingTextarea } from "@/hooks/use-auto-growing-textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +12,15 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Heart,
@@ -25,6 +34,9 @@ import {
   BookOpen,
   Lightbulb,
   CheckCircle,
+  RefreshCw,
+  Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { BibleVerse } from "@/components/BibleVerse";
 import type { KidsCall1Output, KidsCall2Output } from "@/lib/prompts/kids-discipleship";
@@ -49,6 +61,14 @@ interface Props {
   childName: string;
 }
 
+interface LogsResponse {
+  logs: LogEntry[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 // Streaming event types
 type StreamEvent =
   | { type: "entry_created"; entry: Partial<LogEntry> & { gospelConnection?: string | null } }
@@ -58,9 +78,54 @@ type StreamEvent =
   | { type: "done"; entry: Partial<LogEntry>; call1: KidsCall1Output; call2: KidsCall2Output }
   | { type: "error"; message: string };
 
-async function fetchLogs(memberId: string, category?: string) {
+async function readApiError(response: Response, fallback: string) {
+  const body = await response.json().catch(() => null);
+  return typeof body?.error === "string" ? body.error : fallback;
+}
+
+async function consumeLogStream(
+  response: Response,
+  onEvent: (event: StreamEvent) => void
+) {
+  if (!response.ok || !response.body) {
+    throw new Error(await readApiError(response, "Generation request failed"));
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+  let receivedTerminalEvent = false;
+
+  const processLine = (line: string) => {
+    if (!line.trim()) return;
+
+    const event = JSON.parse(line) as StreamEvent;
+    onEvent(event);
+    if (event.type === "done" || event.type === "error") {
+      receivedTerminalEvent = true;
+    }
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    lines.forEach(processLine);
+  }
+
+  buffer += decoder.decode();
+  processLine(buffer);
+
+  if (!receivedTerminalEvent) {
+    throw new Error("Generation stopped before it finished. Please try again.");
+  }
+}
+
+async function fetchLogs(memberId: string): Promise<LogsResponse> {
   const params = new URLSearchParams({ memberId });
-  if (category) params.append("category", category);
   const res = await fetch(`/api/kids-discipleship/logs?${params}`);
   if (!res.ok) throw new Error("Failed to fetch logs");
   return res.json();
@@ -72,9 +137,40 @@ export function LogsSection({ userId, memberId, childName }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<"NURTURE" | "ADMONITION">("NURTURE");
   const [entryText, setEntryText] = useState("");
   const [gospelConnection, setGospelConnection] = useState("");
+  const {
+    textareaRef: entryTextareaRef,
+    handleInput: handleEntryInput,
+  } = useAutoGrowingTextarea(entryText, {
+    minHeight: 128,
+    maxHeight: 420,
+    maxViewportRatio: 0.34,
+    enabled: isComposerOpen,
+  });
+  const {
+    textareaRef: gospelConnectionTextareaRef,
+    handleInput: handleGospelConnectionInput,
+  } = useAutoGrowingTextarea(gospelConnection, {
+    minHeight: 80,
+    maxHeight: 240,
+    maxViewportRatio: 0.2,
+    enabled: isComposerOpen,
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [streamProgress, setStreamProgress] = useState<string | null>(null);
   const [newLogEntry, setNewLogEntry] = useState<LogEntry | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [retryingLogId, setRetryingLogId] = useState<string | null>(null);
+  const [retryProgress, setRetryProgress] = useState<{
+    id: string;
+    message: string;
+  } | null>(null);
+  const [logActionError, setLogActionError] = useState<{
+    id: string;
+    message: string;
+  } | null>(null);
+  const [pendingDeleteLog, setPendingDeleteLog] = useState<LogEntry | null>(null);
+  const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [pagesByFilter, setPagesByFilter] = useState<Record<string, number>>({});
 
@@ -86,6 +182,53 @@ export function LogsSection({ userId, memberId, childName }: Props) {
     queryFn: () => fetchLogs(memberId),
     enabled: !!userId && !!memberId,
   });
+
+  const updateVisibleLog = useCallback(
+    (logId: string, update: (entry: LogEntry) => LogEntry) => {
+      setNewLogEntry((current) =>
+        current?.id === logId ? update(current) : current
+      );
+      queryClient.setQueryData<LogsResponse>(
+        ["kids-discipleship", "logs", memberId],
+        (current) =>
+          current
+            ? {
+                ...current,
+                logs: current.logs.map((entry) =>
+                  entry.id === logId ? update(entry) : entry
+                ),
+              }
+            : current
+      );
+    },
+    [memberId, queryClient]
+  );
+
+  const removeVisibleLog = useCallback(
+    (logId: string) => {
+      setNewLogEntry((current) =>
+        current?.id === logId ? null : current
+      );
+      queryClient.setQueryData<LogsResponse>(
+        ["kids-discipleship", "logs", memberId],
+        (current) => {
+          if (!current) return current;
+          const logs = current.logs.filter((entry) => entry.id !== logId);
+          const removedFromCache = logs.length !== current.logs.length;
+          const total = removedFromCache
+            ? Math.max(0, current.total - 1)
+            : current.total;
+          return {
+            ...current,
+            logs,
+            total,
+            totalPages: Math.ceil(total / current.limit),
+          };
+        }
+      );
+    },
+    [memberId, queryClient]
+  );
 
   // Filter logs client-side based on selected category
   const logs = useMemo(() => {
@@ -188,8 +331,12 @@ export function LogsSection({ userId, memberId, childName }: Props) {
 
     setIsSubmitting(true);
     setStreamProgress("Creating log...");
+    setSubmissionError(null);
+    setLogActionError(null);
     setIsComposerOpen(false);
     setNewLogEntry(null);
+    let createdLogId: string | null = null;
+    let completed = false;
 
     try {
       const response = await fetch("/api/kids-discipleship/logs", {
@@ -203,110 +350,245 @@ export function LogsSection({ userId, memberId, childName }: Props) {
         }),
       });
 
-      if (!response.ok || !response.body) {
-        throw new Error("Failed to create log");
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let buffer = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          if (!line.trim()) continue;
-
-          let event: StreamEvent;
-          try {
-            event = JSON.parse(line);
-          } catch {
-            console.error("Failed to parse stream line:", line);
-            continue;
+      await consumeLogStream(response, (event) => {
+        switch (event.type) {
+          case "entry_created": {
+            createdLogId = event.entry.id || null;
+            setNewLogEntry({
+              id: event.entry.id || "",
+              entryDate: event.entry.entryDate || new Date().toISOString(),
+              entryText: event.entry.entryText || entryText,
+              category:
+                (event.entry.category as "NURTURE" | "ADMONITION") ||
+                selectedCategory,
+              gospelConnection:
+                event.entry.gospelConnection || gospelConnection || null,
+              tags: [],
+              createdAt: new Date().toISOString(),
+              aiOutput: null,
+            });
+            setEntryText("");
+            setGospelConnection("");
+            break;
           }
 
-          switch (event.type) {
-            case "entry_created":
-              setNewLogEntry({
-                id: event.entry.id || "",
-                entryDate: event.entry.entryDate || new Date().toISOString(),
-                entryText: event.entry.entryText || entryText,
-                category: (event.entry.category as "NURTURE" | "ADMONITION") || selectedCategory,
-                gospelConnection: event.entry.gospelConnection || gospelConnection || null,
-                tags: [],
-                createdAt: new Date().toISOString(),
-                aiOutput: null,
-              });
-              setEntryText("");
-              setGospelConnection("");
-              break;
+          case "progress":
+            setStreamProgress(event.message);
+            break;
 
-            case "progress":
-              setStreamProgress(event.message);
-              break;
+          case "call1_complete":
+            setNewLogEntry((current) =>
+              current
+                ? {
+                    ...current,
+                    aiOutput: { call1: event.call1, call2: null },
+                  }
+                : null
+            );
+            break;
 
-            case "call1_complete":
-              setNewLogEntry((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      aiOutput: { call1: event.call1, call2: null },
-                    }
-                  : null
-              );
-              break;
+          case "call2_complete":
+            setNewLogEntry((current) =>
+              current
+                ? {
+                    ...current,
+                    aiOutput: {
+                      call1: current.aiOutput?.call1 || null,
+                      call2: event.call2,
+                    },
+                  }
+                : null
+            );
+            break;
 
-            case "call2_complete":
-              setNewLogEntry((prev) =>
-                prev && prev.aiOutput
-                  ? {
-                      ...prev,
-                      aiOutput: { ...prev.aiOutput, call2: event.call2 },
-                    }
-                  : null
-              );
-              break;
+          case "done":
+            completed = true;
+            setNewLogEntry((current) =>
+              current
+                ? {
+                    ...current,
+                    tags: event.entry.tags || [],
+                    aiOutput: { call1: event.call1, call2: event.call2 },
+                  }
+                : null
+            );
+            break;
 
-            case "done":
-              setNewLogEntry((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      tags: event.entry.tags || [],
-                      aiOutput: { call1: event.call1, call2: event.call2 },
-                    }
-                  : null
-              );
-              setIsSubmitting(false);
-              setStreamProgress(null);
-              // Invalidate logs and prayer focus queries so they update
-              queryClient.invalidateQueries({
-                queryKey: ["kids-discipleship", "logs", memberId],
-              });
-              queryClient.invalidateQueries({
-                queryKey: ["kids-discipleship", "prayer-focus", memberId],
-              });
-              break;
-
-            case "error":
-              console.error("Stream error:", event.message);
-              setIsSubmitting(false);
-              setStreamProgress(null);
-              break;
-          }
+          case "error":
+            throw new Error(event.message);
         }
+      });
+
+      if (completed) {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["kids-discipleship", "logs", memberId],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["kids-discipleship", "prayer-focus", memberId],
+          }),
+        ]);
       }
     } catch (error) {
       console.error("Error creating log:", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to create log";
+      if (createdLogId) {
+        setLogActionError({ id: createdLogId, message });
+      } else {
+        setSubmissionError(message);
+      }
+    } finally {
       setIsSubmitting(false);
       setStreamProgress(null);
     }
   }, [memberId, selectedCategory, entryText, gospelConnection, queryClient]);
+
+  const handleRetry = useCallback(
+    async (entry: LogEntry) => {
+      if (retryingLogId || deletingLogId) return;
+
+      setRetryingLogId(entry.id);
+      setRetryProgress({
+        id: entry.id,
+        message: "Regenerating shepherding reflection...",
+      });
+      setLogActionError(null);
+      let completed = false;
+
+      updateVisibleLog(entry.id, (current) => ({
+        ...current,
+        aiOutput: null,
+      }));
+
+      try {
+        const response = await fetch(
+          `/api/kids-discipleship/logs/${entry.id}/reprocess`,
+          { method: "POST" }
+        );
+
+        await consumeLogStream(response, (event) => {
+          switch (event.type) {
+            case "entry_created":
+              break;
+
+            case "progress":
+              setRetryProgress({ id: entry.id, message: event.message });
+              break;
+
+            case "call1_complete":
+              updateVisibleLog(entry.id, (current) => ({
+                ...current,
+                aiOutput: { call1: event.call1, call2: null },
+              }));
+              break;
+
+            case "call2_complete":
+              updateVisibleLog(entry.id, (current) => ({
+                ...current,
+                aiOutput: {
+                  call1: current.aiOutput?.call1 || null,
+                  call2: event.call2,
+                },
+              }));
+              break;
+
+            case "done":
+              completed = true;
+              updateVisibleLog(entry.id, (current) => ({
+                ...current,
+                tags: event.entry.tags || [],
+                aiOutput: { call1: event.call1, call2: event.call2 },
+              }));
+              break;
+
+            case "error":
+              throw new Error(event.message);
+          }
+        });
+
+        if (completed) {
+          await Promise.all([
+            queryClient.invalidateQueries({
+              queryKey: ["kids-discipleship", "logs", memberId],
+            }),
+            queryClient.invalidateQueries({
+              queryKey: ["kids-discipleship", "prayer-focus", memberId],
+            }),
+          ]);
+        }
+      } catch (error) {
+        console.error("Error retrying kids log:", error);
+        setLogActionError({
+          id: entry.id,
+          message:
+            error instanceof Error
+              ? error.message
+              : "AI processing failed. Please try again.",
+        });
+        updateVisibleLog(entry.id, (current) => ({
+          ...current,
+          aiOutput: null,
+        }));
+      } finally {
+        setRetryingLogId(null);
+        setRetryProgress(null);
+      }
+    },
+    [
+      deletingLogId,
+      memberId,
+      queryClient,
+      retryingLogId,
+      updateVisibleLog,
+    ]
+  );
+
+  const handleDelete = useCallback(async () => {
+    if (!pendingDeleteLog || deletingLogId) return;
+
+    const logId = pendingDeleteLog.id;
+    setDeletingLogId(logId);
+    setDeleteError(null);
+
+    try {
+      const response = await fetch(
+        `/api/kids-discipleship/logs/${logId}`,
+        { method: "DELETE" }
+      );
+
+      if (!response.ok) {
+        throw new Error(await readApiError(response, "Failed to delete log"));
+      }
+
+      removeVisibleLog(logId);
+      setPendingDeleteLog(null);
+      setLogActionError((current) =>
+        current?.id === logId ? null : current
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["kids-discipleship", "logs", memberId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["kids-discipleship", "prayer-focus", memberId],
+        }),
+      ]);
+    } catch (error) {
+      console.error("Error deleting kids log:", error);
+      setDeleteError(
+        error instanceof Error ? error.message : "Failed to delete log"
+      );
+    } finally {
+      setDeletingLogId(null);
+    }
+  }, [
+    deletingLogId,
+    memberId,
+    pendingDeleteLog,
+    queryClient,
+    removeVisibleLog,
+  ]);
 
   if (isLoading) {
     return (
@@ -334,18 +616,31 @@ export function LogsSection({ userId, memberId, childName }: Props) {
               &quot;Bring them up in the nurture and admonition of the Lord.&quot; — Ephesians 6:4
             </CardDescription>
           </div>
-          <Dialog open={isComposerOpen} onOpenChange={setIsComposerOpen}>
+          <Dialog
+            open={isComposerOpen}
+            onOpenChange={(open) => {
+              if (!open && isSubmitting) return;
+              setIsComposerOpen(open);
+              if (!open) {
+                setEntryText("");
+                setGospelConnection("");
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="h-4 w-4 mr-2" />
                 New Log
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
+            <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-h-[90dvh]">
+              <DialogHeader className="shrink-0 space-y-3 px-5 pb-0 pt-5 pr-12 text-left sm:px-6 sm:pt-6 sm:pr-12">
                 <DialogTitle>Log a Parenting Moment for {childName}</DialogTitle>
+                <DialogDescription className="text-sm leading-relaxed">
+                  Record what happened and how you responded. The reflection will help you consider the heart and connect the moment to Christ.
+                </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 pt-4">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">
                 {/* Category Toggle */}
                 <div>
                   <Label className="mb-2 block">Category</Label>
@@ -388,6 +683,7 @@ export function LogsSection({ userId, memberId, childName }: Props) {
                 <div>
                   <Label htmlFor="entryText">What happened?</Label>
                   <Textarea
+                    ref={entryTextareaRef}
                     id="entryText"
                     placeholder={
                       selectedCategory === "NURTURE"
@@ -395,9 +691,10 @@ export function LogsSection({ userId, memberId, childName }: Props) {
                         : "Describe the moment of disobedience and how you shepherded their heart..."
                     }
                     value={entryText}
+                    onInput={handleEntryInput}
                     onChange={(e) => setEntryText(e.target.value)}
-                    rows={4}
-                    className="bg-input-bg resize-none"
+                    className="min-h-[128px] max-h-[34dvh] resize-none overflow-y-hidden bg-input-bg"
+                    disabled={isSubmitting}
                   />
                 </div>
 
@@ -405,36 +702,65 @@ export function LogsSection({ userId, memberId, childName }: Props) {
                 <div>
                   <Label htmlFor="gospelConnection">Gospel Connection (optional)</Label>
                   <Textarea
+                    ref={gospelConnectionTextareaRef}
                     id="gospelConnection"
                     placeholder="How did you point them to Jesus in this moment?"
                     value={gospelConnection}
+                    onInput={handleGospelConnectionInput}
                     onChange={(e) => setGospelConnection(e.target.value)}
-                    rows={2}
-                    className="bg-input-bg resize-none"
+                    className="min-h-[80px] max-h-[20dvh] resize-none overflow-y-hidden bg-input-bg"
+                    disabled={isSubmitting}
                   />
                 </div>
+              </div>
 
+              <DialogFooter className="shrink-0 flex-row justify-end gap-2 border-t bg-background px-5 py-4 sm:px-6 sm:space-x-0">
                 <Button
+                  variant="outline"
+                  className="flex-1 sm:flex-none"
+                  onClick={() => {
+                    setIsComposerOpen(false);
+                    setEntryText("");
+                    setGospelConnection("");
+                  }}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 sm:flex-none"
                   onClick={handleSubmit}
                   disabled={!entryText.trim() || isSubmitting}
-                  className="w-full"
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                       Saving...
                     </>
                   ) : (
-                    "Save Log"
+                    <>
+                      Save Log
+                      <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                    </>
                   )}
                 </Button>
-              </div>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {submissionError && (
+          <div className="status--warning flex items-start gap-3 rounded-lg p-4">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-sm font-medium">Log creation failed</p>
+              <p className="mt-1 text-xs opacity-90">{submissionError}</p>
+            </div>
+          </div>
+        )}
+
         {/* Streaming progress */}
         {isSubmitting && streamProgress && (
           <div className="p-4 rounded-lg bg-muted/50 flex items-center gap-3">
@@ -445,7 +771,29 @@ export function LogsSection({ userId, memberId, childName }: Props) {
 
         {/* New log entry with AI reflection */}
         {newLogEntry && (
-          <LogCard entry={newLogEntry} isNew />
+          <LogCard
+            entry={newLogEntry}
+            isNew
+            isProcessing={
+              isSubmitting || retryingLogId === newLogEntry.id
+            }
+            processMessage={
+              retryProgress?.id === newLogEntry.id
+                ? retryProgress.message
+                : streamProgress
+            }
+            actionError={
+              logActionError?.id === newLogEntry.id
+                ? logActionError.message
+                : null
+            }
+            isDeleting={deletingLogId === newLogEntry.id}
+            onRetry={() => handleRetry(newLogEntry)}
+            onDelete={() => {
+              setPendingDeleteLog(newLogEntry);
+              setDeleteError(null);
+            }}
+          />
         )}
 
         {/* Filter tabs */}
@@ -476,7 +824,27 @@ export function LogsSection({ userId, memberId, childName }: Props) {
               {pagedLogs
                 .filter((log) => !newLogEntry || log.id !== newLogEntry.id)
                 .map((log) => (
-                  <LogCard key={log.id} entry={log} />
+                  <LogCard
+                    key={log.id}
+                    entry={log}
+                    isProcessing={retryingLogId === log.id}
+                    processMessage={
+                      retryProgress?.id === log.id
+                        ? retryProgress.message
+                        : null
+                    }
+                    actionError={
+                      logActionError?.id === log.id
+                        ? logActionError.message
+                        : null
+                    }
+                    isDeleting={deletingLogId === log.id}
+                    onRetry={() => handleRetry(log)}
+                    onDelete={() => {
+                      setPendingDeleteLog(log);
+                      setDeleteError(null);
+                    }}
+                  />
                 ))}
             </div>
 
@@ -484,12 +852,91 @@ export function LogsSection({ userId, memberId, childName }: Props) {
           </div>
         )}
       </CardContent>
+
+      <Dialog
+        open={!!pendingDeleteLog}
+        onOpenChange={(open) => {
+          if (!open && !deletingLogId) {
+            setPendingDeleteLog(null);
+            setDeleteError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Delete Heritage Journal log?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes the parenting log and its shepherding reflection. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          {pendingDeleteLog && (
+            <p className="line-clamp-3 rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">
+              {pendingDeleteLog.entryText}
+            </p>
+          )}
+
+          {deleteError && (
+            <p className="status-text--warning text-sm" role="alert">
+              {deleteError}
+            </p>
+          )}
+
+          <DialogFooter className="gap-2 sm:space-x-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPendingDeleteLog(null);
+                setDeleteError(null);
+              }}
+              disabled={!!deletingLogId}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={!!deletingLogId}
+            >
+              {deletingLogId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Delete Log
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
 
 // Log Card Component
-function LogCard({ entry, isNew }: { entry: LogEntry; isNew?: boolean }) {
+function LogCard({
+  entry,
+  isNew,
+  isProcessing = false,
+  processMessage,
+  actionError,
+  isDeleting = false,
+  onRetry,
+  onDelete,
+}: {
+  entry: LogEntry;
+  isNew?: boolean;
+  isProcessing?: boolean;
+  processMessage?: string | null;
+  actionError?: string | null;
+  isDeleting?: boolean;
+  onRetry: () => void;
+  onDelete: () => void;
+}) {
   const [showReflection, setShowReflection] = useState(isNew);
 
   const formatDate = (dateStr: string) => {
@@ -508,7 +955,7 @@ function LogCard({ entry, isNew }: { entry: LogEntry; isNew?: boolean }) {
         isNew ? "border-accent bg-accent/5" : "bg-card shadow-sm"
       }`}
     >
-      <div className="flex items-start justify-between mb-3">
+      <div className="mb-3 flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <Badge
             variant="outline"
@@ -527,7 +974,27 @@ function LogCard({ entry, isNew }: { entry: LogEntry; isNew?: boolean }) {
           </Badge>
           {isNew && <Badge variant="default" className="bg-accent text-accent-foreground">New</Badge>}
         </div>
-        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wide">{formatDate(entry.entryDate)}</span>
+        <div className="flex items-center gap-1">
+          <span className="text-right text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            {formatDate(entry.entryDate)}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            onClick={onDelete}
+            disabled={isProcessing || isDeleting}
+            aria-label={`Delete log from ${formatDate(entry.entryDate)}`}
+            title="Delete log"
+          >
+            {isDeleting ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+            )}
+          </Button>
+        </div>
       </div>
 
       <p className="text-sm leading-relaxed mb-4">{entry.entryText}</p>
@@ -547,6 +1014,55 @@ function LogCard({ entry, isNew }: { entry: LogEntry; isNew?: boolean }) {
               {tag}
             </Badge>
           ))}
+        </div>
+      )}
+
+      {isProcessing && (
+        <div
+          className="mb-4 flex items-center gap-3 rounded-lg bg-muted/50 p-4"
+          role="status"
+        >
+          <Loader2 className="h-5 w-5 shrink-0 animate-spin text-accent" aria-hidden="true" />
+          <span className="text-sm">
+            {processMessage || "Regenerating shepherding reflection..."}
+          </span>
+        </div>
+      )}
+
+      {(!entry.aiOutput?.call1 || !entry.aiOutput.call2) && !isProcessing && (
+        <div className="rounded-lg border border-warning/30 bg-warning/10 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle
+              className="mt-0.5 h-5 w-5 shrink-0 text-warning-foreground"
+              aria-hidden="true"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">
+                {entry.aiOutput?.call1
+                  ? "Shepherding reflection incomplete"
+                  : "Shepherding reflection unavailable"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                The journal entry was saved, but its reflection did not finish generating.
+              </p>
+              {actionError && (
+                <p className="mt-2 text-xs text-warning-foreground" role="alert">
+                  {actionError}
+                </p>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={onRetry}
+                disabled={isDeleting}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+                Retry Reflection
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 

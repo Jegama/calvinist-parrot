@@ -52,3 +52,44 @@ export type Call2Output = {
         recurringTheme: string | null;
     };
 };
+
+export type JournalGenerationStage = "call1a" | "call1b" | "call1c" | "call2";
+
+export type JournalGenerationStatus =
+    | "pending"
+    | "complete"
+    | "partial"
+    | "failed";
+
+type PersistedJournalAIOutput = {
+    call1: unknown;
+    call2: unknown;
+    modelInfo: unknown;
+} | null;
+
+/**
+ * Derive the durable generation state without requiring a schema migration.
+ * The legacy `unknown` model marker indicates a stored fallback after a stage failed.
+ */
+export function getPersistedJournalGenerationStatus(
+    aiOutput: PersistedJournalAIOutput
+): Exclude<JournalGenerationStatus, "pending"> {
+    if (!aiOutput) return "failed";
+    if (!aiOutput.call1 || !aiOutput.call2) return "partial";
+
+    if (typeof aiOutput.modelInfo !== "object" || aiOutput.modelInfo === null) {
+        return "complete";
+    }
+
+    const modelInfo = aiOutput.modelInfo as Record<string, unknown>;
+    if (
+        modelInfo.status === "partial" ||
+        (Array.isArray(modelInfo.failedStages) && modelInfo.failedStages.length > 0) ||
+        modelInfo.call1bModel === "unknown" ||
+        modelInfo.call1cModel === "unknown"
+    ) {
+        return "partial";
+    }
+
+    return "complete";
+}

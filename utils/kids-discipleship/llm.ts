@@ -4,7 +4,7 @@
 
 import { createHash } from "crypto";
 import prisma from "@/lib/prisma";
-import { parrotAI, DEFAULT_MODEL, LARGER_MODEL, type ModelSpec } from "@/lib/parrot-ai";
+import { parrotAI, DEFAULT_MODEL } from "@/lib/parrot-ai";
 import {
   type KidsCall1Output,
   type KidsCall2Output,
@@ -36,23 +36,6 @@ const PROMPT_HASH = createHash("sha256")
   .digest("hex")
   .slice(0, 8);
 const PROMPT_VERSION = `1.0.0-${PROMPT_HASH}`;
-
-function countWords(text: string): number {
-  return text
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
-}
-
-const KIDS_LARGER_MODEL_MIN_WORDS = (() => {
-  const raw = process.env.KIDS_LARGER_MODEL_MIN_WORDS;
-  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 200;
-})();
-
-function selectKidsShepherdingModel(entryText: string): ModelSpec {
-  return countWords(entryText) >= KIDS_LARGER_MODEL_MIN_WORDS ? LARGER_MODEL : DEFAULT_MODEL;
-}
 
 /**
  * Type guard to validate KidsCall1Output structure
@@ -133,10 +116,8 @@ export async function runKidsCall1(
 ): Promise<{ output: KidsCall1Output; model: string }> {
   const systemPrompt = buildKidsCall1SystemPrompt(context);
   const userMessage = buildKidsCall1UserMessage(context);
-  const modelSpec = selectKidsShepherdingModel(context.entryText);
 
   const result = await parrotAI.generateStructured<KidsCall1Output>({
-    modelSpec,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },

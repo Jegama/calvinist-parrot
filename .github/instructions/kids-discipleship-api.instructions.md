@@ -6,6 +6,7 @@ applyTo: "app/api/kids-discipleship/**"
 - Use `lib/auth.ts` (`requireAuthenticatedUser`) and verify household access via `assertHouseholdAccess` from `lib/householdService.ts`.
 - Child members are `prayerMember` records with `isChild: true`; always verify the child belongs to the user's household space.
 - Stream NDJSON in `/api/kids-discipleship/logs` POST with event types: `entry_created`, `progress`, `call1_complete`, `call2_complete`, `done`, `error`.
+- Reprocess failed log generation through `/api/kids-discipleship/logs/[id]/reprocess`; preserve the entry ID, verify household access, and stream the same generation events except `entry_created`.
 - Use `utils/kids-discipleship/llm.ts` for AI calls (`runKidsCall1`, `runKidsCall2`); persist via `storeKidsAIOutput` with tag flattening.
 - Call 1 generates shepherding reflection; Call 2 generates tags and prayer focus suggestions.
 - Prompts and schemas live in `lib/prompts/kids-discipleship.ts` and `lib/schemas/kids-discipleship.ts`.

@@ -7,10 +7,10 @@ const TEST_USER = {
 };
 
 const MODEL_INFO = {
-  call2Model: "gemini-3-flash-preview",
-  call1aModel: "gemini-3-flash-preview",
-  call1bModel: "gemini-3-flash-preview",
-  call1cModel: "gemini-3-flash-preview",
+  call2Model: "gemini-3.6-flash",
+  call1aModel: "gemini-3.6-flash",
+  call1bModel: "gemini-3.6-flash",
+  call1cModel: "gemini-3.6-flash",
   promptVersion: "1.0.0-9fc32452",
 };
 

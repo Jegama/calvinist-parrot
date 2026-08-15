@@ -5,8 +5,15 @@
 
 import { createHash } from "crypto";
 import prisma from "@/lib/prisma";
-import { parrotAI, DEFAULT_MODEL, LARGER_MODEL, type ModelSpec } from "@/lib/parrot-ai";
-import type { Call1aOutput, Call1bOutput, Call1cOutput, Call1Output, Call2Output } from "@/types/journal";
+import { parrotAI, DEFAULT_MODEL } from "@/lib/parrot-ai";
+import type {
+  Call1aOutput,
+  Call1bOutput,
+  Call1cOutput,
+  Call1Output,
+  Call2Output,
+  JournalGenerationStage,
+} from "@/types/journal";
 import {
   JOURNAL_CALL1A_SCHEMA,
   JOURNAL_CALL1B_SCHEMA,
@@ -43,23 +50,6 @@ const PROMPT_HASH = createHash("sha256")
   .digest("hex")
   .slice(0, 8);
 const PROMPT_VERSION = `1.0.0-${PROMPT_HASH}`;
-
-function countWords(text: string): number {
-  return text
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
-}
-
-const JOURNAL_LARGER_MODEL_MIN_WORDS = (() => {
-  const raw = process.env.JOURNAL_LARGER_MODEL_MIN_WORDS;
-  const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 250;
-})();
-
-function selectJournalReasoningModel(entryText: string): ModelSpec {
-  return countWords(entryText) >= JOURNAL_LARGER_MODEL_MIN_WORDS ? LARGER_MODEL : DEFAULT_MODEL;
-}
 
 // ===========================================
 // Runtime Type Guards
@@ -176,10 +166,7 @@ export async function runCall1b(params: {
     situationSummary: params.situationSummary,
     recentContext: params.recentContext,
   });
-  const modelSpec = selectJournalReasoningModel(params.entryText);
-
   const result = await parrotAI.generateStructured<Call1bOutput>({
-    modelSpec,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
@@ -209,10 +196,7 @@ export async function runCall1c(params: {
     situationSummary: params.situationSummary,
     recentContext: params.recentContext,
   });
-  const modelSpec = selectJournalReasoningModel(params.entryText);
-
   const result = await parrotAI.generateStructured<Call1cOutput>({
-    modelSpec,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
@@ -336,6 +320,7 @@ export async function storeJournalAIOutput(params: {
     call1bModel: string;
     call1cModel: string;
   };
+  failedStages?: JournalGenerationStage[];
 }): Promise<void> {
   const { entryId, call1, call2 } = params;
   const flatTags = flattenTags(call2.tags);
@@ -346,6 +331,8 @@ export async function storeJournalAIOutput(params: {
     call1cModel: params.models.call1cModel,
     call2Model: DEFAULT_MODEL.model,
     promptVersion: PROMPT_VERSION,
+    status: params.failedStages?.length ? "partial" : "complete",
+    failedStages: params.failedStages ?? [],
   };
 
   // Retry configuration
