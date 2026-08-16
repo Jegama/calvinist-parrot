@@ -4,7 +4,11 @@
 
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import type { Call1Output, Call2Output } from "@/types/journal";
+import {
+  getPersistedJournalGenerationStatus,
+  type Call1Output,
+  type Call2Output,
+} from "@/types/journal";
 import { requireAuthenticatedUser } from "@/lib/auth";
 
 /**
@@ -38,7 +42,7 @@ export async function GET(
     },
   });
 
-  if (!entry) {
+  if (!entry || entry.entryType !== "PERSONAL") {
     return NextResponse.json({ error: "Entry not found" }, { status: 404 });
   }
 
@@ -62,6 +66,7 @@ export async function GET(
         createdAt: entry.aiOutput.createdAt.toISOString(),
       }
       : null,
+    generationStatus: getPersistedJournalGenerationStatus(entry.aiOutput),
   });
 }
 
@@ -97,7 +102,7 @@ export async function PATCH(
       where: { id },
     });
 
-    if (!entry) {
+    if (!entry || entry.entryType !== "PERSONAL") {
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
     }
 
@@ -157,7 +162,7 @@ export async function DELETE(
     where: { id },
   });
 
-  if (!entry) {
+  if (!entry || entry.entryType !== "PERSONAL") {
     return NextResponse.json({ error: "Entry not found" }, { status: 404 });
   }
 

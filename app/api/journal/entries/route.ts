@@ -16,7 +16,13 @@ import {
   DEFAULT_CALL1C,
   DEFAULT_CALL2,
 } from "@/utils/journal/llm";
-import type { Call1Output, Call2Output, Call1aOutput } from "@/types/journal";
+import {
+  getPersistedJournalGenerationStatus,
+  type Call1Output,
+  type Call2Output,
+  type Call1aOutput,
+  type JournalGenerationStage,
+} from "@/types/journal";
 import { requireAuthenticatedUser } from "@/lib/auth";
 
 /**
@@ -78,6 +84,7 @@ export async function GET(request: Request) {
           select: {
             call1: true,
             call2: true,
+            modelInfo: true,
           },
         },
       },
@@ -102,6 +109,7 @@ export async function GET(request: Request) {
         call2: entry.aiOutput.call2 as Call2Output | null,
       }
       : null,
+    generationStatus: getPersistedJournalGenerationStatus(entry.aiOutput),
   }));
 
   return NextResponse.json({
@@ -206,6 +214,7 @@ export async function POST(request: Request) {
             createdAt: entry.createdAt.toISOString(),
             updatedAt: entry.updatedAt.toISOString(),
             aiOutput: null,
+            generationStatus: "pending",
           },
         });
 
@@ -280,6 +289,10 @@ export async function POST(request: Request) {
           const call2 = call2Result ?? DEFAULT_CALL2;
           const call1bModel = call1bResult?.model ?? "unknown";
           const call1cModel = call1cResult?.model ?? "unknown";
+          const failedStages: JournalGenerationStage[] = [];
+          if (!call1bResult) failedStages.push("call1b");
+          if (!call1cResult) failedStages.push("call1c");
+          if (!call2Result) failedStages.push("call2");
 
           // Combine Call 1 results
           const fullCall1: Call1Output = {
@@ -294,16 +307,17 @@ export async function POST(request: Request) {
             call1: fullCall1,
             call2,
             models: { call1bModel, call1cModel },
+            failedStages,
           });
 
-          const hasFailures = !call1bResult || !call1cResult || !call2Result;
+          const hasFailures = failedStages.length > 0;
 
           // Send done event
           sendEvent({
             type: "done",
             call1: fullCall1,
             call2,
-            ...(hasFailures && { partial: true }),
+            ...(hasFailures && { partial: true, failedStages }),
           });
         } catch (aiError) {
           console.error("AI processing failed:", aiError);

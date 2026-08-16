@@ -8,6 +8,8 @@ applyTo: "app/kids-discipleship/**"
 - Wrap each section in `SectionErrorBoundary` for graceful error handling.
 - Use progression state (`/api/kids-discipleship/progression-state`) to show guided setup flow for new users.
 - LogsSection streams AI reflection progressively; display `entry_created` immediately, then update with `call1_complete` and `call2_complete`.
+- When a saved log has no AI reflection, show an inline retry state. Allow every log to be deleted through a confirmation dialog, and disable retry/delete while that log is processing.
+- Keep the LogsSection composer viewport-safe like the journal composer: fixed header and action footer, a scrollable middle region, and viewport-capped auto-growing textareas.
 - Filter logs client-side after fetching all (avoids extra network calls when switching Nurture/Admonition/All tabs).
 - Use per-filter pagination state to preserve page position when switching filters.
 - Age utilities in `utils/ageUtils.ts` provide `formatAge`, `getAgeBracket`, and `AGE_BRACKET_CONFIG` for age-appropriate display.
