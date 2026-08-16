@@ -14,7 +14,7 @@ This directory is the canonical, platform-neutral Python sermon evaluator origin
 
 ## Environment contract
 
-Appwrite supplies `APPWRITE_FUNCTION_API_ENDPOINT`, `APPWRITE_FUNCTION_PROJECT_ID`, and `APPWRITE_FUNCTION_API_KEY`. `services/sermon-evaluator/.env.template` is the authoritative list of variables to configure separately in each development and production Function:
+Appwrite supplies `APPWRITE_FUNCTION_API_ENDPOINT` and `APPWRITE_FUNCTION_PROJECT_ID` as injected variables and supplies the execution's dynamic API key in the `x-appwrite-key` request header. `services/sermon-evaluator/.env.template` is the authoritative list of variables to configure separately in each development and production Function:
 
 - `SERMON_RUNTIME`: `appwrite`.
 - `SERMON_DATABASE_URL`: dedicated least-privileged pooled Neon URL with `sslmode=require`.

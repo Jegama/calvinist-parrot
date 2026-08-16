@@ -219,7 +219,9 @@ class SermonEvaluationService:
         self.max_parallel_scoring_runs = max_parallel_scoring_runs
 
     @classmethod
-    def from_environment(cls) -> "SermonEvaluationService":
+    def from_environment(
+        cls, *, appwrite_api_key: Optional[str] = None
+    ) -> "SermonEvaluationService":
         runtime = os.getenv("SERMON_RUNTIME", "appwrite").strip().lower()
         if runtime not in {"local", "appwrite"}:
             raise ValueError("SERMON_RUNTIME must be either local or appwrite")
@@ -229,7 +231,7 @@ class SermonEvaluationService:
             storage=(
                 LocalFilesystemStorage()
                 if runtime == "local"
-                else AppwriteStorage()
+                else AppwriteStorage(api_key=appwrite_api_key)
             ),
             provider=GeminiProvider(model=model),
             soft_deadline_seconds=int(

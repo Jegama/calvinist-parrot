@@ -7,7 +7,7 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from entrypoints.appwrite import Invocation, _body, main
+from entrypoints.appwrite import Invocation, _body, _dynamic_api_key, main
 from sermon_evaluator.gemini import GeminiProvider
 from sermon_evaluator.schemas import SermonExtractionStep1
 from sermon_evaluator.stages import (
@@ -45,6 +45,8 @@ def test_appwrite_payload_accepts_only_opaque_evaluation_id() -> None:
 def test_appwrite_recovery_response_uses_runtime_status_code_contract(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    captured: dict[str, object] = {}
+
     class FakeService:
         def recover(self, *, limit: int) -> list[object]:
             assert limit == 2
@@ -56,10 +58,15 @@ def test_appwrite_recovery_response_uses_runtime_status_code_contract(
 
     monkeypatch.setattr(
         "entrypoints.appwrite.SermonEvaluationService.from_environment",
-        lambda: FakeService(),
+        lambda *, appwrite_api_key=None: (
+            captured.update(appwrite_api_key=appwrite_api_key) or FakeService()
+        ),
     )
     context = SimpleNamespace(
-        req=SimpleNamespace(body=None, headers={}),
+        req=SimpleNamespace(
+            body=None,
+            headers={"X-Appwrite-Key": "runtime-dynamic-key"},
+        ),
         res=FakeResponse(),
         error=lambda _message: None,
     )
@@ -68,6 +75,17 @@ def test_appwrite_recovery_response_uses_runtime_status_code_contract(
         "body": {"mode": "recovery", "results": []},
         "statusCode": 200,
     }
+    assert captured == {"appwrite_api_key": "runtime-dynamic-key"}
+
+
+def test_appwrite_dynamic_key_is_read_case_insensitively() -> None:
+    assert (
+        _dynamic_api_key(
+            SimpleNamespace(headers={"x-AppWrite-Key": "runtime-key"})
+        )
+        == "runtime-key"
+    )
+    assert _dynamic_api_key(SimpleNamespace(headers={})) is None
 
 
 def test_gemini_config_matches_36_migration_rules() -> None:

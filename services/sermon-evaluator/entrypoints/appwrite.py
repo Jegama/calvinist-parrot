@@ -44,12 +44,22 @@ def _execution_id(request: Any) -> Optional[str]:
     return None
 
 
+def _dynamic_api_key(request: Any) -> Optional[str]:
+    headers = getattr(request, "headers", {}) or {}
+    for name, value in headers.items():
+        if str(name).lower() == "x-appwrite-key" and value:
+            return str(value)
+    return None
+
+
 def main(context: Any) -> Any:
     """Handle an opaque evaluation ID or a scheduled recovery tick."""
 
     try:
         payload = _body(context.req)
-        service = SermonEvaluationService.from_environment()
+        service = SermonEvaluationService.from_environment(
+            appwrite_api_key=_dynamic_api_key(context.req)
+        )
         if payload is None:
             result = {"mode": "recovery", "results": service.recover(limit=2)}
         else:

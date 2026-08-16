@@ -65,7 +65,7 @@ SERMON_SOFT_DEADLINE_SECONDS=840
 SERMON_MAX_PARALLEL_SCORING_RUNS=9
 ```
 
-Appwrite injects `APPWRITE_FUNCTION_API_ENDPOINT`, `APPWRITE_FUNCTION_PROJECT_ID`, and the dynamic API key; do not configure those yourself. Variable changes require redeploying the Function. [Appwrite Docs, [Function environment variables](https://appwrite.io/docs/products/functions/environment-variables), “Appwrite injects Function variables and custom variable changes require redeployment”]
+Appwrite injects `APPWRITE_FUNCTION_API_ENDPOINT` and `APPWRITE_FUNCTION_PROJECT_ID`, and passes the execution's dynamic API key in the `x-appwrite-key` request header; do not configure those yourself. Variable changes require redeploying the Function. [Appwrite Docs, [Develop Functions](https://appwrite.io/docs/products/functions/develop), “Function examples read the project ID from the environment and the dynamic key from `x-appwrite-key`”] [Appwrite Docs, [Function environment variables](https://appwrite.io/docs/products/functions/environment-variables), “custom variable changes require redeployment”]
 
 Worker capacity is database-owned and currently fixed at two lease slots by the migration; there is no corresponding environment variable. [Source: [migration.sql:504](/Users/omni_jgmancilla/Dev/calvinist-parrot/prisma/migrations/20260728022129_sermon_evaluation/migration.sql:504), “worker slot constraint is fixed to slots 1 and 2”]
 
