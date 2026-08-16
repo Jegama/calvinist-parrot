@@ -7,7 +7,7 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from entrypoints.appwrite import Invocation, _body
+from entrypoints.appwrite import Invocation, _body, main
 from sermon_evaluator.gemini import GeminiProvider
 from sermon_evaluator.schemas import SermonExtractionStep1
 from sermon_evaluator.stages import (
@@ -39,6 +39,34 @@ def test_appwrite_payload_accepts_only_opaque_evaluation_id() -> None:
         )
     assert _body(SimpleNamespace(body=json.dumps({"evaluationId": "x"}))) == {
         "evaluationId": "x"
+    }
+
+
+def test_appwrite_recovery_response_uses_runtime_status_code_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeService:
+        def recover(self, *, limit: int) -> list[object]:
+            assert limit == 2
+            return []
+
+    class FakeResponse:
+        def json(self, body: object, *, statusCode: int) -> dict[str, object]:
+            return {"body": body, "statusCode": statusCode}
+
+    monkeypatch.setattr(
+        "entrypoints.appwrite.SermonEvaluationService.from_environment",
+        lambda: FakeService(),
+    )
+    context = SimpleNamespace(
+        req=SimpleNamespace(body=None, headers={}),
+        res=FakeResponse(),
+        error=lambda _message: None,
+    )
+
+    assert main(context) == {
+        "body": {"mode": "recovery", "results": []},
+        "statusCode": 200,
     }
 
 

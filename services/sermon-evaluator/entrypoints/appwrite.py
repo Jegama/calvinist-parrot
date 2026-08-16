@@ -61,23 +61,23 @@ def main(context: Any) -> Any:
                     invocation.evaluation_id,
                     appwrite_execution_id=_execution_id(context.req),
                 )
-        return context.res.json(result, status_code=200)
+        return context.res.json(result, statusCode=200)
     except (ValidationError, ValueError, json.JSONDecodeError) as error:
         context.error(f"Invalid sermon evaluator invocation: {error}")
         return context.res.json(
-            {"error": "INVALID_INVOCATION"}, status_code=400
+            {"error": "INVALID_INVOCATION"}, statusCode=400
         )
     except LeaseUnavailable:
         return context.res.json(
             {"status": "DEFERRED", "reason": "WORKER_CAPACITY"},
-            status_code=202,
+            statusCode=202,
         )
     except Exception as error:
         context.error(
             f"Sermon evaluator failed with {error.__class__.__name__}: {error}"
         )
         return context.res.json(
-            {"error": "WORKER_EXECUTION_FAILED"}, status_code=500
+            {"error": "WORKER_EXECUTION_FAILED"}, statusCode=500
         )
 
 
