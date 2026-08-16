@@ -1101,7 +1101,7 @@ type UrgentSafetyFlag = (typeof URGENT_SAFETY_FLAGS)[number];
 
 const SAFETY_FLAG_MESSAGES: Record<UrgentSafetyFlag, string> = {
   URGENT_SELF_HARM:
-    "Possible self-harm concern noted. If you or someone you know is in crisis, please reach out to a mental health professional or crisis line immediately.",
+    "Possible self-harm concern noted. If you or someone you know is in immediate danger, please contact emergency services or a crisis line immediately.",
   URGENT_CHILD_SAFETY:
     "Possible immediate child safety concern noted. If anyone is in immediate danger, please contact emergency services.",
   URGENT_VIOLENCE_OR_ABUSE:
@@ -1172,6 +1172,20 @@ function ReflectionCard({ call1, call2 }: { call1: KidsCall1Output; call2?: Kids
           <ul className="list-disc list-inside space-y-1 text-sm">
             {call1.parentShepherdingNextSteps.map((step, i) => (
               <li key={i}>{step}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {call1.recommendedResources?.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium text-muted-foreground mb-2">Recommended Reading:</h4>
+          <ul className="space-y-2 text-sm">
+            {call1.recommendedResources.map((resource) => (
+              <li key={`${resource.title}-${resource.author}`}>
+                <span className="font-medium">{resource.title}</span>
+                <span className="text-muted-foreground"> by {resource.author}: {resource.whyItFits}</span>
+              </li>
             ))}
           </ul>
         </div>

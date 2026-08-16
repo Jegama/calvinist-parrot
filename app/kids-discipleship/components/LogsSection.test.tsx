@@ -19,6 +19,13 @@ const partialCall1 = {
     explanation: "Christ loved us while we were sinners.",
   },
   parentShepherdingNextSteps: ["Affirm grace rather than performance."],
+  recommendedResources: [
+    {
+      title: "Parenting: 14 Gospel Principles That Can Radically Change Your Family",
+      author: "Paul David Tripp",
+      whyItFits: "It helps parents apply gospel grace to everyday shepherding.",
+    },
+  ],
   scripture: [
     {
       reference: "Romans 5:8",
