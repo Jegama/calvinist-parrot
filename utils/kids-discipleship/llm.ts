@@ -65,6 +65,7 @@ function isKidsCall1Output(value: unknown): value is KidsCall1Output {
     Array.isArray(v.whatMightBeGoingOnInTheHeart) &&
     typeof v.gospelConnectionSuggestion === "object" &&
     Array.isArray(v.parentShepherdingNextSteps) &&
+    Array.isArray(v.recommendedResources) &&
     Array.isArray(v.scripture) &&
     typeof v.encouragementForParent === "string" &&
     Array.isArray(v.safetyFlags)
