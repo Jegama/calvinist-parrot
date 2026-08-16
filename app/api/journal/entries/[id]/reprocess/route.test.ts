@@ -83,6 +83,19 @@ const call2 = {
   dashboardSignals: { recurringTheme: "patience" },
 };
 
+const legacyCall2Fallback = {
+  tags: {
+    circumstance: [],
+    heartIssue: [],
+    rulingDesire: [],
+    virtue: [],
+    theologicalTheme: [],
+    meansOfGrace: [],
+  },
+  suggestedPrayerRequests: [],
+  dashboardSignals: { recurringTheme: null },
+};
+
 const entry = {
   id: "entry-1",
   authorProfileId: "profile-1",
@@ -188,6 +201,34 @@ describe("POST /api/journal/entries/[id]/reprocess", () => {
     });
     expect(mocks.runCall1a).not.toHaveBeenCalled();
     expect(mocks.storeJournalAIOutput).not.toHaveBeenCalled();
+  });
+
+  it("allows retry for a legacy entry saved with the Call 2 fallback", async () => {
+    mocks.findEntry.mockResolvedValue({
+      ...entry,
+      aiOutput: {
+        call1: { ...call1a, ...call1b, ...call1c },
+        call2: legacyCall2Fallback,
+        modelInfo: {
+          call1bModel: "gemini-3-flash-preview",
+          call1cModel: "gemini-3-flash-preview",
+          call2Model: "gemini-3-flash-preview",
+        },
+      },
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/journal/entries/entry-1/reprocess", {
+        method: "POST",
+      }),
+      requestContext()
+    );
+
+    expect(response.status).toBe(200);
+    const events = await readEvents(response);
+    expect(events.at(-1)).toMatchObject({ type: "done", call2 });
+    expect(mocks.runCall1a).toHaveBeenCalled();
+    expect(mocks.storeJournalAIOutput).toHaveBeenCalled();
   });
 
   it("communicates and persists partial generation failures", async () => {

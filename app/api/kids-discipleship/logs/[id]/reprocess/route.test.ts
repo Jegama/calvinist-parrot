@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
   assertHouseholdAccess: vi.fn(),
   findLog: vi.fn(),
   findChild: vi.fn(),
-  updateLog: vi.fn(),
   buildPromptContext: vi.fn(),
   flattenKidsTags: vi.fn(),
   getCurrentAnnualPlan: vi.fn(),
@@ -26,7 +25,6 @@ vi.mock("@/lib/prisma", () => ({
   default: {
     journalEntry: {
       findUnique: mocks.findLog,
-      update: mocks.updateLog,
     },
     prayerMember: {
       findUnique: mocks.findChild,
@@ -172,10 +170,6 @@ describe("POST /api/kids-discipleship/logs/[id]/reprocess", () => {
       call2,
       "gemini-3.6-flash"
     );
-    expect(mocks.updateLog).toHaveBeenCalledWith({
-      where: { id: log.id },
-      data: { tags: ["service", "kindness"] },
-    });
   });
 
   it("rejects a log outside the authenticated household", async () => {
@@ -238,6 +232,5 @@ describe("POST /api/kids-discipleship/logs/[id]/reprocess", () => {
       },
     ]);
     expect(mocks.storeKidsAIOutput).not.toHaveBeenCalled();
-    expect(mocks.updateLog).not.toHaveBeenCalled();
   });
 });

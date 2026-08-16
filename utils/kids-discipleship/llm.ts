@@ -210,23 +210,34 @@ export async function storeKidsAIOutput(
   call2: KidsCall2Output,
   call1Model: string
 ): Promise<void> {
+  const tags = flattenKidsTags(call2);
   const modelInfo = {
     call1Model,
     call2Model: DEFAULT_MODEL.model,
     promptVersion: PROMPT_VERSION,
   };
-  await prisma.journalEntryAI.upsert({
-    where: { entryId },
-    create: {
-      entryId,
-      call1: JSON.parse(JSON.stringify(call1)),
-      call2: JSON.parse(JSON.stringify(call2)),
-      modelInfo,
-    },
-    update: {
-      call1: JSON.parse(JSON.stringify(call1)),
-      call2: JSON.parse(JSON.stringify(call2)),
-      modelInfo,
-    },
+  const serializedCall1 = JSON.parse(JSON.stringify(call1));
+  const serializedCall2 = JSON.parse(JSON.stringify(call2));
+
+  await prisma.$transaction(async (tx) => {
+    await tx.journalEntryAI.upsert({
+      where: { entryId },
+      create: {
+        entryId,
+        call1: serializedCall1,
+        call2: serializedCall2,
+        modelInfo,
+      },
+      update: {
+        call1: serializedCall1,
+        call2: serializedCall2,
+        modelInfo,
+      },
+    });
+
+    await tx.journalEntry.update({
+      where: { id: entryId },
+      data: { tags },
+    });
   });
 }

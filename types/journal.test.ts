@@ -40,6 +40,57 @@ describe("getPersistedJournalGenerationStatus", () => {
     ).toBe("partial");
   });
 
+  it("recognizes the legacy Call 2 fallback as partial", () => {
+    expect(
+      getPersistedJournalGenerationStatus({
+        call1: { title: "Summary" },
+        call2: {
+          tags: {
+            circumstance: [],
+            heartIssue: [],
+            rulingDesire: [],
+            virtue: [],
+            theologicalTheme: [],
+            meansOfGrace: [],
+          },
+          suggestedPrayerRequests: [],
+          dashboardSignals: { recurringTheme: null },
+        },
+        modelInfo: {
+          call1bModel: "gemini-3-flash-preview",
+          call1cModel: "gemini-3-flash-preview",
+          call2Model: "gemini-3-flash-preview",
+        },
+      })
+    ).toBe("partial");
+  });
+
+  it("honors an explicit complete status for an empty modern Call 2", () => {
+    expect(
+      getPersistedJournalGenerationStatus({
+        call1: { title: "Summary" },
+        call2: {
+          tags: {
+            circumstance: [],
+            heartIssue: [],
+            rulingDesire: [],
+            virtue: [],
+            theologicalTheme: [],
+            meansOfGrace: [],
+          },
+          suggestedPrayerRequests: [],
+          dashboardSignals: { recurringTheme: null },
+        },
+        modelInfo: {
+          status: "complete",
+          failedStages: [],
+          call1bModel: "gemini-3.6-flash",
+          call1cModel: "gemini-3.6-flash",
+        },
+      })
+    ).toBe("complete");
+  });
+
   it("marks fully generated output as complete", () => {
     expect(
       getPersistedJournalGenerationStatus({

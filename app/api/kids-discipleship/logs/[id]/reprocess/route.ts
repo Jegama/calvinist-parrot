@@ -143,10 +143,6 @@ export async function POST(
         await storeKidsAIOutput(log.id, call1, call2, call1Model);
 
         const tags = flattenKidsTags(call2);
-        await prisma.journalEntry.update({
-          where: { id: log.id },
-          data: { tags },
-        });
 
         streamEvent(controller, {
           type: "done",

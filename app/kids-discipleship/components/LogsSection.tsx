@@ -455,6 +455,7 @@ export function LogsSection({ userId, memberId, childName }: Props) {
       });
       setLogActionError(null);
       let completed = false;
+      const previousAIOutput = entry.aiOutput;
 
       updateVisibleLog(entry.id, (current) => ({
         ...current,
@@ -528,7 +529,7 @@ export function LogsSection({ userId, memberId, childName }: Props) {
         });
         updateVisibleLog(entry.id, (current) => ({
           ...current,
-          aiOutput: null,
+          aiOutput: previousAIOutput,
         }));
       } finally {
         setRetryingLogId(null);
