@@ -545,7 +545,9 @@ def test_lost_lease_cannot_mutate_terminal_state(
         )
         is False
     )
-    assert cursor.executions == []
+    assert cursor.executions == [
+        ("SET LOCAL statement_timeout = 30000", None),
+    ]
 
 
 def test_hash_mismatch_verification_is_read_only_until_terminal_commit(

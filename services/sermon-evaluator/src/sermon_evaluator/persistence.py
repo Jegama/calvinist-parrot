@@ -10,6 +10,7 @@ import hashlib
 import os
 import threading
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterator, Mapping, Optional
@@ -29,6 +30,7 @@ from .stages import (
 
 _POOL: Optional[ConnectionPool] = None
 _POOL_LOCK = threading.Lock()
+_STATEMENT_TIMEOUT_MS = 30_000
 
 
 class PersistenceError(RuntimeError):
@@ -114,7 +116,6 @@ def get_pool(database_url: Optional[str] = None) -> ConnectionPool:
                     kwargs={
                         "autocommit": False,
                         "row_factory": dict_row,
-                        "options": "-c statement_timeout=30000",
                     },
                     open=False,
                 )
@@ -126,8 +127,17 @@ class PsycopgPersistence(ScoringPersistence):
     def __init__(self, pool: Optional[ConnectionPool] = None) -> None:
         self.pool = pool or get_pool()
 
+    @contextmanager
+    def _connection(self) -> Iterator[Any]:
+        """Apply the query timeout inside each transaction for PgBouncer safety."""
+
+        with self.pool.connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(f"SET LOCAL statement_timeout = {_STATEMENT_TIMEOUT_MS}")
+            yield connection
+
     def fetch_evaluation(self, evaluation_id: str) -> EvaluationJob:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT e."id", e."ownerId", e."title", e."preachedOn",
@@ -185,7 +195,7 @@ class PsycopgPersistence(ScoringPersistence):
         resume_reason: str,
     ) -> tuple[str, datetime]:
         attempt_id = _new_id()
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))
@@ -254,7 +264,7 @@ class PsycopgPersistence(ScoringPersistence):
         return attempt_id, deadline_at
 
     def active_evaluation_attempt(self, evaluation_id: str) -> tuple[str, datetime]:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT "id", "deadlineAt"
@@ -278,7 +288,7 @@ class PsycopgPersistence(ScoringPersistence):
         lease_owner: str,
         lease_seconds: int = 90,
     ) -> Lease:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))
@@ -364,7 +374,7 @@ class PsycopgPersistence(ScoringPersistence):
         )
 
     def heartbeat_lease(self, lease: Lease, lease_seconds: int = 90) -> bool:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 UPDATE "sermonWorkerLease"
@@ -384,7 +394,7 @@ class PsycopgPersistence(ScoringPersistence):
             return cursor.rowcount == 1
 
     def assert_lease_owned(self, lease: Lease) -> None:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT 1
@@ -405,7 +415,7 @@ class PsycopgPersistence(ScoringPersistence):
                 raise LeaseLost("Sermon worker lease ownership was lost")
 
     def release_lease(self, lease: Lease) -> None:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 UPDATE "sermonWorkerLease"
@@ -474,7 +484,7 @@ class PsycopgPersistence(ScoringPersistence):
         validate_transition(expected_status, target_status)
         if evaluation_id != lease.evaluation_id:
             raise LeaseLost("Stage transition lease targets another evaluation")
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             owned = self._lock_owned_evaluation(cursor, lease)
             if owned is not None and owned["cancelRequestedAt"] is not None:
                 raise EvaluationCanceled("Evaluation cancellation was requested")
@@ -522,7 +532,7 @@ class PsycopgPersistence(ScoringPersistence):
     ) -> None:
         if evaluation_id != lease.evaluation_id:
             raise LeaseLost("Stage output lease targets another evaluation")
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             owned = self._lock_owned_evaluation(cursor, lease)
             if owned is None:
                 raise LeaseLost("Stage output no longer owns a live lease")
@@ -551,7 +561,7 @@ class PsycopgPersistence(ScoringPersistence):
                 raise CompareAndSetConflict("Stage output could not be persisted")
 
     def is_canceled(self, evaluation_id: str) -> bool:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 'SELECT "cancelRequestedAt" IS NOT NULL AS canceled '
                 'FROM "sermonEvaluation" WHERE "id" = %s',
@@ -572,7 +582,7 @@ class PsycopgPersistence(ScoringPersistence):
         if job.id != lease.evaluation_id:
             raise LeaseLost("Audio verification lease targets another evaluation")
         canonical_evaluation_id: Optional[str] = None
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             owned = self._lock_owned_evaluation(cursor, lease)
             if owned is None:
                 raise LeaseLost("Audio verification no longer owns a live lease")
@@ -710,7 +720,7 @@ class PsycopgPersistence(ScoringPersistence):
         return released_credits
 
     def release_run_credits(self, evaluation_id: str, reason: str) -> None:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             self._settle_run_credits(
                 cursor,
                 evaluation_id,
@@ -728,7 +738,7 @@ class PsycopgPersistence(ScoringPersistence):
     ) -> None:
         if evaluation_id != lease.evaluation_id:
             raise LeaseLost("Scoring preparation lease targets another evaluation")
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             if self._lock_owned_evaluation(cursor, lease) is None:
                 raise LeaseLost("Scoring preparation lost its worker lease")
             for ordinal in range(1, requested_runs + 1):
@@ -747,7 +757,7 @@ class PsycopgPersistence(ScoringPersistence):
     ) -> None:
         if evaluation_id != lease.evaluation_id:
             raise LeaseLost("Scoring attempt lease targets another evaluation")
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             if self._lock_owned_evaluation(cursor, lease) is None:
                 raise LeaseLost("Scoring attempt start lost its worker lease")
             cursor.execute(
@@ -816,7 +826,7 @@ class PsycopgPersistence(ScoringPersistence):
             else None
         )
         error_message = str(result.error)[:1000] if result.error else None
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             if self._lock_owned_evaluation(cursor, lease) is None:
                 raise LeaseLost("Scoring result lost its worker lease")
             cursor.execute(
@@ -876,7 +886,7 @@ class PsycopgPersistence(ScoringPersistence):
                 )
 
     def existing_attempt_seeds(self, evaluation_id: str) -> set[int]:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 'SELECT "seed" FROM "sermonScoringAttempt" WHERE "evaluationId" = %s',
                 (evaluation_id,),
@@ -886,7 +896,7 @@ class PsycopgPersistence(ScoringPersistence):
     def scoring_resume_state(
         self, evaluation_id: str, evaluation_attempt_id: str
     ) -> tuple[dict[int, Any], dict[int, int], set[int]]:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT run."ordinal", run."rawScore",
@@ -950,7 +960,7 @@ class PsycopgPersistence(ScoringPersistence):
             for format_name, content in reports.items()
         }
         summary = result.get("scoring", {}).get("Aggregated_Summary", {})
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             owned = self._lock_owned_evaluation(cursor, lease)
             if owned is not None and owned["cancelRequestedAt"] is not None:
                 raise EvaluationCanceled("Evaluation cancellation was requested")
@@ -1086,7 +1096,7 @@ class PsycopgPersistence(ScoringPersistence):
                 "Rejected audio requires a failed terminal transition with "
                 "atomic reserved-credit release"
             )
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             owned = self._lock_owned_evaluation(cursor, lease)
             if (
                 owned is None
@@ -1222,7 +1232,7 @@ class PsycopgPersistence(ScoringPersistence):
     ) -> bool:
         """Close a soft-expired attempt only when no live worker owns it."""
 
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))
@@ -1294,7 +1304,7 @@ class PsycopgPersistence(ScoringPersistence):
             return cursor.rowcount == 1
 
     def fetch_completed_report_state(self, evaluation_id: str) -> dict[str, Any]:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT evaluation."id", evaluation."title",
@@ -1352,7 +1362,7 @@ class PsycopgPersistence(ScoringPersistence):
         overall_impact_base = summary.get("Overall_Impact_Base")
         duration_penalty = summary.get("duration_penalty")
         overall_impact_adjusted = summary.get("Overall_Impact_Adjusted")
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT "id" FROM "sermonEvaluation"
@@ -1446,7 +1456,7 @@ class PsycopgPersistence(ScoringPersistence):
             return next_version
 
     def recoverable_evaluation_ids(self, limit: int = 2) -> list[str]:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT e."id"
@@ -1476,7 +1486,7 @@ class PsycopgPersistence(ScoringPersistence):
             return [row["id"] for row in cursor.fetchall()]
 
     def timeout_expired_attempts(self) -> int:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT evaluation."id", evaluation."status"::text,
@@ -1547,7 +1557,7 @@ class PsycopgPersistence(ScoringPersistence):
             return count
 
     def expired_prepared_uploads(self, limit: int = 10) -> list[dict[str, Any]]:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT reservation."id", reservation."ownerId",
@@ -1580,7 +1590,7 @@ class PsycopgPersistence(ScoringPersistence):
         bucket_id: str,
         file_id: str,
     ) -> bool:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 UPDATE "sermonUploadReservation"
@@ -1609,7 +1619,7 @@ class PsycopgPersistence(ScoringPersistence):
     def expired_finalized_pending_assets(
         self, limit: int = 10
     ) -> list[dict[str, Any]]:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT reservation."id" AS "reservationId",
@@ -1652,7 +1662,7 @@ class PsycopgPersistence(ScoringPersistence):
         bucket_id: str,
         file_id: str,
     ) -> bool:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT reservation."id"
@@ -1727,7 +1737,7 @@ class PsycopgPersistence(ScoringPersistence):
     def stale_duration_report_evaluation_ids(
         self, limit: int = 10
     ) -> list[str]:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT evaluation."id"
@@ -1756,7 +1766,7 @@ class PsycopgPersistence(ScoringPersistence):
     def rejected_audio_pointer_is_deletable(
         self, *, asset_id: str, bucket_id: str, file_id: str
     ) -> bool:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT 1
@@ -1773,7 +1783,7 @@ class PsycopgPersistence(ScoringPersistence):
     def pending_rejected_audio_assets(
         self, limit: int = 10
     ) -> list[dict[str, str]]:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT asset."id", asset."appwriteBucketId",
@@ -1794,7 +1804,7 @@ class PsycopgPersistence(ScoringPersistence):
     ) -> bool:
         """Clear a rejected asset pointer only after Storage deletion."""
 
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT asset."id"
@@ -1832,7 +1842,7 @@ class PsycopgPersistence(ScoringPersistence):
             return cursor.rowcount == 1
 
     def pending_deleted_audio_assets(self, limit: int = 10) -> list[dict[str, str]]:
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 SELECT "id", "appwriteBucketId", "appwriteFileId"
@@ -1852,7 +1862,7 @@ class PsycopgPersistence(ScoringPersistence):
     ) -> bool:
         """Clear a soft-deleted asset pointer only after Storage deletion."""
 
-        with self.pool.connection() as connection, connection.cursor() as cursor:
+        with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
                 """
                 UPDATE "sermonAudioAsset"
