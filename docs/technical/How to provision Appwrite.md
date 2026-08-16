@@ -4,15 +4,16 @@ Routine local sermon development does not require an Appwrite Storage bucket or 
 
 #### 1. Use the Appwrite project that owns the account
 
-For a cloud-runtime development or preview environment, use the same Appwrite project referenced by that environment's `NEXT_PUBLIC_APPWRITE_PROJECT_ID`. The upload authorization creates a JWT from the authenticated project and returns the same project and bucket to the browser. [Source: [appwrite.ts:57](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/appwrite.ts:57), “upload JWT is derived from the authenticated Appwrite session”]
+For a cloud-runtime development or preview environment, use the same Appwrite project referenced by that environment's `NEXT_PUBLIC_APPWRITE_PROJECT_ID`. The upload authorization creates a JWT from the authenticated project and returns the same project and bucket to the browser. [Source: [appwrite.ts:77](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/appwrite.ts:77), “upload JWT is derived from the authenticated Appwrite session”]
 
 In that development project:
 
-- Open Auth → Users → `test@test.com`.
+- Open Auth → Settings and enable the JWT authentication method. The direct browser upload uses a short-lived JWT derived from the existing user session and remains restricted to that user's permissions.
+- Open Auth → Users → `jegama70@gmail.com`.
 - Add `sermonevaluatoradmin`, preserving any existing labels.
 - Sign out and back in.
 
-Appwrite labels grant resource access and are attached directly to users; no separate label resource or label ID is required. [Appwrite Docs, [Labels](https://appwrite.io/docs/products/auth/labels), “labels categorize users and can grant resource access”]
+Appwrite JWTs expire after 15 minutes or when the underlying session is deleted. Appwrite labels grant resource access and are attached directly to users; no separate label resource or label ID is required. [Appwrite Docs, [JWT login](https://appwrite.io/docs/products/auth/jwt), “JWTs preserve the authenticated user's permissions and expire after 15 minutes”] [Appwrite Docs, [Labels](https://appwrite.io/docs/products/auth/labels), “labels categorize users and can grant resource access”]
 
 The label is not needed for routine localhost sermon testing when `SERMON_RUNTIME=local`: the development-only `SERMON_DEV_ADMIN_EMAIL` fallback grants the configured account access. Authentication still comes from the development Appwrite project because that is the shared authentication architecture of the application, not a sermon-worker dependency.
 

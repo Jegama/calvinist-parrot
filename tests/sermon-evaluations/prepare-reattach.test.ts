@@ -168,7 +168,7 @@ describe("sermon upload reattachment preparation", () => {
     expect(mocks.createSermonUploadJwt).not.toHaveBeenCalled();
   });
 
-  it("caps active owner reservations before issuing another upload JWT", async () => {
+  it("caps active owner reservations before persisting another one", async () => {
     mocks.fingerprintFindUnique.mockResolvedValue(null);
     mocks.reservationCount.mockResolvedValue(3);
 
@@ -180,7 +180,24 @@ describe("sermon upload reattachment preparation", () => {
     });
     expect(mocks.executeRaw).toHaveBeenCalledOnce();
     expect(mocks.reservationCreate).not.toHaveBeenCalled();
-    expect(mocks.createSermonUploadJwt).not.toHaveBeenCalled();
+    expect(mocks.createSermonUploadJwt).toHaveBeenCalledOnce();
+  });
+
+  it("does not persist a reservation when upload JWT creation fails", async () => {
+    mocks.fingerprintFindUnique.mockResolvedValue(null);
+    mocks.createSermonUploadJwt.mockRejectedValue(
+      new Error("JWT authentication is disabled for this project"),
+    );
+
+    const response = await handlePrepareSermonUpload(request());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "Internal server error",
+    });
+    expect(mocks.createSermonUploadJwt).toHaveBeenCalledOnce();
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.reservationCreate).not.toHaveBeenCalled();
   });
 
   it("rejects a wrong hash before creating a reservation or upload JWT", async () => {

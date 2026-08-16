@@ -638,6 +638,7 @@ export async function handlePrepareSermonUpload(request: Request) {
     const expiresAt = new Date(
       Date.now() + SERMON_UPLOAD_RESERVATION_TTL_MS,
     );
+    const uploadJwt = await createSermonUploadJwt();
     const reservation = await createPreparedSermonUploadReservation({
       ownerId: userId,
       claimedSha256: parsed.data.sha256,
@@ -652,7 +653,6 @@ export async function handlePrepareSermonUpload(request: Request) {
       fingerprintId: existing?.id,
       reattachEvaluationId: reattachTarget?.id,
     });
-    const uploadJwt = await createSermonUploadJwt();
     return NextResponse.json({
       decision: "upload_required",
       reservationId: reservation.id,
