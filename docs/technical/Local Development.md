@@ -105,13 +105,13 @@ When two branches add migrations independently, rebase or merge them and validat
 
 Routine startup uses `npm run db:deploy` to apply committed migrations without entering Prisma's schema-authoring workflow. Use `npm run db:migrate` locally only after changing `prisma/schema.prisma`; it should target the Docker development and shadow databases from `.env`.
 
-Use `npm run db:deploy` only for deploy-style migration application. The manual GitHub workflow `Deploy Prisma Migrations` expects a protected `PRODUCTION_DATABASE_URL` secret and runs `prisma migrate deploy` against production. For Neon, that secret should be the direct database connection string, not a transaction-pooler URL.
+Use `npm run db:deploy` only for deploy-style migration application. CI applies committed migrations only to its disposable PostgreSQL services. The manual GitHub workflow `Deploy Prisma Migrations` is the external-database path: choose `Preview` to use `PREVIEW_DATABASE_URL` from the GitHub Preview environment or `Production` to use the protected `PRODUCTION_DATABASE_URL` secret. Both Neon secrets should be direct database connection strings, not transaction-pooler URLs.
 
-The safest production flow is:
+The safest release flow is:
 
 1. CI validates the branch against a disposable Postgres service.
-2. Production migration workflow runs with GitHub Environment approval.
-3. Vercel deploys the app after migrations succeed.
+2. The migration workflow runs against Preview from the same branch before the preview worker or application is exercised.
+3. The migration workflow runs against Production with GitHub Environment approval before the production application is promoted.
 
 If Vercel is currently auto-deploying on push, either move production deploys into GitHub Actions or use a release branch/manual promotion so schema changes do not race app deploys.
 
