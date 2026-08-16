@@ -5,6 +5,7 @@ export {
   type TavilyCrawlResult,
 } from "./crawl";
 export {
+  CORE_EXTRACTION_THINKING_LEVEL,
   EVALUATION_MODEL,
   EVALUATION_PROMPT_VERSION,
   extractChurchEvaluation,
@@ -28,3 +29,10 @@ export {
   SUPPORTING_REFORMED_BADGES,
   secondaryDifferenceBadges,
 } from "./policy";
+export {
+  ChurchEvaluationTimeoutError,
+  ChurchEvaluationUpstreamError,
+  logEvaluationStage,
+  measureEvaluationStage,
+  runEvaluationStage,
+} from "./runtime";

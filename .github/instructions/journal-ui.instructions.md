@@ -11,6 +11,7 @@ applyTo: "app/journal/**"
 ## Streaming & Events
 - Consume NDJSON stream from `app/api/journal/entries/route.ts`.
 - Handle event types: `entry_created`, `progress`, `call1a_complete`, `call1b_complete`, `call1c_complete`, `call2_complete`, `done`, `error`.
+- Surface terminal and partial stream failures visibly. Offer retry only for entries whose durable generation status is `failed` or `partial`, and expose deletion through a confirmation dialog.
 - Call1 runs in parallel (a/b/c) for better latency; display partial results as they arrive.
 
 ## Types & State

@@ -23,12 +23,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, Search, MessageSquare, BookOpen, Calendar, ChevronRight } from "lucide-react";
+import {
+  AlertCircle,
+  BookOpen,
+  Calendar,
+  ChevronRight,
+  Loader2,
+  MessageSquare,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { ReflectionCard } from "./components/ReflectionCard";
 import { SuggestedRequestsPanel } from "./components/SuggestedRequestsPanel";
 import { JournalEntryCard } from "./components/JournalEntryCard";
 import { RecentFocusSection } from "./components/RecentFocusSection";
-import type { Call1Output, Call2Output, Call1aOutput, Call1bOutput, Call1cOutput } from "@/types/journal";
+import type {
+  Call1Output,
+  Call2Output,
+  Call1aOutput,
+  Call1bOutput,
+  Call1cOutput,
+  JournalGenerationStage,
+  JournalGenerationStatus,
+} from "@/types/journal";
 
 // Types for journal entries
 interface JournalEntry {
@@ -42,6 +61,7 @@ interface JournalEntry {
     call1: Call1Output | null;
     call2: Call2Output | null;
   } | null;
+  generationStatus: JournalGenerationStatus;
 }
 
 interface JournalEntriesResponse {
@@ -60,7 +80,16 @@ type StreamEvent =
   | { type: "call1b_complete"; call1b: Call1bOutput }
   | { type: "call1c_complete"; call1c: Call1cOutput }
   | { type: "call2_complete"; call2: Call2Output }
-  | { type: "done"; call1: Call1Output; call2: Call2Output }
+  | { type: "call1b_error"; message: string }
+  | { type: "call1c_error"; message: string }
+  | { type: "call2_error"; message: string }
+  | {
+      type: "done";
+      call1: Call1Output;
+      call2: Call2Output;
+      partial?: boolean;
+      failedStages?: JournalGenerationStage[];
+    }
   | { type: "error"; message: string };
 
 // API functions
@@ -94,14 +123,87 @@ async function fetchHouseholdStatus(): Promise<{ hasHousehold: boolean; spaceId?
   return { hasHousehold: !!data.space, spaceId: data.space?.id };
 }
 
-async function reprocessEntry(entryId: string): Promise<ReadableStream<Uint8Array>> {
-  const res = await fetch(`/api/journal/entries/${entryId}/reprocess`, {
+async function readApiError(response: Response, fallback: string) {
+  const body = await response.json().catch(() => null);
+  return typeof body?.error === "string" ? body.error : fallback;
+}
+
+async function consumeJournalStream(
+  response: Response,
+  onEvent: (event: StreamEvent) => void
+) {
+  if (!response.ok || !response.body) {
+    throw new Error(await readApiError(response, "Journal request failed"));
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+  let receivedTerminalEvent = false;
+
+  const processLine = (line: string) => {
+    if (!line.trim()) return;
+    const event = JSON.parse(line) as StreamEvent;
+    onEvent(event);
+    if (event.type === "done" || event.type === "error") {
+      receivedTerminalEvent = true;
+    }
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    lines.forEach(processLine);
+  }
+
+  buffer += decoder.decode();
+  processLine(buffer);
+
+  if (!receivedTerminalEvent) {
+    throw new Error("Generation stopped before it finished. Please try again.");
+  }
+}
+
+async function requestReprocessEntry(entryId: string): Promise<Response> {
+  return fetch(`/api/journal/entries/${entryId}/reprocess`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),
   });
-  if (!res.ok || !res.body) throw new Error("Failed to reprocess entry");
-  return res.body;
+}
+
+async function deleteEntry(entryId: string) {
+  const response = await fetch(`/api/journal/entries/${entryId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to delete entry"));
+  }
+}
+
+function hasGenerationFailure(entry: JournalEntry) {
+  return (
+    entry.generationStatus === "failed" ||
+    entry.generationStatus === "partial"
+  );
+}
+
+function failedStagesMessage(stages?: JournalGenerationStage[]) {
+  if (!stages?.length) {
+    return "The AI reflection did not finish generating. Your journal entry is still saved.";
+  }
+
+  const labels: Record<JournalGenerationStage, string> = {
+    call1a: "entry summary",
+    call1b: "heart reflection",
+    call1c: "biblical guidance",
+    call2: "tags and prayer suggestions",
+  };
+  return `Some parts did not finish generating: ${stages.map((stage) => labels[stage]).join(", ")}. Your journal entry is still saved.`;
 }
 
 export default function JournalPage() {
@@ -131,6 +233,15 @@ export default function JournalPage() {
   // Streaming state - supports progressive loading with partial Call1
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [streamProgress, setStreamProgress] = useState<{ stage: "call1a" | "parallel"; message: string } | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<{
+    entryId: string;
+    message: string;
+  } | null>(null);
+  const [reprocessingEntryId, setReprocessingEntryId] = useState<string | null>(null);
+  const [pendingDeleteEntry, setPendingDeleteEntry] = useState<JournalEntry | null>(null);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Queries
   const { data, isLoading, error } = useQuery({
@@ -154,7 +265,11 @@ export default function JournalPage() {
 
     setIsSubmitting(true);
     setStreamProgress({ stage: "call1a", message: "Creating entry..." });
+    setSubmissionError(null);
+    setGenerationError(null);
     setIsComposerOpen(false);
+    let createdEntryId: string | null = null;
+    let shouldRefreshEntries = false;
 
     try {
       const response = await fetch("/api/journal/entries", {
@@ -163,115 +278,124 @@ export default function JournalPage() {
         body: JSON.stringify({ entryText: newEntryText }),
       });
 
-      if (!response.ok || !response.body) {
-        throw new Error("Failed to create entry");
-      }
+      await consumeJournalStream(response, (event) => {
+        switch (event.type) {
+          case "entry_created":
+            createdEntryId = event.entry.id;
+            shouldRefreshEntries = true;
+            setActiveEntry(event.entry);
+            setNewEntryText("");
+            if (isMobile) setMobileDetailOpen(true);
+            break;
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let buffer = "";
+          case "progress":
+            setStreamProgress({ stage: event.stage, message: event.message });
+            break;
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
+          case "call1a_complete":
+            setActiveEntry(prev => prev ? {
+              ...prev,
+              aiOutput: {
+                call1: { ...event.call1a } as Call1Output,
+                call2: null
+              }
+            } : null);
+            break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+          case "call1b_complete":
+            setActiveEntry(prev => prev ? {
+              ...prev,
+              aiOutput: {
+                call1: {
+                  ...prev.aiOutput?.call1,
+                  ...event.call1b
+                } as Call1Output,
+                call2: prev.aiOutput?.call2 || null
+              }
+            } : null);
+            break;
 
-        for (const line of lines) {
-          if (!line.trim()) continue;
+          case "call1c_complete":
+            setActiveEntry(prev => prev ? {
+              ...prev,
+              aiOutput: {
+                call1: {
+                  ...prev.aiOutput?.call1,
+                  ...event.call1c
+                } as Call1Output,
+                call2: prev.aiOutput?.call2 || null
+              }
+            } : null);
+            break;
 
-          let event: StreamEvent;
-          try {
-            event = JSON.parse(line);
-          } catch {
-            console.error("Failed to parse stream line:", line);
-            continue;
-          }
+          case "call2_complete":
+            setActiveEntry(prev => prev ? {
+              ...prev,
+              aiOutput: {
+                call1: prev.aiOutput?.call1 || null,
+                call2: event.call2
+              }
+            } : null);
+            break;
 
-          switch (event.type) {
-            case "entry_created":
-              // Set active entry immediately with skeleton loading state
-              setActiveEntry(event.entry);
-              setNewEntryText("");
-              if (isMobile) setMobileDetailOpen(true);
-              break;
+          case "call1b_error":
+          case "call1c_error":
+          case "call2_error":
+            break;
 
-            case "progress":
-              setStreamProgress({ stage: event.stage, message: event.message });
-              break;
+          case "done":
+            setActiveEntry(prev => prev ? {
+              ...prev,
+              aiOutput: { call1: event.call1, call2: event.call2 },
+              tags: event.call2?.tags ? Object.values(event.call2.tags).flat() : prev.tags,
+              generationStatus: event.partial ? "partial" : "complete",
+            } : null);
+            if (createdEntryId) {
+              setGenerationError(
+                event.partial
+                  ? {
+                      entryId: createdEntryId,
+                      message: failedStagesMessage(event.failedStages),
+                    }
+                  : null
+              );
+            }
+            break;
 
-            case "call1a_complete":
-              // First paint: title, summary, situation
-              setActiveEntry(prev => prev ? {
-                ...prev,
-                aiOutput: {
-                  call1: { ...event.call1a } as Call1Output,
-                  call2: null
-                }
-              } : null);
-              break;
-
-            case "call1b_complete":
-              // Heart and put off/put on analysis
-              setActiveEntry(prev => prev ? {
-                ...prev,
-                aiOutput: {
-                  call1: {
-                    ...prev.aiOutput?.call1,
-                    ...event.call1b
-                  } as Call1Output,
-                  call2: prev.aiOutput?.call2 || null
-                }
-              } : null);
-              break;
-
-            case "call1c_complete":
-              // Scripture and next steps
-              setActiveEntry(prev => prev ? {
-                ...prev,
-                aiOutput: {
-                  call1: {
-                    ...prev.aiOutput?.call1,
-                    ...event.call1c
-                  } as Call1Output,
-                  call2: prev.aiOutput?.call2 || null
-                }
-              } : null);
-              break;
-
-            case "call2_complete":
-              // Update active entry with call2
-              setActiveEntry(prev => prev ? {
-                ...prev,
-                aiOutput: {
-                  call1: prev.aiOutput?.call1 || null,
-                  call2: event.call2
-                }
-              } : null);
-              break;
-
-            case "done":
-              // Update active entry with final complete call1 and call2
-              setActiveEntry(prev => prev ? {
-                ...prev,
-                aiOutput: { call1: event.call1, call2: event.call2 },
-                tags: event.call2?.tags ? Object.values(event.call2.tags).flat() : prev.tags
-              } : null);
-              // Invalidate to refresh the list
-              queryClient.invalidateQueries({ queryKey: ["journal", "entries"] });
-              break;
-
-            case "error":
-              console.error("Stream error:", event.message);
-              break;
-          }
+          case "error":
+            shouldRefreshEntries = true;
+            setActiveEntry(prev => prev ? {
+              ...prev,
+              generationStatus: "failed",
+            } : null);
+            if (createdEntryId) {
+              setGenerationError({
+                entryId: createdEntryId,
+                message: event.message,
+              });
+            }
+            break;
         }
-      }
+      });
     } catch (err) {
       console.error("Failed to create entry:", err);
+      const message =
+        err instanceof Error ? err.message : "Failed to create journal entry";
+      if (createdEntryId) {
+        shouldRefreshEntries = true;
+        setActiveEntry(prev => prev ? {
+          ...prev,
+          generationStatus: "failed",
+        } : null);
+        setGenerationError({ entryId: createdEntryId, message });
+      } else {
+        setSubmissionError(message);
+        setIsComposerOpen(true);
+      }
     } finally {
+      if (shouldRefreshEntries) {
+        await queryClient.invalidateQueries({ queryKey: ["journal", "entries"] });
+      }
       setIsSubmitting(false);
       setStreamProgress(null);
     }
@@ -290,115 +414,170 @@ export default function JournalPage() {
   }, [user?.$id, queryClient, router]);
 
   // Reprocess entry handler with streaming
-  const handleReprocessEntry = useCallback(async (entryId: string) => {
-    if (!user?.$id) return;
+  const handleReprocessEntry = useCallback(async (entry: JournalEntry) => {
+    if (!user?.$id || !hasGenerationFailure(entry)) return;
 
     setIsSubmitting(true);
+    setReprocessingEntryId(entry.id);
     setStreamProgress({ stage: "call1a", message: "Reprocessing entry..." });
+    setGenerationError(null);
+    setActiveEntry({ ...entry, generationStatus: "pending" });
+    if (isMobile) setMobileDetailOpen(true);
+    const previousStatus = entry.generationStatus;
 
     try {
-      const stream = await reprocessEntry(entryId);
-      const reader = stream.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let buffer = "";
+      const response = await requestReprocessEntry(entry.id);
+      await consumeJournalStream(response, (event) => {
+        switch (event.type) {
+          case "entry_created":
+            break;
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
+          case "progress":
+            setStreamProgress({ stage: event.stage, message: event.message });
+            break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+          case "call1a_complete":
+            setActiveEntry(prev => prev?.id === entry.id ? {
+              ...prev,
+              aiOutput: {
+                call1: { ...event.call1a } as Call1Output,
+                call2: null
+              }
+            } : prev);
+            break;
 
-        for (const line of lines) {
-          if (!line.trim()) continue;
+          case "call1b_complete":
+            setActiveEntry(prev => prev?.id === entry.id ? {
+              ...prev,
+              aiOutput: {
+                call1: {
+                  ...prev.aiOutput?.call1,
+                  ...event.call1b
+                } as Call1Output,
+                call2: prev.aiOutput?.call2 || null
+              }
+            } : prev);
+            break;
 
-          let event: StreamEvent;
-          try {
-            event = JSON.parse(line);
-          } catch {
-            console.error("Failed to parse stream line:", line);
-            continue;
-          }
+          case "call1c_complete":
+            setActiveEntry(prev => prev?.id === entry.id ? {
+              ...prev,
+              aiOutput: {
+                call1: {
+                  ...prev.aiOutput?.call1,
+                  ...event.call1c
+                } as Call1Output,
+                call2: prev.aiOutput?.call2 || null
+              }
+            } : prev);
+            break;
 
-          switch (event.type) {
-            case "progress":
-              setStreamProgress({ stage: event.stage, message: event.message });
-              break;
+          case "call2_complete":
+            setActiveEntry(prev => prev?.id === entry.id ? {
+              ...prev,
+              aiOutput: {
+                call1: prev.aiOutput?.call1 || null,
+                call2: event.call2
+              }
+            } : prev);
+            break;
 
-            case "call1a_complete":
-              setActiveEntry(prev => prev ? {
-                ...prev,
-                aiOutput: {
-                  call1: { ...event.call1a } as Call1Output,
-                  call2: null
-                }
-              } : null);
-              break;
+          case "call1b_error":
+          case "call1c_error":
+          case "call2_error":
+            break;
 
-            case "call1b_complete":
-              setActiveEntry(prev => prev ? {
-                ...prev,
-                aiOutput: {
-                  call1: {
-                    ...prev.aiOutput?.call1,
-                    ...event.call1b
-                  } as Call1Output,
-                  call2: prev.aiOutput?.call2 || null
-                }
-              } : null);
-              break;
+          case "done":
+            setActiveEntry(prev => prev?.id === entry.id ? {
+              ...prev,
+              aiOutput: { call1: event.call1, call2: event.call2 },
+              tags: event.call2?.tags ? Object.values(event.call2.tags).flat() : prev.tags,
+              generationStatus: event.partial ? "partial" : "complete",
+            } : prev);
+            setGenerationError(
+              event.partial
+                ? {
+                    entryId: entry.id,
+                    message: failedStagesMessage(event.failedStages),
+                  }
+                : null
+            );
+            break;
 
-            case "call1c_complete":
-              setActiveEntry(prev => prev ? {
-                ...prev,
-                aiOutput: {
-                  call1: {
-                    ...prev.aiOutput?.call1,
-                    ...event.call1c
-                  } as Call1Output,
-                  call2: prev.aiOutput?.call2 || null
-                }
-              } : null);
-              break;
-
-            case "call2_complete":
-              setActiveEntry(prev => prev ? {
-                ...prev,
-                aiOutput: {
-                  call1: prev.aiOutput?.call1 || null,
-                  call2: event.call2
-                }
-              } : null);
-              break;
-
-            case "done":
-              setActiveEntry(prev => prev ? {
-                ...prev,
-                aiOutput: { call1: event.call1, call2: event.call2 },
-                tags: event.call2?.tags ? Object.values(event.call2.tags).flat() : prev.tags
-              } : null);
-              queryClient.invalidateQueries({ queryKey: ["journal", "entries"] });
-              break;
-
-            case "error":
-              console.error("Stream error:", event.message);
-              break;
-          }
+          case "error":
+            setActiveEntry(prev => prev?.id === entry.id ? {
+              ...prev,
+              generationStatus: previousStatus,
+            } : prev);
+            setGenerationError({ entryId: entry.id, message: event.message });
+            break;
         }
-      }
+      });
     } catch (err) {
       console.error("Failed to reprocess entry:", err);
+      setActiveEntry(prev => prev?.id === entry.id ? {
+        ...prev,
+        generationStatus: previousStatus,
+      } : prev);
+      setGenerationError({
+        entryId: entry.id,
+        message:
+          err instanceof Error
+            ? err.message
+            : "AI processing failed. Please try again.",
+      });
     } finally {
+      await queryClient.invalidateQueries({ queryKey: ["journal", "entries"] });
       setIsSubmitting(false);
+      setReprocessingEntryId(null);
       setStreamProgress(null);
     }
-  }, [user?.$id, queryClient]);
+  }, [user?.$id, queryClient, isMobile]);
+
+  const handleDeleteEntry = useCallback(async () => {
+    if (!pendingDeleteEntry || deletingEntryId) return;
+
+    const entryId = pendingDeleteEntry.id;
+    setDeletingEntryId(entryId);
+    setDeleteError(null);
+
+    try {
+      await deleteEntry(entryId);
+      queryClient.setQueriesData<JournalEntriesResponse>(
+        { queryKey: ["journal", "entries"] },
+        (current) => {
+          if (!current) return current;
+          const entries = current.entries.filter((entry) => entry.id !== entryId);
+          const removed = entries.length !== current.entries.length;
+          const total = removed ? Math.max(0, current.total - 1) : current.total;
+          return {
+            ...current,
+            entries,
+            total,
+            totalPages: Math.ceil(total / current.limit),
+          };
+        }
+      );
+      setActiveEntry((current) => current?.id === entryId ? null : current);
+      setGenerationError((current) => current?.entryId === entryId ? null : current);
+      setPendingDeleteEntry(null);
+      setMobileDetailOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ["journal", "entries"] });
+    } catch (err) {
+      console.error("Failed to delete journal entry:", err);
+      setDeleteError(
+        err instanceof Error ? err.message : "Failed to delete journal entry"
+      );
+    } finally {
+      setDeletingEntryId(null);
+    }
+  }, [deletingEntryId, pendingDeleteEntry, queryClient]);
 
   const handleEntryClick = useCallback((entry: JournalEntry) => {
     setActiveEntry(entry);
     // Clear streaming state when selecting a different entry
     setStreamProgress(null);
+    setGenerationError(null);
     if (isMobile) setMobileDetailOpen(true);
   }, [isMobile]);
 
@@ -422,25 +601,35 @@ export default function JournalPage() {
       );
     }
 
+    const activeGenerationFailed = hasGenerationFailure(activeEntry);
+    const activeGenerationMessage =
+      generationError?.entryId === activeEntry.id
+        ? generationError.message
+        : activeEntry.generationStatus === "partial"
+          ? "Some parts of the AI reflection did not finish generating. Your journal entry is still saved."
+          : "The AI reflection did not finish generating. Your journal entry is still saved.";
+
     return (
       <>
-        {!activeEntry.aiOutput && !streamProgress && (
+        {activeGenerationFailed && !streamProgress && (
           <Card className="status--warning">
             <CardContent className="pt-4">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
                 <div>
                   <p className="font-medium text-sm mb-1">
-                    AI Reflection Unavailable
+                    {activeEntry.generationStatus === "partial"
+                      ? "AI Reflection Incomplete"
+                      : "AI Reflection Unavailable"}
                   </p>
-                  <p className="text-xs opacity-90">
-                    Processing failed for this entry. Click the retry button to regenerate your AI reflection.
+                  <p className="text-xs opacity-90" role="alert">
+                    {activeGenerationMessage}
                   </p>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   className="gap-2 shrink-0"
-                  onClick={() => handleReprocessEntry(activeEntry.id)}
+                  onClick={() => handleReprocessEntry(activeEntry)}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
@@ -450,7 +639,7 @@ export default function JournalPage() {
                     </>
                   ) : (
                     <>
-                      <MessageSquare className="h-4 w-4" />
+                      <RefreshCw className="h-4 w-4" />
                       Retry AI Reflection
                     </>
                   )}
@@ -461,7 +650,7 @@ export default function JournalPage() {
         )}
 
         <Card>
-          <CardHeader className="flex flex-row items-start justify-between">
+          <CardHeader className="flex flex-col items-start justify-between gap-3 sm:flex-row">
             <div>
               <p className="text-sm text-muted-foreground">
                 {new Date(activeEntry.entryDate).toLocaleDateString("en-US", {
@@ -472,16 +661,36 @@ export default function JournalPage() {
                 })}
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => handleContinueInChat(activeEntry.id)}
-              disabled={isSubmitting}
-            >
-              <MessageSquare className="h-4 w-4" />
-              Continue in Chat
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => handleContinueInChat(activeEntry.id)}
+                disabled={isSubmitting}
+              >
+                <MessageSquare className="h-4 w-4" />
+                Continue in Chat
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => {
+                  setPendingDeleteEntry(activeEntry);
+                  setDeleteError(null);
+                  if (isMobile) setMobileDetailOpen(false);
+                }}
+                disabled={isSubmitting || deletingEntryId === activeEntry.id}
+              >
+                {deletingEntryId === activeEntry.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                )}
+                Delete Entry
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <p className="whitespace-pre-wrap">{activeEntry.entryText}</p>
@@ -564,6 +773,19 @@ export default function JournalPage() {
             </Button>
           </div>
         </header>
+
+        {submissionError && (
+          <div
+            className="status--warning mb-6 flex items-start gap-3 rounded-lg p-4"
+            role="alert"
+          >
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-sm font-medium">Journal entry was not saved</p>
+              <p className="mt-1 text-xs opacity-90">{submissionError}</p>
+            </div>
+          </div>
+        )}
 
         {/* Dashboard Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -661,8 +883,12 @@ export default function JournalPage() {
                     entry={entry}
                     isActive={activeEntry?.id === entry.id}
                     onClick={() => handleEntryClick(entry)}
-                    onReprocess={() => handleReprocessEntry(entry.id)}
-                    isReprocessing={isSubmitting && activeEntry?.id === entry.id}
+                    onReprocess={
+                      hasGenerationFailure(entry)
+                        ? () => handleReprocessEntry(entry)
+                        : undefined
+                    }
+                    isReprocessing={reprocessingEntryId === entry.id}
                   />
                 ))}
 
@@ -708,11 +934,75 @@ export default function JournalPage() {
                 <DialogTitle className="font-serif text-xl">
                   {activeEntry?.aiOutput?.call1?.title || "Journal Entry"}
                 </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Journal entry details and AI reflection.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">{renderDetailContent()}</div>
             </DialogContent>
           </Dialog>
         )}
+
+        <Dialog
+          open={!!pendingDeleteEntry}
+          onOpenChange={(open) => {
+            if (!open && !deletingEntryId) {
+              setPendingDeleteEntry(null);
+              setDeleteError(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Delete journal entry?</DialogTitle>
+              <DialogDescription>
+                This permanently deletes the journal entry and its AI reflection. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+
+            {pendingDeleteEntry && (
+              <p className="line-clamp-3 rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">
+                {pendingDeleteEntry.entryText}
+              </p>
+            )}
+
+            {deleteError && (
+              <p className="status-text--warning text-sm" role="alert">
+                {deleteError}
+              </p>
+            )}
+
+            <DialogFooter className="gap-2 sm:space-x-0">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setPendingDeleteEntry(null);
+                  setDeleteError(null);
+                }}
+                disabled={!!deletingEntryId}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteEntry}
+                disabled={!!deletingEntryId}
+              >
+                {deletingEntryId ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                    Delete Entry
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Composer Modal/Dialog */}
         <Dialog
@@ -736,6 +1026,18 @@ export default function JournalPage() {
             </DialogHeader>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6">
+              {submissionError && (
+                <div
+                  className="status--warning mb-4 flex items-start gap-3 rounded-lg p-3"
+                  role="alert"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <div>
+                    <p className="text-sm font-medium">Entry could not be saved</p>
+                    <p className="mt-1 text-xs opacity-90">{submissionError}</p>
+                  </div>
+                </div>
+              )}
               <Textarea
                 ref={journalEntryTextareaRef}
                 placeholder="Write your journal entry..."

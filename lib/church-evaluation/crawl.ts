@@ -2,6 +2,11 @@ import { createHash } from "node:crypto";
 
 import { tavily } from "@tavily/core";
 
+import { ChurchEvaluationUpstreamError } from "./runtime";
+
+export const TAVILY_CRAWL_TIMEOUT_SECONDS = 75;
+export const TAVILY_EXTRACT_TIMEOUT_SECONDS = 30;
+
 export type ChurchSourcePage = {
   url?: string;
   requestedUrl?: string;
@@ -11,6 +16,7 @@ export type ChurchSourcePage = {
 
 export type TavilyCrawlResult = {
   base_url?: string;
+  baseUrl?: string;
   results?: ChurchSourcePage[];
 };
 
@@ -45,7 +51,8 @@ function createContentHash(text: string): string {
 
 export function dropAnchorDupes(data: TavilyCrawlResult): TavilyCrawlResult {
   const results = Array.isArray(data.results) ? data.results : [];
-  if (!results.length) return { base_url: data.base_url, results: [] };
+  const baseUrl = data.base_url ?? data.baseUrl;
+  if (!results.length) return { base_url: baseUrl, results: [] };
 
   const clean: ChurchSourcePage[] = [];
   const fragments: ChurchSourcePage[] = [];
@@ -106,16 +113,18 @@ export function dropAnchorDupes(data: TavilyCrawlResult): TavilyCrawlResult {
     normalizedResults.push(entry);
   }
 
-  return { base_url: data.base_url, results: normalizedResults };
+  return { base_url: baseUrl, results: normalizedResults };
 }
 
 export async function extractChurchPage(
   requestedUrl: string,
   client: TavilyClient = getTavilyClient(),
+  timeoutSeconds = TAVILY_EXTRACT_TIMEOUT_SECONDS,
 ): Promise<ChurchSourcePage | null> {
   const response = await client.extract([requestedUrl], {
-    extract_depth: "advanced",
+    extractDepth: "advanced",
     format: "markdown",
+    timeout: timeoutSeconds,
   }) as TavilyExtractResponse;
 
   const result = response.results?.[0];
@@ -191,22 +200,32 @@ export function createSourcePageMetadata(pages: ChurchSourcePage[]) {
 export async function crawlChurchSite(
   website: string,
   client: TavilyClient = getTavilyClient(),
+  {
+    crawlTimeoutSeconds = TAVILY_CRAWL_TIMEOUT_SECONDS,
+    extractTimeoutSeconds = TAVILY_EXTRACT_TIMEOUT_SECONDS,
+  }: {
+    crawlTimeoutSeconds?: number;
+    extractTimeoutSeconds?: number;
+  } = {},
 ): Promise<TavilyCrawlResult> {
   try {
     const [crawlResponse, rootPage] = await Promise.all([
       client.crawl(website, {
         instructions:
-          "I need the following:\n1. doctrinal statement, their beliefs, doctrine, teaching statement, or statement of faith.\n2. The address of the church/main campus.\n3. Their pastors, elders, bishops, priests, or reverends.\n4. Ministries that they have, like Biblical Counseling, Youth Group, Children's Ministry, etc.\n5. If they have home groups/community groups/life groups, etc.",
-        max_depth: 2,
-        extract_depth: "advanced",
-        allow_external: false,
+          "The website may be written in any language. Semantically locate official pages covering: the church's doctrinal statement or beliefs; church and campus addresses; clergy and governing leaders; ministries; and home, community, or small groups. Do not depend on English page titles or URL words.",
+        maxDepth: 2,
+        extractDepth: "advanced",
+        allowExternal: false,
+        timeout: crawlTimeoutSeconds,
       }),
-      extractChurchPage(website, client).catch(() => null),
+      extractChurchPage(website, client, extractTimeoutSeconds).catch(
+        () => null,
+      ),
     ]);
 
     const crawlData = crawlResponse as TavilyCrawlResult;
     const merged = {
-      base_url: crawlData.base_url || website,
+      base_url: crawlData.base_url || crawlData.baseUrl || website,
       results: [
         ...(rootPage ? [rootPage] : []),
         ...(Array.isArray(crawlData.results) ? crawlData.results : []),
@@ -215,9 +234,15 @@ export async function crawlChurchSite(
 
     return dropAnchorDupes(merged);
   } catch (error) {
-    console.error("Tavily crawl error:", error);
-    throw new Error(
-      `Failed to crawl website: ${error instanceof Error ? error.message : "Unknown error"}`,
+    console.error("church_evaluation_upstream_error", {
+      provider: "tavily",
+      stage: "crawl",
+      error_name: error instanceof Error ? error.name : "UnknownError",
+    });
+    throw new ChurchEvaluationUpstreamError(
+      "tavily",
+      "crawl",
+      { cause: error },
     );
   }
 }

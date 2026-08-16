@@ -5,7 +5,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Sparkles, RefreshCw, Loader2 } from "lucide-react";
-import type { Call1Output, Call2Output } from "@/types/journal";
+import type {
+  Call1Output,
+  Call2Output,
+  JournalGenerationStatus,
+} from "@/types/journal";
 
 interface JournalEntry {
   id: string;
@@ -18,6 +22,7 @@ interface JournalEntry {
     call1: Call1Output | null;
     call2: Call2Output | null;
   } | null;
+  generationStatus: JournalGenerationStatus;
 }
 
 interface JournalEntryCardProps {
@@ -36,8 +41,9 @@ export function JournalEntryCard({ entry, isActive, onClick, onReprocess, isRepr
       ? entry.entryText.substring(0, 100) + "..."
       : entry.entryText);
   
-  // Check if AI processing failed (entry exists but no aiOutput)
-  const processingFailed = !entry.aiOutput;
+  const processingFailed =
+    entry.generationStatus === "failed" ||
+    entry.generationStatus === "partial";
 
   return (
     <Card
@@ -97,7 +103,9 @@ export function JournalEntryCard({ entry, isActive, onClick, onReprocess, isRepr
         
         {processingFailed && (
           <p className="text-xs status-text--warning mt-1 italic">
-            AI reflection unavailable
+            {entry.generationStatus === "partial"
+              ? "AI reflection incomplete"
+              : "AI reflection unavailable"}
           </p>
         )}
 

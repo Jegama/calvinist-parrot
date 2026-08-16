@@ -14,7 +14,13 @@ import {
   DEFAULT_CALL1C,
   DEFAULT_CALL2,
 } from "@/utils/journal/llm";
-import type { Call1Output, Call2Output, Call1aOutput } from "@/types/journal";
+import {
+  getPersistedJournalGenerationStatus,
+  type Call1Output,
+  type Call2Output,
+  type Call1aOutput,
+  type JournalGenerationStage,
+} from "@/types/journal";
 import { requireAuthenticatedUser } from "@/lib/auth";
 
 /**
@@ -26,6 +32,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    void request;
     const { id: entryId } = await params;
 
     const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
@@ -44,10 +51,22 @@ export async function POST(
     // Verify the entry exists and belongs to the user
     const entry = await prisma.journalEntry.findUnique({
       where: { id: entryId },
+      include: { aiOutput: true },
     });
 
-    if (!entry || entry.authorProfileId !== profile.id) {
+    if (
+      !entry ||
+      entry.entryType !== "PERSONAL" ||
+      entry.authorProfileId !== profile.id
+    ) {
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+    }
+
+    if (getPersistedJournalGenerationStatus(entry.aiOutput) === "complete") {
+      return NextResponse.json(
+        { error: "This journal entry already has a complete AI reflection." },
+        { status: 409 }
+      );
     }
 
     // Get rich context from recent entries (situation summaries and themes)
@@ -132,6 +151,10 @@ export async function POST(
           const call2 = call2Result ?? DEFAULT_CALL2;
           const call1bModel = call1bResult?.model ?? "unknown";
           const call1cModel = call1cResult?.model ?? "unknown";
+          const failedStages: JournalGenerationStage[] = [];
+          if (!call1bResult) failedStages.push("call1b");
+          if (!call1cResult) failedStages.push("call1c");
+          if (!call2Result) failedStages.push("call2");
 
           // Combine Call 1 results
           const fullCall1: Call1Output = {
@@ -146,16 +169,17 @@ export async function POST(
             call1: fullCall1,
             call2,
             models: { call1bModel, call1cModel },
+            failedStages,
           });
 
-          const hasFailures = !call1bResult || !call1cResult || !call2Result;
+          const hasFailures = failedStages.length > 0;
 
           // Send done event
           sendEvent({
             type: "done",
             call1: fullCall1,
             call2,
-            ...(hasFailures && { partial: true }),
+            ...(hasFailures && { partial: true, failedStages }),
           });
         } catch (aiError) {
           console.error("AI reprocessing failed:", aiError);

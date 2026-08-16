@@ -175,7 +175,7 @@ All main feature pages use a standardized header pattern for consistency:
 - Inputs: `bg-background`/`bg-card`, `border-border`, focus `ring`.
 - Labels: `text-foreground/80`; helper text uses `muted-foreground`.
 - Long-form textareas should auto-grow until they reach a viewport-aware ceiling, then scroll internally. Use the shared `useAutoGrowingTextarea` behavior instead of fixed heights.
-- The New Journal Entry dialog keeps its header and action footer visible, lets the middle region scroll, and caps the textarea at `min(560px, 42dvh)` with a 200px minimum. This prevents long entries from pushing Cancel or Save Entry outside small phone viewports.
+- The New Journal Entry and Kids Discipleship log dialogs keep their headers and action footers visible, let the middle region scroll, and cap their auto-growing textareas at viewport-aware heights. This prevents long entries from pushing Cancel or Save actions outside small phone viewports.
 
 ### 4.5 Cards
 
