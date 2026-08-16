@@ -69,7 +69,7 @@ describe("sermon feature authorization boundaries", () => {
 
   it("treats the sermon administrator label as implied beta access", async () => {
     mocks.requireAuthenticatedUser.mockResolvedValue(
-      authenticated(["sermon-evaluator-admin"]),
+      authenticated(["sermonevaluatoradmin"]),
     );
 
     const response = await handleGetSermonCapabilities();
@@ -89,7 +89,7 @@ describe("sermon feature authorization boundaries", () => {
 
   it("rejects custom runs when the current request no longer has the administrator label", async () => {
     mocks.requireAuthenticatedUser.mockResolvedValue(
-      authenticated(["sermon-evaluator-beta"]),
+      authenticated(["sermonevaluatorbeta"]),
     );
 
     const response = await handlePrepareSermonUpload(

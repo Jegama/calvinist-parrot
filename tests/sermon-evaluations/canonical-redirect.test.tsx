@@ -18,7 +18,7 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("@/hooks/use-auth", () => ({
   useAuth: () => ({
-    user: { $id: "owner-1", labels: ["sermon-evaluator-beta"] },
+    user: { $id: "owner-1", labels: ["sermonevaluatorbeta"] },
     loading: false,
   }),
 }));

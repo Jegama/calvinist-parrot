@@ -6,8 +6,8 @@ import { requireAuthenticatedUser } from "@/lib/auth";
 import { isLocalSermonRuntime } from "./runtime";
 import { SERMON_DAILY_RUN_LIMIT } from "./types";
 
-export const SERMON_EVALUATOR_BETA_LABEL = "sermon-evaluator-beta";
-export const SERMON_EVALUATOR_ADMIN_LABEL = "sermon-evaluator-admin";
+export const SERMON_EVALUATOR_BETA_LABEL = "sermonevaluatorbeta";
+export const SERMON_EVALUATOR_ADMIN_LABEL = "sermonevaluatoradmin";
 
 type AppwriteUserWithLabels = Pick<
   Models.User<Models.Preferences>,

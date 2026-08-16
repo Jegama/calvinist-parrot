@@ -172,7 +172,7 @@ zsh -ic 'workon cp_evals && python -m sermon_evaluator.cli --audio data/sermons/
 - Document configuration according to its runtime owner; never commit values:
   - Root `.env.template`: local `SERMON_RUNTIME` default and `GEMINI_API_KEY` placeholder plus Vercel/Next.js `APPWRITE_SERMON_FUNCTION_ID` and `APPWRITE_SERMON_BUCKET_ID`, alongside the existing server-side Appwrite endpoint, project ID, and API key. The server key receives only the Function-execution, file-metadata, and file-token capabilities required by the API routes.
   - `services/sermon-evaluator/.env.template`: Appwrite Function `SERMON_RUNTIME`, `SERMON_DATABASE_URL`, `GEMINI_API_KEY`, `SERMON_AUDIO_BUCKET_ID`, `SERMON_GEMINI_MODEL`, `SERMON_SOFT_DEADLINE_SECONDS`, and `SERMON_MAX_PARALLEL_SCORING_RUNS`.
-- Appwrite user labels are literal strings rather than separately provisioned resources with IDs. Define `sermon-evaluator-beta` and `sermon-evaluator-admin` once as exported constants in `lib/sermon-evaluation/auth.ts`; do not add label-ID environment variables.
+- Appwrite user labels are literal strings rather than separately provisioned resources with IDs. Define `sermonevaluatorbeta` and `sermonevaluatoradmin` once as exported constants in `lib/sermon-evaluation/auth.ts`; do not add label-ID environment variables.
 - Use Appwrite’s injected Function endpoint, project ID, and dynamic API key inside the worker. Grant that dynamic key only the scopes needed to read sermon audio and its metadata; do not configure a second long-lived Appwrite API key in the Function.
 - Use distinct bucket IDs, Function IDs, Neon pooled URLs, Gemini credentials or quota projects, and API keys for development and production. Preview Vercel deployments may target development resources only; production resources are available only to the production Vercel environment and production Appwrite Function.
 - Only the Appwrite worker reads `GEMINI_API_KEY` for sermon evaluation. Existing Vercel features may retain their own Gemini configuration, but the sermon control-plane routes must never call Gemini or download sermon audio.
@@ -180,22 +180,22 @@ zsh -ic 'workon cp_evals && python -m sermon_evaluator.cli --audio data/sermons/
 ## Sermon-specific access and admin provisioning
 
 - Use two server-managed Appwrite user labels for this feature:
-  - `sermon-evaluator-beta`: may access the protected feature and use the regular Standard/High-confidence product rules.
-  - `sermon-evaluator-admin`: implies beta access, enables the one-through-nine run selector, and may bypass the global daily quota; it never bypasses the nine-credit lifetime limit for a sermon fingerprint.
+  - `sermonevaluatorbeta`: may access the protected feature and use the regular Standard/High-confidence product rules.
+  - `sermonevaluatoradmin`: implies beta access, enables the one-through-nine run selector, and may bypass the global daily quota; it never bypasses the nine-credit lifetime limit for a sermon fingerprint.
 - Provision or revoke sermon administrators manually through the Appwrite Console in the correct development or production project:
   1. Open the Appwrite Console’s Auth user list and select the intended existing user.
-  2. Add the exact `sermon-evaluator-admin` label while preserving every label already on the user. No separate label object or label ID must be created.
+  2. Add the exact `sermonevaluatoradmin` label while preserving every label already on the user. No separate label object or label ID must be created.
   3. Have the user refresh their authenticated session or sign out and back in, then verify the server-derived sermon capabilities before relying on the admin UI.
   4. Remove the label to revoke sermon-admin capabilities. Revocation blocks new admin actions on the next authenticated server check; an already-queued owner-scoped evaluation may finish normally.
 - Appwrite labels are intended for granting labeled users access to resources. Label mutation remains a privileged Console or Users API operation and must never be exposed through a Calvinist Parrot client or public route. [Appwrite labels](https://appwrite.io/docs/products/auth/labels) [Appwrite user administration](https://appwrite.io/docs/products/auth/users)
 - Do not add an in-product “make admin” screen or admin-management API in v1. Appwrite project operators are the only people who can grant or revoke the label.
 - Implement feature-local helpers in `lib/sermon-evaluation/auth.ts`:
   - `hasSermonEvaluationAccess(user)` returns true for either exact label.
-  - `isSermonEvaluationAdmin(user)` returns true only for `sermon-evaluator-admin`.
+  - `isSermonEvaluationAdmin(user)` returns true only for `sermonevaluatoradmin`.
   - `requireSermonEvaluationAccess()` and `requireSermonEvaluationAdmin()` read the authenticated Appwrite user on the server and reject absent labels with `403`.
 - Never trust a submitted `isAdmin`, requested role, client-supplied label list, or custom run count. All admin-only request fields are accepted only after the server re-derives the capability from the authenticated Appwrite user.
 - Return a derived `capabilities` object to the sermon UI with `hasAccess`, `isAdmin`, `canChooseCustomRunCount`, `dailyQuotaExempt`, and the allowed run-count range. Client-side capability checks control presentation only; every API enforces the same rule server-side.
-- Keep the repository’s existing `ADMIN_ID`, `NEXT_PUBLIC_ADMIN_ID`, local `test@test.com` fallback, and `lib/admin.ts` behavior unchanged for Church Finder and every other existing feature. Sermon-evaluator routes do not use that ID-based predicate, and an existing `ADMIN_ID` user must receive `sermon-evaluator-admin` separately to gain sermon-admin capabilities.
+- Keep the repository’s existing `ADMIN_ID`, `NEXT_PUBLIC_ADMIN_ID`, local `test@test.com` fallback, and `lib/admin.ts` behavior unchanged for Church Finder and every other existing feature. Sermon-evaluator routes do not use that ID-based predicate, and an existing `ADMIN_ID` user must receive `sermonevaluatoradmin` separately to gain sermon-admin capabilities.
 - Record each custom admin run selection and daily-quota exemption with the authenticated Appwrite user ID, evaluation ID, requested run count, reason code, and timestamp.
 
 ## Canonical evaluator behavior
@@ -316,7 +316,7 @@ zsh -ic 'workon cp_evals && python -m sermon_evaluator.cli --audio data/sermons/
 
 - Create separate development and production `sermon-audio` buckets:
   - File Security enabled.
-  - Create permission granted to either the `sermon-evaluator-beta` or `sermon-evaluator-admin` label, because the admin label implies feature access.
+  - Create permission granted to either the `sermonevaluatorbeta` or `sermonevaluatoradmin` label, because the admin label implies feature access.
   - Owner-only file read, update, and delete permissions.
   - Allowed extensions and validated MIME types: MP3, M4A, and WAV.
   - Maximum file size: 100 MiB (`104,857,600` bytes).
@@ -360,7 +360,7 @@ zsh -ic 'workon cp_evals && python -m sermon_evaluator.cli --audio data/sermons/
   - `DELETE /api/v1/sermon-evaluations/{id}`
   - `GET /api/v1/sermon-evaluations/{id}/exports/{format}`
 - Every route uses `requireAuthenticatedUser()` plus the feature-local label gate and derives the owner from the authenticated Appwrite session. Requests never accept `userId`, `ownerId`, an Appwrite execution ID, worker status fields, or an authoritative client-supplied admin flag.
-- `GET /capabilities` returns only server-derived sermon access and admin capabilities. A custom `requestedRuns` value from one through nine is valid only when the same request’s authenticated Appwrite user currently has `sermon-evaluator-admin`; otherwise the API accepts only the Standard or High-confidence preset contract.
+- `GET /capabilities` returns only server-derived sermon access and admin capabilities. A custom `requestedRuns` value from one through nine is valid only when the same request’s authenticated Appwrite user currently has `sermonevaluatoradmin`; otherwise the API accepts only the Standard or High-confidence preset contract.
 - Define `uploads/prepare` as the authoritative pre-upload decision endpoint. The client supplies a hash and metadata, but the server scopes lookup results to the authenticated owner and returns only `existing_evaluation`, `reattach_required`, or `upload_required`; it never reveals whether another owner has the same bytes.
 - Evaluation creation stores the job transactionally before invoking Appwrite. If async invocation fails, leave the durable job `QUEUED`; the scheduled recovery invocation will find it.
 - `POST /{id}/retry` is available only for retryable failed or timed-out work and adds an attempt to the same evaluation without charging more lifetime credits. `POST /{id}/reevaluate` is available from a completed evaluation, accepts Standard or High confidence, reuses the canonical retained audio, creates a new evaluation and credit reservation, and rejects requests whose cost exceeds the fingerprint’s remaining credits.
@@ -432,7 +432,7 @@ zsh -ic 'workon cp_evals && python -m sermon_evaluator.cli --audio data/sermons/
   8. Beta production deployment.
 - Require one successful Standard and one successful High-confidence production evaluation, both under 15 minutes, before declaring Calvinist Parrot canonical.
 - Confirm a nine-run admin evaluation executes scoring calls concurrently and remains under the same 15-minute attempt budget before enabling the admin selector in production.
-- Provision test beta and admin users independently in both Appwrite projects through the Console, confirm adding/removing `sermon-evaluator-admin` changes only sermon capabilities after session refresh, and verify the existing `ADMIN_ID` user retains all prior non-sermon behavior whether or not that user receives the new label.
+- Provision test beta and admin users independently in both Appwrite projects through the Console, confirm adding/removing `sermonevaluatoradmin` changes only sermon capabilities after session refresh, and verify the existing `ADMIN_ID` user retains all prior non-sermon behavior whether or not that user receives the new label.
 - Before beta, confirm that selecting an already-evaluated file redirects before upload, reevaluation reuses the retained Appwrite file, nine Standard evaluations or three High-confidence evaluations exhaust the same nine-credit fingerprint budget, mixed presets deduct correctly, and deletion/re-upload cannot reset the balance.
 - After parity, open the CP-Evals-Lab issue “Retire sermon evaluator now maintained in Calvinist Parrot,” containing:
   - Canonical package link and production-validation evidence.

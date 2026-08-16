@@ -9,7 +9,7 @@ For a cloud-runtime development or preview environment, use the same Appwrite pr
 In that development project:
 
 - Open Auth → Users → `test@test.com`.
-- Add `sermon-evaluator-admin`, preserving any existing labels.
+- Add `sermonevaluatoradmin`, preserving any existing labels.
 - Sign out and back in.
 
 Appwrite labels grant resource access and are attached directly to users; no separate label resource or label ID is required. [Appwrite Docs, [Labels](https://appwrite.io/docs/products/auth/labels), “labels categorize users and can grant resource access”]

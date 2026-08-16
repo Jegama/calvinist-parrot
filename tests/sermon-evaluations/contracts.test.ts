@@ -206,12 +206,12 @@ describe("sermon label capabilities", () => {
   it("derives beta and admin access only from exact Appwrite labels", () => {
     expect(
       hasSermonEvaluationAccess(
-        user(["sermon-evaluator-beta"]),
+        user(["sermonevaluatorbeta"]),
       ),
     ).toBe(true);
     expect(
       hasSermonEvaluationAccess(
-        user(["sermon-evaluator-admin"]),
+        user(["sermonevaluatoradmin"]),
       ),
     ).toBe(true);
     expect(
@@ -219,12 +219,12 @@ describe("sermon label capabilities", () => {
     ).toBe(false);
     expect(
       isSermonEvaluationAdmin(
-        user(["sermon-evaluator-beta"]),
+        user(["sermonevaluatorbeta"]),
       ),
     ).toBe(false);
     expect(
       getSermonEvaluationCapabilities(
-        user(["sermon-evaluator-admin"]),
+        user(["sermonevaluatoradmin"]),
       ),
     ).toEqual({
       hasAccess: true,

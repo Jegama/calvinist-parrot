@@ -30,6 +30,6 @@ To implement the independent middle layer:
 
 5. Use Gemini in every runtime. Do not expose a provider selector or maintain a second evaluator implementation for local development.
 
-6. Add a strictly server-side development access override for `test@test.com`, guarded by `NODE_ENV === "development"`. The existing Church Finder behavior is not applied because sermon authorization only checks `sermon-evaluator-beta` and `sermon-evaluator-admin`. [Source: [auth.ts:8](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/auth.ts:8), “only the two sermon labels grant access”]
+6. Add a strictly server-side development access override for `test@test.com`, guarded by `NODE_ENV === "development"`. The existing Church Finder behavior is not applied because sermon authorization only checks `sermonevaluatorbeta` and `sermonevaluatoradmin`. [Source: [auth.ts:8](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/auth.ts:8), “only the two sermon labels grant access”]
 
 The implementation now makes the Gemini-backed sermon worker part of normal root development and separates root and Appwrite Function environment templates. Local development retains filesystem audio and the lease-backed polling worker without maintaining a separate evaluator provider.

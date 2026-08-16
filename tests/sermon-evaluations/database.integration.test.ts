@@ -37,7 +37,7 @@ vi.mock("@/lib/sermon-evaluation/auth", () => ({
   requireSermonEvaluationAccess: async () => ({
     user: {
       $id: handlerMocks.userId,
-      labels: ["sermon-evaluator-beta"],
+      labels: ["sermonevaluatorbeta"],
     },
     userId: handlerMocks.userId,
     errorResponse: null,
