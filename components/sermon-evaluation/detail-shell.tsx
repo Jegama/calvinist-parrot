@@ -18,7 +18,6 @@ import {
   Volume2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import type { AppwriteUser } from "@/hooks/use-auth";
 import { ProtectedView } from "@/components/ProtectedView";
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
 import { SERMON_CRITERIA_COUNT } from "@/lib/sermon-evaluation/rubric.generated";
@@ -186,7 +185,6 @@ export function SermonEvaluationDetailFeature({
             <SermonDetail
               evaluation={detail}
               capabilities={capabilitiesQuery.data}
-              user={user}
               notice={notice}
               onChanged={async () => {
                 await Promise.all([detailQuery.refetch(), statusQuery.refetch()]);
@@ -202,13 +200,11 @@ export function SermonEvaluationDetailFeature({
 function SermonDetail({
   evaluation,
   capabilities,
-  user,
   notice,
   onChanged,
 }: {
   evaluation: SermonEvaluationDetail;
   capabilities: SermonCapabilities;
-  user: AppwriteUser;
   notice?: "duplicate" | "reattach";
   onChanged: () => Promise<unknown>;
 }) {
@@ -382,7 +378,6 @@ function SermonDetail({
       <SermonDetailActions
         evaluation={evaluation}
         capabilities={capabilities}
-        user={user}
         onChanged={onChanged}
       />
       <RunCreditCard evaluation={evaluation} />

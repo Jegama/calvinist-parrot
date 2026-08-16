@@ -1,15 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  checkRateLimit: vi.fn(),
   createSermonUploadJwt: vi.fn(),
+  executeRaw: vi.fn(),
   fingerprintFindUnique: vi.fn(),
+  getOwnerOnlyFilePermissions: vi.fn(),
   reservationCreate: vi.fn(),
+  reservationCount: vi.fn(),
   reservationFindMany: vi.fn(),
   targetFindFirst: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   default: {
+    $transaction: mocks.transaction,
     sermonAudioFingerprint: {
       findUnique: mocks.fingerprintFindUnique,
     },
@@ -20,9 +26,13 @@ vi.mock("@/lib/prisma", () => ({
       findMany: mocks.reservationFindMany,
     },
     sermonUploadReservation: {
-      create: mocks.reservationCreate,
+      count: mocks.reservationCount,
     },
   },
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  checkRateLimit: mocks.checkRateLimit,
 }));
 
 vi.mock("@/lib/sermon-evaluation/auth", () => ({
@@ -50,6 +60,7 @@ vi.mock("@/lib/sermon-evaluation/appwrite", () => ({
     bucketId: "bucket-1",
   }),
   getSermonAudioFile: vi.fn(),
+  getOwnerOnlyFilePermissions: mocks.getOwnerOnlyFilePermissions,
   hasOwnerOnlyFilePermissions: vi.fn(),
   invokeSermonEvaluationWorker: vi.fn(),
 }));
@@ -118,11 +129,58 @@ function request(reattachEvaluationId?: string) {
 describe("sermon upload reattachment preparation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.checkRateLimit.mockReturnValue(true);
+    mocks.executeRaw.mockResolvedValue(1);
+    mocks.getOwnerOnlyFilePermissions.mockImplementation((ownerId: string) => [
+      `read("user:${ownerId}")`,
+      `update("user:${ownerId}")`,
+      `delete("user:${ownerId}")`,
+    ]);
+    mocks.reservationCount.mockResolvedValue(0);
     mocks.reservationFindMany.mockResolvedValue([]);
     mocks.createSermonUploadJwt.mockResolvedValue("upload-jwt");
     mocks.reservationCreate.mockResolvedValue({
       id: "reservation-1",
     });
+    mocks.transaction.mockImplementation(async (callback) =>
+      callback({
+        $executeRaw: mocks.executeRaw,
+        sermonUploadReservation: {
+          count: mocks.reservationCount,
+          create: mocks.reservationCreate,
+        },
+      }),
+    );
+  });
+
+  it("rate-limits upload preparation before creating storage authorization", async () => {
+    mocks.checkRateLimit.mockReturnValue(false);
+
+    const response = await handlePrepareSermonUpload(request());
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({
+      error:
+        "Too many sermon upload requests. Please finish an existing upload or try again later",
+    });
+    expect(mocks.fingerprintFindUnique).not.toHaveBeenCalled();
+    expect(mocks.reservationCreate).not.toHaveBeenCalled();
+    expect(mocks.createSermonUploadJwt).not.toHaveBeenCalled();
+  });
+
+  it("caps active owner reservations before issuing another upload JWT", async () => {
+    mocks.fingerprintFindUnique.mockResolvedValue(null);
+    mocks.reservationCount.mockResolvedValue(3);
+
+    const response = await handlePrepareSermonUpload(request());
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({
+      error: "At most 3 sermon audio uploads can be pending at once",
+    });
+    expect(mocks.executeRaw).toHaveBeenCalledOnce();
+    expect(mocks.reservationCreate).not.toHaveBeenCalled();
+    expect(mocks.createSermonUploadJwt).not.toHaveBeenCalled();
   });
 
   it("rejects a wrong hash before creating a reservation or upload JWT", async () => {
@@ -166,7 +224,15 @@ describe("sermon upload reattachment preparation", () => {
     await expect(response.json()).resolves.toMatchObject({
       decision: "upload_required",
       reservationId: "reservation-1",
+      permissions: [
+        'read("user:owner-1")',
+        'update("user:owner-1")',
+        'delete("user:owner-1")',
+      ],
     });
+    expect(mocks.getOwnerOnlyFilePermissions).toHaveBeenCalledWith(
+      "owner-1",
+    );
   });
 
   it("rejects reattachment while a deleted storage pointer is awaiting cleanup", async () => {

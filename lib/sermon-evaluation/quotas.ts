@@ -1,5 +1,6 @@
 import {
   Prisma,
+  type SermonEvaluationPreset,
   type sermonEvaluation,
 } from "@prisma/client";
 
@@ -7,6 +8,7 @@ import prisma from "@/lib/prisma";
 
 import {
   SERMON_DAILY_RUN_LIMIT,
+  SERMON_MAX_ACTIVE_UPLOAD_RESERVATIONS,
   startOfCurrentUtcDay,
   type SermonRunSelection,
 } from "./types";
@@ -18,6 +20,7 @@ export class SermonQuotaError extends Error {
       | "ADMIN_REQUIRED"
       | "DAILY_LIMIT_EXCEEDED"
       | "RUN_CREDITS_EXHAUSTED"
+      | "UPLOAD_RESERVATIONS_EXCEEDED"
       | "AUDIO_NOT_RETAINED"
       | "UPLOAD_RESERVATION_INVALID"
       | "PREACHER_NOT_FOUND"
@@ -58,6 +61,47 @@ async function lockOwner(
   await tx.$executeRaw`
     SELECT pg_advisory_xact_lock(hashtextextended(${`sermon-owner:${ownerId}`}, 0))
   `;
+}
+
+type PreparedSermonUploadReservation = {
+  ownerId: string;
+  claimedSha256: string;
+  originalFilename: string;
+  mimeType: string;
+  byteSize: number;
+  requestedPreset: SermonEvaluationPreset;
+  requestedRuns: number;
+  appwriteBucketId: string;
+  appwriteFileId: string;
+  expiresAt: Date;
+  fingerprintId?: string;
+  reattachEvaluationId?: string;
+};
+
+export async function createPreparedSermonUploadReservation(
+  data: PreparedSermonUploadReservation,
+) {
+  return prisma.$transaction(async (tx) => {
+    await lockOwner(tx, data.ownerId);
+    const activeReservations =
+      await tx.sermonUploadReservation.count({
+        where: {
+          ownerId: data.ownerId,
+          state: "PREPARED",
+          expiresAt: { gt: new Date() },
+        },
+      });
+    if (
+      activeReservations >=
+      SERMON_MAX_ACTIVE_UPLOAD_RESERVATIONS
+    ) {
+      throw new SermonQuotaError(
+        `At most ${SERMON_MAX_ACTIVE_UPLOAD_RESERVATIONS} sermon audio uploads can be pending at once`,
+        "UPLOAD_RESERVATIONS_EXCEEDED",
+      );
+    }
+    return tx.sermonUploadReservation.create({ data });
+  });
 }
 
 async function reserveFingerprintCredits(

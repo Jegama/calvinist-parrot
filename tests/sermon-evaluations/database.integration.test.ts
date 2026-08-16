@@ -13,7 +13,10 @@ import {
   vi,
 } from "vitest";
 
-import type { SermonRunSelection } from "@/lib/sermon-evaluation/types";
+import {
+  SERMON_MAX_ACTIVE_UPLOAD_RESERVATIONS,
+  type SermonRunSelection,
+} from "@/lib/sermon-evaluation/types";
 
 const handlerMocks = vi.hoisted(() => ({
   userId: "",
@@ -74,6 +77,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
   let prisma: PrismaClient;
   let sharedPrisma: PrismaClient;
   let createReservedSermonEvaluation: typeof import("@/lib/sermon-evaluation/quotas").createReservedSermonEvaluation;
+  let createPreparedSermonUploadReservation: typeof import("@/lib/sermon-evaluation/quotas").createPreparedSermonUploadReservation;
   let releaseQueuedCreditReservation: typeof import("@/lib/sermon-evaluation/quotas").releaseQueuedCreditReservation;
   let handleCancelSermonEvaluation: typeof import("@/lib/sermon-evaluation/handlers").handleCancelSermonEvaluation;
   let handleDeleteSermonAudio: typeof import("@/lib/sermon-evaluation/handlers").handleDeleteSermonAudio;
@@ -89,6 +93,8 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
     );
     createReservedSermonEvaluation =
       quotaModule.createReservedSermonEvaluation;
+    createPreparedSermonUploadReservation =
+      quotaModule.createPreparedSermonUploadReservation;
     releaseQueuedCreditReservation =
       quotaModule.releaseQueuedCreditReservation;
     sharedPrisma = (await import("@/lib/prisma")).default;
@@ -569,6 +575,45 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
       requestedRunCount: 1,
       reasonCode: "SERMON_ADMIN_DAILY_QUOTA_EXEMPT",
     });
+  });
+
+  it("atomically caps concurrent active upload reservations per owner", async () => {
+    const ownerId = `${testPrefix}-upload-cap`;
+    const attempts = await Promise.allSettled(
+      Array.from(
+        { length: SERMON_MAX_ACTIVE_UPLOAD_RESERVATIONS + 1 },
+        (_, index) =>
+          createPreparedSermonUploadReservation({
+            ownerId,
+            claimedSha256: index.toString(16).padStart(64, "0"),
+            originalFilename: `sermon-${index}.mp3`,
+            mimeType: "audio/mpeg",
+            byteSize: 1024,
+            requestedPreset: "STANDARD",
+            requestedRuns: 1,
+            appwriteBucketId: "sermon-audio",
+            appwriteFileId: randomUUID(),
+            expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+          }),
+      ),
+    );
+
+    expect(
+      attempts.filter((attempt) => attempt.status === "fulfilled"),
+    ).toHaveLength(SERMON_MAX_ACTIVE_UPLOAD_RESERVATIONS);
+    const rejected = attempts.filter(
+      (attempt): attempt is PromiseRejectedResult =>
+        attempt.status === "rejected",
+    );
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]?.reason).toMatchObject({
+      code: "UPLOAD_RESERVATIONS_EXCEEDED",
+    });
+    await expect(
+      prisma.sermonUploadReservation.count({
+        where: { ownerId, state: "PREPARED" },
+      }),
+    ).resolves.toBe(SERMON_MAX_ACTIVE_UPLOAD_RESERVATIONS);
   });
 
   it("retries the same evaluation by restoring its existing reservation without a new daily charge", async () => {

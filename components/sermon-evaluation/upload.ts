@@ -1,6 +1,6 @@
 "use client";
 
-import { Client, Permission, Role, Storage } from "appwrite";
+import { Client, Storage } from "appwrite";
 import type { UploadAuthorization } from "./types";
 
 async function uploadToLocalRuntime(input: {
@@ -52,7 +52,6 @@ async function uploadToLocalRuntime(input: {
 export async function uploadSermonAudioDirectly(input: {
   authorization: UploadAuthorization;
   file: File;
-  ownerId: string;
   onProgress: (progress: number) => void;
 }): Promise<string> {
   if (input.authorization.mode === "local") {
@@ -67,25 +66,22 @@ export async function uploadSermonAudioDirectly(input: {
     throw new Error("The upload authorization is incomplete. Please start the upload again.");
   }
 
+  if (!input.authorization.permissions?.length) {
+    throw new Error(
+      "The server did not provide private upload permissions. Please start the upload again.",
+    );
+  }
+
   const client = new Client()
     .setEndpoint(endpoint)
     .setProject(projectId)
     .setJWT(input.authorization.jwt);
   const storage = new Storage(client);
-  const permissions =
-    input.authorization.permissions && input.authorization.permissions.length > 0
-      ? input.authorization.permissions
-      : [
-          Permission.read(Role.user(input.ownerId)),
-          Permission.update(Role.user(input.ownerId)),
-          Permission.delete(Role.user(input.ownerId)),
-        ];
-
   const uploaded = await storage.createFile(
     input.authorization.bucketId,
     input.authorization.fileId,
     input.file,
-    permissions,
+    input.authorization.permissions,
     (progress) => input.onProgress(Math.max(0, Math.min(100, progress.progress))),
   );
   return uploaded.$id;

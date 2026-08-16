@@ -116,16 +116,23 @@ export async function deleteSermonAudioFile(fileId: string) {
   });
 }
 
+export function getOwnerOnlyFilePermissions(ownerId: string) {
+  const role = Role.user(ownerId);
+  return [
+    Permission.read(role),
+    Permission.update(role),
+    Permission.delete(role),
+  ];
+}
+
 export function hasOwnerOnlyFilePermissions(
   permissions: string[],
   ownerId: string,
 ) {
   const role = Role.user(ownerId);
   const allowed = new Set([
-    Permission.read(role),
+    ...getOwnerOnlyFilePermissions(ownerId),
     Permission.write(role),
-    Permission.update(role),
-    Permission.delete(role),
   ]);
   const requiredRead = Permission.read(role);
   const hasMutationPermission =

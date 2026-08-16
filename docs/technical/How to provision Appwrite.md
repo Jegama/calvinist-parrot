@@ -28,7 +28,7 @@ Create a bucket such as `sermon-audio-dev` with:
 - Create permission for both sermon labels.
 - No public read permission.
 
-The client sets owner-only permissions on each uploaded file, and those file permissions only take effect when File Security is enabled. [Source: [types.ts:7](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/types.ts:7), “100 MiB upload limit”] [Source: [upload.ts:26](/Users/omni_jgmancilla/Dev/calvinist-parrot/components/sermon-evaluation/upload.ts:26), “uploaded files receive owner permissions”] [Appwrite Docs, [Storage permissions](https://appwrite.io/docs/products/storage/permissions), “file-level permissions require File Security”]
+The authenticated prepare handler derives owner-only permissions from the server session, and the client passes that authorization unchanged when uploading the file. Those file permissions only take effect when File Security is enabled. [Source: [types.ts:7](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/types.ts:7), “100 MiB upload limit”] [Source: [handlers.ts:539](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/handlers.ts:539), “authenticated upload preparation”] [Source: [upload.ts:52](/Users/omni_jgmancilla/Dev/calvinist-parrot/components/sermon-evaluation/upload.ts:52), “server-authorized permissions passed to Appwrite”] [Appwrite Docs, [Storage permissions](https://appwrite.io/docs/products/storage/permissions), “file-level permissions require File Security”]
 
 #### 3. Connect the Function to GitHub
 

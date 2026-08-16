@@ -103,6 +103,11 @@ describe("sermon evaluation contracts", () => {
       projectId: "project-1",
       bucketId: "bucket-1",
       fileId: "file-1",
+      permissions: [
+        'read("user:server-owner")',
+        'update("user:server-owner")',
+        'delete("user:server-owner")',
+      ],
       expiresAt: "2026-07-28T12:00:00.000Z",
     };
     expect(
@@ -119,6 +124,15 @@ describe("sermon evaluation contracts", () => {
         uploadUrl: null,
       }).success,
     ).toBe(true);
+    const missingPermissions: Partial<typeof common> = { ...common };
+    delete missingPermissions.permissions;
+    expect(
+      prepareSermonUploadResponseSchema.safeParse({
+        ...missingPermissions,
+        uploadMode: "appwrite",
+        uploadUrl: null,
+      }).success,
+    ).toBe(false);
   });
 
   it("rejects normalized but nonexistent calendar dates", () => {

@@ -126,6 +126,7 @@ const uploadRequiredDecisionSchema = z.strictObject({
   projectId: z.string().min(1),
   bucketId: z.string().min(1),
   fileId: z.string().min(1).max(36),
+  permissions: z.array(z.string().min(1)).length(3),
   expiresAt: isoDateTimeSchema,
 });
 

@@ -181,7 +181,7 @@ export type UploadAuthorization = {
   endpoint?: string;
   projectId?: string;
   expiresAt?: string;
-  permissions?: string[];
+  permissions: string[];
 };
 
 export type PrepareUploadDecision =

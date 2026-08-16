@@ -3,7 +3,6 @@ import { createRoot, type Root } from "react-dom/client";
 import { JSDOM } from "jsdom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AppwriteUser } from "@/hooks/use-auth";
 import type { SermonCapabilities } from "@/components/sermon-evaluation/types";
 
 vi.mock("next/navigation", () => ({
@@ -26,8 +25,6 @@ const capabilities: SermonCapabilities = {
   allowedRunCountMin: 1,
   allowedRunCountMax: 9,
 };
-
-const user = { $id: "local-test-user" } as AppwriteUser;
 
 describe("sermon upload form", () => {
   let dom: JSDOM;
@@ -78,7 +75,6 @@ describe("sermon upload form", () => {
       root.render(
         <SermonUploadForm
           capabilities={capabilities}
-          user={user}
           preachers={[
             { id: "preacher-1", displayName: "John Calvin" },
             { id: "preacher-2", displayName: "Martin Bucer" },

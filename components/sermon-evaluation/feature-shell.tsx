@@ -239,7 +239,6 @@ export function SermonEvaluationFeature() {
               <TabsContent value="new" className="mx-auto max-w-4xl">
                 <SermonUploadForm
                   capabilities={capabilitiesQuery.data}
-                  user={user}
                   preachers={dataQuery.data?.preachers ?? []}
                 />
               </TabsContent>

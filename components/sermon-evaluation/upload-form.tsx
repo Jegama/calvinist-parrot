@@ -23,7 +23,6 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import type { AppwriteUser } from "@/hooks/use-auth";
 import { hashFileIncrementally } from "@/lib/sermon-evaluation/hash-file.client";
 import {
   SERMON_AUDIO_MAX_BYTES,
@@ -318,11 +317,9 @@ export function PreacherCombobox({
 
 export function SermonUploadForm({
   capabilities,
-  user,
   preachers,
 }: {
   capabilities: SermonCapabilities;
-  user: AppwriteUser;
   preachers: SermonPreacherOption[];
 }) {
   const router = useRouter();
@@ -474,7 +471,6 @@ export function SermonUploadForm({
       const fileId = await uploadSermonAudioDirectly({
         authorization,
         file: normalizedAudio,
-        ownerId: user.$id,
         onProgress: (nextProgress) =>
           setProgress({
             phase: "uploading",

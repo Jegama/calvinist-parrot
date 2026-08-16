@@ -11,7 +11,6 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
-import type { AppwriteUser } from "@/hooks/use-auth";
 import { hashFileIncrementally } from "@/lib/sermon-evaluation/hash-file.client";
 import {
   SERMON_AUDIO_MAX_BYTES,
@@ -96,12 +95,10 @@ function readAuthorization(
 export function SermonDetailActions({
   evaluation,
   capabilities,
-  user,
   onChanged,
 }: {
   evaluation: SermonEvaluationDetail;
   capabilities: SermonCapabilities;
-  user: AppwriteUser;
   onChanged: () => Promise<unknown>;
 }) {
   const router = useRouter();
@@ -218,7 +215,6 @@ export function SermonDetailActions({
         {canReevaluate && !evaluation.hasRetainedAudio && (
           <ReattachDialog
             evaluation={evaluation}
-            user={user}
             busy={busyAction !== null}
             onBusyChange={setBusyAction}
           />
@@ -482,12 +478,10 @@ function ReevaluateDialog({
 
 function ReattachDialog({
   evaluation,
-  user,
   busy,
   onBusyChange,
 }: {
   evaluation: SermonEvaluationDetail;
-  user: AppwriteUser;
   busy: boolean;
   onBusyChange: (value: string | null) => void;
 }) {
@@ -550,7 +544,6 @@ function ReattachDialog({
       const fileId = await uploadSermonAudioDirectly({
         authorization,
         file: normalizedFile,
-        ownerId: user.$id,
         onProgress: (next) => setProgress(35 + next * 0.55),
       });
       setProgress(95);

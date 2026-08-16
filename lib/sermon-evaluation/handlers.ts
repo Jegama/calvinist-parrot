@@ -17,6 +17,7 @@ import {
 } from "@/lib/api/contracts";
 import { parseJsonRequest } from "@/lib/api/handlers/http";
 import prisma from "@/lib/prisma";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { SERMON_AGGREGATES } from "@/lib/sermon-evaluation/rubric.generated";
 
 import {
@@ -30,6 +31,7 @@ import {
   deleteSermonAudioFile,
   getSermonAppwriteConfiguration,
   getSermonAudioFile,
+  getOwnerOnlyFilePermissions,
   hasOwnerOnlyFilePermissions,
   invokeSermonEvaluationWorker,
 } from "./appwrite";
@@ -39,6 +41,7 @@ import {
   sermonFingerprintHistoryInclude,
 } from "./fingerprints";
 import {
+  createPreparedSermonUploadReservation,
   createReservedSermonEvaluation,
   resolveRunSelection,
   SermonQuotaError,
@@ -51,6 +54,7 @@ import {
   SERMON_ACTIVE_STATUSES,
   SERMON_COMPLETE_STATUSES,
   SERMON_DAILY_RUN_LIMIT,
+  SERMON_UPLOAD_PREPARE_RATE_LIMIT,
   SERMON_RETRYABLE_STATUSES,
   SERMON_UPLOAD_RESERVATION_TTL_MS,
   startOfCurrentUtcDay,
@@ -75,7 +79,8 @@ function errorResponse(error: unknown) {
       error.code === "ADMIN_REQUIRED"
         ? 403
         : error.code === "DAILY_LIMIT_EXCEEDED" ||
-            error.code === "RUN_CREDITS_EXHAUSTED"
+            error.code === "RUN_CREDITS_EXHAUSTED" ||
+            error.code === "UPLOAD_RESERVATIONS_EXCEEDED"
           ? 429
           : error.code === "AUDIO_NOT_RETAINED"
           ? 409
@@ -543,6 +548,18 @@ export async function handlePrepareSermonUpload(request: Request) {
       prepareSermonUploadRequestSchema,
     );
     if (!parsed.success) return parsed.response;
+    if (
+      !checkRateLimit(
+        `sermon-upload-prepare:${userId}`,
+        SERMON_UPLOAD_PREPARE_RATE_LIMIT,
+        SERMON_UPLOAD_RESERVATION_TTL_MS,
+      )
+    ) {
+      throw new SermonApiError(
+        "Too many sermon upload requests. Please finish an existing upload or try again later",
+        429,
+      );
+    }
 
     const admin = isSermonEvaluationAdmin(user);
     const selection = resolveRunSelection(parsed.data, admin);
@@ -621,21 +638,19 @@ export async function handlePrepareSermonUpload(request: Request) {
     const expiresAt = new Date(
       Date.now() + SERMON_UPLOAD_RESERVATION_TTL_MS,
     );
-    const reservation = await prisma.sermonUploadReservation.create({
-      data: {
-        ownerId: userId,
-        claimedSha256: parsed.data.sha256,
-        originalFilename: parsed.data.filename,
-        mimeType: parsed.data.mimeType,
-        byteSize: parsed.data.byteSize,
-        requestedPreset: selection.preset,
-        requestedRuns: selection.requestedRuns,
-        appwriteBucketId: config.bucketId,
-        appwriteFileId: fileId,
-        expiresAt,
-        fingerprintId: existing?.id,
-        reattachEvaluationId: reattachTarget?.id,
-      },
+    const reservation = await createPreparedSermonUploadReservation({
+      ownerId: userId,
+      claimedSha256: parsed.data.sha256,
+      originalFilename: parsed.data.filename,
+      mimeType: parsed.data.mimeType,
+      byteSize: parsed.data.byteSize,
+      requestedPreset: selection.preset,
+      requestedRuns: selection.requestedRuns,
+      appwriteBucketId: config.bucketId,
+      appwriteFileId: fileId,
+      expiresAt,
+      fingerprintId: existing?.id,
+      reattachEvaluationId: reattachTarget?.id,
     });
     const uploadJwt = await createSermonUploadJwt();
     return NextResponse.json({
@@ -650,6 +665,7 @@ export async function handlePrepareSermonUpload(request: Request) {
       projectId: config.projectId,
       bucketId: config.bucketId,
       fileId,
+      permissions: getOwnerOnlyFilePermissions(userId),
       expiresAt: expiresAt.toISOString(),
     });
   } catch (error) {
