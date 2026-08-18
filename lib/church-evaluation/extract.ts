@@ -56,7 +56,7 @@ import {
 } from "./runtime";
 
 export const EVALUATION_MODEL = "gemini-3.6-flash";
-export const EVALUATION_PROMPT_VERSION = "2026-07-28";
+export const EVALUATION_PROMPT_VERSION = "2026-08-18";
 export const CORE_EXTRACTION_THINKING_LEVEL = ThinkingLevel.MEDIUM;
 
 const SYSTEM_PROMPT =

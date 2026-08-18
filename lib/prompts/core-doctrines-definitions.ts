@@ -57,6 +57,7 @@ These are the foundational truths upon which Christian faith stands. We will not
 - Roman Catholic language about "initial justification" + "increase in justification" would be \`false\`
 - If they say "justified by faith that produces works", mark \`true\` (works are fruit, not basis)
 - "Faith alone justifies, but the faith that justifies is never alone" (Reformed) = \`true\`
+- A statement that sinners are saved or accepted by God solely by grace through faith in Christ, apart from works, semantically affirms this doctrine even if it does not use a technical term equivalent to "justification." Apply this by meaning in any source language, not by matching these English words.
 
 ---
 
@@ -74,6 +75,8 @@ These are the foundational truths upon which Christian faith stands. We will not
 - If they say "Son of God" without explicitly saying "Jesus is God", look for divine attributes (eternal, creator, worshiped) to confirm (mark \`true\` if present)
 - "Divine nature and human nature in one person" = clear \`true\`
 - This is a composite doctrine. Mark \`true\` only when BOTH Christ's deity and His real humanity are explicit. "Son of God" by itself establishes neither complete claim.
+- Real humanity may be stated through concrete realities clearly predicated of the same Christ, such as genuine human birth and life, a physical body and blood, actual death, or bodily resurrection. When a passage explicitly affirms His deity and unambiguously describes His embodied human life, it can satisfy both components without using a technical term equivalent to "humanity."
+- Do not infer humanity from a title alone, a metaphor, a merely apparent body, or a narrative that does not clearly present those realities as true of the same person.
 
 ---
 
@@ -107,6 +110,7 @@ These are the foundational truths upon which Christian faith stands. We will not
 - If they mention "born of Mary" but don't say "virgin", mark \`unknown\` unless incarnation is clearly stated
 - "Conceived by the Holy Spirit, born of the Virgin Mary" (from creeds) = clear \`true\`
 - This is a composite doctrine. General language about Jesus becoming human without the virgin conception, or virgin-birth language without a clear reference to Christ's incarnation, is \`unknown\`.
+- A passage that explicitly identifies the same Christ as divine and affirms His genuine virgin conception or birth and embodied human life semantically affirms the incarnation and virgin birth, even when it does not use a technical term equivalent to "incarnation."
 
 ---
 
@@ -123,6 +127,7 @@ These are the foundational truths upon which Christian faith stands. We will not
 **Edge cases:**
 - Churches may emphasize different atonement theories (penal substitution, Christus Victor, etc.)—as long as they affirm Christ's death is necessary and sufficient, mark \`true\`
 - This is a composite doctrine. "Christ died for our sins", "ultimate sacrifice", "ransom for many", or "died in our place" establishes sacrificial purpose but does not by itself establish necessity and sufficiency. Without exclusivity or sufficiency language, mark \`unknown\`.
+- Equivalent semantic combinations count in any language. For example, a statement that presents Christ's death as vicarious or propitiatory and His redemptive work as finished or completely effective and as the basis of salvation can establish necessity and sufficiency without using those technical labels.
 
 ---
 
@@ -171,4 +176,13 @@ These are the foundational truths upon which Christian faith stands. We will not
 - Churches don't need to list every attribute, but a substantive statement must affirm both God's holy/just rule and His goodness/love/mercy.
 - If they emphasize God's love but don't mention His wrath, mark \`unknown\` (not \`false\`)
 - "God loves you" or another single-attribute statement is \`unknown\`.
-- "Merciful and gracious, slow to anger, abounding in steadfast love" (Exodus 34:6), when paired with holiness or righteous judgment, affirms character`;
+- "Merciful and gracious, slow to anger, abounding in steadfast love" (Exodus 34:6), when paired with holiness or righteous judgment, affirms character
+
+---
+
+### Semantic Calibration Boundary
+
+These examples describe relationships among claims; they are not English phrase templates. Apply the same ordinary meanings in every source language and never scan for these words.
+
+- **Sparse evidence remains unknown**: A site that calls Jesus God's Son, says He died for sins, rose, and will return, invites people into a relationship with Him, and calls the Bible a guide may support individual claims such as resurrection or Scripture authority. Those statements do not automatically establish salvation by grace through faith, Christ's deity and real humanity, final judgment, or the necessity and sufficiency of His atonement.
+- **Rich evidence may satisfy several doctrines**: A passage that explicitly presents Christ as divine and describes His genuine virgin birth, sinless embodied life, vicarious or propitiatory death, shed blood, and bodily resurrection, together with salvation solely by grace through faith in His finished redemptive work, semantically supports the gospel, justification by faith, Christ's deity and humanity, incarnation and virgin birth, atonement, and resurrection. The passage may be cited under each doctrine whose full definition it actually satisfies.`;

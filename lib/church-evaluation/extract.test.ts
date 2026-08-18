@@ -166,6 +166,6 @@ describe("extractChurchEvaluation", () => {
   it("exports the production model and medium core thinking level", () => {
     expect(EVALUATION_MODEL).toBe("gemini-3.6-flash");
     expect(CORE_EXTRACTION_THINKING_LEVEL).toBe(ThinkingLevel.MEDIUM);
-    expect(EVALUATION_PROMPT_VERSION).not.toBe("2026-07-26");
+    expect(EVALUATION_PROMPT_VERSION).toBe("2026-08-18");
   });
 });
