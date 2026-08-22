@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Beaker, BookOpenText, FilePlus2, LockKeyhole, RefreshCw, ShieldAlert } from "lucide-react";
+import { BarChart3, Beaker, BookOpenText, FilePlus2, LockKeyhole, Mail, RefreshCw, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { ProtectedView } from "@/components/ProtectedView";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -270,16 +270,31 @@ function AccessDenied() {
         <div className="mx-auto mb-3 rounded-full bg-muted p-3 text-muted-foreground">
           <LockKeyhole className="h-6 w-6" />
         </div>
-        <CardTitle className="font-serif text-2xl">Private beta access required</CardTitle>
+        <CardTitle className="font-serif text-2xl">Sermon Evaluation is in private beta</CardTitle>
         <CardDescription className="mx-auto max-w-lg">
-          Sermon Evaluation is currently available only to accounts with a server-managed sermon evaluator beta or admin label.
+          Your account is working normally. We&apos;re opening this feature to a limited group while we refine the experience.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        <div className="rounded-lg border border-border bg-muted/30 p-4">
+          <h3 className="font-medium text-foreground">Would you like access?</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Email our ministry team from the address associated with your Calvinist Parrot account. We&apos;ll follow up with availability and next steps.
+          </p>
+          <Button asChild className="mt-4 w-full sm:w-auto">
+            <a href="mailto:contact@calvinistparrotministries.org?subject=Sermon%20Evaluation%20beta%20access">
+              <Mail />
+              Request access by email
+            </a>
+          </Button>
+          <p className="mt-3 break-words text-xs text-muted-foreground">
+            contact@calvinistparrotministries.org
+          </p>
+        </div>
         <Alert>
-          <AlertTitle>Your other Calvinist Parrot features are unchanged</AlertTitle>
+          <AlertTitle>Already approved?</AlertTitle>
           <AlertDescription>
-            Access is checked from your authenticated Appwrite account. If an operator recently granted access, refresh your session by signing out and back in.
+            Sign out and back in, then return to this page to refresh your access. If you still can&apos;t enter, email us so we can check your account.
           </AlertDescription>
         </Alert>
       </CardContent>
