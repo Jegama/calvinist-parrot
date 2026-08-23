@@ -3,6 +3,8 @@
 import React from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import type { Root } from 'mdast';
+import { visit } from 'unist-util-visit';
 import { BibleVerse } from './BibleVerse';
 import { extractReferences } from '@/utils/bibleUtils';
 
@@ -10,10 +12,23 @@ interface MarkdownWithBibleVersesProps {
   content: string;
 }
 
-// Sanitize content by removing control characters except common whitespace
+// Sanitize content by removing control characters except common whitespace.
 function sanitizeContent(text: string): string {
-  // Remove control characters (U+0000 to U+001F) except for \n, \t, \r
   return text.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, '');
+}
+
+function remarkRemoveHtmlComments() {
+  return (tree: Root) => {
+    visit(tree, 'html', (node, index, parent) => {
+      if (
+        index !== undefined &&
+        parent &&
+        /^\s*<!--[\s\S]*?-->\s*$/.test(node.value)
+      ) {
+        parent.children.splice(index, 1);
+      }
+    });
+  };
 }
 
 export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProps) {
@@ -146,11 +161,10 @@ export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProp
 
   return (
         <ReactMarkdown 
-          remarkPlugins={[remarkGfm]} 
+          remarkPlugins={[remarkGfm, remarkRemoveHtmlComments]}
           components={customComponents}
         >
           {sanitizedContent}
         </ReactMarkdown>
       );
 }
-

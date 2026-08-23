@@ -73,6 +73,14 @@ const call1 = {
     explanation: "This connects service to Christlike love.",
   },
   parentShepherdingNextSteps: ["Thank Sam for serving."],
+  recommendedResources: [
+    {
+      title:
+        "The Disciple-Making Parent: A Comprehensive Guidebook for Raising Your Children to Love and Follow Jesus Christ",
+      author: "Chap Bettis",
+      whyItFits: "It connects everyday parenting moments to long-term discipleship.",
+    },
+  ],
   scripture: [
     {
       reference: "Philippians 2:4",

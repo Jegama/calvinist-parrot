@@ -12,6 +12,71 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  sermon-evaluator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: calvinist_parrot
+          POSTGRES_PASSWORD: calvinist_parrot
+          POSTGRES_DB: sermon_evaluator_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U calvinist_parrot -d sermon_evaluator_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      RUN_SERMON_DATABASE_INTEGRATION_TESTS: "1"
+      DATABASE_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:5432/sermon_evaluator_test?schema=public
+      SERMON_DATABASE_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:5432/sermon_evaluator_test
+
+    defaults:
+      run:
+        working-directory: services/sermon-evaluator
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install application dependencies
+        working-directory: ${{ github.workspace }}
+        run: npm ci
+
+      - name: Apply Prisma migrations
+        working-directory: ${{ github.workspace }}
+        run: npx prisma migrate deploy
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: services/sermon-evaluator/requirements-dev.txt
+
+      - name: Install pinned dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Install sermon evaluator
+        run: python -m pip install --no-deps -e .
+
+      - name: Test sermon evaluator
+        run: python -m pytest
+
+      - name: Verify Appwrite entrypoint import
+        run: python -c "from entrypoints.appwrite import main; assert callable(main)"
+
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -33,6 +98,7 @@ jobs:
 
     env:
       NEXT_TELEMETRY_DISABLED: "1"
+      RUN_SERMON_DATABASE_INTEGRATION_TESTS: "1"
       DATABASE_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:5432/calvinist_parrot_dev?schema=public
       CCEL_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:5432/calvinist_parrot_dev?schema=public
       ANTHROPIC_API_KEY: ci-placeholder

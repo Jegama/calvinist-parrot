@@ -31,10 +31,11 @@ Calvinist Parrot delivers Biblical insights and deep theological responses by co
 ## Getting Started
 
 ### Prerequisites
-- Node.js 20.9.0 or higher. The repo includes an `.nvmrc`.
+- Node.js 24. The repo includes an `.nvmrc`.
 - npm
 - Git
 - Docker, for the local Postgres database
+- Python 3.14 and the `cp_evals` virtualenvwrapper environment described in [Local Development](./docs/technical/Local%20Development.md)
 
 ### Environment Setup
 
@@ -67,7 +68,7 @@ npm install
 
 ```bash
 npm run db:up
-npm run db:migrate
+npm run db:deploy
 npm run db:seed
 ```
 
@@ -79,7 +80,7 @@ The seed adds the app database profile and starter journal fixtures for `test@te
 npm run dev
 ```
 
-You can also use `npm run dev:local` to start Docker, apply migrations, seed local fixtures, and launch Next.js in one command.
+`npm run dev` launches Next.js and its required local workers. You can also use `npm run dev:local` to start Docker, apply committed migrations, seed local fixtures, and enter that same application process in one command.
 
 Codex-managed worktrees share the local Postgres container but receive separate development, shadow, and test databases automatically. Put worktree-only API keys and local/staging credentials in `.env.worktree.local`; `.worktreeinclude` copies that ignored file into each new managed worktree.
 

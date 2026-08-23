@@ -49,6 +49,38 @@ export const KIDS_CALL1_SCHEMA = {
         maxItems: 3,
         description: "2-3 practical, actionable next steps for the parent",
       },
+      recommendedResources: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            title: {
+              type: "string",
+              enum: [
+                "Shepherding a Child's Heart",
+                "Parenting: 14 Gospel Principles That Can Radically Change Your Family",
+                "The Disciple-Making Parent: A Comprehensive Guidebook for Raising Your Children to Love and Follow Jesus Christ",
+              ],
+              description: "The exact title of an endorsed parenting resource",
+            },
+            author: {
+              type: "string",
+              enum: ["Tedd Tripp", "Paul David Tripp", "Chap Bettis"],
+              description: "The exact author of the endorsed parenting resource",
+            },
+            whyItFits: {
+              type: "string",
+              description:
+                "One concise sentence explaining why this resource fits the parenting moment",
+            },
+          },
+          required: ["title", "author", "whyItFits"],
+          additionalProperties: false,
+        },
+        minItems: 1,
+        maxItems: 2,
+        description: "1-2 contextually relevant resources from the endorsed list",
+      },
       scripture: {
         type: "array",
         items: {
@@ -87,6 +119,7 @@ export const KIDS_CALL1_SCHEMA = {
       "whatMightBeGoingOnInTheHeart",
       "gospelConnectionSuggestion",
       "parentShepherdingNextSteps",
+      "recommendedResources",
       "scripture",
       "encouragementForParent",
       "safetyFlags",
@@ -126,7 +159,7 @@ export const KIDS_CALL2_SCHEMA = {
             type: "array",
             items: { type: "string" },
             description:
-              "1-3 developmental area tags from: Authority acceptance, Emotional regulation, Social skills, Motor skills, Communication, Independence, Responsibility",
+              "1-3 developmental area tags from: Authority acceptance, Social skills, Motor skills, Communication, Independence, Responsibility",
           },
         },
         required: ["circumstance", "heartIssue", "virtue", "developmentalArea"],

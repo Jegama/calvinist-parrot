@@ -38,13 +38,49 @@ describe("church finder multilingual prompt contract", () => {
 
   it("requires complete semantic evidence for composite core doctrines", () => {
     expect(CORE_DOCTRINES_PROMPT).toContain(
-      "`\"true\"` requires explicit evidence for EVERY required component",
+      "ordinary semantic meaning establishes EVERY required component",
     );
     expect(CORE_DOCTRINES_PROMPT).toContain(
       "If only part of a composite doctrine is stated, return `\"unknown\"`.",
     );
     expect(CORE_DOCTRINES_PROMPT).toContain(
       "return multiple notes with the same doctrine label",
+    );
+  });
+
+  it("uses language-neutral semantic entailment", () => {
+    expect(CORE_DOCTRINES_PROMPT).toContain(
+      "Explicit evidence does not require a canonical technical term.",
+    );
+    expect(CORE_DOCTRINES_PROMPT).toContain(
+      "Apply the same ordinary meanings in every source language and never scan for these words.",
+    );
+  });
+
+  it("allows rich evidence to support each doctrine it actually establishes", () => {
+    expect(CORE_DOCTRINES_PROMPT).toContain(
+      "A single rich statement or passage may support multiple doctrine labels",
+    );
+    expect(CORE_DOCTRINES_PROMPT).toContain(
+      "Real humanity may be stated through concrete realities clearly predicated of the same Christ",
+    );
+    expect(CORE_DOCTRINES_PROMPT).toContain(
+      "semantically affirms this doctrine even if it does not use a technical term equivalent to \"justification.\"",
+    );
+    expect(CORE_DOCTRINES_PROMPT).toContain(
+      "semantically supports the gospel, justification by faith, Christ's deity and humanity, incarnation and virgin birth, atonement, and resurrection",
+    );
+  });
+
+  it("keeps sparse evidence fail-closed", () => {
+    expect(CORE_DOCTRINES_PROMPT).toContain(
+      "Sparse evidence remains unknown",
+    );
+    expect(CORE_DOCTRINES_PROMPT).toContain(
+      "do not automatically establish salvation by grace through faith, Christ's deity and real humanity, final judgment, or the necessity and sufficiency of His atonement",
+    );
+    expect(CORE_DOCTRINES_PROMPT).toContain(
+      "a Bible citation by itself, denominational reputation, institutional affiliation, a person's education, absence of a denial, or a merely possible implication",
     );
   });
 

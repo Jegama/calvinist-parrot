@@ -2,15 +2,28 @@ name: Deploy Prisma Migrations
 
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: Database environment to migrate
+        required: true
+        default: Preview
+        type: choice
+        options:
+          - Preview
+          - Production
+
+concurrency:
+  group: prisma-migrate-${{ inputs.target }}
+  cancel-in-progress: false
 
 jobs:
   migrate:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: production
+    environment: ${{ inputs.target }}
 
     env:
-      DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      DATABASE_URL: ${{ inputs.target == 'Production' && secrets.PRODUCTION_DATABASE_URL || secrets.PREVIEW_DATABASE_URL }}
 
     steps:
       - name: Checkout
@@ -24,6 +37,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify database secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Missing database migration secret for ${{ inputs.target }}."
+            exit 1
+          fi
 
       - name: Deploy migrations
         run: npx prisma migrate deploy

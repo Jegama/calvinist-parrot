@@ -49,6 +49,13 @@ describe("journal and kids model routing", () => {
             explanation: "Christ's kindness shapes ours.",
           },
           parentShepherdingNextSteps: [],
+          recommendedResources: [
+            {
+              title: "Shepherding a Child's Heart",
+              author: "Tedd Tripp",
+              whyItFits: "It keeps parenting focused on the child's heart.",
+            },
+          ],
           scripture: [],
           encouragementForParent: "Keep shepherding patiently.",
           safetyFlags: [],

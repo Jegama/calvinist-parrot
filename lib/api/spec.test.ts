@@ -91,6 +91,22 @@ describe("OpenAPI document", () => {
     expect(paths["/api/parrot-qa"].post.deprecated).toBe(true);
   });
 
+  it("keeps invite-only sermon evaluation contracts out of the public document", () => {
+    const spec = buildTestSpec();
+
+    expect(
+      Object.keys(spec.paths).filter((path) =>
+        path.startsWith("/api/v1/sermon-evaluations"),
+      ),
+    ).toEqual([]);
+    expect(
+      Object.keys(spec.components.schemas).filter((name) =>
+        name.includes("Sermon"),
+      ),
+    ).toEqual([]);
+    expect(serializeSpec()).not.toContain("Sermon Evaluations");
+  });
+
   it("documents deprecation metadata on every legacy response", () => {
     const paths = buildTestSpec().paths;
     const legacyOperations = [

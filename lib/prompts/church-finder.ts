@@ -110,9 +110,11 @@ Set each to \`"true"\`, \`"false"\`, or \`"unknown"\`:
 - \`"false"\`: Church explicitly denies or contradicts this doctrine
 - \`"unknown"\`: Not clearly stated or ambiguous
 - Interpret the doctrine definitions semantically in the source language. English terminology in these instructions is descriptive, not a required keyword list.
-- For a doctrine whose name or definition combines multiple claims, \`"true"\` requires explicit evidence for EVERY required component. Do not award partial credit by treating one component as the entire doctrine.
+- Explicit evidence does not require a canonical technical term. A concrete statement counts when its ordinary semantic meaning necessarily affirms the claim through equivalent descriptions, events, attributes, relationships, or consequences.
+- Do not treat a Bible citation by itself, denominational reputation, institutional affiliation, a person's education, absence of a denial, or a merely possible implication as an affirmation.
+- For a doctrine whose name or definition combines multiple claims, \`"true"\` requires source-grounded evidence whose ordinary semantic meaning establishes EVERY required component. Do not award partial credit by treating one component as the entire doctrine.
 - Evidence may be combined across official pages, but every required component must be supported by a source-grounded note. If only part of a composite doctrine is stated, return \`"unknown"\`.
-- Do not reuse a broad sentence to affirm several doctrines unless that sentence independently satisfies every definition in full.
+- A single rich statement or passage may support multiple doctrine labels when its specific clauses independently establish each definition. Reuse the shortest exact excerpt under each applicable label; the safeguard is against stretching vague evidence, not against legitimate reuse of explicit evidence.
 
 **Notes Array:**
 For each doctrine you mark as \`"true"\` or \`"false"\`, capture one or more notes with:
