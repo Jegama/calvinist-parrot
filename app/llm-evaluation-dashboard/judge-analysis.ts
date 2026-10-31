@@ -1,4 +1,5 @@
 import type { EvaluationRun, MetricKey } from "./evaluation-metrics";
+import { haveMatchingAnswerMetadata } from "./scoring-editions";
 
 export interface JudgePairPoint {
   answersLabel: string;
@@ -13,7 +14,7 @@ export interface JudgePairPoint {
   difference: number;
 }
 
-export type EvidenceStatus = "limited" | "developing" | "strong";
+export type EvidenceStatus = "none" | "partial" | "complete";
 
 export interface JudgePairAnalysis {
   primaryJudge: string;
@@ -24,6 +25,7 @@ export interface JudgePairAnalysis {
   primaryRunCount: number;
   comparisonRunCount: number;
   sharedRunCount: number;
+  totalAnswerSetCount: number;
   meanDifference: number | null;
   meanAbsoluteDifference: number | null;
   pearson: number | null;
@@ -37,6 +39,8 @@ export interface JudgePairAnalysis {
 }
 
 export interface JudgePairSelection {
+  evalVersion: string;
+  expectedQuestionCount: number;
   primaryJudge: string;
   comparisonJudge: string;
   promptLabel: string;
@@ -48,7 +52,10 @@ function mean(values: number[]): number | null {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
-export function pearsonCorrelation(left: number[], right: number[]): number | null {
+export function pearsonCorrelation(
+  left: number[],
+  right: number[],
+): number | null {
   if (left.length !== right.length || left.length < 2) return null;
 
   const leftMean = mean(left);
@@ -79,41 +86,57 @@ function ranks(values: number[]): number[] {
   });
 }
 
-export function spearmanCorrelation(left: number[], right: number[]): number | null {
+export function spearmanCorrelation(
+  left: number[],
+  right: number[],
+): number | null {
   if (left.length !== right.length || left.length < 2) return null;
   return pearsonCorrelation(ranks(left), ranks(right));
 }
 
-function getEvidenceStatus(sharedRunCount: number): EvidenceStatus {
-  if (sharedRunCount >= 20) return "strong";
-  if (sharedRunCount >= 8) return "developing";
-  return "limited";
+function getEvidenceStatus(
+  sharedRunCount: number,
+  total: number,
+): EvidenceStatus {
+  if (sharedRunCount === 0) return "none";
+  return sharedRunCount === total ? "complete" : "partial";
 }
 
 export function buildJudgePairAnalysis(
   runs: EvaluationRun[],
-  selection: JudgePairSelection
+  selection: JudgePairSelection,
 ): JudgePairAnalysis {
   const promptRuns = runs.filter(
     (run) =>
       run.systemPromptLabel === selection.promptLabel &&
-      (run.judgeModel === selection.primaryJudge ||
-        run.judgeModel === selection.comparisonJudge)
+      run.evalVersion === selection.evalVersion,
   );
-  const primaryRuns = promptRuns.filter((run) => run.judgeModel === selection.primaryJudge);
+  const primaryRuns = promptRuns.filter(
+    (run) => run.judgeModel === selection.primaryJudge,
+  );
   const comparisonRuns = promptRuns.filter(
-    (run) => run.judgeModel === selection.comparisonJudge
+    (run) => run.judgeModel === selection.comparisonJudge,
   );
-  const primaryByAnswers = new Map(
-    primaryRuns.map((run) => [`${run.answersLabel}|${run.evalVersion}`, run])
-  );
+  const totalAnswerSetCount = new Set(promptRuns.map((run) => run.answersLabel))
+    .size;
 
   const points = comparisonRuns
     .flatMap<JudgePairPoint>((comparisonRun) => {
-      const primaryRun = primaryByAnswers.get(
-        `${comparisonRun.answersLabel}|${comparisonRun.evalVersion}`
+      const matches = primaryRuns.filter(
+        (run) => run.answersLabel === comparisonRun.answersLabel,
       );
-      if (!primaryRun) return [];
+      const primaryRun = matches[0];
+      if (
+        matches.length !== 1 ||
+        comparisonRuns.filter(
+          (run) => run.answersLabel === comparisonRun.answersLabel,
+        ).length !== 1 ||
+        !haveMatchingAnswerMetadata(primaryRun, comparisonRun) ||
+        primaryRun.questionCount !== selection.expectedQuestionCount ||
+        comparisonRun.questionCount !== selection.expectedQuestionCount ||
+        selection.primaryJudge === selection.comparisonJudge
+      )
+        return [];
 
       const primaryScore = primaryRun.scores[selection.metricKey];
       const comparisonScore = comparisonRun.scores[selection.metricKey];
@@ -134,7 +157,8 @@ export function buildJudgePairAnalysis(
     })
     .sort(
       (left, right) =>
-        right.primaryMean - left.primaryMean || left.answersLabel.localeCompare(right.answersLabel)
+        right.primaryMean - left.primaryMean ||
+        left.answersLabel.localeCompare(right.answersLabel),
     );
 
   const differences = points.map((point) => point.difference);
@@ -151,15 +175,18 @@ export function buildJudgePairAnalysis(
     primaryRunCount: primaryRuns.length,
     comparisonRunCount: comparisonRuns.length,
     sharedRunCount,
+    totalAnswerSetCount,
     meanDifference: mean(differences),
     meanAbsoluteDifference: mean(differences.map(Math.abs)),
     pearson: pearsonCorrelation(primaryMeans, comparisonMeans),
     spearman: spearmanCorrelation(primaryMeans, comparisonMeans),
-    comparisonLowerCount: differences.filter((difference) => difference < 0).length,
-    comparisonHigherCount: differences.filter((difference) => difference > 0).length,
+    comparisonLowerCount: differences.filter((difference) => difference < 0)
+      .length,
+    comparisonHigherCount: differences.filter((difference) => difference > 0)
+      .length,
     tiedCount: differences.filter((difference) => difference === 0).length,
     primaryAverageStdev: mean(points.map((point) => point.primaryStdev)),
     comparisonAverageStdev: mean(points.map((point) => point.comparisonStdev)),
-    evidenceStatus: getEvidenceStatus(sharedRunCount),
+    evidenceStatus: getEvidenceStatus(sharedRunCount, totalAnswerSetCount),
   };
 }

@@ -114,9 +114,10 @@ jobs:
       APP_URL: http://localhost:3000
       NEXT_PUBLIC_APPWRITE_ENDPOINT: http://localhost/v1
       NEXT_PUBLIC_APPWRITE_PROJECT_ID: ci-project
-      PARROT_AGENT_PROVIDER: gemini
-      PARROT_OPENAI_MODEL: gpt-5-mini
-      PARROT_GEMINI_MODEL: gemini-3-flash-preview
+      PARROT_AGENT_PROVIDER: anthropic
+      PARROT_ANTHROPIC_MODEL: claude-haiku-5-5
+      PARROT_OPENAI_MODEL: gpt-6-luna
+      PARROT_GEMINI_MODEL: gemini-3.8-flash
       NOMINATIM_USER_AGENT: CalvinistParrotCI/1.0 (ci@calvinistparrot.local)
 
     steps:

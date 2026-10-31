@@ -47,6 +47,11 @@ export const BASIC_FIELDS_SCHEMA = {
       required: ["phone", "email"],
     },
     service_times: { type: "ARRAY" as const, items: { type: "STRING" as const } },
+    affiliation_pages: {
+      type: "ARRAY" as const,
+      items: { type: "STRING" as const },
+      maxItems: "4",
+    },
     best_pages_for: {
       type: "OBJECT" as const,
       properties: {
@@ -58,7 +63,7 @@ export const BASIC_FIELDS_SCHEMA = {
       required: ["beliefs", "confession", "about", "leadership"],
     },
   },
-  required: ["name", "website", "addresses", "contacts", "service_times", "best_pages_for"],
+  required: ["name", "website", "addresses", "contacts", "service_times", "best_pages_for", "affiliation_pages"],
 };
 
 // ============================================================================
@@ -165,6 +170,22 @@ export const TERTIARY_DOCTRINES_SCHEMA = {
 export const DENOMINATION_CONFESSION_SCHEMA = {
   type: "OBJECT" as const,
   properties: {
+    affiliations: {
+      type: "ARRAY" as const,
+      items: {
+        type: "OBJECT" as const,
+        properties: {
+          organization: { type: "STRING" as const },
+          relationship: {
+            type: "STRING" as const,
+            enum: ["current_affiliation", "past_affiliation", "no_affiliation", "resource_or_mention", "unclear"],
+          },
+          text: { type: "STRING" as const },
+          source_url: { type: "STRING" as const },
+        },
+        required: ["organization", "relationship", "text", "source_url"],
+      },
+    },
     denomination: {
       type: "OBJECT" as const,
       properties: {
@@ -180,8 +201,12 @@ export const DENOMINATION_CONFESSION_SCHEMA = {
         adopted: { type: "BOOLEAN" as const },
         name: { type: "STRING" as const, nullable: true },
         source_url: { type: "STRING" as const, nullable: true },
+        affirmed_core_doctrines: {
+          type: "ARRAY" as const,
+          items: { type: "STRING" as const, enum: CORE_DOCTRINE_KEYS },
+        },
       },
-      required: ["adopted", "name", "source_url"],
+      required: ["adopted", "name", "source_url", "affirmed_core_doctrines"],
     },
     badges: { type: "ARRAY" as const, items: { type: "STRING" as const } },
     notes: {
@@ -197,7 +222,7 @@ export const DENOMINATION_CONFESSION_SCHEMA = {
       },
     },
   },
-  required: ["denomination", "confession", "badges", "notes"],
+  required: ["denomination", "confession", "affiliations", "badges", "notes"],
 };
 
 // ============================================================================

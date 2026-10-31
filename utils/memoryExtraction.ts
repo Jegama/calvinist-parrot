@@ -18,7 +18,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const EXTRACTION_MODEL = "gpt-4.1-mini"; // Fast and cost-effective for extraction
+const EXTRACTION_MODEL = "gpt-6-luna";
 
 interface ConversationMessage {
   sender: string;
@@ -120,7 +120,8 @@ async function extractMemoriesFromConversation(
       model: EXTRACTION_MODEL,
       messages: messagesPayload,
       response_format: { type: "json_schema", json_schema: extractionSchema },
-      temperature: 0.1, // Lower temperature for more consistent extraction
+      // Preserve the non-reasoning extraction workload when moving from GPT-4.1.
+      reasoning_effort: "none",
     });
 
     const extracted = JSON.parse(response.choices[0].message.content || "{}");

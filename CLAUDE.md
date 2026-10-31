@@ -43,7 +43,7 @@ Copy `.env.template` to `.env` and fill in:
 
 **`/api/v1/chats`** (recommended) - Resource-oriented LangGraph API for creating chats, reading transcripts, streaming messages, and stopping requests. Main agent defined in `utils/langChainAgents/mainAgent.ts` with tools in `utils/langChainAgents/tools/`. Conversation state persisted to PostgreSQL via LangGraph checkpointing.
 
-**`/api/v1/qa`** - "Counsel of Three" workflow with Calvin-style review synthesis. `/api/parrot-chat` and `/api/parrot-qa` remain deprecated compatibility routes.
+**`/api/v1/qa`** - Retired Counsel of Three endpoint. This route, `/api/parrot-qa`, and `/api/elaborate` return HTTP 410 without invoking models; direct integrations to `/api/v1/chats`. Saved question history remains intact. `/api/parrot-chat` remains a deprecated compatibility route.
 
 ### Feature Modules
 

@@ -11,10 +11,10 @@ describe("journal and kids model routing", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses the stable Gemini 3.6 Flash model by default", () => {
+  it("uses the stable Gemini 3.8 Flash model by default", () => {
     expect(DEFAULT_MODEL).toEqual({
       provider: "gemini",
-      model: "gemini-3.6-flash",
+      model: "gemini-3.8-flash",
     });
   });
 

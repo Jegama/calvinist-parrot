@@ -39,13 +39,13 @@ class GeminiProvider:
     """Google Gen AI structured-output and Files API adapter.
 
     The adapter intentionally omits deprecated sampling controls and
-    ``candidate_count``. Gemini 3.6 receives medium thinking and a structured
+    ``candidate_count``. Gemini 3.8 receives medium thinking and a structured
     Pydantic response schema on every evaluator call.
     """
 
     def __init__(
         self,
-        model: str = "gemini-3.6-flash",
+        model: str = "gemini-3.8-flash",
         *,
         api_key: Optional[str] = None,
         default_timeout_seconds: int = 300,

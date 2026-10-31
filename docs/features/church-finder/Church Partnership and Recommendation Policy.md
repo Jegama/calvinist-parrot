@@ -16,6 +16,10 @@ We never compromise the core doctrines summarized in our Doctrinal Statement. We
 
 Absence of content is treated as unknown, not denial. We do not infer doctrine beyond what is plainly published.
 
+Public adoption of a recognized historic Reformed confession is itself published doctrinal evidence. A church need not repeat every article on its own website when it explicitly subscribes to that confession. We verify the adoption statement, assess the scope of subscription and any exceptions, and distinguish doctrines affirmed through the confession from those supported by direct quotations. Denominational affiliation or a resource link alone does not establish adoption. Published denials and disqualifying concerns retain priority; qualified subscription supports only the doctrines it actually affirms.
+
+Organizational affiliation requires an explicit, current relationship statement connecting the church to a named body. We discover and fetch relevant pages by their meaning in the source language, treating navigation labels as leads rather than proof. The affiliation badge requires a quotation grounded in the fetched page; resource mentions, former membership, and ambiguous relationships do not qualify.
+
 ## 3. Core Partnership Criteria
 
 We consider a ministry suitable for partnership when it:

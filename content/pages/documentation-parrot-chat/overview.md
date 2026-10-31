@@ -56,4 +56,4 @@ Denominational modes affect secondary doctrines while sharing non-negotiable com
 
 The supported modes are Reformed Baptist (default), Presbyterian, Wesleyan, Lutheran, Anglican, Pentecostal or Charismatic, and Non-Denominational Evangelical.
 
-For the classic multi-agent question-and-answer workflow, see the [Parrot QA API](/documentation-parrot-qa).
+The former Counsel of Three Q&A workflow is retired. Its endpoints return HTTP `410 Gone`; use this chat API for new integrations. See the [Q&A migration guide](/documentation-parrot-qa).

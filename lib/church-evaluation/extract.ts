@@ -40,7 +40,8 @@ import {
   type ChurchSourcePage,
 } from "./crawl";
 import {
-  filterGroundedNotes,
+  applyConfessionCoreEvidence,
+  validateAffiliationEvidence,
   validateCoreDoctrineEvidence,
   validateRedFlagEvidence,
 } from "./evidence";
@@ -55,8 +56,8 @@ import {
   TAVILY_ENRICHMENT_STAGE_TIMEOUT_MS,
 } from "./runtime";
 
-export const EVALUATION_MODEL = "gemini-3.6-flash";
-export const EVALUATION_PROMPT_VERSION = "2026-08-18";
+export const EVALUATION_MODEL = "gemini-3.8-flash";
+export const EVALUATION_PROMPT_VERSION = "2026-10-31-affiliation";
 export const CORE_EXTRACTION_THINKING_LEVEL = ThinkingLevel.MEDIUM;
 
 const SYSTEM_PROMPT =
@@ -264,6 +265,9 @@ export async function extractChurchEvaluation(
     .filter((url): url is string =>
       typeof url === "string" && url.trim().length > 0
     );
+  const affiliationPages = [...new Set((basicFields.affiliation_pages ?? [])
+    .filter((url) => typeof url === "string" && url.trim().length > 0)
+    .map((url) => url.trim()))].slice(0, 4);
 
   pages = await runEvaluationStage({
     stage: "tavily_enrichment",
@@ -273,7 +277,7 @@ export async function extractChurchEvaluation(
       sourcePageCount: pages.length,
       inputCharacterCount: contentCharacterCount(pages),
     },
-    operation: () => enrichPages(pages, bestPages, extractPage),
+    operation: () => enrichPages(pages, [...bestPages, ...affiliationPages], extractPage),
     resultDimensions: (result) => ({
       sourcePageCount: result.length,
       inputCharacterCount: contentCharacterCount(result),
@@ -382,15 +386,30 @@ export async function extractChurchEvaluation(
 
   const groundedCore = validateCoreDoctrineEvidence(coreDoctrinesRaw, pages);
   const groundedRedFlags = validateRedFlagEvidence(redFlags, pages);
-  const groundedDenominationNotes = filterGroundedNotes(
-    denominationConfession.notes,
+  const confessionEvidence = applyConfessionCoreEvidence(
+    groundedCore.core_doctrines,
+    denominationConfession,
     pages,
   );
   const secondary = applyConfessionToSecondary(
     secondaryRaw.secondary,
-    denominationConfession.confession.name,
-    denominationConfession.confession.adopted,
+    confessionEvidence.confession.name,
+    confessionEvidence.confession.adopted,
   );
+  const affiliationEvidence = validateAffiliationEvidence({
+    affiliations: denominationConfession.affiliations,
+    badges: [
+      ...secondaryRaw.badges,
+      ...tertiaryRaw.badges,
+      ...denominationConfession.badges,
+      ...groundedRedFlags.badges,
+    ],
+    notes: [
+      ...groundedCore.notes,
+      ...confessionEvidence.notes,
+      ...groundedRedFlags.notes,
+    ],
+  }, pages);
 
   return {
     metadata: {
@@ -398,6 +417,7 @@ export async function extractChurchEvaluation(
       prompt_version: EVALUATION_PROMPT_VERSION,
       policy_version: EVALUATION_POLICY_VERSION,
       evaluated_at: new Date().toISOString(),
+      confession_inferred_core: confessionEvidence.inferredKeys,
       source_pages: createSourcePageMetadata(pages),
     },
     church: {
@@ -408,21 +428,14 @@ export async function extractChurchEvaluation(
       service_times: basicFields.service_times,
       best_pages_for: basicFields.best_pages_for,
       denomination: denominationConfession.denomination,
-      confession: denominationConfession.confession,
-      core_doctrines: groundedCore.core_doctrines,
+      confession: confessionEvidence.confession,
+      affiliation_pages: affiliationPages,
+      affiliations: affiliationEvidence.affiliations,
+      core_doctrines: confessionEvidence.coreDoctrines,
       secondary,
       tertiary: tertiaryRaw.tertiary,
-      badges: [
-        ...secondaryRaw.badges,
-        ...tertiaryRaw.badges,
-        ...denominationConfession.badges,
-        ...groundedRedFlags.badges,
-      ],
-      notes: [
-        ...groundedCore.notes,
-        ...groundedDenominationNotes,
-        ...groundedRedFlags.notes,
-      ],
+      badges: affiliationEvidence.badges,
+      notes: affiliationEvidence.notes,
     },
   };
 }

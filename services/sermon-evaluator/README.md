@@ -8,7 +8,7 @@ This directory is the canonical, platform-neutral Python sermon evaluator origin
 - This Function reads the private Appwrite audio file with Appwrite's injected dynamic API key, verifies its bytes and duration, calls Gemini, and writes only sermon tables through a dedicated pooled Neon URL.
 - The local runtime reads ignored filesystem audio, polls the same lease-backed queue, and evaluates with Gemini. It requires neither Appwrite Storage, an Appwrite Function, nor Neon, but it does require `GEMINI_API_KEY`.
 - Prisma is the sole schema and migration owner. Python has no migration framework.
-- Production uses `gemini-3.6-flash`, medium thinking, structured output, and Gemini Files. The CLI model override is developer-only.
+- Production uses `gemini-3.8-flash`, medium thinking, structured output, and Gemini Files. The CLI model override is developer-only.
 - One Appwrite execution has a 900-second hard timeout and an 840-second soft deadline. A call is not started with less than 60 seconds remaining.
 - Scoring runs execute concurrently in waves. Primary seeds preserve CP-Evals order; up to two deterministic replacement attempts are allowed for each failed logical slot.
 
@@ -20,7 +20,7 @@ Appwrite supplies `APPWRITE_FUNCTION_API_ENDPOINT` and `APPWRITE_FUNCTION_PROJEC
 - `SERMON_DATABASE_URL`: dedicated least-privileged pooled Neon URL with `sslmode=require`.
 - `GEMINI_API_KEY`: worker-only Gemini key.
 - `SERMON_AUDIO_BUCKET_ID`: private sermon bucket for the same environment.
-- `SERMON_GEMINI_MODEL`: `gemini-3.6-flash`.
+- `SERMON_GEMINI_MODEL`: `gemini-3.8-flash`.
 - `SERMON_SOFT_DEADLINE_SECONDS`: `840`.
 - `SERMON_MAX_PARALLEL_SCORING_RUNS`: `9`.
 

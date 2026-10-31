@@ -1,6 +1,8 @@
 import { CORE_DOCTRINES_DEFINITIONS } from "./core-doctrines-definitions";
 import { SECONDARY_DOCTRINES_DEFINITIONS } from "./secondary-doctrines-definitions";
 import { TERTIARY_DOCTRINES_DEFINITIONS } from "./tertiary-doctrines-definitions";
+import { HISTORIC_REFORMED_CONFESSIONS } from "../church-evaluation/policy";
+import { CORE_DOCTRINE_KEYS } from "../schemas/church-finder";
 
 // ============================================================================
 // Common extraction rules for all calls
@@ -69,13 +71,20 @@ Extract the following fields from the website content:
   - \`about\`: About / mission / values / who we are page
   - \`leadership\`: Elders / staff / team / leadership page
 
+**affiliation_pages**: Up to four distinct official church page URLs to fetch for denominational, association, convention, or network relationships.
+- Discover candidates semantically from the supplied page content, navigation, hyperlinks, and surrounding context in any language. A candidate may be linked from a provided page even when its own body has not been fetched yet.
+- Follow the meaning of the relationship described, not a list of organization names, English keywords, or URL patterns. Include relevant pages regardless of the language or wording of their titles and paths.
+- Use only URLs actually present in the provided content, resolving relative hyperlinks against their page URL. Never invent a path or guess a destination from an organization name.
+- A navigation link is a discovery lead, not evidence that the church belongs to an organization. Select the target for inspection; do not infer affiliation from the label.
+- Prefer the church's own statements of membership or cooperation. Return [] when no candidate can be identified.
+
 ADDITIONAL GUIDANCE:
 - Choose pages by their semantic content in the source language, not by English words in the URL or page title.
 - Prefer “Contact/Visit/Plan Your Visit” pages for addresses when available; avoid map widgets without text unless they clearly display a postal address.
 - Exclude P.O. Boxes if a physical address is available; if only a P.O. Box is present, include it.
 - For leadership, prefer pages listing elders/pastors over general staff directories.
 
-If you cannot find a suitable page for any category, set it to \`null\`.`;
+If you cannot find a suitable page for a \`best_pages_for\` category, set that field to \`null\`. For \`affiliation_pages\`, return an empty array rather than \`null\`.`;
 
 // ============================================================================
 // Call 2: Core Doctrines Prompt
@@ -123,6 +132,8 @@ For each doctrine you mark as \`"true"\` or \`"false"\`, capture one or more not
 - \`source_url\`: URL where you found this statement
 
 When a composite doctrine needs more than one excerpt, return multiple notes with the same doctrine label so that every component is evidenced.
+
+Published confession text adopted as the church's doctrinal standard is the church's own doctrinal evidence. Read it semantically like any other statement of faith. If only an adoption statement is available, leave doctrines without direct quotations unknown in this call; the separate confession assessment records affirmation through adoption. Do not mistake missing repetition on a summary page for absence of the church's confessed beliefs.
 
 If a doctrine is \`unknown\`, do not create a note for it.`;
 
@@ -242,6 +253,18 @@ export const DENOMINATION_CONFESSION_PROMPT = `${COMMON_RULES}
 - \`label\`: Best guess of denomination (e.g., "Reformed Baptist", "Presbyterian (PCA)", "Baptist (SBC affiliated)", "Lutheran (LCMS)", "Anglican", "Non-denominational", etc.)
 - \`confidence\`: 0.0 to 1.0 (how confident are you?)
 - \`signals\`: Array of short reasons (e.g., ["credo-baptism", "elder-led", "WCF referenced"])
+- Distinguish theological tradition from organizational affiliation. Do not claim organizational membership in the label or signals unless the explicit relationship evidence below establishes it.
+
+**Affiliation evidence:**
+Return \`affiliations\` as an array of assessments of named organizations mentioned in the provided official church content. Return [] if none can be assessed. Each item must include:
+- \`organization\`: The organization's name as published, preserving its source language.
+- \`relationship\`: One of \`current_affiliation\`, \`past_affiliation\`, \`no_affiliation\`, \`resource_or_mention\`, or \`unclear\`.
+- \`text\`: One short verbatim original-language quotation (at most 500 characters) from the cited page. For current affiliation, the quotation must explicitly connect this church to the named organization through present membership, affiliation, or ongoing formal cooperation. Preserve the subject, relationship, negation, and time qualifications. Do not return just the organization's name.
+- \`source_url\`: The provided page containing that exact quotation.
+
+Assess the relationship semantically in its source language; never use an English keyword list, acronym allowlist, or organization-specific rule. Only \`current_affiliation\` establishes the affiliation badge. A menu label, logo, bare link, resource recommendation, shared theology, pastor's education, or description of another church does not establish this church's affiliation. Classify those as \`resource_or_mention\` or \`unclear\`, even when the link points to a well-known organization. An explicit withdrawal or former membership is \`past_affiliation\`; an explicit denial of membership is \`no_affiliation\`. If the supplied content conflicts about whether the relationship is current, use \`unclear\` unless an explicit dated update resolves it.
+
+Read fetched candidate pages for the actual relationship statement. Failure to fetch a candidate is not permission to infer affiliation from its navigation label. Autonomous governance does not exclude a published cooperative affiliation; assess the actual relationship. Do not substitute an adopted confession or a generic description of an organization for a statement connecting this church to that organization.
 
 **Confession:**
 Determine if the church **adopts** a historic confession as their doctrinal standard.
@@ -288,21 +311,28 @@ Interpret adoption language semantically in the source language. The English exa
 - \`name\`: Name of the confession (e.g., "Westminster Confession of Faith (1646/47)", "Second London Baptist Confession (1689)")
 - \`source_url\`: URL where confession is mentioned
 
-**ONLY These Historic Confessions Are Valid (Variation of the name are acceptable too):**
-- Westminster Confession of Faith (1646/47)
-- Second London Baptist Confession (1689)
-- First London Baptist Confession (1644/46)
-- Belgic Confession (1561) + Heidelberg Catechism (1563) + Canons of Dort (1619)
-- Second Helvetic Confession (1566)
-- Irish Articles (1615)
-- Savoy Declaration (1658)
+**ONLY These Historic Confessions Are Valid:**
+${HISTORIC_REFORMED_CONFESSIONS.map((name) => `- ${name}`).join("\n")}
 
 **ACCEPTABLE VARIATIONS / MATCHING GUIDANCE:**
 - Accept small variations in the confession name and date formatting (e.g., "First London Baptist Confession of Faith (2nd Ed. 1646)", "First London Confession (1644-1646)", "First London Baptist Confession (1644/46)").
 - Accept common short forms such as "First London Baptist Confession", "First London Confession", or inclusion of edition notes like "2nd Ed. 1646".
+- Recognize equivalent names in any source language, but return the exact canonical name from the list above in \`name\`.
 
 **DEALING WITH QUALIFIED SUBSCRIPTIONS:**
 - If the site uses qualifying language (e.g., "subscribe for guidance but not absolute adherence", "subscribe for guidance", "affirm as sound teaching"), still mark \`adopted = true\` because the confession is being presented as the church's doctrinal guide. In this case, add a clarifying note that preserves the nuance (see Notes below).
+
+**Core doctrine affirmation through adoption:**
+- Return \`affirmed_core_doctrines\` as an array drawn only from these canonical keys: ${CORE_DOCTRINE_KEYS.join(", ")}.
+- Explicit adoption of a recognized historic confession is published doctrinal evidence, even when the church links to the confession on another website instead of repeating its articles. This is adoption of stated beliefs, not an assumption from denomination or reputation. For this field only, you may use the established doctrinal content of the recognized confession to interpret the church's source-grounded adoption statement.
+- Full subscription to the Second London Baptist Confession (1689) affirms all ten core doctrines. Its chapters 1, 2, 8, 11, 20, 31, and 32 address Scripture, God and the Trinity, Christ and His saving work, justification, the gospel, resurrection, and judgment. Assess other listed confessions against the same core definitions.
+- Read every published qualification and exception semantically in the source language. Include only doctrines that the church's actual subscription affirms. Exclude a doctrine if the church disclaims it, permits disagreement about it, or leaves its adherence ambiguous. Unspecified exceptions or mere use as a general guide cannot establish all ten; when their scope is unclear, return an empty array. An exception confined to a secondary matter does not erase affirmation of unrelated core doctrines.
+- A less demanding membership requirement does not cancel the church's stated doctrinal standard or its elders' subscription. Likewise, minor wording qualifications do not cancel substantive affirmation.
+- For historical discussion, a resource link without adoption, an unrecognized confession, or \`adopted = false\`, return an empty array. Never infer core affirmation from affiliation alone.
+- Keep the adoption quotation verbatim under \`Adopted Confession\`; do not fabricate separate doctrinal quotations from a confession that is not in the provided pages.
+
+Core definitions for this assessment:
+${CORE_DOCTRINES_DEFINITIONS}
 
 **CRITICAL REJECTIONS - Mark \`adopted = false\` for these:**
 - Baptist Faith and Message (2000 Edition / BFM 2000) - Southern Baptist Convention statement, NOT a historic Reformed confession. While biblically sound, it accommodates both Reformed and Arminian soteriology within the SBC. **Special handling:** Set \`name\` to "Baptist Faith and Message (2000 Edition)", note in denomination field as "Baptist (SBC affiliated/BFM 2000)", and mark \`adopted = false\`. This permits known secondary-position mapping without granting the Reformed badge or filling unsupported core doctrines.
@@ -320,11 +350,7 @@ STRICT BADGE OUTPUT RULES:
 - Do NOT create new badges or variants.
 - If none apply, return an empty array []
 
-- **🤝 Denomination/Network Affiliated**: If the church is a member of, affiliated with, or part of ANY formal denominational body, network, fellowship, or association. This includes:
-  - Traditional denominations: PCA, OPC, SBC, LCMS, CREC, RPCNA, ARP, etc.
-  - Reformed networks/fellowships: ARBCA (Association of Reformed Baptist Churches of America), FIRE (Fellowship of Independent Reformed Evangelicals), Acts 29, Sovereign Grace Churches, etc.
-  - Any organization that provides: formal membership, mutual accountability, cooperative missions, credentialing, or structured fellowship
-  - **CRITICAL**: Even if the network uses "independent" in its name (e.g., FIRE = Fellowship of **Independent** Reformed Evangelicals), it still counts as denominational affiliation because the church is part of a formal network with membership requirements and mutual support structures
+- **🤝 Denomination/Network Affiliated**: Only when \`affiliations\` contains a \`current_affiliation\` assessment supported by an explicit original-language quotation connecting this church to a named denominational body, network, fellowship, convention, or association. This includes formal membership, mutual accountability, ongoing cooperative missions, credentialing, or structured fellowship. An organization's name alone is not sufficient evidence. Interpret the relationship itself, regardless of how the organization describes its members' autonomy.
 
 - **🆓 Independent**: If the church is **truly autonomous** with NO formal denominational ties, networks, fellowships, or associations. The church must:
   - Have no formal membership in any denomination, network, or fellowship
@@ -344,17 +370,14 @@ STRICT BADGE OUTPUT RULES:
 - If the church is explicitly autonomous with NO formal ties to ANY network/denomination → use 🆓 Independent  
 - If unclear → omit both
 
-**COMMON CONFUSION**: Churches may describe themselves as "independent" while also being part of a network/fellowship. In these cases, ALWAYS prioritize the network affiliation over the self-description. A church that is "independent Baptist but part of ARBCA" should get 🤝 Denomination/Network Affiliated, NOT 🆓 Independent.
+**COMMON CONFUSION**: Churches may describe themselves as autonomous while also belonging to a network or fellowship. In these cases, prioritize an explicitly evidenced current affiliation over the general self-description.
 
 **Notes:**
 If \`adopted = true\`, add a note:
 - \`label\`: "Adopted Confession"
 - \`text\`: One short verbatim original-language quotation that explicitly shows adoption, including any qualification in the source wording
 - \`source_url\`: URL containing that exact quotation
-If "🤝 Denomination/Network Affiliated" badge is present, add a note:
-- \`label\`: "Denomination Affiliation" OR "Network Affiliation" (use "Network Affiliation" for fellowships/networks like FIRE, Acts 29, ARBCA; use "Denomination Affiliation" for traditional denominations like PCA, SBC)
-- \`text\`: One short verbatim original-language quotation that explicitly states the affiliation
-- \`source_url\`: URL containing that exact quotation
+Record affiliation evidence in \`affiliations\`; do not duplicate it in \`notes\`. A validated current relationship will supply the displayed affiliation note and badge.
 
 Only add badges you have clear evidence for. Return empty array if none apply.`;
 

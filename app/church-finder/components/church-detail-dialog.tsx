@@ -112,6 +112,7 @@ export function ChurchDetailDialog({
 }: ChurchDetailDialogProps) {
   const { user } = useAuth();
   const evaluation = church?.evaluation;
+  const confessionInferredCore = evaluation?.raw.metadata?.confession_inferred_core ?? [];
   const status = evaluation?.status ?? null;
   const displayStatus: keyof typeof STATUS_CONFIG | null = church?.confessionAdopted
     ? "confessional"
@@ -404,18 +405,18 @@ export function ChurchDetailDialog({
                       ⚠️ Limited Doctrinal Information
                     </h3>
                     <p className="text-sm font-medium status-text--warning">
-                      The church&apos;s website does not clearly state several essential Christian doctrines.
+                      The available church statements and adopted confession do not establish every required essential doctrine.
                     </p>
                     <div className="rounded-md border border-destructive/30 bg-background p-4 shadow-sm">
                       <div className="flex items-center justify-between mb-3">
-                        <p className="font-semibold text-foreground">Essentials clearly stated on website:</p>
+                        <p className="font-semibold text-foreground">Essentials supported by published beliefs:</p>
                         <p className="text-2xl font-bold status-text--warning">
                           {Math.round(evaluation.coverageRatio * 100)}%
                         </p>
                       </div>
                       <p className="text-sm text-foreground/80 mb-3">
-                        {evaluation.coreOnSiteCount} out of {evaluation.coreTotalCount} essential doctrines are
-                        clearly affirmed on their website.
+                        {evaluation.coreOnSiteCount} of {evaluation.coreTotalCount} essential doctrines are directly stated
+                        {confessionInferredCore.length > 0 ? `, with ${confessionInferredCore.length} more affirmed through the adopted confession` : ""}.
                       </p>
                       <div className="rounded bg-muted/50 p-3">
                         <p className="text-sm text-foreground/90">
@@ -514,7 +515,7 @@ export function ChurchDetailDialog({
                       {church.confessionAdopted ? "Yes" : "No"}
                     </p>
                     <p>
-                      <span className="font-medium text-muted-foreground">Essentials on website:</span>{" "}
+                      <span className="font-medium text-muted-foreground">Essentials affirmed:</span>{" "}
                       {evaluation ? `${Math.round(evaluation.coverageRatio * 100)}%` : "Unknown"}
                     </p>
                   </div>
@@ -583,7 +584,7 @@ export function ChurchDetailDialog({
                       <div className="text-left">
                         <h3 className="text-lg font-semibold text-foreground">Core Doctrines</h3>
                         <p className="text-sm text-muted-foreground">
-                          Essential Christian beliefs from church statements
+                          Essential Christian beliefs from church statements and adopted confessions
                         </p>
                       </div>
                       <ChevronDown
@@ -596,6 +597,8 @@ export function ChurchDetailDialog({
                     <CollapsibleContent className="mt-4 space-y-3">
                       {Object.entries(evaluation.coreDoctrines).map(([key, value]) => {
                         const doctrineNote = coreDoctrineNotes.get(key);
+                        const throughConfession = confessionInferredCore.includes(key as CoreDoctrineKey);
+                        const confession = evaluation.raw.church.confession;
                         return (
                           <div
                             key={key}
@@ -623,7 +626,21 @@ export function ChurchDetailDialog({
                                 {value === "true" ? "✓ Affirmed" : value === "false" ? "✗ Denied" : "Unknown"}
                               </span>
                             </div>
-                            {doctrineNote ? (
+                            {throughConfession ? (
+                              <div className="mt-2 space-y-1 text-sm">
+                                <p className="text-foreground">Affirmed through the church&apos;s adoption of {confession.name}.</p>
+                                {confession.source_url && (
+                                  <a
+                                    href={confession.source_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center text-xs text-primary underline-offset-2 hover:underline"
+                                  >
+                                    View confession adoption →
+                                  </a>
+                                )}
+                              </div>
+                            ) : doctrineNote ? (
                               <div className="mt-2 space-y-1 text-sm">
                                 <p className="text-foreground">{doctrineNote.text}</p>
                                 {doctrineNote.sourceUrl && (
@@ -640,7 +657,7 @@ export function ChurchDetailDialog({
                             ) : (
                               <p className="mt-2 text-sm text-muted-foreground italic">
                                 {value === "true"
-                                  ? "Affirmed through church's adopted confession or denomination."
+                                  ? "Affirmed in the saved evaluation; a direct quotation is unavailable."
                                   : value === "false"
                                     ? "This church explicitly denies this essential Christian doctrine."
                                     : "Position unclear from available church statements."}
@@ -750,8 +767,8 @@ export function ChurchDetailDialog({
                 <Info className="h-4 w-4 text-primary" />
                 <AlertTitle className="text-foreground font-semibold">About these evaluations</AlertTitle>
                 <AlertDescription className="text-foreground/80">
-                  Our summaries rely on what a church publishes on its website. If something is not explicitly stated
-                  online, we cannot infer their position. If you spot an error, please{" "}
+                  Our summaries rely on the church&apos;s published statements and explicitly adopted confessions.
+                  Positions unsupported by that evidence remain unknown. If you spot an error, please{" "}
                   <a
                     href="mailto:contact@calvinistparrotministries.org"
                     className="text-primary underline underline-offset-2 hover:no-underline"

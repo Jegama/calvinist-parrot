@@ -61,7 +61,7 @@ SERMON_RUNTIME=appwrite
 SERMON_DATABASE_URL=<development Neon URL, dedicated worker role>
 GEMINI_API_KEY=<worker Gemini key>
 SERMON_AUDIO_BUCKET_ID=<the bucket ID above>
-SERMON_GEMINI_MODEL=gemini-3.6-flash
+SERMON_GEMINI_MODEL=gemini-3.8-flash
 SERMON_SOFT_DEADLINE_SECONDS=840
 SERMON_MAX_PARALLEL_SCORING_RUNS=9
 ```

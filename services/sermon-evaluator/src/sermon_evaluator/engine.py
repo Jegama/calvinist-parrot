@@ -39,7 +39,7 @@ class SermonEvaluationEngine:
 
     def __init__(
         self,
-        model: str = "gemini-3.6-flash",
+        model: str = "gemini-3.8-flash",
         *,
         provider: Optional[Any] = None,
         apply_duration_adjustment: bool = False,

@@ -225,7 +225,7 @@ class SermonEvaluationService:
         runtime = os.getenv("SERMON_RUNTIME", "appwrite").strip().lower()
         if runtime not in {"local", "appwrite"}:
             raise ValueError("SERMON_RUNTIME must be either local or appwrite")
-        model = os.getenv("SERMON_GEMINI_MODEL", "gemini-3.6-flash")
+        model = os.getenv("SERMON_GEMINI_MODEL", "gemini-3.8-flash")
         return cls(
             persistence=PsycopgPersistence(),
             storage=(

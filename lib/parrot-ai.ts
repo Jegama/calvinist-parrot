@@ -50,7 +50,7 @@ export interface StructuredOutputResult<T> {
 
 export const DEFAULT_MODEL: ModelSpec = {
   provider: "gemini",
-  model: "gemini-3.6-flash",
+  model: "gemini-3.8-flash",
 };
 
 // ---------------------------------------------------------------------------

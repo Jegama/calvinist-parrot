@@ -34,6 +34,7 @@ export interface BasicFieldsResponse {
     email: string | null;
   };
   service_times: string[];
+  affiliation_pages: string[];
   best_pages_for: {
     beliefs: string | null;
     confession: string | null;
@@ -78,6 +79,7 @@ export interface TertiaryDoctrinesResponse {
 export interface DenominationConfessionResponse {
   denomination: DenominationInfo;
   confession: ConfessionInfo;
+  affiliations?: ChurchAffiliationEvidence[];
   badges: string[];
   notes: ChurchNote[];
 }
@@ -92,6 +94,9 @@ export interface ChurchEvaluationMetadata {
   prompt_version: string;
   policy_version: string;
   evaluated_at: string;
+  confession_inferred_core?: CoreDoctrineKey[];
+  reprocessed_from_evaluation_id?: string;
+  reprocessed_at?: string;
   source_pages: Array<{
     requested_url: string | null;
     resolved_url: string | null;
@@ -127,6 +132,13 @@ export interface ChurchNote {
   source_url: string | null;
 }
 
+export interface ChurchAffiliationEvidence {
+  organization: string;
+  relationship: "current_affiliation" | "past_affiliation" | "no_affiliation" | "resource_or_mention" | "unclear";
+  text: string;
+  source_url: string;
+}
+
 export interface DenominationInfo {
   label: string | null;
   confidence: number | null;
@@ -137,6 +149,8 @@ export interface ConfessionInfo {
   adopted: boolean;
   name: string | null;
   source_url: string | null;
+  // Optional for historical evaluations; absence never authorizes inference.
+  affirmed_core_doctrines?: CoreDoctrineKey[];
 }
 
 export interface ChurchEvaluationRaw {
@@ -162,6 +176,8 @@ export interface ChurchEvaluationRaw {
     };
     denomination: DenominationInfo;
     confession: ConfessionInfo;
+    affiliation_pages?: string[];
+    affiliations?: ChurchAffiliationEvidence[];
     core_doctrines: CoreDoctrineMap;
     secondary: {
       baptism: string | null;

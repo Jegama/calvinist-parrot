@@ -8,9 +8,6 @@ import {
   getChatResponseSchema,
   legacyGetChatResponseSchema,
   legacyParrotChatRequestSchema,
-  legacyQaRequestSchema,
-  qaRequestSchema,
-  qaStreamEventSchema,
   sendChatMessageRequestSchema,
   stopChatRequestSchema,
   stopChatResponseSchema,
@@ -22,12 +19,10 @@ import {
   type OpenApiDocument,
   zodToOpenApiSchema,
 } from "./openapi";
+import { QA_RETIREMENT_HEADERS, QA_RETIREMENT_MESSAGE } from "./qa-retirement";
 
 const chatStreamDescription =
   "Newline-delimited JSON. Each line is one complete JSON object matching ChatStreamEvent. Once streaming begins, runtime failures are reported in-band as `error` events because the HTTP status has already been sent.";
-
-const qaStreamDescription =
-  "Newline-delimited JSON. Each line is one complete JSON object matching QaStreamEvent. Once streaming begins, runtime failures are reported in-band as `error` events because the HTTP status has already been sent.";
 
 const exampleIds = {
   chatId: "cm5h7x9k20000v8b4r3m2n1q0",
@@ -100,15 +95,25 @@ const stopChatResponseExample = {
   completed: false,
 };
 
-const qaRequestExample = {
-  question: "What is the doctrine of the Trinity?",
-  denomination: "reformed-baptist",
-};
-
-const qaStreamEventExample = {
-  type: "reviewed_answer",
-  content:
-    "The Bible teaches that the one true God eternally exists as Father, Son, and Holy Spirit.",
+const retiredQaResponses = {
+  "410": {
+    description:
+      "Counsel of Three is retired. Start a Parrot chat with POST /api/v1/chats instead.",
+    content: jsonBody(schemaRef("ErrorResponse"), {
+      error: QA_RETIREMENT_MESSAGE,
+    }),
+    headers: {
+      Deprecation: {
+        description: "RFC 9745 date when this endpoint was retired.",
+        schema: { type: "string", example: QA_RETIREMENT_HEADERS.Deprecation },
+      },
+      Link: {
+        description:
+          "Migration documentation and the replacement chat endpoint.",
+        schema: { type: "string", example: QA_RETIREMENT_HEADERS.Link },
+      },
+    },
+  },
 };
 
 const errorResponses = {
@@ -183,12 +188,15 @@ export function buildSpec(): OpenApiDocument {
       title: "Calvinist Parrot Conversational API",
       version: "1.0.0",
       description:
-        "Versioned contracts for Calvinist Parrot chat and Counsel of Three QA. Browser identity is always resolved server-side from the Appwrite session or server-managed guest cookie; v1 clients must not send `userId`.",
+        "Versioned contracts for Calvinist Parrot chat and retirement responses for Counsel of Three QA. Browser identity is always resolved server-side from the Appwrite session or server-managed guest cookie; v1 clients must not send `userId`.",
     },
     servers: [{ url: "/", description: "Current Calvinist Parrot origin" }],
     tags: [
       { name: "Chat", description: "LangGraph-backed conversations." },
-      { name: "QA", description: "Counsel of Three question answering." },
+      {
+        name: "QA",
+        description: "Retired Counsel of Three endpoints. Use Parrot chat.",
+      },
       {
         name: "Legacy",
         description:
@@ -308,22 +316,11 @@ export function buildSpec(): OpenApiDocument {
         post: {
           tags: ["QA"],
           operationId: "askQa",
-          summary: "Stream a Counsel of Three answer",
-          requestBody: {
-            required: true,
-            content: jsonBody(schemaRef("QaRequest"), qaRequestExample),
-          },
-          responses: {
-            "200": {
-              description: "The QA stream started.",
-              content: ndjsonBody(
-                schemaRef("QaStreamEvent"),
-                qaStreamDescription,
-                qaStreamEventExample,
-              ),
-            },
-            ...errorResponses,
-          },
+          summary: "Retired Counsel of Three endpoint",
+          deprecated: true,
+          description:
+            "New Q&A requests are no longer accepted. Use POST /api/v1/chats and the chat message stream instead. Saved answers are preserved.",
+          responses: retiredQaResponses,
         },
       },
       "/api/parrot-chat": {
@@ -388,37 +385,28 @@ export function buildSpec(): OpenApiDocument {
         post: {
           tags: ["Legacy"],
           operationId: "legacyParrotQa",
-          summary: "Legacy Counsel of Three stream",
+          summary: "Retired legacy Counsel of Three endpoint",
           deprecated: true,
           description:
-            "Deprecated compatibility shim. Migrate to `POST /api/v1/qa`.",
-          requestBody: {
-            required: true,
-            content: jsonBody(schemaRef("LegacyQaRequest")),
-          },
-          responses: withLegacyResponseHeaders({
-            "200": {
-              description:
-                "Legacy NDJSON payload served with its historical text media type.",
-              content: {
-                "text/plain": {
-                  schema: schemaRef("QaStreamEvent"),
-                  description: qaStreamDescription,
-                },
-              },
-            },
-            ...errorResponses,
-          }),
+            "Retired. Migrate to POST /api/v1/chats; POST /api/v1/qa is also retired.",
+          responses: withLegacyResponseHeaders(retiredQaResponses),
+        },
+      },
+      "/api/elaborate": {
+        post: {
+          tags: ["QA"],
+          operationId: "retiredQaElaborate",
+          summary: "Retired Counsel of Three elaboration endpoint",
+          deprecated: true,
+          description: "Continue questions in Parrot chat instead.",
+          responses: retiredQaResponses,
         },
       },
     },
     components: {
       schemas: {
         ErrorResponse: zodToOpenApiSchema(errorResponseSchema),
-        CreateChatRequest: zodToOpenApiSchema(
-          createChatRequestSchema,
-          "input",
-        ),
+        CreateChatRequest: zodToOpenApiSchema(createChatRequestSchema, "input"),
         CreateChatResponse: zodToOpenApiSchema(createChatResponseSchema),
         Chat: zodToOpenApiSchema(chatSchema),
         ChatMessage: zodToOpenApiSchema(chatMessageSchema),
@@ -430,16 +418,11 @@ export function buildSpec(): OpenApiDocument {
         ChatStreamEvent: zodToOpenApiSchema(chatStreamEventSchema),
         StopChatRequest: zodToOpenApiSchema(stopChatRequestSchema, "input"),
         StopChatResponse: zodToOpenApiSchema(stopChatResponseSchema),
-        QaRequest: zodToOpenApiSchema(qaRequestSchema, "input"),
-        QaStreamEvent: zodToOpenApiSchema(qaStreamEventSchema),
         LegacyParrotChatRequest: zodToOpenApiSchema(
           legacyParrotChatRequestSchema,
           "input",
         ),
-        LegacyGetChatResponse: zodToOpenApiSchema(
-          legacyGetChatResponseSchema,
-        ),
-        LegacyQaRequest: zodToOpenApiSchema(legacyQaRequestSchema, "input"),
+        LegacyGetChatResponse: zodToOpenApiSchema(legacyGetChatResponseSchema),
       },
     },
   };

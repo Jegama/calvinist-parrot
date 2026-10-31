@@ -3,7 +3,17 @@ import type { CoreDoctrineKey } from "../../types/church";
 
 export type ChurchBadge = keyof typeof badgesJson;
 
-export const EVALUATION_POLICY_VERSION = "2026-07-26";
+export const EVALUATION_POLICY_VERSION = "2026-10-31-affiliation";
+
+export const HISTORIC_REFORMED_CONFESSIONS = [
+  "Westminster Confession of Faith (1646/47)",
+  "Second London Baptist Confession (1689)",
+  "First London Baptist Confession (1644/46)",
+  "Belgic Confession (1561) + Heidelberg Catechism (1563) + Canons of Dort (1619)",
+  "Second Helvetic Confession (1566)",
+  "Irish Articles (1615)",
+  "Savoy Declaration (1658)",
+] as const;
 export const MIN_SOUND_COVERAGE = 0.6;
 export const MIN_RECOMMENDED_COVERAGE = 0.8;
 

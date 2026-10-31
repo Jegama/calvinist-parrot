@@ -141,11 +141,6 @@ export function Header() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="bg-card border-border shadow-lg min-w-[12rem]">
                   <DropdownMenuItem asChild>
-                    <Link href="/parrot-qa" prefetch={false} className="w-full">
-                      Parrot QA (Classic)
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
                     <Link href="/llm-evaluation-dashboard" prefetch={false} className="w-full">
                       AI Evaluation Dashboard
                     </Link>
@@ -207,11 +202,6 @@ export function Header() {
                 <DropdownMenuItem asChild>
                   <Link href="/about" prefetch={false} className="w-full">
                     About
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/parrot-qa" prefetch={false} className="w-full">
-                    Parrot QA (Labs)
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>

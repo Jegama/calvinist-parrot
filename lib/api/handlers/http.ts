@@ -12,8 +12,7 @@ export function recordLegacyApiUse(
   request: Request,
   route: LegacyApiRoute,
 ) {
-  const replacement =
-    route === "/api/parrot-chat" ? "/api/v1/chats" : "/api/v1/qa";
+  const replacement = "/api/v1/chats";
 
   console.warn(
     JSON.stringify({

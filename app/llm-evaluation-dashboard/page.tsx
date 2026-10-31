@@ -6,7 +6,7 @@ import { DisableShrinkingHeader } from "./disable-shrinking-header";
 export const metadata = {
   title: "AI Model Performance Dashboard | Calvinist Parrot",
   description:
-    "See which AI models are best at answering theological questions. We tested Google, OpenAI, xAI, and Anthropic across 500+ questions and multiple prompt versions.",
+    "Compare AI model scores on 500 theological questions using versioned judge panels, historical prompt comparisons, and transparent judge-agreement diagnostics.",
 };
 
 export default async function DashboardPage() {

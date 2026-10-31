@@ -10,49 +10,76 @@ import {
 
 const masterCsv = fs.readFileSync(
   path.join(process.cwd(), "content/data/api_evals_master.csv"),
-  "utf8"
+  "utf8",
 );
 
 describe("vertical evaluation master CSV", () => {
   it("parses one validated object per judge run", () => {
     const runs = parseEvaluationRuns(masterCsv);
 
-    expect(runs).toHaveLength(37);
-    expect(new Set(runs.map((run) => run.runId)).size).toBe(37);
+    const rows = parse(masterCsv, {
+      columns: true,
+      skip_empty_lines: true,
+    }) as Record<string, string>[];
+    expect(runs).toHaveLength(rows.length);
+    expect(new Set(runs.map((run) => run.runId)).size).toBe(runs.length);
     expect(Object.keys(runs[0].scores)).toHaveLength(19);
-    expect(runs.filter((run) => run.errorCount > 0)).toHaveLength(3);
-    expect(runs.filter((run) => run.errorCount > 0).map((run) => run.questionCount)).toEqual([
-      499, 499, 499,
-    ]);
+    for (const [index, run] of runs.entries()) {
+      expect(run.questionCount).toBe(Number(rows[index].question_count));
+      expect(run.errorCount).toBe(Number(rows[index].error_count));
+    }
+  });
+
+  it("keeps successful-question counts separate from failed attempts recovered by retries", () => {
+    const [row] = parse(masterCsv, {
+      columns: true,
+      skip_empty_lines: true,
+    }) as Record<string, string>[];
+    const headers = Object.keys(row);
+    const recovered = { ...row, question_count: "500", error_count: "2" };
+    const csv = [
+      headers,
+      headers.map((key) => recovered[key as keyof typeof recovered]),
+    ]
+      .map((cells) =>
+        cells.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","),
+      )
+      .join("\n");
+    expect(parseEvaluationRuns(csv)[0]).toMatchObject({
+      questionCount: 500,
+      errorCount: 2,
+    });
   });
 
   it("uses answers_label as the stable identity across judges", () => {
     const runs = parseEvaluationRuns(masterCsv);
     const answerRuns = runs.filter(
-      (run) => run.answersLabel === "openai-gpt-5-mini-v1_4"
+      (run) => run.answersLabel === "openai-gpt-5-mini-v1_4",
     );
 
-    expect(new Set(answerRuns.map((run) => run.judgeModel))).toEqual(
-      new Set(["gpt-5-mini", "gpt-5.4-mini", "gpt-5.6-luna"])
+    expect(answerRuns.map((run) => run.judgeModel)).toEqual(
+      expect.arrayContaining(["gpt-5-mini", "gpt-5.4-mini", "gpt-5.6-luna"]),
     );
-    expect(new Set(answerRuns.map((run) => run.runId)).size).toBe(3);
+    expect(new Set(answerRuns.map((run) => run.runId)).size).toBe(
+      answerRuns.length,
+    );
   });
 
   it("rejects a missing required column", () => {
     const malformed = masterCsv.replace(
       "final_overall_stdev",
-      "renamed_final_overall_stdev"
+      "renamed_final_overall_stdev",
     );
     expect(() => parseEvaluationRuns(malformed)).toThrow(
-      /missing required columns: final_overall_stdev/
+      /missing required columns: final_overall_stdev/,
     );
   });
 
   it("rejects duplicate judge-run identities", () => {
     const firstDataRow = masterCsv.trimEnd().split("\n")[1];
-    expect(() => parseEvaluationRuns(`${masterCsv.trimEnd()}\n${firstDataRow}\n`)).toThrow(
-      /duplicate run_id/
-    );
+    expect(() =>
+      parseEvaluationRuns(`${masterCsv.trimEnd()}\n${firstDataRow}\n`),
+    ).toThrow(/duplicate run_id/);
   });
 });
 
@@ -60,7 +87,7 @@ describe("historical reconciliation", () => {
   it("preserves all 450 published mean cells from the wide CSV", () => {
     const wideCsv = fs.readFileSync(
       path.join(process.cwd(), "content/data/api_evals_comparison.csv"),
-      "utf8"
+      "utf8",
     );
     const rows = parse(wideCsv, { relax_column_count: true }) as string[][];
     const headers = rows[0].slice(2);
@@ -68,7 +95,7 @@ describe("historical reconciliation", () => {
     const metadata = new Map(
       rows
         .filter((row) => row[0] === "Meta")
-        .map((row) => [row[1], row.slice(2)] as const)
+        .map((row) => [row[1], row.slice(2)] as const),
     );
     const runs = parseEvaluationRuns(masterCsv);
 
@@ -84,7 +111,7 @@ describe("historical reconciliation", () => {
         (candidate) =>
           candidate.answersLabel === answersLabel &&
           candidate.judgeModel === judge &&
-          candidate.evalVersion === evalVersion
+          candidate.evalVersion === evalVersion,
       );
       expect(run, `Missing master run for ${header}`).toBeDefined();
 
@@ -94,11 +121,14 @@ describe("historical reconciliation", () => {
             (metric.criterion === row[0] && metric.subCriterion === row[1]) ||
             (row[0] === "" &&
               row[1] === "Final_Overall" &&
-              metric.key === "finalOverall")
+              metric.key === "finalOverall"),
         );
-        expect(definition, `Missing metric mapping for ${row[0]}/${row[1]}`).toBeDefined();
+        expect(
+          definition,
+          `Missing metric mapping for ${row[0]}/${row[1]}`,
+        ).toBeDefined();
         expect((run as EvaluationRun).scores[definition!.key].mean).toBe(
-          Number(row[columnIndex + 2])
+          Number(row[columnIndex + 2]),
         );
         reconciledCells += 1;
       });
