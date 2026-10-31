@@ -113,4 +113,29 @@ describe("church finder multilingual prompt contract", () => {
       "`text`: Brief explanation of what you found",
     );
   });
+
+  it("distinguishes adopted doctrine from affiliation and respects qualified subscription", () => {
+    expect(DENOMINATION_CONFESSION_PROMPT).toContain("affirmed_core_doctrines");
+    expect(DENOMINATION_CONFESSION_PROMPT).toContain("return the exact canonical name");
+    expect(DENOMINATION_CONFESSION_PROMPT).toContain("Full subscription to the Second London Baptist Confession (1689) affirms all ten core doctrines.");
+    expect(DENOMINATION_CONFESSION_PROMPT).toContain("Read every published qualification and exception semantically in the source language.");
+    expect(DENOMINATION_CONFESSION_PROMPT).toContain("Never infer core affirmation from affiliation alone.");
+    expect(CORE_DOCTRINES_PROMPT).toContain("Published confession text adopted as the church's doctrinal standard is the church's own doctrinal evidence.");
+  });
+
+  it("discovers affiliation links semantically before their target pages are fetched", () => {
+    expect(BASIC_FIELDS_PROMPT).toContain("affiliation_pages");
+    expect(BASIC_FIELDS_PROMPT).toContain("even when its own body has not been fetched yet");
+    expect(BASIC_FIELDS_PROMPT).toContain("not a list of organization names, English keywords, or URL patterns");
+    expect(BASIC_FIELDS_PROMPT).toContain("A navigation link is a discovery lead, not evidence");
+    expect(BASIC_FIELDS_PROMPT).toContain("Never invent a path");
+  });
+
+  it("requires a current relationship quotation rather than an organization mention", () => {
+    expect(DENOMINATION_CONFESSION_PROMPT).toContain("the quotation must explicitly connect this church to the named organization");
+    expect(DENOMINATION_CONFESSION_PROMPT).toContain("never use an English keyword list, acronym allowlist, or organization-specific rule");
+    expect(DENOMINATION_CONFESSION_PROMPT).toContain("Classify those as `resource_or_mention` or `unclear`");
+    expect(DENOMINATION_CONFESSION_PROMPT).toContain("Preserve the subject, relationship, negation, and time qualifications");
+    expect(DENOMINATION_CONFESSION_PROMPT).toContain("Failure to fetch a candidate is not permission to infer affiliation");
+  });
 });

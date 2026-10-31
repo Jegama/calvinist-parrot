@@ -164,7 +164,7 @@ describe("postProcessEvaluation", () => {
     expect(result.badges).toContain("📜 Reformed");
   });
 
-  it("does not let an adopted confession replace grounded core evidence", () => {
+  it("does not infer core doctrines from a legacy adopted flag alone", () => {
     const result = postProcessEvaluation(evaluationFixture({
       core: withUnknown(
         "trinity",

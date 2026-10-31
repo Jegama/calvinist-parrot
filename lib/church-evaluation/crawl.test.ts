@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  CHURCH_CRAWL_INSTRUCTIONS,
   crawlChurchSite,
   dropAnchorDupes,
   mergeExtractedPage,
@@ -8,6 +9,10 @@ import {
 } from "./crawl";
 
 describe("church source preparation", () => {
+  it("respects Tavily's 400-character instructions limit", () => {
+    expect(Array.from(CHURCH_CRAWL_INSTRUCTIONS).length).toBeLessThanOrEqual(400);
+  });
+
   it("preserves requested and resolved URLs when extraction follows a redirect", () => {
     const pages = mergeExtractedPage(
       [{
@@ -90,6 +95,9 @@ describe("church source preparation", () => {
       ["https://example.church"],
       expect.objectContaining({ timeout: 25 }),
     );
+    expect(client.crawl.mock.calls[0]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ instructions: expect.stringContaining("network affiliations and ongoing cooperative relationships") }),
+    ]));
     expect(result.base_url).toBe("https://example.church");
   });
 });

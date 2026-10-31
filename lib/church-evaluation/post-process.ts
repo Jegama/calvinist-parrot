@@ -75,6 +75,13 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): ProcessedChurch
   const lacksEndorsementDetail =
     coverageRatio < MIN_SOUND_COVERAGE || !hasRequiredCoreAffirmations;
 
+  // Coverage warnings are derived from the combined evidence, not from a
+  // parallel model call that may have missed the adopted confession.
+  const evidenceBadges = llmBadges.filter((badge) =>
+    lacksEndorsementDetail ||
+    (badge !== "⚠️ Low Essentials Coverage" && badge !== "ℹ️ Minimal Doctrinal Detail")
+  );
+
   if (lacksEndorsementDetail) {
     computedBadges.push("⚠️ Low Essentials Coverage");
   }
@@ -99,7 +106,7 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): ProcessedChurch
   }
 
   const allBadges = filterAllowlistedBadges([
-    ...new Set([...computedBadges, ...llmBadges]),
+    ...new Set([...computedBadges, ...evidenceBadges]),
   ]);
 
   const hasCriticalRedFlag = allBadges.some((badge) =>
@@ -135,7 +142,10 @@ export function postProcessEvaluation(raw: ChurchEvaluationRaw): ProcessedChurch
     normalizedCore,
     badges: allBadges,
     coverageRatio,
-    coreOnSiteCount: trueCount,
+    coreOnSiteCount: CORE_DOCTRINE_KEYS.filter((key) =>
+      normalizedCore[key] === "true" &&
+      !raw.metadata?.confession_inferred_core?.includes(key)
+    ).length,
     status,
   };
 }

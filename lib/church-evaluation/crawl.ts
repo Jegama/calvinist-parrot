@@ -7,6 +7,10 @@ import { ChurchEvaluationUpstreamError } from "./runtime";
 export const TAVILY_CRAWL_TIMEOUT_SECONDS = 75;
 export const TAVILY_EXTRACT_TIMEOUT_SECONDS = 30;
 
+// Tavily rejects instructions longer than 400 characters with HTTP 422.
+export const CHURCH_CRAWL_INSTRUCTIONS =
+  "Semantically find official pages in any language: beliefs/confessions, addresses, clergy/leaders, denominational or network affiliations and ongoing cooperative relationships, ministries, and home/community groups. Follow relevant links to explicit relationship statements, including unfamiliar or abbreviated labels. Do not depend on English page titles or URL words.";
+
 export type ChurchSourcePage = {
   url?: string;
   requestedUrl?: string;
@@ -211,8 +215,7 @@ export async function crawlChurchSite(
   try {
     const [crawlResponse, rootPage] = await Promise.all([
       client.crawl(website, {
-        instructions:
-          "The website may be written in any language. Semantically locate official pages covering: the church's doctrinal statement or beliefs; church and campus addresses; clergy and governing leaders; ministries; and home, community, or small groups. Do not depend on English page titles or URL words.",
+        instructions: CHURCH_CRAWL_INSTRUCTIONS,
         maxDepth: 2,
         extractDepth: "advanced",
         allowExternal: false,

@@ -3,13 +3,18 @@ import { describe, expect, it } from "vitest";
 import type {
   CoreDoctrinesResponse,
   CoreDoctrineMap,
+  DenominationConfessionResponse,
   RedFlagsResponse,
 } from "@/types/church";
 
 import {
+  applyConfessionCoreEvidence,
   validateCoreDoctrineEvidence,
   validateRedFlagEvidence,
 } from "./evidence";
+import { CORE_DOCTRINE_KEYS } from "../schemas/church-finder";
+import { postProcessEvaluation } from "./post-process";
+import type { ChurchEvaluationRaw } from "@/types/church";
 
 const unknownCore = {
   trinity: "unknown",
@@ -248,5 +253,130 @@ describe("validateRedFlagEvidence", () => {
 
     expect(result.badges).toEqual(["⚠️ Prosperity Gospel"]);
     expect(result.notes).toEqual([response.notes[1]]);
+  });
+});
+
+describe("applyConfessionCoreEvidence", () => {
+  const sourceUrl = "https://example.church/beliefs";
+  const quote = "Nuestra iglesia adopta la Confesión Bautista de Londres de 1689 como su norma doctrinal.";
+  function confessionResponse(): DenominationConfessionResponse {
+    return {
+      denomination: { label: "Reformed Baptist", confidence: 1, signals: [] },
+      confession: {
+        adopted: true,
+        name: "Second London Baptist Confession (1689)",
+        source_url: sourceUrl,
+        affirmed_core_doctrines: [...CORE_DOCTRINE_KEYS],
+      },
+      badges: [],
+      notes: [{ label: "Adopted Confession", text: quote, source_url: sourceUrl }],
+    };
+  }
+
+  it("accepts source-language adoption evidence and records only supplemented doctrines", () => {
+    const response = confessionResponse();
+    response.confession.source_url = `${sourceUrl}/redirected`;
+    const result = applyConfessionCoreEvidence(
+      { ...unknownCore, scripture_authority: "true" },
+      response,
+      [{ requestedUrl: sourceUrl, url: `${sourceUrl}/redirected`, rawContent: quote }],
+    );
+    expect(Object.values(result.coreDoctrines).every((value) => value === "true")).toBe(true);
+    expect(result.inferredKeys).toHaveLength(9);
+    expect(result.inferredKeys).not.toContain("scripture_authority");
+    expect(result.notes[0].text).toBe(quote);
+  });
+
+  it.each([
+    ["unadopted resource", { adopted: false }],
+    ["unrecognized confession", { name: "A new confession" }],
+    ["BFM 2000", { name: "Baptist Faith and Message (2000 Edition)" }],
+    ["missing adoption URL", { source_url: null }],
+    ["different adoption URL", { source_url: "https://example.church/elsewhere" }],
+    ["legacy evaluation without semantic assessment", { affirmed_core_doctrines: undefined }],
+    ["ambiguous qualified subscription", { affirmed_core_doctrines: [] }],
+  ])("does not supplement core doctrines for %s", (_, overrides) => {
+    const response = confessionResponse();
+    Object.assign(response.confession, overrides);
+    const result = applyConfessionCoreEvidence(unknownCore, response, [{ url: sourceUrl, rawContent: quote }]);
+    expect(result.coreDoctrines).toEqual(unknownCore);
+    expect(result.inferredKeys).toEqual([]);
+  });
+
+  it("rejects ungrounded adoption even when the model claims all doctrines", () => {
+    const result = applyConfessionCoreEvidence(unknownCore, confessionResponse(), [{
+      url: sourceUrl,
+      rawContent: "A church website without that quotation.",
+    }]);
+    expect(result.confession.adopted).toBe(false);
+    expect(result.inferredKeys).toEqual([]);
+  });
+
+  it("does not use an unrelated grounded note as adoption evidence", () => {
+    const response = confessionResponse();
+    response.notes[0].label = "Denomination Affiliation";
+    const result = applyConfessionCoreEvidence(unknownCore, response, [{ url: sourceUrl, rawContent: quote }]);
+    expect(result.confession.adopted).toBe(false);
+    expect(result.inferredKeys).toEqual([]);
+  });
+
+  it("respects a semantic exception and never overwrites an explicit denial", () => {
+    const response = confessionResponse();
+    response.confession.affirmed_core_doctrines = CORE_DOCTRINE_KEYS.filter((key) => key !== "resurrection_of_jesus");
+    const result = applyConfessionCoreEvidence(
+      { ...unknownCore, trinity: "false" },
+      response,
+      [{ url: sourceUrl, rawContent: quote }],
+    );
+    expect(result.coreDoctrines.trinity).toBe("false");
+    expect(result.coreDoctrines.resurrection_of_jesus).toBe("unknown");
+    expect(result.coreDoctrines.gospel).toBe("true");
+    expect(result.inferredKeys).toHaveLength(8);
+  });
+
+  it.each([
+    {
+      name: "Providence Church",
+      url: "https://providencechurchkaty.org/beliefs",
+      adoption: "Providence Church fully subscribes to the 1689 London Baptist Confession of Faith.",
+      core: { ...unknownCore, scripture_authority: "true" } as CoreDoctrineMap,
+      directCount: 1,
+    },
+    {
+      name: "Christian Fellowship Church",
+      url: "https://www.christianfc.org/our-confession-of-faith",
+      adoption: "Our church adopts this confession as our official doctrinal standard, recognizing two levels of adherence.",
+      core: Object.fromEntries(CORE_DOCTRINE_KEYS.map((key) => [
+        key, key === "trinity" || key === "resurrection_of_jesus" ? "unknown" : "true",
+      ])) as CoreDoctrineMap,
+      directCount: 8,
+    },
+  ])("corrects the saved $name pattern without inflating direct coverage", ({ name, url, adoption, core, directCount }) => {
+    const response = confessionResponse();
+    response.confession.source_url = url;
+    response.notes = [{ label: "Adopted Confession", text: adoption, source_url: url }];
+    const resolved = applyConfessionCoreEvidence(core, response, [{ url, rawContent: adoption }]);
+    const raw = {
+      metadata: { confession_inferred_core: resolved.inferredKeys },
+      church: {
+        name,
+        confession: resolved.confession,
+        core_doctrines: resolved.coreDoctrines,
+        notes: resolved.notes,
+        badges: ["📜 Reformed", "⚠️ Low Essentials Coverage", "ℹ️ Minimal Doctrinal Detail"],
+      },
+    } as ChurchEvaluationRaw;
+    const result = postProcessEvaluation(raw);
+    expect(result.status).toBe("recommended");
+    expect(result.coverageRatio).toBe(1);
+    expect(result.coreOnSiteCount).toBe(directCount);
+    expect(result.badges).not.toContain("⚠️ Low Essentials Coverage");
+    expect(result.badges).not.toContain("ℹ️ Minimal Doctrinal Detail");
+
+    raw.church.core_doctrines.trinity = "false";
+    expect(postProcessEvaluation(raw).status).toBe("not_endorsed");
+    raw.church.core_doctrines.trinity = "true";
+    raw.church.badges.push("⚠️ Prosperity Gospel");
+    expect(postProcessEvaluation(raw).status).toBe("not_endorsed");
   });
 });

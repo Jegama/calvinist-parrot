@@ -1,11 +1,14 @@
 import type {
   ChurchNote,
+  ChurchAffiliationEvidence,
   CoreDoctrinesResponse,
   CoreDoctrineKey,
   CoreDoctrineMap,
+  DenominationConfessionResponse,
   RedFlagsResponse,
 } from "../../types/church";
 import { CORE_DOCTRINE_KEYS } from "../schemas/church-finder";
+import { HISTORIC_REFORMED_CONFESSIONS } from "./policy";
 
 const MAX_EVIDENCE_QUOTE_CODE_POINTS = 500;
 
@@ -50,7 +53,7 @@ function normalizeDoctrineLabel(value: string): CoreDoctrineKey | null {
 }
 
 function findSourcePage(
-  note: ChurchNote,
+  note: Pick<ChurchNote, "source_url">,
   pages: EvidenceSourcePage[],
 ): EvidenceSourcePage | null {
   const noteUrl = normalizeSourceUrl(note.source_url);
@@ -100,6 +103,96 @@ export function filterGroundedNotes(
   pages: EvidenceSourcePage[],
 ): ChurchNote[] {
   return notes.filter((note) => isGroundedNote(note, pages));
+}
+
+const AFFILIATION_BADGE = "🤝 Denomination/Network Affiliated";
+const INDEPENDENT_BADGE = "🆓 Independent";
+
+function isAffiliationNote(note: ChurchNote): boolean {
+  return ["denomination affiliation", "network affiliation", "denomination/network affiliation", "denomination/network affiliated"]
+    .includes(normalizeCanonicalLabel(note.label));
+}
+
+/**
+ * Semantic relationship assessment belongs to the multilingual extraction
+ * prompt. Code verifies quotation grounding and gates the badge across all
+ * parallel calls; a legacy badge or a navigation quotation alone is insufficient.
+ */
+export function validateAffiliationEvidence(
+  response: {
+    affiliations?: ChurchAffiliationEvidence[];
+    badges: string[];
+    notes: ChurchNote[];
+  },
+  pages: EvidenceSourcePage[],
+) {
+  const affiliations = (response.affiliations ?? []).filter((affiliation) =>
+    affiliation.organization.trim().length > 0 &&
+    isGroundedNote({ ...affiliation, label: "Denomination Affiliation" }, pages)
+  );
+  const currentAffiliations = affiliations.filter(
+    (affiliation) => affiliation.relationship === "current_affiliation",
+  );
+  const hasAffiliation = currentAffiliations.length > 0;
+  const badges = response.badges.filter((badge) =>
+    badge !== AFFILIATION_BADGE && !(hasAffiliation && badge === INDEPENDENT_BADGE)
+  );
+  if (hasAffiliation) badges.push(AFFILIATION_BADGE);
+
+  return {
+    affiliations,
+    badges: [...new Set(badges)],
+    notes: [
+      ...response.notes.filter((note) => !isAffiliationNote(note)),
+      ...currentAffiliations.map((affiliation) => ({
+        label: "Denomination Affiliation",
+        text: affiliation.text,
+        source_url: affiliation.source_url,
+      })),
+    ],
+  };
+}
+
+/**
+ * The multilingual model assesses subscription and its exceptions. Code checks
+ * the canonical confession, cited adoption quotation, and requested doctrine
+ * keys before supplementing unknowns. Direct evidence (including denials) wins.
+ */
+export function applyConfessionCoreEvidence(
+  core: CoreDoctrineMap,
+  response: DenominationConfessionResponse,
+  pages: EvidenceSourcePage[],
+) {
+  const notes = filterGroundedNotes(response.notes, pages);
+  const confessionPage = findSourcePage(response.confession, pages);
+  const hasGroundedAdoption = Boolean(confessionPage) && notes.some((note) =>
+    normalizeCanonicalLabel(note.label) === "adopted confession" &&
+    findSourcePage(note, pages) === confessionPage
+  );
+  const recognizedConfession = HISTORIC_REFORMED_CONFESSIONS.some(
+    (name) => name === response.confession.name,
+  );
+  const adopted = response.confession.adopted && recognizedConfession && hasGroundedAdoption;
+  const assessedKeys = response.confession.affirmed_core_doctrines;
+  const affirmed = adopted && Array.isArray(assessedKeys)
+    ? CORE_DOCTRINE_KEYS.filter((key) => assessedKeys.includes(key))
+    : [];
+  const inferredKeys = affirmed.filter((key) => core[key] === "unknown");
+  const coreDoctrines = { ...core };
+  for (const key of inferredKeys) coreDoctrines[key] = "true";
+
+  return {
+    coreDoctrines,
+    inferredKeys,
+    confession: {
+      ...response.confession,
+      adopted,
+      affirmed_core_doctrines: affirmed,
+    },
+    notes: notes.filter((note) =>
+      adopted || normalizeCanonicalLabel(note.label) !== "adopted confession"
+    ),
+  };
 }
 
 /**
