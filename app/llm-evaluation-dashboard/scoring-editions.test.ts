@@ -51,6 +51,49 @@ describe("versioned scoring editions", () => {
     expect(coverage[0].presentJudgeCount).toBe(2);
   });
 
+  it.each(SCORING_EDITIONS)(
+    "ignores unrelated judges' metadata in $id regardless of row order",
+    (selectedEdition) => {
+      const runs = selectedEdition.judges.map((judge, index) =>
+        fixtureRun("model", judge.model, 3 + index / 2, {
+          questionCount: selectedEdition.judges.length === 1 ? 499 : 500,
+        }),
+      );
+      const unrelated = fixtureRun("model", "unselected-judge", 5, {
+        sourceDataset: "different.jsonl",
+        genModel: "different-model",
+        provider: "openai",
+        systemPromptLabel: "baseline",
+      });
+      const expected = buildEditionScores(runs, selectedEdition);
+      expect(expected.answers).toHaveLength(1);
+      expect(expected.coverage[0].complete).toBe(true);
+
+      for (const data of [[unrelated, ...runs], [...runs, unrelated]]) {
+        expect(buildEditionScores(data, selectedEdition)).toEqual(expected);
+      }
+    },
+  );
+
+  it("retains missing-judge coverage when no edition judge has a run", () => {
+    const run = fixtureRun("model", "unselected-judge", 5);
+    const { answers, coverage } = buildEditionScores([run], edition);
+
+    expect(answers).toEqual([]);
+    expect(coverage).toEqual([
+      {
+        answersLabel: run.answersLabel,
+        genModel: run.genModel,
+        provider: run.provider,
+        systemPromptLabel: run.systemPromptLabel,
+        missingJudges: edition.judges.map((judge) => judge.model),
+        issues: [],
+        presentJudgeCount: 0,
+        complete: false,
+      },
+    ]);
+  });
+
   it.each([
     { questionCount: 499 },
     { questionCount: 499, errorCount: 1 },

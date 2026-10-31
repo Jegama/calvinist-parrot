@@ -148,7 +148,6 @@ export function buildEditionScores(
   const answers: EditionAnswer[] = [];
   const coverage: CoverageEntry[] = [];
   for (const [answersLabel, group] of groups) {
-    const exemplar = group[0];
     const issues: string[] = [];
     const missingJudges: string[] = [];
     const selected: EvaluationRun[] = [];
@@ -159,6 +158,9 @@ export function buildEditionScores(
         issues.push(`Duplicate judgments from ${judge.model}`);
       else selected.push(matches[0]);
     }
+    // Other judges must not determine edition eligibility or answer metadata.
+    // With no selected runs, the group only supplies labels for incomplete coverage.
+    const exemplar = selected[0] ?? group[0];
     if (selected.some((run) => !haveMatchingAnswerMetadata(exemplar, run))) {
       issues.push("Answer metadata does not match across judges");
     }
