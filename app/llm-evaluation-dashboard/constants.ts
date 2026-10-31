@@ -24,6 +24,7 @@ const PROVIDER_BRANDS: Record<string, string> = {
 };
 
 const MODEL_LABELS: Record<string, string> = {
+  "claude-haiku-5-5": "Claude Haiku 5.5",
   "claude-haiku-4-5": "Claude Haiku 4.5",
   "claude-haiku-4-5-20251001": "Claude Haiku 4.5",
   "gemini-2.5-flash": "Gemini 2.5 Flash",
@@ -31,16 +32,20 @@ const MODEL_LABELS: Record<string, string> = {
   "gemini-3-flash": "Gemini 3 Flash",
   "gemini-3-flash-preview": "Gemini 3 Flash",
   "gemini-3.6-flash": "Gemini 3.6 Flash",
+  "gemini-3.5-flash": "Gemini 3.5 Flash",
+  "gemini-3.7-flash": "Gemini 3.7 Flash",
+  "gemini-3.8-flash": "Gemini 3.8 Flash",
   "gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite",
   "gpt-5-mini": "GPT-5 Mini",
   "gpt-5.4-mini": "GPT-5.4 Mini",
   "gpt-5.6-luna": "GPT-5.6 Luna",
+  "gpt-6-luna": "GPT-6 Luna",
   "grok-4-1-fast": "Grok 4.1 Fast",
   "grok-4-1-fast-reasoning": "Grok 4.1 Fast",
   "grok-4.5": "Grok 4.5",
 };
 
-export type JudgeRole = "primary" | "candidate" | "validator" | "legacy-validator";
+export type JudgeRole = "panel" | "historical" | "comparison";
 
 export interface JudgeRoleDefinition {
   role: JudgeRole;
@@ -50,36 +55,48 @@ export interface JudgeRoleDefinition {
 }
 
 const DEFAULT_JUDGE_ROLE: JudgeRoleDefinition = {
-  role: "validator",
-  label: "Validator",
-  description: "Independent comparison judge",
+  role: "comparison",
+  label: "Comparison judge",
+  description: "Recorded judgments available for paired comparisons",
   order: 2,
 };
 
 export const JUDGE_ROLE_CONFIG: Record<string, JudgeRoleDefinition> = {
   "gpt-5-mini": {
-    role: "primary",
-    label: "Primary judge",
-    description: "Reference judge used for dashboard rankings",
-    order: 0,
-  },
-  "gpt-5.6-luna": {
-    role: "candidate",
-    label: "Candidate judge",
-    description: "Stricter contender under calibration review",
+    role: "historical",
+    label: "Historical judge",
+    description: "Original single-judge edition and prompt comparisons",
     order: 1,
   },
-  "gpt-5.4-mini": {
-    role: "validator",
-    label: "Validator",
-    description: "Independent comparison judge",
-    order: 2,
+  "gpt-5.6-luna": {
+    role: "historical",
+    label: "Earlier panel judge",
+    description: "Member of the earlier four-judge panel",
+    order: 1,
   },
-  "gemini-3-flash-preview": {
-    role: "legacy-validator",
-    label: "Legacy validator",
-    description: "Historical cross-provider comparison judge",
-    order: 3,
+  "gemini-3.7-flash": {
+    role: "historical",
+    label: "Earlier panel judge",
+    description: "Member of the earlier four-judge panel",
+    order: 1,
+  },
+  "gpt-6-luna": {
+    role: "panel",
+    label: "Panel judge",
+    description: "Member of the three-family panel",
+    order: 0,
+  },
+  "gemini-3.8-flash": {
+    role: "panel",
+    label: "Panel judge",
+    description: "Member of the three-family panel",
+    order: 0,
+  },
+  "claude-haiku-5-5": {
+    role: "panel",
+    label: "Panel judge",
+    description: "Member of the three-family panel",
+    order: 0,
   },
 };
 
@@ -133,11 +150,7 @@ function humanizeModelIdentifier(model: string): string {
 
   const [family, ...rest] = tokens;
   const familyLabel =
-    family === "gpt"
-      ? "GPT"
-      : family === "xai"
-        ? "xAI"
-        : titleCase(family);
+    family === "gpt" ? "GPT" : family === "xai" ? "xAI" : titleCase(family);
 
   const versionTokens: string[] = [];
   let cursor = 0;
@@ -152,7 +165,10 @@ function humanizeModelIdentifier(model: string): string {
       ? `${familyLabel}-${version}`
       : `${familyLabel} ${version}`
     : familyLabel;
-  const suffix = rest.slice(cursor).map((token) => titleCase(token)).join(" ");
+  const suffix = rest
+    .slice(cursor)
+    .map((token) => titleCase(token))
+    .join(" ");
 
   return suffix ? `${prefix} ${suffix}` : prefix;
 }
@@ -173,9 +189,11 @@ export function inferProviderFromModel(model: string): string | null {
   const normalized = model.toLowerCase();
 
   if (normalized.includes("gemini")) return "google";
-  if (normalized.includes("gpt") || normalized.includes("openai")) return "openai";
+  if (normalized.includes("gpt") || normalized.includes("openai"))
+    return "openai";
   if (normalized.includes("grok") || normalized.includes("xai")) return "xai";
-  if (normalized.includes("claude") || normalized.includes("anthropic")) return "anthropic";
+  if (normalized.includes("claude") || normalized.includes("anthropic"))
+    return "anthropic";
 
   return null;
 }
@@ -191,7 +209,11 @@ export function formatModelLabel(model: string): string {
     .replace(/-reasoning$/i, "")
     .replace(/-\d{8}$/i, "");
 
-  return MODEL_LABELS[model] ?? MODEL_LABELS[normalized] ?? humanizeModelIdentifier(normalized);
+  return (
+    MODEL_LABELS[model] ??
+    MODEL_LABELS[normalized] ??
+    humanizeModelIdentifier(normalized)
+  );
 }
 
 export function getProviderColor(provider: string, light = false): string {
@@ -202,7 +224,10 @@ export function getProviderColor(provider: string, light = false): string {
     return knownColor;
   }
 
-  const fallback = FALLBACK_PROVIDER_COLORS[hashString(provider) % FALLBACK_PROVIDER_COLORS.length];
+  const fallback =
+    FALLBACK_PROVIDER_COLORS[
+      hashString(provider) % FALLBACK_PROVIDER_COLORS.length
+    ];
   return light ? fallback.replace(")", " / 0.5)") : fallback;
 }
 

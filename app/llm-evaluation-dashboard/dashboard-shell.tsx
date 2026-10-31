@@ -6,7 +6,7 @@ import type { EvaluationRun } from "./evaluation-metrics";
 const DashboardClient = dynamic(() => import("./dashboard-client"), {
   ssr: false,
   loading: () => (
-    <div className="min-h-screen p-4 md:p-8 space-y-4">
+    <div className="min-h-[calc(100vh-var(--app-header-height))] p-4 md:p-8 space-y-4">
       <div className="h-10 w-72 bg-muted animate-pulse rounded" />
       <div className="h-6 w-full max-w-2xl bg-muted animate-pulse rounded" />
       <div className="grid gap-4 md:grid-cols-2">

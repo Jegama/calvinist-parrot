@@ -1,820 +1,498 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { TrendingUp, Scale, Activity, Award, Info, BookOpen, ChevronDown } from "lucide-react";
+import { useState } from "react";
 import Link from "next/link";
+import { BookOpen } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { EvaluationRun } from "./evaluation-metrics";
 import { useDashboardMetrics } from "./hooks/use-dashboard-metrics";
+import {
+  DEFAULT_EDITION_ID,
+  HISTORICAL_EDITION_ID,
+  SCORING_EDITIONS,
+} from "./scoring-editions";
 import { TopPerformerBar } from "./charts/TopPerformerBar";
 import { PromptDeltaBar } from "./charts/PromptDeltaBar";
 import { ProviderSpreadScatter } from "./charts/ProviderSpreadScatter";
 import { RadarDeepDive } from "./charts/RadarDeepDive";
 import { CategoryScatter } from "./charts/CategoryScatter";
-import { formatModelLabel, formatPromptLabel, getProviderColor } from "./constants";
+import { formatModelLabel, formatPromptLabel } from "./constants";
 import { JudgeAnalysisPanel } from "./components/JudgeAnalysisPanel";
+import { EditionResults } from "./components/EditionResults";
 
-// Pearson correlation between x and y across the model landscape — used to
-// narrate whether the two categories rise together or trade off.
-const correlation = (points: Array<{ x: number; y: number }>) => {
-  if (points.length < 2) return 0;
-  const n = points.length;
-  const meanX = points.reduce((sum, p) => sum + p.x, 0) / n;
-  const meanY = points.reduce((sum, p) => sum + p.y, 0) / n;
-  let num = 0;
-  let denX = 0;
-  let denY = 0;
-  points.forEach((p) => {
-    const dx = p.x - meanX;
-    const dy = p.y - meanY;
-    num += dx * dy;
-    denX += dx * dx;
-    denY += dy * dy;
-  });
-  const denom = Math.sqrt(denX * denY);
-  return denom === 0 ? 0 : num / denom;
-};
-
-const describeCorrelation = (r: number): string => {
-  const abs = Math.abs(r);
-  if (abs < 0.2) return "little to no relationship";
-  if (abs < 0.5) return r > 0 ? "a weak positive relationship" : "a weak inverse relationship";
-  if (abs < 0.75) return r > 0 ? "a moderate positive relationship" : "a moderate trade-off";
-  return r > 0 ? "a strong positive relationship" : "a strong trade-off";
-};
-
-const buildPairNarrative = (
-  points: Array<{ label: string; providerLabel: string; x: number; y: number }>,
-  xName: string,
-  yName: string
-) => {
-  if (points.length === 0) return null;
-  const sortedByCombined = [...points].sort((a, b) => b.x + b.y - (a.x + a.y));
-  const leader = sortedByCombined[0];
-  const laggard = sortedByCombined[sortedByCombined.length - 1];
-  const r = correlation(points);
-  return {
-    leaderText: `${leader.label} (${leader.providerLabel}) sits closest to the top-right at ${leader.x.toFixed(2)} on ${xName} and ${leader.y.toFixed(2)} on ${yName}.`,
-    laggardText:
-      leader.label === laggard.label
-        ? null
-        : `${laggard.label} (${laggard.providerLabel}) trails in the bottom-left at ${laggard.x.toFixed(2)} and ${laggard.y.toFixed(2)}.`,
-    correlationText: `Across the ${points.length} models tested, there is ${describeCorrelation(r)} between the two categories (r = ${r.toFixed(2)}).`,
-  };
-};
-
-const Stat = ({
-  label,
-  value,
-  subtext,
-  color,
-  className,
-}: {
-  label: string;
-  value: string | number;
-  subtext?: string;
-  color?: string;
-  className?: string;
-}) => (
-  <div className={`flex flex-col ${className}`}>
-    <span className="text-sm opacity-80 font-medium uppercase tracking-wide">{label}</span>
-    <span className="text-3xl font-bold mt-1" style={{ color: color || "currentColor" }}>
-      {value}
-    </span>
-    {subtext && <span className="text-xs opacity-70 mt-1">{subtext}</span>}
-  </div>
-);
-
-interface DashboardClientProps {
-  data: EvaluationRun[];
-}
-
-export default function DashboardClient({ data }: DashboardClientProps) {
+export default function DashboardClient({ data }: { data: EvaluationRun[] }) {
+  const [editionId, setEditionId] = useState(DEFAULT_EDITION_ID);
+  const [requestedPrompt, setRequestedPrompt] = useState<string>();
   const [activeTab, setActiveTab] = useState("compare");
-  const {
-    activePromptLabel,
-    allCrossValidators,
-    baselinePromptLabel,
-    bestPerProvider,
-    evalVersions,
-    latestEvaluatedAt,
-    progressionPromptLabels,
-    promptDelta,
-    bestImprovement,
-    categoryScoresByModel,
-    primaryJudge,
-    providerSpread,
-    radarAdherence,
-    radarKindness,
-    radarInterfaith,
-    narrativeStats,
-    questionCountSummary,
-  } = useDashboardMetrics(data);
-
-  const ns = narrativeStats;
-  const modelCount = ns?.modelCount ?? 0;
-  const activePromptLabelDisplay = activePromptLabel ? formatPromptLabel(activePromptLabel) : "Current";
-  const baselinePromptLabelDisplay = baselinePromptLabel ? formatPromptLabel(baselinePromptLabel) : "Baseline";
-  const evaluatedDateDisplay =
-    latestEvaluatedAt && Date.parse(latestEvaluatedAt) > 0
-      ? new Intl.DateTimeFormat("en-US", {
-          dateStyle: "medium",
-          timeZone: "UTC",
-        }).format(new Date(latestEvaluatedAt))
-      : "N/A";
-
-  // Build dynamic prompt delta improvement cards
-  const promptDeltaCards = promptDelta.map((d) => ({
-    name: formatModelLabel(d.model),
-    pct: d.deltaPct.toFixed(0),
-  }));
-
-  // Build dynamic provider spread descriptions
-  const spreadDescriptions = providerSpread.map((ps) => {
-    const range = (ps.max - ps.min).toFixed(2);
-    const maxName = formatModelLabel(ps.maxModel);
-    const minName = formatModelLabel(ps.minModel);
-    const maxPrompt = formatPromptLabel(ps.maxPromptLabel);
-    const minPrompt = formatPromptLabel(ps.minPromptLabel);
-    let description: string;
-
-    if (ps.modelCount > 1) {
-      description = `${ps.modelCount} different models tested — ${maxName} on ${maxPrompt} (${ps.max.toFixed(2)}) is the ceiling, ${minName} on ${minPrompt} (${ps.min.toFixed(2)}) the floor. The ${range} spread reflects different models, not the same model varying across prompts.`;
-    } else if (ps.runCount === 1) {
-      description = `Single non-baseline run — ${maxName} scored ${ps.max.toFixed(2)} on ${maxPrompt}.`;
-    } else {
-      description = `${maxName} ranged from ${ps.min.toFixed(2)} on ${minPrompt} to ${ps.max.toFixed(2)} on ${maxPrompt} — ${range} spread across ${ps.runCount} prompt revisions.`;
-    }
-
-    return { provider: ps.provider, label: ps.label, fill: getProviderColor(ps.provider), description, runs: ps.runs };
-  });
-
-  // Three pair-wise views of per-model category scores for the Deep Dive scatters.
-  const { adherenceVsKindness, adherenceVsInterfaith, kindnessVsInterfaith } = useMemo(() => {
-    const toPoint = (
-      point: (typeof categoryScoresByModel)[number],
-      x: number,
-      y: number
-    ) => ({
-      model: point.model,
-      label: point.label,
-      provider: point.provider,
-      providerLabel: point.providerLabel,
-      fill: point.fill,
-      x,
-      y,
-    });
-    return {
-      adherenceVsKindness: categoryScoresByModel.map((p) => toPoint(p, p.adherence, p.kindness)),
-      adherenceVsInterfaith: categoryScoresByModel.map((p) => toPoint(p, p.adherence, p.interfaith)),
-      kindnessVsInterfaith: categoryScoresByModel.map((p) => toPoint(p, p.kindness, p.interfaith)),
-    };
-  }, [categoryScoresByModel]);
-
-  const adherenceKindnessNarrative = useMemo(
-    () => buildPairNarrative(adherenceVsKindness, "Adherence", "Kindness"),
-    [adherenceVsKindness]
+  const metrics = useDashboardMetrics(data, editionId, requestedPrompt);
+  const historical = useDashboardMetrics(
+    data,
+    HISTORICAL_EDITION_ID,
+    metrics.activePromptLabel ?? undefined,
   );
-  const adherenceInterfaithNarrative = useMemo(
-    () => buildPairNarrative(adherenceVsInterfaith, "Adherence", "Interfaith"),
-    [adherenceVsInterfaith]
+  const { edition, activePromptLabel, narrativeStats: stats } = metrics;
+  const isPanel = edition.judges.length > 1;
+  const promptLabel = activePromptLabel
+    ? formatPromptLabel(activePromptLabel)
+    : "No prompt";
+  const useHistoricalPrompt =
+    isPanel &&
+    metrics.promptDelta.length === 0 &&
+    historical.promptDelta.length > 0;
+  const progression = useHistoricalPrompt ? historical : metrics;
+  const totalWeight = edition.judges.reduce(
+    (sum, judge) => sum + judge.weight,
+    0,
   );
-  const kindnessInterfaithNarrative = useMemo(
-    () => buildPairNarrative(kindnessVsInterfaith, "Kindness", "Interfaith"),
-    [kindnessVsInterfaith]
-  );
-
-  // Per-provider averages across the models tested. The scatter shows per-model
-  // dots; this breakdown surfaces the provider-level signal the chart hides.
-  const providerAverages = useMemo(() => {
-    const groups = new Map<
-      string,
-      { providerLabel: string; fill: string; adherence: number[]; kindness: number[]; interfaith: number[] }
-    >();
-    categoryScoresByModel.forEach((point) => {
-      if (!groups.has(point.provider)) {
-        groups.set(point.provider, {
-          providerLabel: point.providerLabel,
-          fill: point.fill,
-          adherence: [],
-          kindness: [],
-          interfaith: [],
-        });
-      }
-      const bucket = groups.get(point.provider)!;
-      bucket.adherence.push(point.adherence);
-      bucket.kindness.push(point.kindness);
-      bucket.interfaith.push(point.interfaith);
-    });
-    const avg = (values: number[]) =>
-      values.length === 0 ? 0 : values.reduce((sum, v) => sum + v, 0) / values.length;
-    return Array.from(groups.entries())
-      .map(([provider, bucket]) => ({
-        provider,
-        providerLabel: bucket.providerLabel,
-        fill: bucket.fill,
-        modelCount: bucket.adherence.length,
-        adherence: avg(bucket.adherence),
-        kindness: avg(bucket.kindness),
-        interfaith: avg(bucket.interfaith),
-      }))
-      .sort((a, b) => b.adherence + b.kindness + b.interfaith - (a.adherence + a.kindness + a.interfaith));
-  }, [categoryScoresByModel]);
-
-  const renderProviderBreakdown = (
-    xKey: "adherence" | "kindness" | "interfaith",
-    yKey: "adherence" | "kindness" | "interfaith",
-    xName: string,
-    yName: string
-  ) => (
-    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-      {providerAverages.map((p) => (
-        <div
-          key={p.provider}
-          className="flex items-center gap-2 rounded border border-border bg-background px-3 py-2 text-sm"
-        >
-          <span
-            className="h-3 w-3 flex-shrink-0 rounded-full"
-            style={{ backgroundColor: p.fill }}
-          />
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-semibold text-foreground">{p.providerLabel}</div>
-            <div className="text-xs text-muted-foreground">
-              {xName} <span className="font-bold text-foreground">{p[xKey].toFixed(2)}</span>
-              {" · "}
-              {yName} <span className="font-bold text-foreground">{p[yKey].toFixed(2)}</span>
-              <span className="ml-1 opacity-70">
-                ({p.modelCount} model{p.modelCount !== 1 ? "s" : ""})
-              </span>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  const crossValidators = allCrossValidators;
-  const crossValidatorNames = crossValidators
-    .map((judge) => `${judge.name.replace("Graded by ", "")} (${judge.roleLabel})`)
-    .join(", ");
+  const categories = [
+    {
+      title: "Adherence to the doctrinal statement",
+      data: metrics.radarAdherence,
+      description:
+        "Core and secondary doctrine, handling of tertiary issues, biblical basis, and consistency.",
+    },
+    {
+      title: "Kindness and gentleness",
+      data: metrics.radarKindness,
+      description:
+        "Clarity with kindness, pastoral sensitivity, fairness, neutrality on tertiary issues, and tone.",
+    },
+    {
+      title: "Interfaith and worldview sensitivity",
+      data: metrics.radarInterfaith,
+      description:
+        "Respect, acknowledgment of objections, evangelism, and Gospel boldness.",
+    },
+  ];
+  const pairs = [
+    {
+      x: "adherence",
+      y: "kindness",
+      xLabel: "Doctrinal adherence",
+      yLabel: "Kindness and gentleness",
+    },
+    {
+      x: "adherence",
+      y: "interfaith",
+      xLabel: "Doctrinal adherence",
+      yLabel: "Interfaith sensitivity",
+    },
+    {
+      x: "kindness",
+      y: "interfaith",
+      xLabel: "Kindness and gentleness",
+      yLabel: "Interfaith sensitivity",
+    },
+  ] as const;
 
   return (
-    <div className="bg-background min-h-screen p-4 md:p-8 font-sans text-foreground">
-      {/* Header */}
-      <header className="mb-8">
-        <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-serif font-bold text-foreground mb-2">AI Model Performance Dashboard</h1>
-            <p className="text-muted-foreground">
-              Which AI is most faithful and pastoral in answering theological questions? We evaluated Google, OpenAI,
-              xAI, and Anthropic models against a Reformed theological framework.
-            </p>
-          </div>
-          <div className="flex flex-col items-stretch sm:flex-row sm:items-center gap-2">
-            <Button variant="outline" asChild className="w-full sm:w-auto whitespace-nowrap">
-              <Link href="/doctrinal-statement">
-                View Doctrinal Statement
-              </Link>
-            </Button>
-            <Button variant="outline" asChild className="gap-2 whitespace-nowrap w-full sm:w-auto">
-              <Link href="/llm-evaluation-dashboard/framework">
-                <BookOpen size={16} />
-                View Framework
-              </Link>
-            </Button>
-          </div>
+    <div className="min-h-[calc(100vh-var(--app-header-height))] bg-background p-4 font-sans text-foreground md:p-8">
+      <header className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="max-w-3xl">
+          <h1 className="mb-2 font-serif text-3xl font-bold">
+            AI Model Performance Dashboard
+          </h1>
+          <p className="text-muted-foreground">
+            Compare how AI models answer theological questions using a Reformed
+            framework. Explore scores, judge disagreements, and historical
+            prompt comparisons.
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mb-6">
-          <span className="bg-muted px-3 py-1 rounded-full">
-            📊 {questionCountSummary.max}-Question Benchmark
-          </span>
-          <span className="bg-muted px-3 py-1 rounded-full">🎯 3 Major Categories</span>
-          <span className="bg-muted px-3 py-1 rounded-full">🤖 {modelCount} Models Compared</span>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/doctrinal-statement">Doctrinal statement</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/llm-evaluation-dashboard/framework">
+              <BookOpen className="mr-2 size-4" />
+              Evaluation framework
+            </Link>
+          </Button>
         </div>
       </header>
 
-      {/* Quick Overview Banner */}
-      <div className="mb-6 bg-muted/40 border border-border rounded-lg p-4 md:p-6 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="bg-primary/10 text-primary rounded-full p-2 flex-shrink-0">
-            <TrendingUp size={20} />
-          </div>
-          <div className="flex-1">
-            <h2 className="text-lg font-bold text-foreground mb-2">Quick Findings</h2>
-            <div className="grid md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <div className="font-semibold text-foreground mb-1">🥇 Winner</div>
-                <div className="text-muted-foreground">
-                  {ns ? `${ns.winnerName} averaged ${ns.winnerScore}/5.0 across all categories` : "Loading..."}
-                </div>
-              </div>
-              <div>
-                <div className="font-semibold text-foreground mb-1">⚡ Biggest Impact</div>
-                <div className="text-muted-foreground">
-                  {ns?.improvementModel
-                    ? `${activePromptLabelDisplay} improved ${ns.improvementModel} by about +${ns.improvementPct}% over ${baselinePromptLabelDisplay}`
-                    : "Loading..."}
-                </div>
-              </div>
-              <div>
-                <div className="font-semibold text-foreground mb-1">💪 Runner-Up</div>
-                <div className="text-muted-foreground">
-                  {ns?.runnerUpName
-                    ? `${ns.runnerUpName} averaged ${ns.runnerUpScore}/5.0 across all categories`
-                    : "Loading..."}
-                </div>
-              </div>
+      <Card className="mb-6">
+        <CardContent className="space-y-4 pt-6">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <div>
+              <label
+                htmlFor="scoring-edition"
+                className="mb-1 block text-sm font-semibold"
+              >
+                Scoring edition
+              </label>
+              <Select value={editionId} onValueChange={setEditionId}>
+                <SelectTrigger
+                  id="scoring-edition"
+                  className="h-auto min-h-10 text-left"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SCORING_EDITIONS.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label
+                htmlFor="answer-prompt"
+                className="mb-1 block text-sm font-semibold"
+              >
+                Answer prompt
+              </label>
+              <Select
+                value={activePromptLabel ?? ""}
+                onValueChange={setRequestedPrompt}
+                disabled={metrics.promptOptions.length === 0}
+              >
+                <SelectTrigger id="answer-prompt">
+                  <SelectValue placeholder="No prompts" />
+                </SelectTrigger>
+                <SelectContent>
+                  {metrics.promptOptions.map((prompt) => (
+                    <SelectItem key={prompt} value={prompt}>
+                      {formatPromptLabel(prompt)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline">
+              {edition.status === "provisional"
+                ? "Provisional panel"
+                : "Historical edition"}
+            </Badge>
+            <Badge variant="outline">Rubric {edition.evalVersion}</Badge>
+            <Badge variant="outline">{edition.benchmark}</Badge>
+            <Badge variant="outline">
+              {metrics.activeAnswers.length}/{metrics.activeCoverage.length}{" "}
+              answer sets covered
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {edition.description} Scores from different editions are not
+            directly comparable.
+          </p>
+          <ul className="flex flex-col gap-2 text-sm lg:flex-row lg:flex-wrap lg:gap-x-6">
+            {edition.judges.map((judge) => (
+              <li key={judge.model}>
+                <span className="font-medium">
+                  {formatModelLabel(judge.model)}
+                </span>{" "}
+                · {((judge.weight / totalWeight) * 100).toFixed(1)}%
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <div className="mb-6 grid gap-4 sm:grid-cols-3" aria-live="polite">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">
+              Highest mean · {promptLabel}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold tabular-nums">
+              {stats ? `${stats.winnerScore.toFixed(3)} / 5` : "Unavailable"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {stats?.winnerName ??
+                "No complete answer sets for this selection"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Next highest mean</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold tabular-nums">
+              {stats?.runnerUpScore != null
+                ? `${stats.runnerUpScore.toFixed(3)} / 5`
+                : "Unavailable"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {stats?.runnerUpName ?? "More comparable models needed"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Comparable models</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold tabular-nums">
+              {metrics.activeAnswers.length} of {metrics.activeCoverage.length}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {metrics.incompleteAnswers.length} awaiting comparable judgments.
+              Small score gaps are not proof of superiority.
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-8">
-        <TabsList className="grid h-auto w-full grid-cols-3 gap-1 p-1 md:grid-cols-4">
-          <TabsTrigger value="compare" className="gap-2 py-2.5">
-            <TrendingUp size={16} />
-            <span className="hidden sm:inline">Winners</span>
-            <span className="sm:hidden">Top</span>
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-6"
+      >
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
+          <TabsTrigger value="compare" className="py-2.5">
+            Models &amp; prompts
           </TabsTrigger>
-          <TabsTrigger value="bias" className="gap-2 py-2.5">
-            <Scale size={16} />
-            <span className="hidden sm:inline">Judge Fairness</span>
-            <span className="sm:hidden">Bias</span>
+          <TabsTrigger value="judges" className="py-2.5">
+            Judge agreement
           </TabsTrigger>
-          <TabsTrigger value="spread" className="gap-2 py-2.5">
-            <Activity size={16} />
-            <span className="hidden sm:inline">Consistency</span>
-            <span className="sm:hidden">Range</span>
+          <TabsTrigger value="spread" className="py-2.5">
+            Provider range
           </TabsTrigger>
-          <TabsTrigger value="radar" className="hidden gap-2 py-2.5 md:inline-flex">
-            <Award size={16} />
-            <span className="hidden sm:inline">Deep Dive</span>
-            <span className="sm:hidden">Detail</span>
+          <TabsTrigger value="detail" className="py-2.5">
+            Deep dive
           </TabsTrigger>
         </TabsList>
 
-        {/* Main Content Area */}
-        <div className="grid grid-cols-12 gap-8">
-          {/* Left Column: Visualizations */}
-          <div className="col-span-12 min-w-0 space-y-8 lg:col-span-8">
-            <TabsContent value="compare" className="space-y-8 mt-0">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">🏆 Top Performer by Provider</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    The best model from each AI company, scored across doctrinal adherence, kindness and gentleness,
-                    and interfaith and worldview sensitivity (out of 5.0) using {activePromptLabelDisplay}.
-                    Whiskers show the population SD of question-level Final Overall scores.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <TopPerformerBar data={bestPerProvider} />
-                  <div className="mt-4 text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
-                    <span className="font-semibold text-foreground">💡 What this means:</span>{" "}
-                    {bestPerProvider.length > 0 ? (
-                      <>
-                        {bestPerProvider.map((p, i) => {
-                          const name = formatModelLabel(p.model);
-                          const sep = i === bestPerProvider.length - 1 ? "." : i === bestPerProvider.length - 2 ? ", and " : ", ";
-                          return (
-                            <span key={p.provider}>
-                              {name} at {p.score.toFixed(2)}
-                              {sep}
-                            </span>
-                          );
-                        })}
-                        {" "}All are strong performers within our Reformed theological framework. Rankings use{" "}
-                        {primaryJudge ? primaryJudge.name.replace("Graded by ", "") : "the primary judge"};{" "}
-                        {allCrossValidators.length} additional judge{allCrossValidators.length !== 1 ? "s are" : " is"} available for paired calibration.
-                      </>
-                    ) : (
-                      "Loading..."
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">⚡ Does Our Custom Prompt Help?</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Comparing each provider across prompt progression, from {baselinePromptLabelDisplay} through {progressionPromptLabels
-                      .filter((label) => label !== baselinePromptLabel)
-                      .map((label) => formatPromptLabel(label))
-                      .join(" and ")}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <PromptDeltaBar data={promptDelta} promptLabels={progressionPromptLabels} />
-                  <div className="mt-4 space-y-3">
-                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
-                      <span className="font-semibold text-foreground">💡 What this means:</span> This chart shows the full prompt progression for each provider, so you can see whether gains were incremental from {baselinePromptLabelDisplay} to v1.0 and then to {activePromptLabelDisplay}, or whether the biggest jump came in a single revision. The percentages in the cards below are the total improvement from {baselinePromptLabelDisplay} to {activePromptLabelDisplay}, calculated as <span className="font-medium text-foreground">(({activePromptLabelDisplay} - {baselinePromptLabelDisplay}) / {baselinePromptLabelDisplay})</span>, not the step from v1.0 to {activePromptLabelDisplay}.
-                    </div>
-                    {promptDeltaCards.length > 0 && (
-                      <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2 xl:grid-cols-4">
-                        {promptDeltaCards.map((card) => (
-                          <div key={card.name} className="bg-background border border-border rounded p-2 text-center">
-                            <div className="font-bold text-foreground">{card.name}</div>
-                            <div className="text-primary text-lg font-bold">+{card.pct}%</div>
-                            <div className="mt-1 text-[11px] text-muted-foreground">
-                              {baselinePromptLabelDisplay} to {activePromptLabelDisplay}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="bias" className="mt-0 space-y-8">
-              {activeTab === "bias" && (
-                <JudgeAnalysisPanel
-                  runs={data}
-                  primaryJudge={primaryJudge}
-                  activePromptLabel={activePromptLabel}
-                />
-              )}
-            </TabsContent>
-
-            <TabsContent value="spread" className="mt-0">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">📊 How Consistent is Each Company?</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Each provider&apos;s non-baseline performance plotted by its best and worst scores. Points on the diagonal
-                    have no spread, which means either one non-baseline run or very consistent results across prompt revisions.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <ProviderSpreadScatter data={providerSpread} />
-                  <div className="mt-4 space-y-3">
-                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
-                      <span className="font-semibold text-foreground">💡 How to read this chart:</span> The top-right
-                      corner is best (high ceiling AND high floor). Points closer to the bottom-right have more
-                      variation.
-                    </div>
-                    <div className="grid gap-2 text-sm">
-                      {spreadDescriptions.map((sd) => (
-                        <Collapsible
-                          key={sd.provider}
-                          className="p-2 rounded bg-background border border-border"
-                        >
-                          <div className="flex items-start gap-2">
-                            <div
-                              className="w-3 h-3 rounded-full mt-1 flex-shrink-0"
-                              style={{ backgroundColor: sd.fill }}
-                            ></div>
-                            <div className="min-w-0 flex-1">
-                              <span className="font-bold text-foreground">{sd.label}:</span>
-                              <span className="text-muted-foreground"> {sd.description}</span>
-                              {sd.runs.length > 1 && (
-                                <CollapsibleTrigger className="group mt-2 flex items-center gap-1 rounded text-xs font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                  <ChevronDown
-                                    size={14}
-                                    className="transition-transform duration-200 group-data-[state=open]:rotate-180"
-                                  />
-                                  <span className="group-data-[state=open]:hidden">
-                                    See all {sd.runs.length} runs by overall score
-                                  </span>
-                                  <span className="hidden group-data-[state=open]:inline">Hide runs</span>
-                                </CollapsibleTrigger>
-                              )}
-                            </div>
-                          </div>
-                          {sd.runs.length > 1 && (
-                            <CollapsibleContent>
-                              <ol className="mt-2 space-y-1 pl-5">
-                                {sd.runs.map((run, index) => (
-                                  <li
-                                    key={`${run.model}-${run.promptLabel}`}
-                                    className="flex items-center justify-between gap-2 rounded bg-muted/60 px-2 py-1 text-xs"
-                                  >
-                                    <span className="flex min-w-0 items-center gap-2">
-                                      <span className="w-4 text-right tabular-nums text-muted-foreground">
-                                        {index + 1}.
-                                      </span>
-                                      <span className="truncate font-medium text-foreground">
-                                        {formatModelLabel(run.model)}
-                                      </span>
-                                      <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-normal">
-                                        {formatPromptLabel(run.promptLabel)}
-                                      </Badge>
-                                    </span>
-                                    <span className="font-bold tabular-nums text-foreground">
-                                      {run.score.toFixed(2)}
-                                    </span>
-                                  </li>
-                                ))}
-                              </ol>
-                            </CollapsibleContent>
-                          )}
-                        </Collapsible>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="radar" className="hidden mt-0 space-y-8 md:block">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">📖 Adherence to Doctrinal Statement</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    How well each model sticks to our doctrinal statement across doctrine tiers,
-                    biblical basis, and internal consistency.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <RadarDeepDive data={radarAdherence} domainMin={2.5} />
-                  <div className="mt-4 text-xs text-muted-foreground bg-muted p-3 rounded-lg border border-border space-y-1">
-                    <div><span className="font-semibold text-foreground">Core Doctrine:</span> Trinity, Scripture authority, Christ&apos;s deity, the Gospel, justification by faith alone.</div>
-                    <div><span className="font-semibold text-foreground">Secondary Doctrine:</span> Baptism, church governance, Lord&apos;s Supper, spiritual gifts.</div>
-                    <div><span className="font-semibold text-foreground">Tertiary Handling:</span> Eschatological positions, worship style, age of earth — areas where faithful Christians disagree.</div>
-                    <div><span className="font-semibold text-foreground">Biblical Basis:</span> Does the model cite Scripture accurately and in context?</div>
-                    <div><span className="font-semibold text-foreground">Consistency:</span> Are answers internally consistent and non-contradictory?</div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">❤️ Kindness and Gentleness</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Whether responses are warm, pastoral, patient, and respectful — even when correcting errors
-                    or addressing sensitive topics.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <RadarDeepDive data={radarKindness} domainMin={2.5} />
-                  <div className="mt-4 text-xs text-muted-foreground bg-muted p-3 rounded-lg border border-border space-y-1">
-                    <div><span className="font-semibold text-foreground">Clarity with Kindness:</span> Communicates truth clearly while remaining warm and inviting.</div>
-                    <div><span className="font-semibold text-foreground">Pastoral Sensitivity:</span> Shows awareness of emotional weight in sensitive theological topics.</div>
-                    <div><span className="font-semibold text-foreground">Secondary Fairness:</span> Presents secondary doctrinal positions fairly without dismissing other views.</div>
-                    <div><span className="font-semibold text-foreground">Tertiary Neutrality:</span> Avoids dogmatism on tertiary issues where Christians may legitimately disagree.</div>
-                    <div><span className="font-semibold text-foreground">Tone:</span> Overall warmth, patience, and respectfulness of the response.</div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">🤝 Interfaith and Worldview Sensitivity</CardTitle>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    How well the model engages people from other religions or secular worldviews with respect,
-                    accurate summaries, and clear Gospel invitations.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <RadarDeepDive data={radarInterfaith} domainMin={2.5} />
-                  <div className="mt-4 text-xs text-muted-foreground bg-muted p-3 rounded-lg border border-border space-y-1">
-                    <div><span className="font-semibold text-foreground">Respect &amp; Objections:</span> Fairly summarizes other beliefs and handles objections with charity.</div>
-                    <div><span className="font-semibold text-foreground">Objection Awareness:</span> Acknowledges legitimate concerns from other worldviews before responding.</div>
-                    <div><span className="font-semibold text-foreground">Evangelism:</span> Offers a clear, gracious call to repent and trust in Jesus Christ.</div>
-                    <div><span className="font-semibold text-foreground">Gospel Boldness:</span> Presents the exclusivity of Christ without hedging or watering down the message.</div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {categoryScoresByModel.length > 0 && (
-                <>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">📐 Adherence × Kindness</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Each point is one model on {activePromptLabelDisplay}, judged by{" "}
-                        {primaryJudge ? primaryJudge.name.replace("Graded by ", "") : "the primary judge"}.
-                        Points in the top-right corner score high on both categories; the diagonal would suggest
-                        the two categories rise and fall together.
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <CategoryScatter
-                        data={adherenceVsKindness}
-                        xLabel="Adherence to Doctrinal Statement"
-                        yLabel="Kindness and Gentleness"
-                      />
-                      {adherenceKindnessNarrative && (
-                        <div className="mt-4 space-y-3">
-                          <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
-                            <span className="font-semibold text-foreground">💡 What this means:</span>{" "}
-                            <span className="font-medium text-foreground">Adherence</span> measures faithfulness to the core, secondary, and tertiary doctrinal tiers along with biblical citation accuracy.{" "}
-                            <span className="font-medium text-foreground">Kindness</span> measures whether the model communicates that truth warmly — pastoral sensitivity, fair handling of disagreement, and an inviting tone. A tight diagonal here means doctrinal precision and pastoral care travel together; a wide spread would suggest a model has to choose between being clear and being kind. {adherenceKindnessNarrative.leaderText}{" "}
-                            {adherenceKindnessNarrative.laggardText}{" "}
-                            {adherenceKindnessNarrative.correlationText}
-                          </div>
-                          {renderProviderBreakdown(
-                            "adherence",
-                            "kindness",
-                            "Adherence",
-                            "Kindness"
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">📐 Adherence × Interfaith Sensitivity</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Does sticking closely to the doctrinal statement come at the cost of engaging other
-                        worldviews respectfully? Points scattered along the bottom-right would suggest a trade-off.
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <CategoryScatter
-                        data={adherenceVsInterfaith}
-                        xLabel="Adherence to Doctrinal Statement"
-                        yLabel="Interfaith and Worldview Sensitivity"
-                      />
-                      {adherenceInterfaithNarrative && (
-                        <div className="mt-4 space-y-3">
-                          <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
-                            <span className="font-semibold text-foreground">💡 What this means:</span>{" "}
-                            <span className="font-medium text-foreground">Adherence</span> rewards holding the line on Reformed doctrine.{" "}
-                            <span className="font-medium text-foreground">Interfaith Sensitivity</span> rewards engaging other worldviews respectfully — acknowledging objections, summarizing their views fairly, and still presenting Christ with gospel boldness. This is the classic tension between conviction and charity: a strong negative correlation would suggest faithful models become dismissive, while a positive one would suggest doctrinal clarity actually enables better cross-worldview conversation. {adherenceInterfaithNarrative.leaderText}{" "}
-                            {adherenceInterfaithNarrative.laggardText}{" "}
-                            {adherenceInterfaithNarrative.correlationText}
-                          </div>
-                          {renderProviderBreakdown(
-                            "adherence",
-                            "interfaith",
-                            "Adherence",
-                            "Interfaith"
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">📐 Kindness × Interfaith Sensitivity</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Pastoral warmth and respectful engagement with other worldviews often travel together.
-                        A tight diagonal cluster here would confirm that intuition across the model landscape.
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <CategoryScatter
-                        data={kindnessVsInterfaith}
-                        xLabel="Kindness and Gentleness"
-                        yLabel="Interfaith and Worldview Sensitivity"
-                      />
-                      {kindnessInterfaithNarrative && (
-                        <div className="mt-4 space-y-3">
-                          <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border border-border">
-                            <span className="font-semibold text-foreground">💡 What this means:</span>{" "}
-                            Both axes share a common ingredient — relational warmth.{" "}
-                            <span className="font-medium text-foreground">Kindness</span> captures it inside the church (clarity with kindness, pastoral sensitivity, fair handling of secondary and tertiary issues), while{" "}
-                            <span className="font-medium text-foreground">Interfaith Sensitivity</span> captures it outside (respect for objections, evangelism, gospel boldness). We&apos;d expect these to move together: a model with pastoral tone for believers is usually charitable with skeptics too. A flat or scattered pattern would suggest models are tuned to one audience but not the other. {kindnessInterfaithNarrative.leaderText}{" "}
-                            {kindnessInterfaithNarrative.laggardText}{" "}
-                            {kindnessInterfaithNarrative.correlationText}
-                          </div>
-                          {renderProviderBreakdown(
-                            "kindness",
-                            "interfaith",
-                            "Kindness",
-                            "Interfaith"
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </>
-              )}
-            </TabsContent>
-          </div>
-
-          {/* Right Column: Key Metrics (Sidebar) */}
-          <div className="col-span-12 min-w-0 space-y-4 lg:col-span-4">
-            <div className="bg-card text-card-foreground border border-border p-6 rounded-lg shadow-sm">
-              <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-foreground">
-                <TrendingUp size={20} className="text-primary" />
-                Quick Stats
-              </h3>
-              <div className="space-y-6">
-                <Stat
-                  label="🏆 Highest Score"
-                  value={ns?.winnerScore ?? "0"}
-                  subtext={ns ? `Achieved by ${ns.winnerName}` : "Loading..."}
-                  color="hsl(var(--primary))"
-                />
-                <div className="border-t border-border pt-4">
-                  <Stat
-                    label="⚡ Biggest Improvement"
-                    value={bestImprovement ? `+${bestImprovement.delta}%` : "N/A"}
-                    subtext={
-                      ns?.improvementModel
-                        ? `${ns.improvementModel} from ${baselinePromptLabelDisplay} to ${activePromptLabelDisplay}`
-                        : "Insufficient Data"
-                    }
-                    color="hsl(var(--success))"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Info size={16} />
-                  Testing Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between items-start pb-3 border-b border-border">
-                    <span className="text-muted-foreground">Primary Judge:</span>
-                    <span className="font-medium text-foreground text-right">
-                      {primaryJudge
-                        ? `${primaryJudge.name.replace("Graded by ", "")} (${primaryJudge.roleLabel})`
-                        : "N/A"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-start pb-3 border-b border-border">
-                    <span className="text-muted-foreground">Cross-Validator{crossValidators.length !== 1 ? "s" : ""}:</span>
-                    <span className="font-medium text-foreground text-right">
-                      {crossValidatorNames || "N/A"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-start pb-3 border-b border-border">
-                    <span className="text-muted-foreground">System Prompt:</span>
-                    <span className="font-medium text-foreground">{activePromptLabelDisplay}</span>
-                  </div>
-                  <div className="flex justify-between items-start pb-3 border-b border-border">
-                    <span className="text-muted-foreground">Eval Framework:</span>
-                    <span className="font-medium text-foreground">
-                      {evalVersions.join(", ") || "N/A"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-start pb-3 border-b border-border">
-                    <span className="text-muted-foreground">Scored per Run:</span>
-                    <span className="font-medium text-foreground">
-                      {questionCountSummary.min === questionCountSummary.max
-                        ? questionCountSummary.max
-                        : `${questionCountSummary.min}–${questionCountSummary.max}`}{" "}
-                      questions
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-start pb-3 border-b border-border">
-                    <span className="text-muted-foreground">Recorded Errors:</span>
-                    <span className="font-medium text-foreground">
-                      {questionCountSummary.totalErrors}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-start">
-                    <span className="text-muted-foreground">Latest Evaluation:</span>
-                    <span className="font-medium text-foreground">{evaluatedDateDisplay}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="bg-muted border border-border p-4 rounded-lg">
-              <h4 className="text-foreground font-semibold mb-2 text-sm flex items-center gap-2">
-                <Info size={16} />
-                About These Scores
-              </h4>
-              <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                All models from Google, OpenAI, xAI, and Anthropic are tested against our Reformed
-                theological framework. We&apos;re measuring how well they understand and communicate Reformed theology,
-                how gentle and pastoral their tone is, and how they share the Gospel across different worldviews.
+        <TabsContent value="compare" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Top performer by provider</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Best covered model from each provider on {promptLabel}, using
+                Final Overall from {edition.label}.{" "}
+                {isPanel
+                  ? "Whiskers show the range of judge means."
+                  : "Whiskers show the recorded population standard deviation."}{" "}
+                These whiskers are not confidence intervals.
               </p>
-              <div className="space-y-2 text-xs">
-                <div className="flex items-start gap-2">
-                  <span className="text-primary font-bold mt-0.5">•</span>
-                  <span className="text-muted-foreground">
-                    <span className="font-semibold text-foreground">5.0 = Perfect:</span> Strong doctrinal faithfulness,
-                    gentle pastoral tone, and clear, respectful Gospel presentation across worldviews
-                  </span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-primary font-bold mt-0.5">•</span>
-                  <span className="text-muted-foreground">
-                    <span className="font-semibold text-foreground">4.0-4.9 = Strong:</span> Minor issues in nuance,
-                    tone, or interfaith sensitivity but generally reliable
-                  </span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-primary font-bold mt-0.5">•</span>
-                  <span className="text-muted-foreground">
-                    <span className="font-semibold text-foreground">Below 4.0:</span> Needs significant theological
-                    guidance
-                  </span>
-                </div>
+            </CardHeader>
+            <CardContent>
+              {metrics.bestPerProvider.length > 0 ? (
+                <TopPerformerBar data={metrics.bestPerProvider} />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No complete comparisons. See missing coverage below or select
+                  a historical edition.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <EditionResults metrics={metrics} />
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Does the custom prompt help?</CardTitle>
+              {useHistoricalPrompt && (
+                <Badge variant="outline" className="w-fit">
+                  Historical prompt comparison · GPT-5 Mini
+                </Badge>
+              )}
+              <p className="text-sm text-muted-foreground">
+                {useHistoricalPrompt
+                  ? "The selected panel lacks matching baseline judgments. This chart preserves the original GPT-5 Mini comparison; it does not mix historical baselines with panel scores."
+                  : `Prompt progression for the same answer model, scored consistently by ${edition.label}.`}
+              </p>
+            </CardHeader>
+            <CardContent>
+              {progression.promptDelta.length > 0 ? (
+                <>
+                  <PromptDeltaBar
+                    data={progression.promptDelta}
+                    promptLabels={progression.progressionPromptLabels}
+                  />
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {progression.promptDelta.map((item) => (
+                      <div
+                        key={item.model}
+                        className="rounded-lg border border-border p-3 text-sm"
+                      >
+                        <p className="font-semibold">
+                          {formatModelLabel(item.model)}
+                        </p>
+                        <p className="mt-1 text-xl font-bold tabular-nums">
+                          {item.deltaPoints >= 0 ? "+" : ""}
+                          {item.deltaPoints.toFixed(2)} points
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatPromptLabel(item.baselineLabel)} to{" "}
+                          {formatPromptLabel(item.currentLabel)} ·{" "}
+                          {item.deltaPct >= 0 ? "+" : ""}
+                          {item.deltaPct.toFixed(1)}% relative to baseline
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No matched baseline-to-prompt comparisons for this selection.
+                  Choose another prompt or the historical GPT-5 Mini edition.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="judges">
+          {activeTab === "judges" && (
+            <JudgeAnalysisPanel
+              key={edition.id}
+              runs={data}
+              evalVersion={edition.evalVersion}
+              initialReference={edition.judges[0].model}
+              activePromptLabel={activePromptLabel}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="spread" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Range across tested models and prompts</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Each provider&apos;s minimum and maximum across covered
+                non-baseline answer sets through {promptLabel}, all scored by{" "}
+                {edition.label}. This range reflects the tested model and prompt
+                mix; it does not measure repeated-run reliability.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {metrics.providerSpread.length > 0 ? (
+                <ProviderSpreadScatter
+                  data={metrics.providerSpread}
+                  domainMin={
+                    edition.id === "three-family-2026-10" ? 3.6 : undefined
+                  }
+                />
+              ) : (
+                <p>No covered non-baseline answer sets.</p>
+              )}
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {metrics.providerSpread.map((provider) => (
+                  <details
+                    key={provider.provider}
+                    className="rounded-lg border border-border p-3 text-sm"
+                  >
+                    <summary className="cursor-pointer font-semibold">
+                      {provider.label}: {provider.min.toFixed(2)}–
+                      {provider.max.toFixed(2)} · {provider.modelCount} models,{" "}
+                      {provider.runCount} answer sets
+                    </summary>
+                    <ul className="mt-3 space-y-2">
+                      {provider.runs.map((run) => (
+                        <li key={`${run.model}-${run.promptLabel}`}>
+                          {formatModelLabel(run.model)} ·{" "}
+                          {formatPromptLabel(run.promptLabel)}:{" "}
+                          {run.score.toFixed(3)}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ))}
               </div>
-            </div>
-          </div>
-        </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="detail" className="space-y-6">
+          <p className="text-sm text-muted-foreground">
+            All charts use {edition.label} on {promptLabel}. Radars show the
+            highest Final Overall model from each covered provider; scatterplots
+            show every covered model.
+          </p>
+          {metrics.activeAnswers.length === 0 ? (
+            <p>No complete scores for this selection.</p>
+          ) : (
+            <>
+              <div className="grid gap-6 xl:grid-cols-3">
+                {categories.map((category) => (
+                  <Card key={category.title} className="min-w-0">
+                    <CardHeader>
+                      <CardTitle>{category.title}</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {category.description}
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <RadarDeepDive data={category.data} domainMin={1} />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              <div className="rounded-lg border border-border p-4 text-sm">
+                <p className="mb-2 font-semibold">Models shown in the radars</p>
+                <ul className="flex flex-wrap gap-x-6 gap-y-2">
+                  {metrics.bestPerProvider.map((item) => (
+                    <li key={item.provider}>{formatModelLabel(item.model)}</li>
+                  ))}
+                </ul>
+              </div>
+              {pairs.map((pair) => (
+                <Card key={pair.x + pair.y}>
+                  <CardHeader>
+                    <CardTitle>
+                      {pair.xLabel} × {pair.yLabel}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Each point is a covered model&apos;s category means.
+                      Higher scores on both axes appear toward the top right.
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <CategoryScatter
+                      data={metrics.categoryScoresByModel.map((point) => ({
+                        ...point,
+                        x: point[pair.x],
+                        y: point[pair.y],
+                      }))}
+                      xLabel={pair.xLabel}
+                      yLabel={pair.yLabel}
+                    />
+                  </CardContent>
+                </Card>
+              ))}
+            </>
+          )}
+        </TabsContent>
       </Tabs>
+
+      <footer className="mt-8 space-y-2 border-t border-border pt-5 text-sm text-muted-foreground">
+        <p>
+          Final Overall combines doctrinal adherence, kindness and gentleness,
+          and interfaith sensitivity. Weighted Production is available in the
+          detail table. Scores reflect the selected judges&apos; application of
+          the rubric; expert review is needed to assess theological accuracy.
+        </p>
+        <p>
+          {metrics.activeAnswers.length > 0
+            ? `Covered runs: ${metrics.questionCountSummary.min === metrics.questionCountSummary.max ? metrics.questionCountSummary.max : `${metrics.questionCountSummary.min}–${metrics.questionCountSummary.max}`} scored questions each · ${metrics.questionCountSummary.totalErrors} recorded errors.`
+            : "No covered runs in this selection."}{" "}
+          {metrics.latestEvaluatedAt &&
+            `Latest included evaluation: ${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(metrics.latestEvaluatedAt))}.`}
+        </p>
+        <p>
+          Recorded answers and scores remain available when a model is retired.
+          A replacement judge requires a new scoring edition.
+        </p>
+      </footer>
     </div>
   );
 }

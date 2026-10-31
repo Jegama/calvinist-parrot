@@ -7,12 +7,15 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LabelList,
   Cell,
   ErrorBar,
-  type LabelProps,
 } from "recharts";
-import { formatModelLabel, formatPromptLabel, getProviderColor, getProviderLabel } from "../constants";
+import {
+  formatModelLabel,
+  formatPromptLabel,
+  getProviderColor,
+  getProviderLabel,
+} from "../constants";
 import { CHART_INITIAL_DIMENSIONS } from "./chart-dimensions";
 
 interface TopPerformerDatum {
@@ -20,7 +23,9 @@ interface TopPerformerDatum {
   model: string;
   promptLabel: string;
   score: number;
-  stdev: number;
+  stdev: number | null;
+  judgeMin: number;
+  judgeMax: number;
   fill: string;
 }
 
@@ -29,45 +34,15 @@ interface TopPerformerBarProps {
 }
 
 export function TopPerformerBar({ data }: TopPerformerBarProps) {
-  const domainMinimum = 3.5;
   const chartData = data.map((item) => ({
     ...item,
     providerLabel: getProviderLabel(item.provider),
     modelLabel: formatModelLabel(item.model),
+    whisker:
+      item.stdev === null
+        ? [item.score - item.judgeMin, item.judgeMax - item.score]
+        : [item.stdev, item.stdev],
   }));
-  const renderScoreLabel = ({ index, viewBox }: LabelProps) => {
-    const item = index === undefined ? undefined : chartData[index];
-    if (
-      !item ||
-      !viewBox ||
-      !("x" in viewBox) ||
-      !("y" in viewBox) ||
-      !("width" in viewBox) ||
-      !("height" in viewBox)
-    ) {
-      return null;
-    }
-
-    const x = Number(viewBox.x);
-    const y = Number(viewBox.y);
-    const width = Number(viewBox.width);
-    const height = Number(viewBox.height);
-    const pixelsPerPoint = width / (item.score - domainMinimum);
-    const whiskerEnd = x + width + item.stdev * pixelsPerPoint;
-
-    return (
-      <text
-        x={whiskerEnd + 8}
-        y={y + height / 2}
-        dominantBaseline="middle"
-        fill="hsl(var(--foreground))"
-        fontSize={13}
-        fontWeight={700}
-      >
-        {item.score.toFixed(2)}
-      </text>
-    );
-  };
 
   return (
     <div className="h-[22rem] w-full min-w-0 sm:h-80">
@@ -78,12 +53,20 @@ export function TopPerformerBar({ data }: TopPerformerBarProps) {
         minHeight={240}
         initialDimension={CHART_INITIAL_DIMENSIONS.compact}
       >
-        <BarChart data={chartData} layout="vertical" margin={{ top: 6, right: 30, bottom: 4, left: 2 }}>
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+        <BarChart
+          data={chartData}
+          layout="vertical"
+          margin={{ top: 6, right: 30, bottom: 4, left: 2 }}
+        >
+          <CartesianGrid
+            strokeDasharray="3 3"
+            horizontal={false}
+            stroke="hsl(var(--border))"
+          />
           <XAxis
             type="number"
-            domain={[domainMinimum, 5]}
-            ticks={[3.5, 4, 4.5, 5]}
+            domain={[1, 5]}
+            ticks={[1, 2, 3, 4, 5]}
             tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
             axisLine={{ stroke: "hsl(var(--border))" }}
             tickLine={{ stroke: "hsl(var(--border))" }}
@@ -95,7 +78,11 @@ export function TopPerformerBar({ data }: TopPerformerBarProps) {
             tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
           />
           <Tooltip
-            cursor={{ fill: "transparent", stroke: "hsl(var(--border))", strokeWidth: 2 }}
+            cursor={{
+              fill: "transparent",
+              stroke: "hsl(var(--border))",
+              strokeWidth: 2,
+            }}
             content={({ active, payload }) => {
               const item = payload?.[0]?.payload as
                 | (TopPerformerDatum & {
@@ -121,9 +108,13 @@ export function TopPerformerBar({ data }: TopPerformerBarProps) {
                       </span>
                     </p>
                     <p className="flex justify-between gap-6">
-                      <span className="text-muted-foreground">Population SD</span>
+                      <span className="text-muted-foreground">
+                        {item.stdev === null ? "Judge range" : "Population SD"}
+                      </span>
                       <span className="font-semibold tabular-nums">
-                        {item.stdev.toFixed(2)}
+                        {item.stdev === null
+                          ? `${item.judgeMin.toFixed(2)}–${item.judgeMax.toFixed(2)}`
+                          : item.stdev.toFixed(2)}
                       </span>
                     </p>
                   </div>
@@ -133,18 +124,17 @@ export function TopPerformerBar({ data }: TopPerformerBarProps) {
           />
           <Bar dataKey="score" radius={[0, 4, 4, 0]} barSize={30}>
             <ErrorBar
-              dataKey="stdev"
+              dataKey="whisker"
               direction="x"
               width={5}
               stroke="hsl(var(--foreground))"
               strokeWidth={1.5}
             />
-            <LabelList
-              dataKey="score"
-              content={renderScoreLabel}
-            />
             {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.fill || getProviderColor(entry.provider)} />
+              <Cell
+                key={`cell-${index}`}
+                fill={entry.fill || getProviderColor(entry.provider)}
+              />
             ))}
           </Bar>
         </BarChart>

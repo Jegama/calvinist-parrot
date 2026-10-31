@@ -27,7 +27,11 @@ interface CategoryScatterProps {
   yLabel: string;
 }
 
-export function CategoryScatter({ data, xLabel, yLabel }: CategoryScatterProps) {
+export function CategoryScatter({
+  data,
+  xLabel,
+  yLabel,
+}: CategoryScatterProps) {
   // Per-axis domain so each axis is centered on its own data — combining x and y
   // produced lopsided clusters when one category had a tighter range than the other.
   const computeDomain = (values: number[]): [number, number] => {
@@ -62,17 +66,17 @@ export function CategoryScatter({ data, xLabel, yLabel }: CategoryScatterProps) 
           minHeight={240}
           initialDimension={CHART_INITIAL_DIMENSIONS.scatter}
         >
-          <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 60 }}>
+          <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis
               type="number"
               dataKey="x"
               name={xLabel}
               domain={xDomain}
-              tick={{ fill: "hsl(var(--foreground))" }}
+              tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
               tickFormatter={(val) => val.toFixed(2)}
               label={{
-                value: `→ ${xLabel} (Higher = Better)`,
+                value: `→ ${xLabel}`,
                 position: "bottom",
                 offset: 10,
                 fill: "hsl(var(--foreground))",
@@ -82,17 +86,18 @@ export function CategoryScatter({ data, xLabel, yLabel }: CategoryScatterProps) 
             <YAxis
               type="number"
               dataKey="y"
+              width={50}
               name={yLabel}
               domain={yDomain}
-              tick={{ fill: "hsl(var(--foreground))" }}
+              tick={{ fill: "hsl(var(--foreground))", fontSize: 11 }}
               tickFormatter={(val) => val.toFixed(2)}
               label={{
-                value: `↑ ${yLabel} (Higher = Better)`,
+                value: `↑ ${yLabel}`,
                 angle: -90,
                 position: "insideLeft",
                 fill: "hsl(var(--foreground))",
                 textAnchor: "middle",
-                offset: -5,
+                offset: -8,
                 fontSize: 12,
               }}
             />
@@ -104,15 +109,25 @@ export function CategoryScatter({ data, xLabel, yLabel }: CategoryScatterProps) 
                   return (
                     <div className="bg-popover p-3 border border-border shadow-md rounded-lg text-popover-foreground">
                       <p className="font-bold text-base mb-1">{point.label}</p>
-                      <p className="text-xs text-muted-foreground mb-2">{point.providerLabel}</p>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {point.providerLabel}
+                      </p>
                       <div className="text-sm space-y-1">
                         <p className="flex justify-between gap-4">
-                          <span className="text-muted-foreground">{xLabel}:</span>
-                          <span className="font-semibold">{point.x.toFixed(2)}</span>
+                          <span className="text-muted-foreground">
+                            {xLabel}:
+                          </span>
+                          <span className="font-semibold">
+                            {point.x.toFixed(2)}
+                          </span>
                         </p>
                         <p className="flex justify-between gap-4">
-                          <span className="text-muted-foreground">{yLabel}:</span>
-                          <span className="font-semibold">{point.y.toFixed(2)}</span>
+                          <span className="text-muted-foreground">
+                            {yLabel}:
+                          </span>
+                          <span className="font-semibold">
+                            {point.y.toFixed(2)}
+                          </span>
                         </p>
                       </div>
                     </div>
