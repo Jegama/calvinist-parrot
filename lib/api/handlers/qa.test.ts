@@ -1,217 +1,125 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  completionCreate: vi.fn(),
-  questionHistoryCreate: vi.fn(),
+  findHistory: vi.fn(),
+  createHistory: vi.fn(),
+  deleteHistory: vi.fn(),
 }));
 
 vi.mock("openai", () => ({
-  default: class OpenAIMock {
-    chat = {
-      completions: {
-        create: mocks.completionCreate,
-      },
-    };
+  default: class {
+    constructor() {
+      throw new Error("Retired Q&A must not initialize a model provider");
+    }
   },
 }));
-
 vi.mock("@/lib/prisma", () => ({
   default: {
     questionHistory: {
-      create: mocks.questionHistoryCreate,
+      findMany: mocks.findHistory,
+      create: mocks.createHistory,
+      deleteMany: mocks.deleteHistory,
     },
   },
 }));
-
-vi.mock("@/lib/guest", () => ({
-  resolveChatActor: vi.fn(async () => ({
-    kind: "authenticated",
-    userId: "owner-1",
-  })),
-  getChatActorId: vi.fn(() => "owner-1"),
+vi.mock("@/lib/auth", () => ({
+  requireAuthenticatedUser: vi.fn(async () => ({ userId: "owner-1" })),
 }));
 
-vi.mock("@/utils/langChainAgents/mainAgent", () => ({
-  getParrotWorkflow: vi.fn(),
-}));
+import { POST as postQa } from "@/app/api/v1/qa/route";
+import { POST as postLegacyQa } from "@/app/api/parrot-qa/route";
+import { POST as postElaborate } from "@/app/api/elaborate/route";
+import { GET as getHistory } from "@/app/api/user-questions/route";
+import { errorResponseSchema } from "../contracts/common";
+import { QA_RETIREMENT_MESSAGE } from "../qa-retirement";
 
-vi.mock("@/utils/langChainAgents/tools", () => ({
-  toolsArray: [],
-}));
+const retiredRoutes: [string, (request: Request) => Response][] = [
+  ["/api/v1/qa", postQa],
+  ["/api/parrot-qa", postLegacyQa],
+  ["/api/elaborate", postElaborate],
+];
 
-vi.mock("@/utils/generateConversationName", () => ({
-  generateConversationName: vi.fn(),
-}));
-
-vi.mock("@/utils/memoryExtraction", () => ({
-  updateUserMemoriesFromConversation: vi.fn(),
-}));
-
-vi.mock("@/utils/buildParrotSystemPrompt", () => ({
-  buildParrotSystemPrompt: vi.fn(),
-}));
-
-import {
-  handleLegacyQaPost,
-  handleQa,
-  executeQa,
-  type QaCommand,
-} from "./qa";
-
-const jsonRequest = (body: unknown) =>
-  new Request("http://localhost/api", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-describe("QA API adapters", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("preserves external userId only in the deprecated legacy adapter", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const execute = vi.fn(
-      async (...[, contentType]: [QaCommand, string?]) =>
-        new Response("", {
-          headers: contentType
-            ? { "Content-Type": contentType }
-            : undefined,
-        }),
-    );
-
-    const response = await handleLegacyQaPost(
-      jsonRequest({
-        question: "What is justification?",
-        denomination: "lutheran",
-        userId: "integration-user",
-      }),
-      execute,
-    );
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("Content-Type")).toContain("text/plain");
-    expect(response.headers.get("Deprecation")).toBe("@1785024000");
-    expect(JSON.parse(String(warn.mock.calls[0]?.[0]))).toMatchObject({
-      event: "deprecated_api_request",
-      route: "/api/parrot-qa",
-      method: "POST",
-      replacement: "/api/v1/qa",
-    });
-    expect(execute).toHaveBeenCalledWith(
-      {
-        question: "What is justification?",
-        denomination: "lutheran",
-        externalUserId: "integration-user",
-      },
-      "text/plain; charset=utf-8",
-    );
-  });
-
-  it("rejects caller identity in v1 and preserves NDJSON for valid requests", async () => {
-    const execute = vi.fn(
-      async () =>
-        new Response('{"type":"done"}\n', {
-          headers: {
-            "Content-Type": "application/x-ndjson; charset=utf-8",
-          },
-        }),
-    );
-
-    const invalid = await handleQa(
-      jsonRequest({
-        question: "What is justification?",
-        userId: "caller-controlled",
-      }),
-      execute,
-    );
-    expect(invalid.status).toBe(400);
-    expect(execute).not.toHaveBeenCalled();
-
-    const valid = await handleQa(
-      jsonRequest({
-        question: "What is justification?",
-        denomination: "lutheran",
-      }),
-      execute,
-    );
-    expect(valid.status).toBe(200);
-    expect(valid.headers.get("Content-Type")).toContain(
-      "application/x-ndjson",
-    );
-    expect(execute).toHaveBeenCalledWith({
-      question: "What is justification?",
-      denomination: "lutheran",
-    });
-  });
-});
-
-describe("QA stream contract", () => {
+describe("Counsel of Three retirement", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn());
   });
 
-  it("emits an in-band error followed by done when the pipeline fails", async () => {
-    mocks.completionCreate.mockRejectedValueOnce(new Error("provider failed"));
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
-    const response = await executeQa({
-      question: "What is justification?",
-    });
-    const events = (await response.text())
-      .trim()
-      .split("\n")
-      .map((line) => JSON.parse(line));
+  it.each(retiredRoutes)(
+    "returns 410 without calling models or modifying history: %s",
+    async (path, post) => {
+      // Retirement applies even to malformed bodies and requires no API credentials.
+      for (const body of [
+        "{",
+        JSON.stringify({
+          question: "private-question",
+          userId: "private-user",
+        }),
+      ]) {
+        const request = new Request(`http://localhost${path}`, {
+          method: "POST",
+          body,
+        });
+        const response = post(request);
+        expect(response.status).toBe(410);
+        expect(response.headers.get("Content-Type")).toContain(
+          "application/json",
+        );
+        expect(response.headers.get("Deprecation")).toMatch(/^@\d+$/);
+        expect(response.headers.get("Link")).toContain('rel="deprecation"');
+        expect(errorResponseSchema.parse(await response.json())).toEqual({
+          error: QA_RETIREMENT_MESSAGE,
+        });
+        expect(request.bodyUsed).toBe(false);
+      }
+      expect(fetch).not.toHaveBeenCalled();
+      expect(mocks.findHistory).not.toHaveBeenCalled();
+      expect(mocks.createHistory).not.toHaveBeenCalled();
+      expect(mocks.deleteHistory).not.toHaveBeenCalled();
+    },
+  );
 
-    expect(response.headers.get("Content-Type")).toContain(
-      "application/x-ndjson",
+  it("retains privacy-safe legacy logging with the active chat replacement", () => {
+    const response = postLegacyQa(
+      new Request("http://localhost/api/parrot-qa", {
+        method: "POST",
+        body: JSON.stringify({
+          question: "private-question",
+          userId: "private-user",
+        }),
+      }),
     );
-    expect(events).toEqual([
-      { type: "progress", message: "Understanding question..." },
-      {
-        type: "error",
-        stage: "categorization",
-        message: "We couldn't finish this response.",
-      },
-      { type: "done" },
-    ]);
+    expect(response.headers.get("Deprecation")).toBe("@1785024000");
+    const logged = vi.mocked(console.warn).mock.calls[0]?.[0] as string;
+    expect(JSON.parse(logged)).toMatchObject({
+      event: "deprecated_api_request",
+      route: "/api/parrot-qa",
+      replacement: "/api/v1/chats",
+    });
+    expect(logged).not.toContain("private-question");
+    expect(logged).not.toContain("private-user");
   });
 
-  it("terminates a refusal stream with done", async () => {
-    async function* refusalStream() {
-      yield { choices: [{ delta: { content: "I can’t answer that." } }] };
-    }
-
-    mocks.completionCreate
-      .mockResolvedValueOnce({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                reformatted_question: "A non-biblical request",
-                category: "Non-Biblical Questions",
-                subcategory: "Other",
-                issue_type: "other",
-              }),
-            },
-          },
-        ],
-      })
-      .mockResolvedValueOnce(refusalStream());
-    mocks.questionHistoryCreate.mockResolvedValueOnce({});
-
-    const response = await executeQa({
-      question: "A non-biblical request",
+  it("keeps existing saved answers readable for their authenticated owner", async () => {
+    const saved = [
+      { id: "saved-answer", userId: "owner-1", reviewedAnswer: "Saved answer" },
+    ];
+    mocks.findHistory.mockResolvedValueOnce(saved);
+    const response = await getHistory(
+      new Request("http://localhost/api/user-questions"),
+    );
+    expect(await response.json()).toEqual(saved);
+    expect(mocks.findHistory).toHaveBeenCalledWith({
+      where: { userId: "owner-1" },
+      orderBy: { createdAt: "desc" },
     });
-    const events = (await response.text())
-      .trim()
-      .split("\n")
-      .map((line) => JSON.parse(line));
-
-    expect(events.at(-1)).toEqual({ type: "done" });
-    expect(events).toContainEqual({
-      type: "refusal",
-      content: "I can’t answer that.",
-    });
+    expect(mocks.createHistory).not.toHaveBeenCalled();
+    expect(mocks.deleteHistory).not.toHaveBeenCalled();
   });
 });

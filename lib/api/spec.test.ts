@@ -7,9 +7,8 @@ import {
   chatStreamEventSchema,
   createChatRequestSchema,
   createChatResponseSchema,
+  errorResponseSchema,
   getChatResponseSchema,
-  qaRequestSchema,
-  qaStreamEventSchema,
   sendChatMessageRequestSchema,
   stopChatRequestSchema,
   stopChatResponseSchema,
@@ -78,14 +77,15 @@ describe("OpenAPI document", () => {
 
     expect(paths["/api/v1/chats"].post.operationId).toBe("createChat");
     expect(paths["/api/v1/chats/{chatId}"].get.operationId).toBe("getChat");
-    expect(
-      paths["/api/v1/chats/{chatId}/messages"].post.operationId,
-    ).toBe("sendChatMessage");
+    expect(paths["/api/v1/chats/{chatId}/messages"].post.operationId).toBe(
+      "sendChatMessage",
+    );
     expect(
       paths["/api/v1/chats/{chatId}/requests/{requestId}/stop"].post
         .operationId,
     ).toBe("stopChatRequest");
     expect(paths["/api/v1/qa"].post.operationId).toBe("askQa");
+    expect(paths["/api/v1/qa"].post.deprecated).toBe(true);
     expect(paths["/api/parrot-chat"].post.deprecated).toBe(true);
     expect(paths["/api/parrot-chat"].get.deprecated).toBe(true);
     expect(paths["/api/parrot-qa"].post.deprecated).toBe(true);
@@ -133,33 +133,41 @@ describe("OpenAPI document", () => {
       paths["/api/v1/chats/{chatId}/messages"].post.responses["200"].content[
         "application/x-ndjson"
       ];
-    const qaMedia =
-      paths["/api/v1/qa"].post.responses["200"].content[
-        "application/x-ndjson"
-      ];
-
-    expect(chatMedia.schema.$ref).toBe(
-      "#/components/schemas/ChatStreamEvent",
-    );
-    expect(qaMedia.schema.$ref).toBe("#/components/schemas/QaStreamEvent");
+    expect(chatMedia.schema.$ref).toBe("#/components/schemas/ChatStreamEvent");
     expect(chatMedia.description).toContain("one complete JSON object");
     expect(chatMedia.description).toContain("in-band");
-    expect(qaMedia.description).toContain("one complete JSON object");
-    expect(qaMedia.description).toContain("in-band");
+  });
+
+  it("documents only 410 responses for every retired Q&A entry point", () => {
+    const paths = buildTestSpec().paths;
+    for (const path of ["/api/v1/qa", "/api/parrot-qa", "/api/elaborate"]) {
+      const operation = paths[path].post;
+      expect(operation.deprecated).toBe(true);
+      expect(operation.requestBody).toBeUndefined();
+      expect(Object.keys(operation.responses)).toEqual(["410"]);
+      const response = operation.responses["410"];
+      expect(response.content["application/json"].schema.$ref).toBe(
+        "#/components/schemas/ErrorResponse",
+      );
+      expect(
+        errorResponseSchema.parse(response.content["application/json"].example)
+          .error,
+      ).toContain("POST /api/v1/chats");
+      expect(response.headers?.Link.schema.example).toContain(
+        'rel="deprecation"',
+      );
+    }
   });
 
   it("documents request conflict behavior and excludes v1 userId", () => {
     const spec = buildTestSpec();
     const createProperties =
       spec.components.schemas.CreateChatRequest.properties;
-    const qaProperties = spec.components.schemas.QaRequest.properties;
-    const createResponses =
-      spec.paths["/api/v1/chats"].post.responses;
+    const createResponses = spec.paths["/api/v1/chats"].post.responses;
     const messageResponses =
       spec.paths["/api/v1/chats/{chatId}/messages"].post.responses;
 
     expect(createProperties).not.toHaveProperty("userId");
-    expect(qaProperties).not.toHaveProperty("userId");
     expect(createResponses).toHaveProperty("409");
     expect(messageResponses).toHaveProperty("409");
   });
@@ -184,16 +192,10 @@ describe("OpenAPI document", () => {
           paths["/api/v1/chats/{chatId}/requests/{requestId}/stop"].post,
         successStatus: "200",
       },
-      {
-        operation: paths["/api/v1/qa"].post,
-        successStatus: "200",
-      },
     ];
 
     for (const { operation, successStatus } of operations) {
-      for (const media of Object.values(
-        operation.requestBody?.content ?? {},
-      )) {
+      for (const media of Object.values(operation.requestBody?.content ?? {})) {
         expect(media).toHaveProperty("example");
       }
       for (const parameter of operation.parameters ?? []) {
@@ -215,9 +217,8 @@ describe("OpenAPI document", () => {
     }> = [
       {
         example:
-          paths["/api/v1/chats"].post.requestBody?.content[
-            "application/json"
-          ].example,
+          paths["/api/v1/chats"].post.requestBody?.content["application/json"]
+            .example,
         schema: createChatRequestSchema,
       },
       {
@@ -258,19 +259,6 @@ describe("OpenAPI document", () => {
           paths["/api/v1/chats/{chatId}/requests/{requestId}/stop"].post
             .responses["200"].content["application/json"].example,
         schema: stopChatResponseSchema,
-      },
-      {
-        example:
-          paths["/api/v1/qa"].post.requestBody?.content["application/json"]
-            .example,
-        schema: qaRequestSchema,
-      },
-      {
-        example:
-          paths["/api/v1/qa"].post.responses["200"].content[
-            "application/x-ndjson"
-          ].example,
-        schema: qaStreamEventSchema,
       },
     ];
 

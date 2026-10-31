@@ -1,26 +1,12 @@
 // utils/langChainAgents/mainAgent.ts
 
 import { createAgent } from "langchain";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { ChatOpenAI } from "@langchain/openai";
+import { createParrotChatModel } from "./chatModel";
 import { toolsArray } from "./tools";
 import { getStudyBibleTools } from "./tools/studyBibleMcpTools";
 import { getMemoryStore } from "@/lib/langGraphStore";
 
-const selectedProvider = (process.env.PARROT_AGENT_PROVIDER || "gemini").toLowerCase();
-
-const model =
-    selectedProvider === "openai"
-        ? new ChatOpenAI({
-              model: process.env.PARROT_OPENAI_MODEL || "gpt-5-mini",
-              streaming: true,
-              apiKey: process.env.OPENAI_API_KEY || "",
-          })
-        : new ChatGoogleGenerativeAI({
-              model: process.env.PARROT_GEMINI_MODEL || "gemini-3-flash-preview",
-              streaming: true,
-              apiKey: process.env.GEMINI_API_KEY || "",
-          });
+const model = createParrotChatModel();
 
 // Get the shared memory store for long-term cross-thread memories
 const memoryStore = getMemoryStore();

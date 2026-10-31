@@ -19,7 +19,7 @@ Calvinist Parrot delivers Biblical insights and deep theological responses by co
 ## What the Parrot Can Do
 
 - **Real-Time Chat:** Engage in interactive sessions with streamed responses.
-- **Theological Q&A:** Answers complex theological questions with layered reasoning.
+- **Theological Questions:** Explore Bible and theology questions through Parrot chat.
 - **Multi-Perspective Insights:** Choose from Reformed Baptist, Presbyterian, Wesleyan, Lutheran, Anglican, Pentecostal/Charismatic, or Non-Denominational Evangelical modes.
 - **Daily Devotionals:** Get devotionals generated from current news and Scripture.
 - **Personal Journal:** Daily reflections with pastoral insight. Each entry receives AI-powered guidance grounded in Scripture, identifying heart issues, suggesting "put off/put on" patterns from Ephesians 4, and offering practical next steps. Journal insights can be promoted to Prayer Tracker requests or continued in deeper conversation.
@@ -86,6 +86,14 @@ Codex-managed worktrees share the local Postgres container but receive separate 
 
 For the database workflow, CI/CD notes, and testing recommendations, see [Local Development](./docs/technical/Local%20Development.md).
 
+### Chat model configuration
+
+The conversational Parrot agent uses Claude Haiku 5.5 through LangChain's `ChatAnthropic`. Configure `ANTHROPIC_API_KEY`, `PARROT_AGENT_PROVIDER=anthropic`, and `PARROT_ANTHROPIC_MODEL=claude-haiku-5-5` in each environment. Existing deployments with `PARROT_AGENT_PROVIDER=gemini` or `openai` must change that setting to switch providers; restart or redeploy after updating it.
+
+The provider can still be set to `gemini` with `PARROT_GEMINI_MODEL` (default `gemini-3.8-flash`) or `openai` with `PARROT_OPENAI_MODEL` (default `gpt-6-luna`, using Responses for reasoning with tools). This setting controls conversational responses only. Memory extraction uses `gpt-6-luna` with reasoning effort `none`. Journal guidance, kids discipleship, devotionals, conversation titles, church evaluations, and sermon evaluations default to `gemini-3.8-flash`; the sermon worker honors `SERMON_GEMINI_MODEL`, so update any deployment override as well. Retrieval embeddings have separate model selection.
+
+Haiku requests use adaptive thinking with a 16,384-token output budget shared by thinking and answer text, and omit sampling parameters. The agent retains thinking and tool blocks within a request; persisted conversation history contains the visible answer text. See [LangChain's Anthropic integration](https://docs.langchain.com/oss/javascript/integrations/chat/anthropic) and [Anthropic's Haiku 5.5 migration guide](https://platform.claude.com/docs/en/models/haiku-5-5/migration-guide).
+
 ## API Endpoints
 
 The generated [OpenAPI 3.1 contract](https://www.calvinistparrot.com/api/v1/openapi.json) and [interactive API reference](https://www.calvinistparrot.com/api/v1/docs) are the source of truth for public request, response, and streaming event schemas.
@@ -96,11 +104,9 @@ The generated [OpenAPI 3.1 contract](https://www.calvinistparrot.com/api/v1/open
 
   Resource-oriented LangGraph chat API for creating conversations, reading history, streaming new messages, and stopping in-progress requests.
 
-- **/api/v1/qa**
+Counsel of Three is retired as of October 31, 2026. `/api/v1/qa`, `/api/parrot-qa`, and `/api/elaborate` return HTTP `410 Gone` with migration guidance and never invoke a model. `/parrot-qa` directs visitors to Parrot chat. Existing saved answers remain in question history; no data migration or deletion is performed. The former fine-tuned-model setting `FT_MODEL` is no longer used.
 
-  Classic Calvinist Parrot Q&A pipeline that categorizes the question, gathers three model answers, runs a Calvin style review, and streams a brief synthesized answer.
-
-The former `/api/parrot-chat` and `/api/parrot-qa` routes remain available as deprecated compatibility endpoints. Their responses include the RFC 9745 `Deprecation` header and a migration-documentation `Link`; every request also emits a privacy-safe `deprecated_api_request` runtime log so remaining consumers can be measured before removal.
+The former `/api/parrot-chat` route remains a deprecated compatibility endpoint. Its responses and the retired `/api/parrot-qa` responses retain the RFC 9745 `Deprecation` header, migration-documentation `Link`, and privacy-safe `deprecated_api_request` runtime log. Migrate clients to `/api/v1/chats` using the [Parrot Chat API documentation](https://www.calvinistparrot.com/documentation-parrot-chat).
 
 ### Church Finder
 

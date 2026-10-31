@@ -8,7 +8,6 @@ Welcome, I am here to walk with you through the Bible from a Reformed perspectiv
 - **Prayer tracker:** Organize your prayer life with rotating prayer assignments, personal and family prayer requests, and prayer journals, designed to help you pray consistently for your household and broader faith community.
 - **Church finder:** Discover biblically sound churches with AI powered doctrinal evaluations. Each church is analyzed for adherence to essential Christian doctrines, historic Reformed confessions, and key areas of theological soundness to help you find a faithful congregation.
 - **AI model evaluation dashboard:** Visit the [AI Model Performance Dashboard](/llm-evaluation-dashboard) to see how different AI models perform when evaluated against our doctrinal framework, kindness and gentleness criteria, and interfaith sensitivity.
- - **Parrot QA (classic workflow):** Use the original counsel of three question and answer pipeline, where your question is categorized, three answers are generated, Calvin reviews them, and a brief final answer is synthesized using legacy guardrails. You can explore the details in the [Parrot QA documentation](/documentation-parrot-qa).
 
 All of this is built to serve the wider body of Christ, with a firm commitment to the essentials of the faith, humility in secondary and tertiary matters, and charity toward those who disagree.
 
@@ -26,9 +25,9 @@ We are opening an API that is carefully guarded so you do not have to worry abou
 
 Want to add a chat function with Bible knowledge to your website? See the [Parrot Chat API documentation](/documentation-parrot-chat).
 
-### Parrot QA API
+### Former Parrot QA API
 
-If you want to integrate the classic counsel of three workflow with explicit categorization, multiple answers, and Calvin style review, you can use the [Parrot QA API documentation](/documentation-parrot-qa). For most new chat experiences we recommend the Parrot Chat API, and use Parrot QA when you need the original OG behavior or structured evaluation traces.
+Counsel of Three is retired. Use the Parrot Chat API for new Bible and theology questions. Existing Q&A integrations can follow the [migration guide](/documentation-parrot-qa); previously saved answers are preserved.
 
 ### Calvinist Parrot Ministries
 

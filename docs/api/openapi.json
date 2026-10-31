@@ -4,7 +4,7 @@
   "info": {
     "title": "Calvinist Parrot Conversational API",
     "version": "1.0.0",
-    "description": "Versioned contracts for Calvinist Parrot chat and Counsel of Three QA. Browser identity is always resolved server-side from the Appwrite session or server-managed guest cookie; v1 clients must not send `userId`."
+    "description": "Versioned contracts for Calvinist Parrot chat and retirement responses for Counsel of Three QA. Browser identity is always resolved server-side from the Appwrite session or server-managed guest cookie; v1 clients must not send `userId`."
   },
   "servers": [
     {
@@ -19,7 +19,7 @@
     },
     {
       "name": "QA",
-      "description": "Counsel of Three question answering."
+      "description": "Retired Counsel of Three endpoints. Use Parrot chat."
     },
     {
       "name": "Legacy",
@@ -445,73 +445,35 @@
           "QA"
         ],
         "operationId": "askQa",
-        "summary": "Stream a Counsel of Three answer",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QaRequest"
-              },
-              "example": {
-                "question": "What is the doctrine of the Trinity?",
-                "denomination": "reformed-baptist"
-              }
-            }
-          }
-        },
+        "summary": "Retired Counsel of Three endpoint",
+        "deprecated": true,
+        "description": "New Q&A requests are no longer accepted. Use POST /api/v1/chats and the chat message stream instead. Saved answers are preserved.",
         "responses": {
-          "200": {
-            "description": "The QA stream started.",
+          "410": {
+            "description": "Counsel of Three is retired. Start a Parrot chat with POST /api/v1/chats instead.",
             "content": {
-              "application/x-ndjson": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/QaStreamEvent"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "description": "Newline-delimited JSON. Each line is one complete JSON object matching QaStreamEvent. Once streaming begins, runtime failures are reported in-band as `error` events because the HTTP status has already been sent.",
                 "example": {
-                  "type": "reviewed_answer",
-                  "content": "The Bible teaches that the one true God eternally exists as Father, Son, and Holy Spirit."
+                  "error": "Counsel of Three has been retired. Use POST /api/v1/chats for Parrot chat."
                 }
               }
-            }
-          },
-          "400": {
-            "description": "The request did not match the contract.",
-            "content": {
-              "application/json": {
+            },
+            "headers": {
+              "Deprecation": {
+                "description": "RFC 9745 date when this endpoint was retired.",
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "type": "string",
+                  "example": "@1793404800"
                 }
-              }
-            }
-          },
-          "403": {
-            "description": "The current browser actor does not own this chat.",
-            "content": {
-              "application/json": {
+              },
+              "Link": {
+                "description": "Migration documentation and the replacement chat endpoint.",
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The requested chat or request was not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The request failed before a stream could begin.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "type": "string",
+                  "example": "</documentation-parrot-chat>; rel=\"deprecation\"; type=\"text/html\", </api/v1/chats>; rel=\"successor-version\""
                 }
               }
             }
@@ -869,147 +831,77 @@
           "Legacy"
         ],
         "operationId": "legacyParrotQa",
-        "summary": "Legacy Counsel of Three stream",
+        "summary": "Retired legacy Counsel of Three endpoint",
         "deprecated": true,
-        "description": "Deprecated compatibility shim. Migrate to `POST /api/v1/qa`.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LegacyQaRequest"
+        "description": "Retired. Migrate to POST /api/v1/chats; POST /api/v1/qa is also retired.",
+        "responses": {
+          "410": {
+            "description": "Counsel of Three is retired. Start a Parrot chat with POST /api/v1/chats instead.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Counsel of Three has been retired. Use POST /api/v1/chats for Parrot chat."
+                }
+              }
+            },
+            "headers": {
+              "Deprecation": {
+                "description": "RFC 9745 date indicating when this compatibility endpoint was deprecated.",
+                "schema": {
+                  "type": "string",
+                  "example": "@1785024000"
+                }
+              },
+              "Link": {
+                "description": "Migration documentation identified by the deprecation link relation.",
+                "schema": {
+                  "type": "string",
+                  "example": "</api/v1/docs>; rel=\"deprecation\"; type=\"text/html\""
+                }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "/api/elaborate": {
+      "post": {
+        "tags": [
+          "QA"
+        ],
+        "operationId": "retiredQaElaborate",
+        "summary": "Retired Counsel of Three elaboration endpoint",
+        "deprecated": true,
+        "description": "Continue questions in Parrot chat instead.",
         "responses": {
-          "200": {
-            "description": "Legacy NDJSON payload served with its historical text media type.",
+          "410": {
+            "description": "Counsel of Three is retired. Start a Parrot chat with POST /api/v1/chats instead.",
             "content": {
-              "text/plain": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/QaStreamEvent"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "description": "Newline-delimited JSON. Each line is one complete JSON object matching QaStreamEvent. Once streaming begins, runtime failures are reported in-band as `error` events because the HTTP status has already been sent."
-              }
-            },
-            "headers": {
-              "Deprecation": {
-                "description": "RFC 9745 date indicating when this compatibility endpoint was deprecated.",
-                "schema": {
-                  "type": "string",
-                  "example": "@1785024000"
-                }
-              },
-              "Link": {
-                "description": "Migration documentation identified by the deprecation link relation.",
-                "schema": {
-                  "type": "string",
-                  "example": "</api/v1/docs>; rel=\"deprecation\"; type=\"text/html\""
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request did not match the contract.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                "example": {
+                  "error": "Counsel of Three has been retired. Use POST /api/v1/chats for Parrot chat."
                 }
               }
             },
             "headers": {
               "Deprecation": {
-                "description": "RFC 9745 date indicating when this compatibility endpoint was deprecated.",
+                "description": "RFC 9745 date when this endpoint was retired.",
                 "schema": {
                   "type": "string",
-                  "example": "@1785024000"
+                  "example": "@1793404800"
                 }
               },
               "Link": {
-                "description": "Migration documentation identified by the deprecation link relation.",
+                "description": "Migration documentation and the replacement chat endpoint.",
                 "schema": {
                   "type": "string",
-                  "example": "</api/v1/docs>; rel=\"deprecation\"; type=\"text/html\""
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The current browser actor does not own this chat.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "headers": {
-              "Deprecation": {
-                "description": "RFC 9745 date indicating when this compatibility endpoint was deprecated.",
-                "schema": {
-                  "type": "string",
-                  "example": "@1785024000"
-                }
-              },
-              "Link": {
-                "description": "Migration documentation identified by the deprecation link relation.",
-                "schema": {
-                  "type": "string",
-                  "example": "</api/v1/docs>; rel=\"deprecation\"; type=\"text/html\""
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The requested chat or request was not found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "headers": {
-              "Deprecation": {
-                "description": "RFC 9745 date indicating when this compatibility endpoint was deprecated.",
-                "schema": {
-                  "type": "string",
-                  "example": "@1785024000"
-                }
-              },
-              "Link": {
-                "description": "Migration documentation identified by the deprecation link relation.",
-                "schema": {
-                  "type": "string",
-                  "example": "</api/v1/docs>; rel=\"deprecation\"; type=\"text/html\""
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "The request failed before a stream could begin.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "headers": {
-              "Deprecation": {
-                "description": "RFC 9745 date indicating when this compatibility endpoint was deprecated.",
-                "schema": {
-                  "type": "string",
-                  "example": "@1785024000"
-                }
-              },
-              "Link": {
-                "description": "Migration documentation identified by the deprecation link relation.",
-                "schema": {
-                  "type": "string",
-                  "example": "</api/v1/docs>; rel=\"deprecation\"; type=\"text/html\""
+                  "example": "</documentation-parrot-chat>; rel=\"deprecation\"; type=\"text/html\", </api/v1/chats>; rel=\"successor-version\""
                 }
               }
             }
@@ -1716,244 +1608,6 @@
           }
         ]
       },
-      "QaRequest": {
-        "type": "object",
-        "properties": {
-          "question": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 20000,
-            "description": "A Bible or theology question for the Counsel of Three pipeline."
-          },
-          "denomination": {
-            "type": "string",
-            "enum": [
-              "reformed-baptist",
-              "presbyterian",
-              "wesleyan",
-              "lutheran",
-              "anglican",
-              "pentecostal",
-              "non-denom"
-            ],
-            "description": "The theological tradition used to frame secondary doctrines."
-          }
-        },
-        "required": [
-          "question"
-        ],
-        "additionalProperties": false,
-        "description": "Starts a streamed Counsel of Three response."
-      },
-      "QaStreamEvent": {
-        "oneOf": [
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "progress"
-              },
-              "message": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "message"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "categorization"
-              },
-              "data": {
-                "type": "object",
-                "properties": {
-                  "reformatted_question": {
-                    "type": "string"
-                  },
-                  "category": {
-                    "type": "string"
-                  },
-                  "subcategory": {
-                    "type": "string"
-                  },
-                  "issue_type": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "reformatted_question",
-                  "category",
-                  "subcategory",
-                  "issue_type"
-                ],
-                "additionalProperties": false
-              }
-            },
-            "required": [
-              "type",
-              "data"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "agent_responses"
-              },
-              "data": {
-                "type": "object",
-                "properties": {
-                  "first_answer": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "second_answer": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "third_answer": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "required": [
-                  "first_answer",
-                  "second_answer",
-                  "third_answer"
-                ],
-                "additionalProperties": false
-              }
-            },
-            "required": [
-              "type",
-              "data"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "calvin_review"
-              },
-              "content": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              }
-            },
-            "required": [
-              "type",
-              "content"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "reviewed_answer"
-              },
-              "content": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "content"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "refusal"
-              },
-              "content": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "content"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "error"
-              },
-              "stage": {
-                "type": "string",
-                "minLength": 1
-              },
-              "message": {
-                "type": "string",
-                "minLength": 1
-              }
-            },
-            "required": [
-              "type",
-              "stage",
-              "message"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "done"
-              }
-            },
-            "required": [
-              "type"
-            ],
-            "additionalProperties": false
-          }
-        ],
-        "description": "One NDJSON line emitted by the Counsel of Three pipeline."
-      },
       "LegacyParrotChatRequest": {
         "anyOf": [
           {
@@ -2282,40 +1936,6 @@
         ],
         "additionalProperties": false,
         "description": "Deprecated legacy chat history shape."
-      },
-      "LegacyQaRequest": {
-        "type": "object",
-        "properties": {
-          "question": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 20000,
-            "description": "A Bible or theology question for the Counsel of Three pipeline."
-          },
-          "denomination": {
-            "type": "string",
-            "enum": [
-              "reformed-baptist",
-              "presbyterian",
-              "wesleyan",
-              "lutheran",
-              "anglican",
-              "pentecostal",
-              "non-denom"
-            ],
-            "description": "The theological tradition used to frame secondary doctrines."
-          },
-          "userId": {
-            "description": "Deprecated external identity accepted only by the legacy route.",
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "question"
-        ],
-        "additionalProperties": false,
-        "description": "Deprecated request shape for the legacy QA route."
       }
     }
   }

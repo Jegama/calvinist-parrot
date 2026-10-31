@@ -7,14 +7,18 @@ const qaQuestionSchema = z
   .trim()
   .min(1)
   .max(20_000)
-  .describe("A Bible or theology question for the Counsel of Three pipeline.");
+  .describe(
+    "Archived question shape for the retired Counsel of Three pipeline.",
+  );
 
 export const qaRequestSchema = z
   .strictObject({
     question: qaQuestionSchema,
     denomination: denominationSchema.optional(),
   })
-  .describe("Starts a streamed Counsel of Three response.");
+  .describe(
+    "Historical request shape; Counsel of Three no longer accepts new requests.",
+  );
 
 export const legacyQaRequestSchema = qaRequestSchema
   .extend({
@@ -23,7 +27,9 @@ export const legacyQaRequestSchema = qaRequestSchema
       .trim()
       .min(1)
       .optional()
-      .describe("Deprecated external identity accepted only by the legacy route."),
+      .describe(
+        "Deprecated external identity accepted only by the legacy route.",
+      ),
   })
   .describe("Deprecated request shape for the legacy QA route.");
 
@@ -75,7 +81,9 @@ export const qaStreamEventSchema = z
       type: z.literal("done"),
     }),
   ])
-  .describe("One NDJSON line emitted by the Counsel of Three pipeline.");
+  .describe(
+    "One historical NDJSON line from the retired Counsel of Three pipeline.",
+  );
 
 export type QaRequest = z.input<typeof qaRequestSchema>;
 export type LegacyQaRequest = z.input<typeof legacyQaRequestSchema>;

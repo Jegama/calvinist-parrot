@@ -88,7 +88,7 @@ def test_appwrite_dynamic_key_is_read_case_insensitively() -> None:
     assert _dynamic_api_key(SimpleNamespace(headers={})) is None
 
 
-def test_gemini_config_matches_36_migration_rules() -> None:
+def test_gemini_config_matches_38_migration_rules() -> None:
     captured = {}
 
     class FakeConfig:

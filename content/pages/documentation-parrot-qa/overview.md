@@ -1,36 +1,17 @@
-# Parrot QA API
+# Counsel of Three Is Retired
 
-## Overview
+Counsel of Three (Parrot QA) stopped accepting new requests on October 31, 2026. Use [Parrot chat](/) for Bible and theology questions. Previously saved answers are preserved.
 
-Parrot QA provides Calvinist Parrot's classic structured question-and-answer workflow. It categorizes a theological question, gathers three independent answers, asks a reviewer agent to assess them, and streams a concise synthesized response.
+## Migrating API Clients
 
-New integrations should use `POST /api/v1/qa`. The former `/api/parrot-qa` endpoint remains available as a deprecated compatibility route.
+`POST /api/v1/qa`, `POST /api/parrot-qa`, and `POST /api/elaborate` now return HTTP `410 Gone` with a JSON error explaining the retirement. These routes no longer stream answers or invoke models. Their responses include deprecation metadata and a link to migration documentation.
 
-## API Reference
+To continue through Parrot chat:
 
-The generated contract is the source of truth for the request schema, status codes, examples, and every newline-delimited JSON event:
+1. Create a conversation with `POST /api/v1/chats`, sending your question as `initialQuestion`.
+2. Use the returned `chatId`, `messageId`, and `requestId` to send the initial question through `POST /api/v1/chats/{chatId}/messages` as described in the [Parrot Chat API documentation](/documentation-parrot-chat).
+3. Read the `application/x-ndjson` chat events. The historical Q&A event types, such as `agent_responses` and `calvin_review`, are not emitted by chat.
 
-- [Interactive API reference](/api/v1/docs)
-- [OpenAPI 3.1 document](/api/v1/openapi.json)
+Identity is resolved server-side from the Appwrite session or guest cookie. Retain the cookies returned by the API and do not send `userId` in v1 requests.
 
-## How It Works
-
-The workflow begins by reformulating and categorizing the question. It then sends the question to the Counsel of Three, whose independent answers provide multiple perspectives for comparison. A reviewer evaluates those answers for theological accuracy and helpfulness before the final answer is synthesized and streamed to the caller.
-
-Progress, categorization, intermediate reasoning results, the reviewer assessment, and final-answer chunks are represented as documented `application/x-ndjson` events. Consumers should treat the generated OpenAPI document as authoritative rather than depending on prose examples.
-
-## Reviewer Agent
-
-The current reviewer is Calvin, who assesses the three answers with particular attention to John Calvin's *Institutes of the Christian Religion*. This review is an additional theological safeguard and informs the final synthesis; it is not presented as a substitute for Scripture or pastoral care in a local church.
-
-## Identity and Privacy
-
-Identity is resolved by the server. Signed-in users are identified through the Appwrite session cookie, while guests receive a server-managed `guestId` cookie. The v1 endpoint does not accept a caller-supplied `userId`; server integrations should retain the cookies returned for the conversation actor.
-
-## Theological Commitments
-
-Denominational modes affect secondary doctrines while sharing non-negotiable commitments: the Trinity; God's holy, sovereign, loving, and just character; the inspiration, inerrancy, and authority of Scripture; Christ's true deity and humanity; the incarnation and virgin birth; the necessity and sufficiency of Christ's atonement; the historical death, burial, and bodily resurrection of Christ; justification by grace alone through faith alone in Christ alone; Christ's bodily return; final judgment; and the renewal of all things.
-
-The supported modes are Reformed Baptist (default), Presbyterian, Wesleyan, Lutheran, Anglican, Pentecostal or Charismatic, and Non-Denominational Evangelical.
-
-For the primary conversational experience, see the [Parrot Chat API](/documentation-parrot-chat).
+The [interactive API reference](/api/v1/docs) and [OpenAPI document](/api/v1/openapi.json) describe the current request schemas and retirement responses.

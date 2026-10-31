@@ -55,7 +55,7 @@ import {
   TAVILY_ENRICHMENT_STAGE_TIMEOUT_MS,
 } from "./runtime";
 
-export const EVALUATION_MODEL = "gemini-3.6-flash";
+export const EVALUATION_MODEL = "gemini-3.8-flash";
 export const EVALUATION_PROMPT_VERSION = "2026-08-18";
 export const CORE_EXTRACTION_THINKING_LEVEL = ThinkingLevel.MEDIUM;
 
