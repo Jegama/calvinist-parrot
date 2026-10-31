@@ -165,13 +165,11 @@ export function buildEditionScores(
     if (
       edition.judges.length > 1 &&
       selected.some(
-        (run) =>
-          run.questionCount !== edition.expectedQuestionCount ||
-          run.errorCount !== 0,
+        (run) => run.questionCount !== edition.expectedQuestionCount,
       )
     ) {
       issues.push(
-        `Each panel judge must have ${edition.expectedQuestionCount} scored questions and no recorded errors`,
+        `Each panel judge must have ${edition.expectedQuestionCount} successfully scored questions`,
       );
     }
     const complete = missingJudges.length === 0 && issues.length === 0;

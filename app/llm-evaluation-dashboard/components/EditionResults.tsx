@@ -98,7 +98,10 @@ export function EditionResults({ metrics }: { metrics: DashboardMetrics }) {
                 <TableRow key={answer.answersLabel}>
                   <TableCell className="font-medium">
                     {formatModelLabel(answer.genModel)}
-                    {answer.runs.some((run) => run.errorCount > 0) && (
+                    {answer.runs.some(
+                      (run) =>
+                        run.questionCount !== edition.expectedQuestionCount,
+                    ) && (
                       <span className="block text-xs text-muted-foreground">
                         Partial run · {answer.runs[0].questionCount} scored
                         questions
@@ -108,16 +111,26 @@ export function EditionResults({ metrics }: { metrics: DashboardMetrics }) {
                   <TableCell className="text-right font-semibold tabular-nums">
                     {answer.scores[metricKey].mean.toFixed(3)}
                   </TableCell>
-                  {edition.judges.map((judge) => (
-                    <TableCell
-                      key={judge.model}
-                      className="text-right tabular-nums"
-                    >
-                      {answer.runs
-                        .find((run) => run.judgeModel === judge.model)!
-                        .scores[metricKey].mean.toFixed(2)}
-                    </TableCell>
-                  ))}
+                  {edition.judges.map((judge) => {
+                    const run = answer.runs.find(
+                      (run) => run.judgeModel === judge.model,
+                    )!;
+                    return (
+                      <TableCell
+                        key={judge.model}
+                        className="text-right tabular-nums"
+                      >
+                        {run.scores[metricKey].mean.toFixed(2)}
+                        {run.errorCount > 0 && (
+                          <span className="block text-xs text-muted-foreground">
+                            {run.questionCount} scored · {run.errorCount}{" "}
+                            recorded failed{" "}
+                            {run.errorCount === 1 ? "attempt" : "attempts"}
+                          </span>
+                        )}
+                      </TableCell>
+                    );
+                  })}
                   <TableCell className="text-right tabular-nums">
                     {isPanel
                       ? scoreRangeLabel(answer, metricKey)
@@ -135,6 +148,8 @@ export function EditionResults({ metrics }: { metrics: DashboardMetrics }) {
             </TableBody>
           </Table>
           <p className="mt-3 text-xs text-muted-foreground">
+            Coverage uses successfully scored questions. Failed attempts remain
+            visible even when a later retry succeeds.{" "}
             {isPanel
               ? "Judge range is the lowest to highest judge mean. It is not a confidence interval, and the original run standard deviations are not averaged."
               : "Population SD describes dispersion within the recorded run. It is not a confidence interval."}

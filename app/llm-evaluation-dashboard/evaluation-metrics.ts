@@ -191,7 +191,10 @@ export interface EvaluationRun {
   evalVersion: string;
   evaluatedAt: string;
   timestampSource: string;
+  // Successful evaluations deduplicated by question in the master CSV.
   questionCount: number;
+  // Failed attempts in the raw log, including errors later recovered by retry.
+  // This is not a count of questions still missing a score.
   errorCount: number;
   sourceDataset: string;
   sourceResults: string;

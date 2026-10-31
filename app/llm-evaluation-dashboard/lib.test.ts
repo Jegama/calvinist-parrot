@@ -17,13 +17,38 @@ describe("vertical evaluation master CSV", () => {
   it("parses one validated object per judge run", () => {
     const runs = parseEvaluationRuns(masterCsv);
 
-    const rows = parse(masterCsv, { columns: true, skip_empty_lines: true });
+    const rows = parse(masterCsv, {
+      columns: true,
+      skip_empty_lines: true,
+    }) as Record<string, string>[];
     expect(runs).toHaveLength(rows.length);
     expect(new Set(runs.map((run) => run.runId)).size).toBe(runs.length);
     expect(Object.keys(runs[0].scores)).toHaveLength(19);
-    expect(
-      runs.every((run) => run.questionCount + run.errorCount === 500),
-    ).toBe(true);
+    for (const [index, run] of runs.entries()) {
+      expect(run.questionCount).toBe(Number(rows[index].question_count));
+      expect(run.errorCount).toBe(Number(rows[index].error_count));
+    }
+  });
+
+  it("keeps successful-question counts separate from failed attempts recovered by retries", () => {
+    const [row] = parse(masterCsv, {
+      columns: true,
+      skip_empty_lines: true,
+    }) as Record<string, string>[];
+    const headers = Object.keys(row);
+    const recovered = { ...row, question_count: "500", error_count: "2" };
+    const csv = [
+      headers,
+      headers.map((key) => recovered[key as keyof typeof recovered]),
+    ]
+      .map((cells) =>
+        cells.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","),
+      )
+      .join("\n");
+    expect(parseEvaluationRuns(csv)[0]).toMatchObject({
+      questionCount: 500,
+      errorCount: 2,
+    });
   });
 
   it("uses answers_label as the stable identity across judges", () => {

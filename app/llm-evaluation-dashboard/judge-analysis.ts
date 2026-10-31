@@ -40,6 +40,7 @@ export interface JudgePairAnalysis {
 
 export interface JudgePairSelection {
   evalVersion: string;
+  expectedQuestionCount: number;
   primaryJudge: string;
   comparisonJudge: string;
   promptLabel: string;
@@ -131,9 +132,8 @@ export function buildJudgePairAnalysis(
           (run) => run.answersLabel === comparisonRun.answersLabel,
         ).length !== 1 ||
         !haveMatchingAnswerMetadata(primaryRun, comparisonRun) ||
-        primaryRun.questionCount !== comparisonRun.questionCount ||
-        primaryRun.errorCount !== 0 ||
-        comparisonRun.errorCount !== 0 ||
+        primaryRun.questionCount !== selection.expectedQuestionCount ||
+        comparisonRun.questionCount !== selection.expectedQuestionCount ||
         selection.primaryJudge === selection.comparisonJudge
       )
         return [];

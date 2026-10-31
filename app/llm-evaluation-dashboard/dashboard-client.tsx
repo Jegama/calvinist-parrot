@@ -354,6 +354,7 @@ export default function DashboardClient({ data }: { data: EvaluationRun[] }) {
         <TabsContent value="judges">
           {activeTab === "judges" && (
             <JudgeAnalysisPanel
+              expectedQuestionCount={edition.expectedQuestionCount}
               key={edition.id}
               runs={data}
               evalVersion={edition.evalVersion}
@@ -483,7 +484,7 @@ export default function DashboardClient({ data }: { data: EvaluationRun[] }) {
         </p>
         <p>
           {metrics.activeAnswers.length > 0
-            ? `Covered runs: ${metrics.questionCountSummary.min === metrics.questionCountSummary.max ? metrics.questionCountSummary.max : `${metrics.questionCountSummary.min}–${metrics.questionCountSummary.max}`} scored questions each · ${metrics.questionCountSummary.totalErrors} recorded errors.`
+            ? `Covered runs: ${metrics.questionCountSummary.min === metrics.questionCountSummary.max ? metrics.questionCountSummary.max : `${metrics.questionCountSummary.min}–${metrics.questionCountSummary.max}`} successfully scored questions each · ${metrics.questionCountSummary.totalErrors} recorded failed attempt${metrics.questionCountSummary.totalErrors === 1 ? "" : "s"} (including errors recovered by retries).`
             : "No covered runs in this selection."}{" "}
           {metrics.latestEvaluatedAt &&
             `Latest included evaluation: ${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(metrics.latestEvaluatedAt))}.`}

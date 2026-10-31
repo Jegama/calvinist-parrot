@@ -11,6 +11,7 @@ const selection = {
   comparisonJudge: "b",
   promptLabel: "v1_4",
   evalVersion: "v2",
+  expectedQuestionCount: 500,
   metricKey: "finalOverall",
 } as const;
 
@@ -38,12 +39,12 @@ describe("paired judge analysis", () => {
     expect(analysis.comparisonHigherCount).toBe(1);
   });
 
-  it("does not compare incompatible rubric versions, answers, counts, or failed runs", () => {
+  it("does not compare incompatible rubric versions, answers, or incomplete runs", () => {
     for (const overrides of [
       { evalVersion: "v3" },
       { sourceDataset: "other" },
       { questionCount: 499 },
-      { errorCount: 1 },
+      { questionCount: 499, errorCount: 1 },
     ]) {
       const analysis = buildJudgePairAnalysis(
         [fixtureRun("one", "a", 4), fixtureRun("one", "b", 3, overrides)],
@@ -54,6 +55,20 @@ describe("paired judge analysis", () => {
       expect(analysis.pearson).toBeNull();
       expect(analysis.evidenceStatus).toBe("none");
     }
+  });
+
+  it("compares complete runs after retries but excludes matching incomplete counts", () => {
+    const data = [
+      fixtureRun("one", "a", 4),
+      fixtureRun("one", "b", 3, { errorCount: 1 }),
+    ];
+    expect(buildJudgePairAnalysis(data, selection).sharedRunCount).toBe(1);
+    expect(
+      buildJudgePairAnalysis(
+        data.map((run) => ({ ...run, questionCount: 499 })),
+        selection,
+      ).sharedRunCount,
+    ).toBe(0);
   });
 
   it("rejects duplicate judgments and comparisons with the same judge", () => {

@@ -35,6 +35,7 @@ import { JudgeAgreementScatter } from "../charts/JudgeAgreementScatter";
 interface JudgeAnalysisPanelProps {
   runs: EvaluationRun[];
   evalVersion: string;
+  expectedQuestionCount: number;
   initialReference: string;
   activePromptLabel: string | null;
 }
@@ -55,6 +56,7 @@ function rank(value: number, values: number[]) {
 export function JudgeAnalysisPanel({
   runs,
   evalVersion,
+  expectedQuestionCount,
   initialReference,
   activePromptLabel,
 }: JudgeAnalysisPanelProps) {
@@ -90,6 +92,7 @@ export function JudgeAnalysisPanel({
       comparisonJudge: comparison,
       promptLabel: activePromptLabel ?? "",
       evalVersion,
+      expectedQuestionCount,
       metricKey: key,
     }),
   );
@@ -110,8 +113,7 @@ export function JudgeAnalysisPanel({
     {
       label: "Paired coverage",
       value: `${analysis.sharedRunCount} / ${analysis.totalAnswerSetCount}`,
-      detail:
-        "Available answer sets with compatible, error-free runs from both judges.",
+      detail: `Available answer sets with compatible runs and ${expectedQuestionCount} successfully scored questions from both judges.`,
     },
     {
       label: "Mean difference",

@@ -113,8 +113,7 @@ describe("dashboard metrics", () => {
           (run) =>
             run.answersLabel === label &&
             run.judgeModel === model &&
-            run.questionCount === 500 &&
-            run.errorCount === 0,
+            run.questionCount === 500,
         ),
       ),
     );
@@ -136,5 +135,21 @@ describe("dashboard metrics", () => {
       expect(answer.scores.finalOverall.mean).toBe(
         answer.runs[0].scores.finalOverall.mean,
       );
+  });
+
+  it("includes recovered Grok evaluations consistently across the main table, charts, and coverage", () => {
+    const grok = panelRuns("grok-4.3", [3.51, 4.2, 3.37], { provider: "xai" });
+    grok[1].errorCount = 1;
+    const metrics = buildDashboardMetrics(grok);
+    expect(metrics.activeAnswers[0].genModel).toBe("grok-4.3");
+    expect(metrics.incompleteAnswers).toEqual([]);
+    expect(metrics.categoryScoresByModel[0].model).toBe("grok-4.3");
+    expect(metrics.providerSpread[0].modelCount).toBe(1);
+    expect(metrics.radarAdherence[0].xai).toBeCloseTo(3.6933333333333334);
+    expect(metrics.questionCountSummary).toEqual({
+      min: 500,
+      max: 500,
+      totalErrors: 1,
+    });
   });
 });

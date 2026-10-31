@@ -53,7 +53,7 @@ describe("versioned scoring editions", () => {
 
   it.each([
     { questionCount: 499 },
-    { errorCount: 1 },
+    { questionCount: 499, errorCount: 1 },
     { sourceDataset: "different.jsonl" },
     { genModel: "different-model" },
     { provider: "openai" },
@@ -72,6 +72,15 @@ describe("versioned scoring editions", () => {
       buildEditionScores([...data, { ...data[0], runId: "duplicate" }], edition)
         .answers,
     ).toHaveLength(0);
+  });
+
+  it("includes complete runs with recovered failed attempts without discarding the error history", () => {
+    const data = panelRuns("grok-4.3", [3.51, 4.2, 3.37], { provider: "xai" });
+    data[1].errorCount = 1;
+    const { answers, coverage } = buildEditionScores(data, edition);
+    expect(coverage[0].complete).toBe(true);
+    expect(answers[0].scores.finalOverall.mean).toBeCloseTo(3.6933333333333334);
+    expect(answers[0].runs[1].errorCount).toBe(1);
   });
 
   it("allows a saved retired model to join once the missing current judge is added", () => {
