@@ -11,16 +11,20 @@ export function createParrotChatModel(
   ).toLowerCase();
 
   switch (provider) {
-    case "anthropic":
+    case "anthropic": {
+      const model = env.PARROT_ANTHROPIC_MODEL?.trim() || "claude-haiku-5-5";
       return new ChatAnthropic({
-        model: env.PARROT_ANTHROPIC_MODEL || "claude-haiku-5-5",
+        model,
         apiKey: env.ANTHROPIC_API_KEY || "",
         streaming: true,
         maxTokens: 16_384,
-        // Haiku 5.5 uses adaptive thinking and rejects sampling parameters.
-        // Explicit thinking also preserves its blocks during tool-call rounds.
-        thinking: { type: "adaptive" },
+        // Configure the default explicitly; other models use their API defaults.
+        // Older overrides such as Haiku 4.5 reject adaptive thinking.
+        ...(model === "claude-haiku-5-5"
+          ? { thinking: { type: "adaptive" as const } }
+          : {}),
       });
+    }
     case "openai":
       return new ChatOpenAI({
         model: env.PARROT_OPENAI_MODEL || "gpt-6-luna",

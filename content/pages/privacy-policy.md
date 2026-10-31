@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Effective Date:** April 6, 2026  
-**Last Updated:** April 6, 2026
+**Last Updated:** October 31, 2026
 
 Calvinist Parrot ("we," "us," or "our") is a ministry project of [Calvinist Parrot Ministries](https://www.calvinistparrotministries.org/). We are committed to protecting your privacy and handling your data with transparency and care. This Privacy Policy explains what information we collect, how we use it, and what choices you have.
 
@@ -66,6 +66,7 @@ We use the following third-party services to operate Calvinist Parrot. Your data
 | Service | Data Shared | Purpose |
 |---------|-------------|---------|
 | **Appwrite** (Authentication) | Name, email, session tokens | User authentication and account management |
+| **Anthropic (Claude)** | Chat messages and conversation history; account or guest identifier; denomination and pastoral profile; relevant saved AI memories and tool results included in the conversation | Default conversational AI provider for personalized theological responses |
 | **OpenAI** | Chat messages, journal entries, conversation context | AI-powered theological responses, pastoral reflections, and memory extraction |
 | **Google Gemini** | Chat messages, church website content | AI-powered theological responses and church doctrinal evaluations |
 | **Tavily** | Search queries, church website URLs | Web search for supplemental theological articles, church website analysis, and daily devotional generation |
@@ -74,7 +75,9 @@ We use the following third-party services to operate Calvinist Parrot. Your data
 | **Geoapify** | Church addresses | Geocoding church locations for the church finder map |
 | **AO Lab Bible API** | Bible verse references | Retrieving Scripture text and commentaries (no personal data sent) |
 
-Each of these services has their own privacy policy governing how they handle data. When your content is sent to AI providers (OpenAI, Google Gemini), it is processed according to their API terms of service, which generally prohibit using API inputs for model training.
+Each of these services has its own privacy policy governing how it handles data. Content sent to AI providers (Anthropic, OpenAI, or Google Gemini) is processed under the applicable API terms and data policies.
+
+Anthropic processes API content under its [Commercial Terms](https://www.anthropic.com/legal/commercial-terms) and [Data Processing Addendum](https://www.anthropic.com/legal/data-processing-addendum). Its [commercial data policy](https://privacy.claude.com/en/articles/7996868-is-my-data-used-for-model-training) states that API inputs and outputs are not used for model training by default; content explicitly submitted as feedback or otherwise opted into training may be used. Anthropic's [retention policy](https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data) describes standard API deletion within 30 days, with exceptions including agreed retention arrangements, services with longer retention, safety and usage-policy enforcement, and legal requirements.
 
 ---
 

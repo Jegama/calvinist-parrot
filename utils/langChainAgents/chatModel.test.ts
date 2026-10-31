@@ -24,6 +24,7 @@ function streamedResponse(
     deltas: Record<string, unknown>[];
   }[],
   stopReason: "tool_use" | "end_turn",
+  modelName = "claude-haiku-5-5",
 ) {
   const events: Record<string, unknown>[] = [
     {
@@ -32,7 +33,7 @@ function streamedResponse(
         id: `msg_${stopReason}`,
         type: "message",
         role: "assistant",
-        model: "claude-haiku-5-5",
+        model: modelName,
         content: [],
         stop_reason: null,
         stop_sequence: null,
@@ -109,8 +110,40 @@ describe("Parrot chat model", () => {
     ).toThrow("Unsupported PARROT_AGENT_PROVIDER: typo");
   });
 
-  it("streams visible text and completes a tool round trip with signed thinking intact", async () => {
-    const model = createParrotChatModel(credentials);
+  it.each(["claude-haiku-4-5", "claude-haiku-4-5-20251001", "claude-sonnet-5"])(
+    "uses the provider's thinking default for the %s override",
+    async (modelName) => {
+      const model = createParrotChatModel({
+        ...credentials,
+        PARROT_ANTHROPIC_MODEL: modelName,
+      });
+      if (!(model instanceof ChatAnthropic)) throw new Error("Expected Anthropic");
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(
+        streamedResponse(
+          [{
+            start: { type: "text", text: "" },
+            deltas: [{ type: "text_delta", text: "Answer" }],
+          }],
+          "end_turn",
+          modelName,
+        ),
+      );
+      model.clientOptions = { fetch: fetchMock };
+
+      expect((await model.invoke("Hello")).text).toBe("Answer");
+      expect(fetchMock).toHaveBeenCalledOnce();
+      const request = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+      expect(request.model).toBe(modelName);
+      expect(request).not.toHaveProperty("thinking");
+      expect(request).not.toHaveProperty("temperature");
+    },
+  );
+
+  it.each(["claude-haiku-5-5", "claude-sonnet-5"])("streams visible text and preserves signed thinking in a %s tool round trip", async (modelName) => {
+    const model = createParrotChatModel({
+      ...credentials,
+      PARROT_ANTHROPIC_MODEL: modelName,
+    });
     if (!(model instanceof ChatAnthropic))
       throw new Error("Expected Anthropic");
 
@@ -147,6 +180,7 @@ describe("Parrot chat model", () => {
             },
           ],
           "tool_use",
+          modelName,
         ),
       )
       .mockResolvedValueOnce(
@@ -163,6 +197,7 @@ describe("Parrot chat model", () => {
             },
           ],
           "end_turn",
+          modelName,
         ),
       );
 
@@ -215,11 +250,13 @@ describe("Parrot chat model", () => {
     );
     for (const request of requests) {
       expect(request).toMatchObject({
-        model: "claude-haiku-5-5",
+        model: modelName,
         stream: true,
         max_tokens: 16_384,
-        thinking: { type: "adaptive" },
       });
+      if (modelName === "claude-haiku-5-5")
+        expect(request.thinking).toEqual({ type: "adaptive" });
+      else expect(request).not.toHaveProperty("thinking");
       expect(request).not.toHaveProperty("temperature");
       expect(request).not.toHaveProperty("top_p");
       expect(request).not.toHaveProperty("top_k");
