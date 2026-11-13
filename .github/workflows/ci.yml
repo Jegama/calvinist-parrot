@@ -34,7 +34,8 @@ jobs:
     env:
       RUN_SERMON_DATABASE_INTEGRATION_TESTS: "1"
       DATABASE_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:5432/sermon_evaluator_test?schema=public
-      SERMON_DATABASE_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:5432/sermon_evaluator_test
+      # The local CI service has no TLS; production keeps the worker's TLS default.
+      SERMON_DATABASE_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:5432/sermon_evaluator_test?sslmode=disable
 
     defaults:
       run:

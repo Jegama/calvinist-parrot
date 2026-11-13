@@ -197,6 +197,76 @@ def test_maintenance_only_chains_when_a_full_batch_needs_draining(monkeypatch, q
     assert calls == (["sweep"] if len(queued) == 2 else []) + queued
 
 
+@pytest.mark.parametrize("cleanup_kind", ["expired", "rejected", "deleted"])
+def test_cleanup_backlogs_drain_without_queued_evaluations(cleanup_kind) -> None:
+    service, persistence, _ = make_service()
+    pending = [
+        {"id": f"asset-{index}", "ownerId": "owner", "appwriteBucketId": "bucket", "appwriteFileId": f"file-{index}"}
+        for index in range(11)
+    ]
+    persistence.timeout_expired_attempts = lambda: 0
+    persistence.stale_duration_report_evaluation_ids = lambda **_: []
+    persistence.recoverable_evaluation_ids = lambda **_: []
+    persistence.expired_prepared_uploads = lambda **_: []
+    persistence.expired_finalized_pending_assets = lambda **_: []
+    persistence.pending_rejected_audio_assets = lambda **_: []
+    persistence.pending_deleted_audio_assets = lambda **_: []
+    persistence.rejected_audio_pointer_is_deletable = lambda **_: True
+
+    def clear(**kwargs):
+        item_id = kwargs.get("reservation_id", kwargs.get("asset_id"))
+        pending.remove(next(item for item in pending if item["id"] == item_id))
+        return True
+
+    persistence.expire_prepared_upload = clear
+    persistence.clear_rejected_audio_pointer = clear
+    persistence.clear_deleted_audio_pointer = clear
+    query = {
+        "expired": "expired_prepared_uploads",
+        "rejected": "pending_rejected_audio_assets",
+        "deleted": "pending_deleted_audio_assets",
+    }[cleanup_kind]
+    setattr(persistence, query, lambda *, limit: pending[:limit])
+    storage_available = False
+
+    def delete_file(**_):
+        if not storage_available:
+            raise TimeoutError("Storage unavailable")
+
+    service.storage.delete_file = delete_file
+    scheduled = []
+    service.schedule_maintenance = lambda: scheduled.append("sweep")
+
+    # An outage leaves durable work for hourly maintenance, without busy polling.
+    assert service.recover() == []
+    assert len(pending) == 11
+    assert scheduled == []
+
+    storage_available = True
+    assert service.recover() == []
+    assert len(pending) == 1
+    assert scheduled == ["sweep"]
+    assert service.recover() == []
+    assert pending == []
+    assert scheduled == ["sweep"]
+    assert service.recover() == []
+    assert scheduled == ["sweep"]
+
+
+def test_full_cleanup_and_evaluation_batches_schedule_only_one_successor(monkeypatch) -> None:
+    service, persistence, _ = make_service()
+    persistence.timeout_expired_attempts = lambda: 0
+    persistence.stale_duration_report_evaluation_ids = lambda **_: []
+    persistence.recoverable_evaluation_ids = lambda **_: ["job-1", "job-2"]
+    calls = []
+    for method in ["cleanup_expired_uploads", "cleanup_rejected_audio", "cleanup_deleted_audio"]:
+        monkeypatch.setattr(service, method, lambda *, limit, name=method: calls.append(name) or limit)
+    service.schedule_maintenance = lambda: calls.append("sweep")
+    monkeypatch.setattr(service, "process", lambda job: {"evaluationId": job})
+    service.recover()
+    assert calls == ["cleanup_expired_uploads", "cleanup_rejected_audio", "cleanup_deleted_audio", "sweep"]
+
+
 def test_backlog_wakeup_has_an_empty_maintenance_body(appwrite_environment, monkeypatch) -> None:
     payloads = []
 

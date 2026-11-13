@@ -851,9 +851,12 @@ class SermonEvaluationService:
 
     def recover(self, limit: int = 2) -> list[dict[str, Any]]:
         self.persistence.timeout_expired_attempts()
-        self.cleanup_expired_uploads(limit=10)
-        self.cleanup_rejected_audio(limit=10)
-        self.cleanup_deleted_audio(limit=10)
+        cleanup_limit = 10
+        cleaned_batches = [
+            self.cleanup_expired_uploads(limit=cleanup_limit),
+            self.cleanup_rejected_audio(limit=cleanup_limit),
+            self.cleanup_deleted_audio(limit=cleanup_limit),
+        ]
         results: list[dict[str, Any]] = []
         for evaluation_id in (
             self.persistence.stale_duration_report_evaluation_ids(limit=10)
@@ -869,9 +872,12 @@ class SermonEvaluationService:
                     }
                 )
         evaluation_ids = self.persistence.recoverable_evaluation_ids(limit=limit)
-        if len(evaluation_ids) == limit and self.schedule_maintenance is not None:
-            # Drain missed-dispatch backlogs promptly instead of processing only
-            # one bounded batch each hour. An empty sweep schedules no successor.
+        if self.schedule_maintenance is not None and (
+            len(evaluation_ids) == limit
+            or any(cleaned >= cleanup_limit for cleaned in cleaned_batches)
+        ):
+            # Drain full evaluation or completed cleanup batches promptly. Use
+            # one successor per sweep; empty sweeps and failed cleanup stop here.
             self.schedule_maintenance()
         for evaluation_id in evaluation_ids:
             try:

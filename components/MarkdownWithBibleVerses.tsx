@@ -42,7 +42,7 @@ const renderWithBibleVerses: (children: React.ReactNode) => React.ReactNode = (c
       if (index > lastIndex) {
         parts.push(children.slice(lastIndex, index));
       }
-      parts.push(<BibleVerse key={index} reference={reference} />);
+      parts.push(<BibleVerse key={`${index}:${reference}`} reference={reference} />);
       lastIndex = index + reference.length;
     });
 
