@@ -14,7 +14,7 @@ This directory is the canonical, platform-neutral Python sermon evaluator origin
 
 ## Environment contract
 
-Appwrite supplies `APPWRITE_FUNCTION_API_ENDPOINT` and `APPWRITE_FUNCTION_PROJECT_ID` as injected variables and supplies the execution's dynamic API key in the `x-appwrite-key` request header. `services/sermon-evaluator/.env.template` is the authoritative list of variables to configure separately in each development and production Function:
+Appwrite supplies `APPWRITE_FUNCTION_API_ENDPOINT`, `APPWRITE_FUNCTION_PROJECT_ID`, and `APPWRITE_FUNCTION_ID` as injected variables and supplies the execution's dynamic API key in the `x-appwrite-key` request header. `services/sermon-evaluator/.env.template` is the authoritative list of variables to configure separately in each development and production Function:
 
 - `SERMON_RUNTIME`: `appwrite`.
 - `SERMON_DATABASE_URL`: dedicated least-privileged pooled Neon URL with `sslmode=require`.
@@ -74,7 +74,13 @@ python -m piptools compile --resolver=backtracking --strip-extras --extra dev -o
 
 ## Deployment
 
-The root `appwrite.json` configures `services/sermon-evaluator` as a Python 3.14 Function, installs the pinned production requirements and package, exposes no public execute role, grants the dynamic key only file read/write scopes, runs recovery once per minute, and sets the 900-second timeout. Project IDs and all secrets remain deployment-environment configuration.
+The root `appwrite.json` configures `services/sermon-evaluator` as a Python 3.14 Function, installs the pinned production requirements and package, exposes no public execute role, grants the dynamic key `files.read`, `files.write`, and `execution.write`, runs maintenance hourly (`0 * * * *`), and sets the 900-second timeout. Apply the same settings to production and preview. Project IDs and all secrets remain deployment-environment configuration.
+
+Before starting or resuming a nonterminal evaluation, the Appwrite adapter registers a delayed execution of the same Function with only its opaque evaluation ID. These recovery checks run 60–120 seconds apart while work remains. They use the existing lease and original attempt deadline, and stop for every terminal status; a user-requested retry resets the durable job to `QUEUED` and starts a new chain. Registration uses bounded retries and must succeed before a new attempt starts. No model or dependency changes are needed. [Appwrite documentation, delayed executions](https://appwrite.io/docs/products/functions/execute)
+
+The hourly empty-body sweep is a safety net for failed initial dispatches and interrupted scheduling, as well as upload/audio cleanup and stale-report regeneration. Missed initial dispatches can wait up to an hour; an expired attempt is timed out, never granted a fresh deadline automatically. A full recovery batch schedules another sweep to drain a backlog promptly. Empty sweeps and terminal-job checks schedule nothing, allowing an unused Neon compute to suspend between hourly maintenance runs. Deploy the worker code and its additional dynamic-key scope before reducing the recurring schedule; changing the schedule alone loses prompt recovery of interrupted active attempts.
+
+The database pool validates connections only when work checks them out, replacing connections closed during suspension. It sends no background keep-alive queries while the worker is idle.
 
 The scheduled empty-body invocation marks expired attempts timed out, removes soft-deleted Appwrite audio before clearing its database pointer, and resumes a bounded number of queued or lease-expired evaluations without extending their original deadline. A normal direct invocation body is:
 

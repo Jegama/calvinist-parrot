@@ -8,6 +8,7 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from sermon_evaluator.persistence import LeaseUnavailable
+from sermon_evaluator.recovery import schedule_recovery
 from sermon_evaluator.service import SermonEvaluationService
 
 
@@ -59,6 +60,12 @@ def main(context: Any) -> Any:
         payload = _body(context.req)
         service = SermonEvaluationService.from_environment(
             appwrite_api_key=_dynamic_api_key(context.req)
+        )
+        service.schedule_recovery = lambda evaluation_id: schedule_recovery(
+            evaluation_id, api_key=_dynamic_api_key(context.req)
+        )
+        service.schedule_maintenance = lambda: schedule_recovery(
+            None, api_key=_dynamic_api_key(context.req)
         )
         if payload is None:
             result = {"mode": "recovery", "results": service.recover(limit=2)}

@@ -43,9 +43,9 @@ Recommended route:
 - Build command:  
   `pip install --no-cache-dir -r requirements.txt && pip install --no-deps .`
 - Timeout: `900`.
-- Schedule: `* * * * *`.
+- Schedule: `0 * * * *` (hourly maintenance; active jobs schedule their own recovery checks).
 - Public execute access: empty.
-- Dynamic-key scopes: `files.read`, `files.write`.
+- Dynamic-key scopes: `files.read`, `files.write`, `execution.write`.
 - Add a path trigger for `services/sermon-evaluator/**`.
 
 Appwrite supports Git-connected Functions with branch and path filters, and its current runtime table lists Python 3.14 for Appwrite Cloud. [Appwrite Docs, [Deploy from Git](https://appwrite.io/docs/products/functions/deploy-from-git), “Git-connected Functions can use branch and path build triggers”] [Appwrite Docs, [Runtimes](https://appwrite.io/docs/products/functions/runtimes), “Python 3.14 is an available Cloud runtime”]
@@ -66,7 +66,9 @@ SERMON_SOFT_DEADLINE_SECONDS=840
 SERMON_MAX_PARALLEL_SCORING_RUNS=9
 ```
 
-Appwrite injects `APPWRITE_FUNCTION_API_ENDPOINT` and `APPWRITE_FUNCTION_PROJECT_ID`, and passes the execution's dynamic API key in the `x-appwrite-key` request header; do not configure those yourself. Variable changes require redeploying the Function. [Appwrite Docs, [Develop Functions](https://appwrite.io/docs/products/functions/develop), “Function examples read the project ID from the environment and the dynamic key from `x-appwrite-key`”] [Appwrite Docs, [Function environment variables](https://appwrite.io/docs/products/functions/environment-variables), “custom variable changes require redeployment”]
+Appwrite injects `APPWRITE_FUNCTION_API_ENDPOINT`, `APPWRITE_FUNCTION_PROJECT_ID`, and `APPWRITE_FUNCTION_ID`, and passes the execution's dynamic API key in the `x-appwrite-key` request header; do not configure those yourself. Variable changes require redeploying the Function. [Appwrite Docs, [Develop Functions](https://appwrite.io/docs/products/functions/develop), “Function examples read the project ID from the environment and the dynamic key from `x-appwrite-key`”] [Appwrite Docs, [Function environment variables](https://appwrite.io/docs/products/functions/environment-variables), “custom variable changes require redeployment”]
+
+Deploy the recovery-aware worker and add `execution.write` before changing an existing one-minute schedule to hourly. Pending evaluations register a delayed execution before processing; terminal evaluations stop the chain. The hourly sweep catches failed initial dispatches (with up to an hour of delay) and runs cleanup without keeping idle Neon databases awake all day. Keep both preview and production configured this way. See the [worker deployment contract](../../services/sermon-evaluator/README.md#deployment) for deadline and backlog behavior.
 
 Worker capacity is database-owned and currently fixed at two lease slots by the migration; there is no corresponding environment variable. [Source: [migration.sql:504](/Users/omni_jgmancilla/Dev/calvinist-parrot/prisma/migrations/20260728022129_sermon_evaluation/migration.sql:504), “worker slot constraint is fixed to slots 1 and 2”]
 

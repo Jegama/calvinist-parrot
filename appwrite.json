@@ -11,13 +11,14 @@
       "commands": "pip install --no-cache-dir -r requirements.txt && pip install --no-deps .",
       "execute": [],
       "events": [],
-      "schedule": "* * * * *",
+      "schedule": "0 * * * *",
       "timeout": 900,
       "enabled": true,
       "logging": true,
       "scopes": [
         "files.read",
-        "files.write"
+        "files.write",
+        "execution.write"
       ],
       "ignore": [
         ".cache",
