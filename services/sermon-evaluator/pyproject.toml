@@ -11,8 +11,9 @@ requires-python = ">=3.14,<3.15"
 license = { text = "Proprietary" }
 dependencies = [
   "appwrite>=22,<23",
-  "google-genai>=2.14,<3",
+  "google-genai>=3.3,<4",
   "httpx>=0.28,<1",
+  "httpx2>=2,<3",
   "mutagen>=1.47,<2",
   "psycopg[binary,pool]>=3.2,<4",
   "pydantic>=2.12,<3",

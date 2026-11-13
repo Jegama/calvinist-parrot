@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Callable, Optional, TypeVar
 
 import httpx
+import httpx2
 
 
 T = TypeVar("T")
@@ -88,7 +89,10 @@ class GeminiProvider:
         if seconds not in self._clients:
             self._clients[seconds] = self._genai.Client(
                 api_key=self._api_key,
-                http_options=self._types.HttpOptions(timeout=seconds * 1000),
+                # Use the stable API for both structured output and files.
+                http_options=self._types.HttpOptions(
+                    api_version="v1", timeout=seconds * 1000
+                ),
             )
         return self._clients[seconds]
 
@@ -128,6 +132,11 @@ class GeminiProvider:
         return isinstance(
             error,
             (
+                # SDK 3 uses httpx2 by default; httpx remains an optional backend.
+                httpx2.TimeoutException,
+                httpx2.ConnectError,
+                httpx2.NetworkError,
+                httpx2.RemoteProtocolError,
                 httpx.TimeoutException,
                 httpx.ConnectError,
                 httpx.NetworkError,

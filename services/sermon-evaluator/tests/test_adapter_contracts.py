@@ -4,6 +4,7 @@ import json
 from types import SimpleNamespace
 
 import httpx
+import httpx2
 import pytest
 from pydantic import ValidationError
 
@@ -148,8 +149,69 @@ def test_gemini_config_accepts_explicit_json_schema_mapping() -> None:
     assert "response_schema" not in captured
 
 
+@pytest.mark.parametrize("with_audio", [False, True])
+def test_gemini_sdk_serializes_schema_and_uses_stable_endpoint(
+    monkeypatch: pytest.MonkeyPatch, extraction, with_audio: bool,
+) -> None:
+    from google import genai
+    from google.genai import types
+
+    monkeypatch.setenv("GOOGLE_GENAI_HTTP_CLIENT", "httpx2")
+    for name in ("GOOGLE_API_KEY", "GOOGLE_GENAI_USE_VERTEXAI", "GOOGLE_GENAI_USE_ENTERPRISE", "GOOGLE_GENAI_API_VERSION"):
+        monkeypatch.delenv(name, raising=False)
+    requests = []
+    clients = []
+
+    def handle(request):
+        requests.append(request)
+        return httpx2.Response(200, json={
+            "candidates": [{
+                "content": {"role": "model", "parts": [{"text": extraction.model_dump_json()}]},
+                "finishReason": "STOP",
+            }],
+            "responseId": "offline-response", "modelVersion": "offline-model",
+        })
+
+    def make_client(**kwargs):
+        kwargs["http_options"].client_args = {"transport": httpx2.MockTransport(handle)}
+        client = genai.Client(**kwargs)
+        clients.append(client)
+        return client
+
+    provider = GeminiProvider(api_key="offline-test-key")
+    provider._genai = SimpleNamespace(Client=make_client)
+    try:
+        if with_audio:
+            result = provider.generate_structured_with_contents(
+                ["Extract", types.Part.from_uri(
+                    file_uri="https://generativelanguage.googleapis.com/v1/files/offline-audio",
+                    mime_type="audio/mpeg",
+                )], SermonExtractionStep1,
+            )
+        else:
+            result = provider.generate_structured("Extract", SermonExtractionStep1)
+    finally:
+        for client in clients:
+            client.close()
+
+    assert SermonExtractionStep1.model_validate(result) == extraction
+    assert provider.last_response_metadata.response_id == "offline-response"
+    assert len(requests) == 1
+    assert requests[0].url.path == "/v1/models/gemini-3.8-flash:generateContent"
+    body = json.loads(requests[0].content)
+    config = body["generationConfig"]
+    assert config["responseMimeType"] == "application/json"
+    assert types.ThinkingConfig.model_validate(config["thinkingConfig"]).thinking_level == "MEDIUM"
+    assert config["responseJsonSchema"]["properties"]["Extraction_Confidence"]["maximum"] == 1.0
+    if with_audio:
+        file_data = types.FileData.model_validate(body["contents"][0]["parts"][1]["fileData"])
+        assert file_data.mime_type == "audio/mpeg"
+
+
+@pytest.mark.parametrize("transport", [httpx, httpx2])
 def test_gemini_retries_remote_disconnect_with_bounded_backoff(
     monkeypatch: pytest.MonkeyPatch,
+    transport,
 ) -> None:
     provider = object.__new__(GeminiProvider)
     provider.default_timeout_seconds = 30
@@ -168,7 +230,7 @@ def test_gemini_retries_remote_disconnect_with_bounded_backoff(
         nonlocal calls
         calls += 1
         if calls < 3:
-            raise httpx.RemoteProtocolError(
+            raise transport.RemoteProtocolError(
                 "Server disconnected without sending a response"
             )
         return "ok"
