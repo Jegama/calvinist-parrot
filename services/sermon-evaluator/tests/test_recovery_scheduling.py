@@ -253,18 +253,73 @@ def test_cleanup_backlogs_drain_without_queued_evaluations(cleanup_kind) -> None
     assert scheduled == ["sweep"]
 
 
-def test_full_cleanup_and_evaluation_batches_schedule_only_one_successor(monkeypatch) -> None:
+def test_report_backlog_drains_without_queued_evaluations_or_cleanup(monkeypatch) -> None:
+    service, persistence, _ = make_service()
+    pending = [f"report-{index}" for index in range(11)]
+    persistence.timeout_expired_attempts = lambda: 0
+    persistence.stale_duration_report_evaluation_ids = lambda *, limit: pending[:limit]
+    persistence.recoverable_evaluation_ids = lambda **_: []
+    for method in ["cleanup_expired_uploads", "cleanup_rejected_audio", "cleanup_deleted_audio"]:
+        monkeypatch.setattr(service, method, lambda **_: 0)
+
+    def regenerate(evaluation_id):
+        pending.remove(evaluation_id)
+        return {"evaluationId": evaluation_id, "status": "COMPLETE"}
+
+    monkeypatch.setattr(service, "regenerate_reports", regenerate)
+    scheduled = []
+    service.schedule_maintenance = lambda: scheduled.append("sweep")
+    assert len(service.recover()) == 10
+    assert pending == ["report-10"]
+    assert scheduled == ["sweep"]
+    assert service.recover() == [{"evaluationId": "report-10", "status": "COMPLETE"}]
+    assert pending == []
+    assert scheduled == ["sweep"]
+    assert service.recover() == []
+    assert scheduled == ["sweep"]
+
+
+@pytest.mark.parametrize("failure_count", [1, 10])
+def test_failed_report_batches_do_not_create_a_retry_chain(monkeypatch, failure_count) -> None:
+    service, persistence, _ = make_service()
+    pending = [f"report-{index}" for index in range(11)]
+    failing = set(pending[:failure_count])
+    persistence.timeout_expired_attempts = lambda: 0
+    persistence.stale_duration_report_evaluation_ids = lambda *, limit: pending[:limit]
+    persistence.recoverable_evaluation_ids = lambda **_: []
+    for method in ["cleanup_expired_uploads", "cleanup_rejected_audio", "cleanup_deleted_audio"]:
+        monkeypatch.setattr(service, method, lambda **_: 0)
+
+    def regenerate(evaluation_id):
+        if evaluation_id in failing:
+            raise TimeoutError("Report publishing unavailable")
+        pending.remove(evaluation_id)
+        return {"evaluationId": evaluation_id, "status": "COMPLETE"}
+
+    monkeypatch.setattr(service, "regenerate_reports", regenerate)
+    scheduled = []
+    service.schedule_maintenance = lambda: scheduled.append("sweep")
+    results = service.recover()
+    assert len(results) == 10
+    assert sum(result["status"] == "REPORT_REGENERATION_FAILED" for result in results) == failure_count
+    assert len(pending) == failure_count + 1
+    assert scheduled == []
+
+
+def test_full_cleanup_report_and_evaluation_batches_schedule_only_one_successor(monkeypatch) -> None:
     service, persistence, _ = make_service()
     persistence.timeout_expired_attempts = lambda: 0
-    persistence.stale_duration_report_evaluation_ids = lambda **_: []
+    reports = [f"report-{index}" for index in range(10)]
+    persistence.stale_duration_report_evaluation_ids = lambda **_: reports
     persistence.recoverable_evaluation_ids = lambda **_: ["job-1", "job-2"]
     calls = []
     for method in ["cleanup_expired_uploads", "cleanup_rejected_audio", "cleanup_deleted_audio"]:
         monkeypatch.setattr(service, method, lambda *, limit, name=method: calls.append(name) or limit)
     service.schedule_maintenance = lambda: calls.append("sweep")
+    monkeypatch.setattr(service, "regenerate_reports", lambda job: calls.append(job) or {"evaluationId": job})
     monkeypatch.setattr(service, "process", lambda job: {"evaluationId": job})
     service.recover()
-    assert calls == ["cleanup_expired_uploads", "cleanup_rejected_audio", "cleanup_deleted_audio", "sweep"]
+    assert calls == ["cleanup_expired_uploads", "cleanup_rejected_audio", "cleanup_deleted_audio", *reports, "sweep"]
 
 
 def test_backlog_wakeup_has_an_empty_maintenance_body(appwrite_environment, monkeypatch) -> None:

@@ -858,11 +858,14 @@ class SermonEvaluationService:
             self.cleanup_deleted_audio(limit=cleanup_limit),
         ]
         results: list[dict[str, Any]] = []
+        report_limit = 10
+        regenerated_reports = 0
         for evaluation_id in (
-            self.persistence.stale_duration_report_evaluation_ids(limit=10)
+            self.persistence.stale_duration_report_evaluation_ids(limit=report_limit)
         ):
             try:
                 results.append(self.regenerate_reports(evaluation_id))
+                regenerated_reports += 1
             except Exception as error:
                 results.append(
                     {
@@ -875,9 +878,10 @@ class SermonEvaluationService:
         if self.schedule_maintenance is not None and (
             len(evaluation_ids) == limit
             or any(cleaned >= cleanup_limit for cleaned in cleaned_batches)
+            or regenerated_reports >= report_limit
         ):
-            # Drain full evaluation or completed cleanup batches promptly. Use
-            # one successor per sweep; empty sweeps and failed cleanup stop here.
+            # Drain full evaluation or successfully completed maintenance batches.
+            # One successor per sweep; failed reports/cleanup alone do not chain.
             self.schedule_maintenance()
         for evaluation_id in evaluation_ids:
             try:
