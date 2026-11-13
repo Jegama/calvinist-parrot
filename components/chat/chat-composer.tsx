@@ -21,6 +21,7 @@ type ChatComposerProps = {
   onStop?: () => void;
   isStreaming?: boolean;
   isSubmitting?: boolean;
+  isLoading?: boolean;
   progress?: { title: string; content: string } | null;
   placeholder?: string;
   submitLabel?: string;
@@ -38,6 +39,7 @@ export function ChatComposer({
   onStop,
   isStreaming = false,
   isSubmitting = false,
+  isLoading = false,
   progress,
   placeholder = "Type your message...",
   submitLabel = "Send",
@@ -56,7 +58,7 @@ export function ChatComposer({
   });
 
   const submit = () => {
-    if (isStreaming || isSubmitting || isComposingRef.current || !value.trim()) {
+    if (isLoading || isStreaming || isSubmitting || isComposingRef.current || !value.trim()) {
       return;
     }
     onSubmit();
@@ -68,21 +70,6 @@ export function ChatComposer({
       className="border border-input bg-input-bg p-3 shadow-[0_8px_30px_hsl(var(--foreground)/0.08)] sm:p-4"
       style={{ borderRadius: "var(--radius)" }}
     >
-      {progress ? (
-        <div
-          className="mb-3 flex items-start gap-2 rounded-md bg-muted/65 px-3 py-2 text-sm"
-          aria-live="polite"
-        >
-          <Loader2
-            className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary motion-reduce:animate-none"
-            aria-hidden="true"
-          />
-          <div>
-            <p className="font-medium text-foreground">{progress.title}</p>
-            <p className="text-muted-foreground">{progress.content}</p>
-          </div>
-        </div>
-      ) : null}
       <form
         className={cn(
           "flex gap-3",
@@ -116,10 +103,10 @@ export function ChatComposer({
               submit();
             }
           }}
-          placeholder={placeholder}
+          placeholder={isLoading ? "Loading conversation…" : placeholder}
           aria-describedby={disclaimerId}
           dir="auto"
-          disabled={isSubmitting || isStreaming}
+          disabled={isLoading || isSubmitting || isStreaming}
           className={cn(
             "resize-none border-input bg-input-bg text-base leading-relaxed shadow-none",
             layout === "inline" ? "flex-1" : "w-full shrink-0",
@@ -133,7 +120,7 @@ export function ChatComposer({
             type="button"
             variant="outline"
             className={cn(
-              "min-h-11 shrink-0 whitespace-normal",
+              "min-h-11 min-w-20 shrink-0 whitespace-normal",
               layout === "stacked" && "w-full",
             )}
             onClick={onStop}
@@ -145,10 +132,10 @@ export function ChatComposer({
           <Button
             type="submit"
             className={cn(
-              "min-h-11 shrink-0 whitespace-normal",
+              "min-h-11 min-w-20 shrink-0 whitespace-normal",
               layout === "stacked" && "w-full",
             )}
-            disabled={isSubmitting || !value.trim()}
+            disabled={isLoading || isSubmitting || !value.trim()}
           >
             {isSubmitting ? (
               <Loader2
@@ -162,10 +149,25 @@ export function ChatComposer({
           </Button>
         )}
       </form>
-      {error ? (
-        <p className="mt-2 text-sm text-destructive" role="alert">
-          {error}
-        </p>
+      {size !== "hero" || progress || isLoading || error ? (
+        <div
+          className="mt-2 h-10 overflow-y-auto text-xs leading-5"
+          role={error ? "alert" : "status"}
+          aria-live={error ? "assertive" : "polite"}
+          tabIndex={progress || error ? 0 : undefined}
+        >
+          {isLoading ? "Loading conversation…" : error ? (
+            <p className="text-destructive">{error}</p>
+          ) : progress ? (
+            <div className="flex items-start gap-2">
+              <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+              <div>
+                <span className="font-medium">{progress.title}</span>{" "}
+                <span className="text-muted-foreground">{progress.content}</span>
+              </div>
+            </div>
+          ) : null}
+        </div>
       ) : null}
       <p
         id={disclaimerId}

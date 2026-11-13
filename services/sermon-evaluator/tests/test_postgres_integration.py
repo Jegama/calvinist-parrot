@@ -9,6 +9,8 @@ import pytest
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
+import sermon_evaluator.persistence as persistence_module
+
 from sermon_evaluator.persistence import (
     AudioHashMismatch,
     LeaseUnavailable,
@@ -35,6 +37,26 @@ pytestmark = pytest.mark.skipif(
         "SERMON_TEST_DATABASE_URL to run PostgreSQL integration tests"
     ),
 )
+
+
+def test_warm_worker_reconnects_after_idle_connection_is_closed(monkeypatch) -> None:
+    import psycopg
+
+    assert DATABASE_URL is not None
+    monkeypatch.setattr(persistence_module, "_POOL", None)
+    monkeypatch.setenv("SERMON_DB_POOL_MAX_SIZE", "1")
+    pool = persistence_module.get_pool(DATABASE_URL)
+    try:
+        with pool.connection() as connection:
+            old_pid = connection.execute("SELECT pg_backend_pid() AS pid").fetchone()["pid"]
+        # Simulate the server dropping only this test pool's idle connection.
+        with psycopg.connect(DATABASE_URL, autocommit=True) as control:
+            control.execute("SELECT pg_terminate_backend(%s)", (old_pid,))
+        with pool.connection() as connection:
+            new_pid = connection.execute("SELECT pg_backend_pid() AS pid").fetchone()["pid"]
+        assert new_pid != old_pid
+    finally:
+        pool.close()
 
 
 class _ScoreValue:

@@ -113,6 +113,9 @@ def get_pool(database_url: Optional[str] = None) -> ConnectionPool:
                     min_size=0,
                     max_size=int(os.getenv("SERMON_DB_POOL_MAX_SIZE", "4")),
                     timeout=float(os.getenv("SERMON_DB_POOL_TIMEOUT_SECONDS", "10")),
+                    # Validate only on checkout, never with an idle heartbeat.
+                    # Neon may have suspended since this warm instance last ran.
+                    check=ConnectionPool.check_connection,
                     kwargs={
                         "autocommit": False,
                         "row_factory": dict_row,

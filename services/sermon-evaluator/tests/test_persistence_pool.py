@@ -50,6 +50,8 @@ def test_pool_does_not_send_statement_timeout_as_a_startup_option(
     captured: dict[str, Any] = {}
 
     class FakeConnectionPool:
+        check_connection = staticmethod(persistence_module.ConnectionPool.check_connection)
+
         def __init__(self, **kwargs: Any) -> None:
             captured.update(kwargs)
 
@@ -69,6 +71,7 @@ def test_pool_does_not_send_statement_timeout_as_a_startup_option(
         "row_factory": persistence_module.dict_row,
     }
     assert captured["open_wait"] is False
+    assert captured["check"] is FakeConnectionPool.check_connection
 
 
 def test_persistence_applies_statement_timeout_inside_the_transaction() -> None:

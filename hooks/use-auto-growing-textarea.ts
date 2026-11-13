@@ -4,7 +4,6 @@ import {
   useCallback,
   useEffect,
   useRef,
-  type FormEvent,
 } from "react";
 
 type AutoGrowingTextareaOptions = {
@@ -24,6 +23,7 @@ export function useAutoGrowingTextarea(
   }: AutoGrowingTextareaOptions,
 ) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const resizeFrameRef = useRef<number | null>(null);
 
   const resizeTextarea = useCallback(
     (textarea: HTMLTextAreaElement | null = textareaRef.current) => {
@@ -37,33 +37,41 @@ export function useAutoGrowingTextarea(
       );
 
       textarea.style.height = "auto";
+      const contentHeight = textarea.scrollHeight;
       const nextHeight = Math.min(
-        Math.max(textarea.scrollHeight, minHeight),
+        Math.max(contentHeight, minHeight),
         responsiveMaximum,
       );
       textarea.style.height = `${nextHeight}px`;
       textarea.style.overflowY =
-        textarea.scrollHeight > responsiveMaximum ? "auto" : "hidden";
+        contentHeight > responsiveMaximum ? "auto" : "hidden";
     },
     [enabled, maxHeight, maxViewportRatio, minHeight],
   );
 
-  useEffect(() => {
-    resizeTextarea();
-  }, [resizeTextarea, value]);
-
-  useEffect(() => {
-    const handleViewportChange = () => resizeTextarea();
-    window.addEventListener("resize", handleViewportChange);
-    return () => window.removeEventListener("resize", handleViewportChange);
+  const scheduleResize = useCallback(() => {
+    if (resizeFrameRef.current !== null) return;
+    resizeFrameRef.current = window.requestAnimationFrame(() => {
+      resizeFrameRef.current = null;
+      resizeTextarea();
+    });
   }, [resizeTextarea]);
 
-  const handleInput = useCallback(
-    (event: FormEvent<HTMLTextAreaElement>) => {
-      resizeTextarea(event.currentTarget);
-    },
-    [resizeTextarea],
-  );
+  useEffect(() => {
+    scheduleResize();
+  }, [scheduleResize, value]);
 
-  return { textareaRef, handleInput };
+  useEffect(() => {
+    window.addEventListener("resize", scheduleResize);
+    return () => {
+      window.removeEventListener("resize", scheduleResize);
+      if (resizeFrameRef.current !== null) {
+        window.cancelAnimationFrame(resizeFrameRef.current);
+        resizeFrameRef.current = null;
+      }
+    };
+  }, [scheduleResize]);
+
+  // Input events and the controlled value effect share one measurement per frame.
+  return { textareaRef, handleInput: scheduleResize };
 }

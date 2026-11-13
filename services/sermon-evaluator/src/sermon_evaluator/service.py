@@ -41,6 +41,7 @@ from .stages import (
     EvaluationStatus,
     ParallelScoringCoordinator,
     SoftDeadline,
+    TERMINAL_STATUSES,
 )
 from .storage import AppwriteStorage, LocalFilesystemStorage
 
@@ -211,12 +212,16 @@ class SermonEvaluationService:
         provider: GeminiProvider,
         soft_deadline_seconds: int = 840,
         max_parallel_scoring_runs: int = 9,
+        schedule_recovery: Optional[Callable[[str], None]] = None,
+        schedule_maintenance: Optional[Callable[[], None]] = None,
     ) -> None:
         self.persistence = persistence
         self.storage = storage
         self.provider = provider
         self.soft_deadline_seconds = soft_deadline_seconds
         self.max_parallel_scoring_runs = max_parallel_scoring_runs
+        self.schedule_recovery = schedule_recovery
+        self.schedule_maintenance = schedule_maintenance
 
     @classmethod
     def from_environment(
@@ -276,11 +281,13 @@ class SermonEvaluationService:
         self, evaluation_id: str, *, appwrite_execution_id: Optional[str] = None
     ) -> dict[str, Any]:
         job = self.persistence.fetch_evaluation(evaluation_id)
-        if job.status in {
-            EvaluationStatus.COMPLETE,
-            EvaluationStatus.COMPLETE_WITH_WARNINGS,
-        }:
+        if job.status in TERMINAL_STATUSES:
             return {"evaluationId": job.id, "status": job.status.value, "replayed": True}
+        # Register the next durable check before starting an attempt or claiming
+        # a lease. A killed execution cannot strand the job until maintenance.
+        # Duplicate checks still pass through the existing lease/deadline guards.
+        if self.schedule_recovery is not None:
+            self.schedule_recovery(job.id)
         attempt_id, hard_deadline = self._attempt(job, appwrite_execution_id)
         try:
             deadline = self._soft_deadline(
@@ -844,15 +851,21 @@ class SermonEvaluationService:
 
     def recover(self, limit: int = 2) -> list[dict[str, Any]]:
         self.persistence.timeout_expired_attempts()
-        self.cleanup_expired_uploads(limit=10)
-        self.cleanup_rejected_audio(limit=10)
-        self.cleanup_deleted_audio(limit=10)
+        cleanup_limit = 10
+        cleaned_batches = [
+            self.cleanup_expired_uploads(limit=cleanup_limit),
+            self.cleanup_rejected_audio(limit=cleanup_limit),
+            self.cleanup_deleted_audio(limit=cleanup_limit),
+        ]
         results: list[dict[str, Any]] = []
+        report_limit = 10
+        regenerated_reports = 0
         for evaluation_id in (
-            self.persistence.stale_duration_report_evaluation_ids(limit=10)
+            self.persistence.stale_duration_report_evaluation_ids(limit=report_limit)
         ):
             try:
                 results.append(self.regenerate_reports(evaluation_id))
+                regenerated_reports += 1
             except Exception as error:
                 results.append(
                     {
@@ -861,7 +874,16 @@ class SermonEvaluationService:
                         "error": error.__class__.__name__,
                     }
                 )
-        for evaluation_id in self.persistence.recoverable_evaluation_ids(limit=limit):
+        evaluation_ids = self.persistence.recoverable_evaluation_ids(limit=limit)
+        if self.schedule_maintenance is not None and (
+            len(evaluation_ids) == limit
+            or any(cleaned >= cleanup_limit for cleaned in cleaned_batches)
+            or regenerated_reports >= report_limit
+        ):
+            # Drain full evaluation or successfully completed maintenance batches.
+            # One successor per sweep; failed reports/cleanup alone do not chain.
+            self.schedule_maintenance()
+        for evaluation_id in evaluation_ids:
             try:
                 results.append(self.process(evaluation_id))
             except LeaseUnavailable:

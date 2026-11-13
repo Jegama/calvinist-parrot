@@ -2,10 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  createChatResponseSchema,
-  type CreateChatRequest,
-} from "@/lib/api/contracts";
+import type { CreateChatRequest } from "@/lib/api/contracts/chat";
 
 export type ChatSummary = {
   id: string;
@@ -86,7 +83,11 @@ export function useChatList(actorKey: string) {
       if (!response.ok) {
         throw new Error("Failed to create chat session");
       }
-      return createChatResponseSchema.parse(await response.json());
+      const [payload, { createChatResponseSchema }] = await Promise.all([
+        response.json(),
+        import("@/lib/api/contracts/chat"),
+      ]);
+      return createChatResponseSchema.parse(payload);
     },
   });
 
