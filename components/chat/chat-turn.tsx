@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { memo, useRef } from "react";
 import { AlertCircle, CircleStop } from "lucide-react";
 
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
@@ -16,7 +16,7 @@ type ChatTurnProps = {
   onRetry: (turn: ChatTurnType) => void;
 };
 
-export function ChatTurn({ turn, onEdit, onRetry }: ChatTurnProps) {
+export const ChatTurn = memo(function ChatTurn({ turn, onEdit, onRetry }: ChatTurnProps) {
   const userContentRef = useRef<HTMLDivElement>(null);
   const assistantContentRef = useRef<HTMLDivElement>(null);
 
@@ -133,4 +133,21 @@ export function ChatTurn({ turn, onEdit, onRetry }: ChatTurnProps) {
       ) : null}
     </article>
   );
-}
+}, (previous, next) => {
+  // Grouping creates new turn/source arrays during streaming. Compare immutable
+  // message references so only the turn receiving a token has to render again.
+  const a = previous.turn;
+  const b = next.turn;
+  return (
+    previous.onEdit === next.onEdit &&
+    previous.onRetry === next.onRetry &&
+    a.key === b.key &&
+    a.requestId === b.requestId &&
+    a.user === b.user &&
+    a.assistant === b.assistant &&
+    a.failure === b.failure &&
+    a.stopped === b.stopped &&
+    a.sources.length === b.sources.length &&
+    a.sources.every((source, index) => source === b.sources[index])
+  );
+});

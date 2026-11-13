@@ -1,7 +1,5 @@
 /* app/global.css */
 
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,19 +9,6 @@
     text-wrap: balance;
   }
 
-  .material-symbols-outlined {
-    font-family: 'Material Symbols Outlined';
-    font-weight: normal;
-    font-style: normal;
-    font-size: 24px;
-    display: inline-block;
-    line-height: 1;
-    text-transform: none;
-    letter-spacing: normal;
-    word-wrap: normal;
-    white-space: nowrap;
-    direction: ltr;
-  }
 }
 
 @layer base {
@@ -185,7 +170,7 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-serif), var(--font-serif-lora), var(--font-serif-spectral), serif;
+    font-family: var(--font-serif), serif;
     font-weight: 600;
   }
 

@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import type { Metadata, Viewport } from "next";
-import { Inter, Source_Serif_4, Lora, Spectral } from "next/font/google";
+import { Inter, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { AppProviders } from "@/components/providers/app-providers";
@@ -13,8 +13,6 @@ import { siteMetadata } from "@/lib/seo";
 // Load variable fonts and expose as CSS variables for system-wide use
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const sourceSerif = Source_Serif_4({ subsets: ["latin"], variable: "--font-serif" });
-const lora = Lora({ subsets: ["latin"], weight: ["600"], variable: "--font-serif-lora" });
-const spectral = Spectral({ subsets: ["latin"], weight: ["600"], variable: "--font-serif-spectral" });
 
 // Use brand primary for light chrome and a dark neutral that matches the dark background token
 const themeColor: Viewport["themeColor"] = [
@@ -37,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       {/* Apply font variables to the document; actual usage controlled via globals.css */}
       <body
-        className={`${inter.variable} ${sourceSerif.variable} ${lora.variable} ${spectral.variable}`}
+        className={`${inter.variable} ${sourceSerif.variable}`}
         suppressHydrationWarning
         style={bodyStyle}
       >

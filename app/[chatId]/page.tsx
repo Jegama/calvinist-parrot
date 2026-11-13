@@ -9,9 +9,9 @@ import {
   useState,
 } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ArrowDown, Loader2 } from "lucide-react";
+import { ArrowDown } from "lucide-react";
 
-import { ChatComposer } from "@/components/chat/chat-composer";
+import { ConversationComposer } from "@/components/chat/conversation-composer";
 import { ChatShell } from "@/components/chat/chat-shell";
 import { ChatTurn } from "@/components/chat/chat-turn";
 import { DenominationContextMenu } from "@/components/chat/denomination-context-menu";
@@ -30,7 +30,7 @@ import {
   getChatResponseSchema,
   type ChatStreamEvent,
   type GetChatResponse,
-} from "@/lib/api/contracts";
+} from "@/lib/api/contracts/chat";
 
 const TOOL_PROGRESS_TITLES: Record<string, string> = {
   "Theological Research": "Gathering supporting sources",
@@ -91,7 +91,6 @@ function ChatPageContent() {
 
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<ChatMessageRecord[]>([]);
-  const [input, setInput] = useState("");
   const [pageError, setPageError] = useState("");
   const [composerError, setComposerError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -182,7 +181,6 @@ function ChatPageContent() {
     isFetchingRef.current = false;
     setChat(null);
     setMessages([]);
-    setInput("");
     setPageError("");
     setComposerError("");
     setIsLoading(true);
@@ -269,7 +267,7 @@ function ChatPageContent() {
   const handleSendMessage = useCallback(
     async (options: SendOptions = {}) => {
       if (isStreaming) return;
-      const outgoingMessage = (options.message ?? input).trim();
+      const outgoingMessage = (options.message ?? "").trim();
       if (!outgoingMessage) return;
 
       const requestId = options.requestId ?? crypto.randomUUID();
@@ -309,7 +307,6 @@ function ChatPageContent() {
             timestamp: new Date().toISOString(),
           },
         ]);
-        setInput("");
       }
 
       try {
@@ -499,7 +496,6 @@ function ChatPageContent() {
     [
       appendFailure,
       fetchChat,
-      input,
       invalidateChatList,
       isStreaming,
       params.chatId,
@@ -548,7 +544,7 @@ function ChatPageContent() {
     router,
   ]);
 
-  const handleRetry = (turn: ChatTurnType) => {
+  const handleRetry = useCallback((turn: ChatTurnType) => {
     if (!turn.requestId || !turn.user || isStreaming) return;
     void handleSendMessage({
       message: turn.user.content,
@@ -557,7 +553,7 @@ function ChatPageContent() {
       isAutoTrigger: true,
       retry: true,
     });
-  };
+  }, [handleSendMessage, isStreaming]);
 
   const handleCreateBranch = async (
     message: ChatMessageRecord,
@@ -727,27 +723,15 @@ function ChatPageContent() {
 
           <div className="shrink-0 border-t border-border/70 bg-background/95 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
             <div className="mx-auto w-full max-w-4xl">
-              {isLoading ? (
-                <div className="rounded-[var(--radius)] border bg-input-bg p-4">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2
-                      className="h-4 w-4 animate-spin motion-reduce:animate-none"
-                      aria-hidden="true"
-                    />
-                    Loading conversation…
-                  </div>
-                </div>
-              ) : (
-                <ChatComposer
-                  value={input}
-                  onChange={setInput}
-                  onSubmit={() => void handleSendMessage()}
-                  onStop={() => void stopActiveResponse()}
-                  isStreaming={isStreaming}
-                  progress={progress}
-                  error={composerError}
-                />
-              )}
+              <ConversationComposer
+                key={params.chatId}
+                onSend={(message) => void handleSendMessage({ message })}
+                onStop={() => void stopActiveResponse()}
+                isLoading={isLoading}
+                isStreaming={isStreaming}
+                progress={progress}
+                error={composerError}
+              />
             </div>
           </div>
         </div>

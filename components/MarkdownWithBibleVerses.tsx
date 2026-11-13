@@ -1,6 +1,6 @@
 // components/MarkdownWithBibleVerses.tsx
 
-import React from 'react';
+import React, { memo } from 'react';
 import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Root } from 'mdast';
@@ -31,140 +31,136 @@ function remarkRemoveHtmlComments() {
   };
 }
 
-export function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProps) {
-  // Sanitize content before processing
-  const sanitizedContent = sanitizeContent(content);
-  
-  const renderWithBibleVerses: (children: React.ReactNode) => React.ReactNode = (children) => {
-    if (typeof children === 'string') {
-      const parts = [];
-      let lastIndex = 0;
-      const references = extractReferences(children);
-      
-      references.forEach((reference) => {
-        const index = children.indexOf(reference, lastIndex);
-        if (index > lastIndex) {
-          parts.push(children.slice(lastIndex, index));
-        }
-        parts.push(<BibleVerse key={index} reference={reference} />);
-        lastIndex = index + reference.length;
-      });
-      
-      if (lastIndex < children.length) {
-        parts.push(children.slice(lastIndex));
-      }
-      
-      return <>{parts}</>;
-    }
-    
-    if (Array.isArray(children)) {
-      return children.map((child, index) => 
-        typeof child === 'string' 
-          ? <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
-          : React.cloneElement(child as React.ReactElement, { key: index })
-      );
-    }
-    
-    return children;
-  };
-  
-  const MarkdownComponents: Components = {
-    h1: ({ ...props }) => <h1 className="text-3xl font-bold mt-6 mb-4" {...props} />,
-    h2: ({ ...props }) => <h2 className="text-2xl font-semibold mt-4 mb-3" {...props} />,
-    h3: ({ ...props }) => <h3 className="text-xl font-semibold mt-3 mb-2" {...props} />,
-    h4: ({ ...props }) => <h4 className="text-lg font-semibold mt-2 mb-1" {...props} />,
-    p: ({ ...props }) => <p className="mb-4" {...props} />,
-    ul: ({ children, ...props }) => (
-      <ul className="list-disc pl-6 mb-4" {...props}>
-        {React.Children.map(children, (child, index) => (
-          <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
-        ))}
-      </ul>
-    ),
-    ol: ({ children, ...props }) => (
-      <ol className="list-decimal pl-6 mb-4" {...props}>
-        {React.Children.map(children, (child, index) => (
-          <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
-        ))}
-      </ol>
-    ),
-    li: ({ children, ...props }) => (
-      <li className="mb-1" {...props}>
-        {React.Children.map(children, (child, index) => (
-          <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
-        ))}
-      </li>
-    ),
-    strong: ({ ...props }) => <strong className="font-semibold" {...props} />,
-    table: ({ children, ...props }) => (
-      <div className="my-6 w-full overflow-x-auto">
-        <table className="w-full text-sm" {...props}>
-          {children}
-        </table>
-      </div>
-    ),
-    thead: ({ ...props }) => <thead className="[&_tr]:border-b" {...props} />,
-    tbody: ({ ...props }) => <tbody className="[&_tr:last-child]:border-0" {...props} />,
-    tr: ({ ...props }) => <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted" {...props} />,
-    th: ({ children, ...props }) => (
-      <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0" {...props}>
-        {React.Children.map(children, (child, index) => (
-          <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
-        ))}
-      </th>
-    ),
-    td: ({ children, ...props }) => (
-      <td className="p-2 align-middle [&:has([role=checkbox])]:pr-0" {...props}>
-        {React.Children.map(children, (child, index) => (
-          <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
-        ))}
-      </td>
-    ),
-  };
-  
-  const customComponents: Components = {
-    ...MarkdownComponents,
-    p: ({ children }) => <p className="mb-4">{renderWithBibleVerses(children)}</p>,
-    strong: ({ children }) => <strong className="font-semibold">{renderWithBibleVerses(children)}</strong>,
-    a: ({ href, children }) => (
-      <a href={href} className="underline hover:text-primary break-all" target="_blank" rel="noopener noreferrer">
-        {children}
-      </a>
-    ),
-    code: ({ className, children, ...props }) => {
-      // Check if this is a code block:
-      // 1. Has a language class (```language), OR
-      // 2. Contains newlines (plain ``` block without language)
-      const hasLanguageClass = /language-(\w+)/.test(className || '');
-      const hasNewlines = typeof children === 'string' && children.includes('\n');
-      const isCodeBlock = hasLanguageClass || hasNewlines;
-      
-      if (isCodeBlock) {
-        // Block-level code (from ```language or plain ```)
-        return (
-          <pre className="overflow-x-auto max-h-[500px] bg-secondary text-secondary-foreground p-4 rounded text-sm mb-4 whitespace-pre">
-            <code className={className} {...props}>
-              {children}
-            </code>
-          </pre>
-        );
-      }
-      
-      // Inline code (from `code`)
-      return (
-        <code className="bg-secondary text-secondary-foreground px-1.5 py-0.5 rounded text-sm" {...props}>
-          {children}
-        </code>
-      );
-    },
-  };
+const renderWithBibleVerses: (children: React.ReactNode) => React.ReactNode = (children) => {
+  if (typeof children === 'string') {
+    const parts = [];
+    let lastIndex = 0;
+    const references = extractReferences(children);
 
-  return (
-        <ReactMarkdown 
-          remarkPlugins={[remarkGfm, remarkRemoveHtmlComments]}
-          components={customComponents}
-        >
-          {sanitizedContent}
-        </ReactMarkdown>
+    references.forEach((reference) => {
+      const index = children.indexOf(reference, lastIndex);
+      if (index > lastIndex) {
+        parts.push(children.slice(lastIndex, index));
+      }
+      parts.push(<BibleVerse key={index} reference={reference} />);
+      lastIndex = index + reference.length;
+    });
+
+    if (lastIndex < children.length) {
+      parts.push(children.slice(lastIndex));
+    }
+
+    return <>{parts}</>;
+  }
+
+  if (Array.isArray(children)) {
+    return children.map((child, index) =>
+      typeof child === 'string'
+        ? <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
+        : React.cloneElement(child as React.ReactElement, { key: index })
+    );
+  }
+
+  return children;
+};
+
+const MarkdownComponents: Components = {
+  h1: ({ ...props }) => <h1 className="text-3xl font-bold mt-6 mb-4" {...props} />,
+  h2: ({ ...props }) => <h2 className="text-2xl font-semibold mt-4 mb-3" {...props} />,
+  h3: ({ ...props }) => <h3 className="text-xl font-semibold mt-3 mb-2" {...props} />,
+  h4: ({ ...props }) => <h4 className="text-lg font-semibold mt-2 mb-1" {...props} />,
+  p: ({ ...props }) => <p className="mb-4" {...props} />,
+  ul: ({ children, ...props }) => (
+    <ul className="list-disc pl-6 mb-4" {...props}>
+      {React.Children.map(children, (child, index) => (
+        <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
+      ))}
+    </ul>
+  ),
+  ol: ({ children, ...props }) => (
+    <ol className="list-decimal pl-6 mb-4" {...props}>
+      {React.Children.map(children, (child, index) => (
+        <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
+      ))}
+    </ol>
+  ),
+  li: ({ children, ...props }) => (
+    <li className="mb-1" {...props}>
+      {React.Children.map(children, (child, index) => (
+        <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
+      ))}
+    </li>
+  ),
+  strong: ({ ...props }) => <strong className="font-semibold" {...props} />,
+  table: ({ children, ...props }) => (
+    <div className="my-6 w-full overflow-x-auto">
+      <table className="w-full text-sm" {...props}>
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ ...props }) => <thead className="[&_tr]:border-b" {...props} />,
+  tbody: ({ ...props }) => <tbody className="[&_tr:last-child]:border-0" {...props} />,
+  tr: ({ ...props }) => <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted" {...props} />,
+  th: ({ children, ...props }) => (
+    <th className="h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0" {...props}>
+      {React.Children.map(children, (child, index) => (
+        <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
+      ))}
+    </th>
+  ),
+  td: ({ children, ...props }) => (
+    <td className="p-2 align-middle [&:has([role=checkbox])]:pr-0" {...props}>
+      {React.Children.map(children, (child, index) => (
+        <React.Fragment key={index}>{renderWithBibleVerses(child)}</React.Fragment>
+      ))}
+    </td>
+  ),
+};
+
+const customComponents: Components = {
+  ...MarkdownComponents,
+  p: ({ children }) => <p className="mb-4">{renderWithBibleVerses(children)}</p>,
+  strong: ({ children }) => <strong className="font-semibold">{renderWithBibleVerses(children)}</strong>,
+  a: ({ href, children }) => (
+    <a href={href} className="underline hover:text-primary break-all" target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  ),
+  code: ({ className, children, ...props }) => {
+    // Check if this is a code block:
+    // 1. Has a language class (```language), OR
+    // 2. Contains newlines (plain ``` block without language)
+    const hasLanguageClass = /language-(\w+)/.test(className || '');
+    const hasNewlines = typeof children === 'string' && children.includes('\n');
+    const isCodeBlock = hasLanguageClass || hasNewlines;
+
+    if (isCodeBlock) {
+      // Block-level code (from ```language or plain ```)
+      return (
+        <pre className="overflow-x-auto max-h-[500px] bg-secondary text-secondary-foreground p-4 rounded text-sm mb-4 whitespace-pre">
+          <code className={className} {...props}>
+            {children}
+          </code>
+        </pre>
       );
-}
+    }
+
+    // Inline code (from `code`)
+    return (
+      <code className="bg-secondary text-secondary-foreground px-1.5 py-0.5 rounded text-sm" {...props}>
+        {children}
+      </code>
+    );
+  },
+};
+
+const remarkPlugins = [remarkGfm, remarkRemoveHtmlComments];
+
+export const MarkdownWithBibleVerses = memo(function MarkdownWithBibleVerses({ content }: MarkdownWithBibleVersesProps) {
+  return (
+    <ReactMarkdown remarkPlugins={remarkPlugins} components={customComponents}>
+      {sanitizeContent(content)}
+    </ReactMarkdown>
+  );
+});
