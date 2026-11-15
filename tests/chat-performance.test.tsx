@@ -38,6 +38,11 @@ vi.mock("@/components/BibleVerse", () => ({ BibleVerse: ({ reference }: { refere
 
 import ChatPage from "@/app/[chatId]/page";
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
+import { HeaderConfigProvider } from "@/components/providers/header-config-provider";
+
+function ChatPageWithHeader() {
+  return <HeaderConfigProvider><ChatPage /></HeaderConfigProvider>;
+}
 
 describe("chat interaction rendering", () => {
   let root: Root;
@@ -81,7 +86,7 @@ describe("chat interaction rendering", () => {
   });
 
   it("does not reparse unchanged messages when typing into a loaded conversation", async () => {
-    await act(async () => { root.render(<ChatPage />); });
+    await act(async () => { root.render(<ChatPageWithHeader />); });
     expect(container.querySelectorAll('[aria-label="Conversation turn"]')).toHaveLength(10);
     vi.mocked(ReactMarkdown).mockClear();
     for (const draft of ["x", "xy", "xyz"]) {
@@ -95,7 +100,7 @@ describe("chat interaction rendering", () => {
   it("keeps the composer mounted through loading and clears its draft when changing chats", async () => {
     let resolve!: (response: Response) => void;
     fetchMock.mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
-    await act(async () => { root.render(<ChatPage />); });
+    await act(async () => { root.render(<ChatPageWithHeader />); });
     const textarea = container.querySelector("textarea")!;
     const status = container.querySelector('[role="status"]');
     expect(textarea.disabled).toBe(true);
@@ -105,18 +110,28 @@ describe("chat interaction rendering", () => {
     expect(textarea.disabled).toBe(false);
     await act(async () => { context.onChange!("Old draft"); });
     context.params = { chatId: "different-chat" };
-    await act(async () => { root.render(<ChatPage />); });
+    await act(async () => { root.render(<ChatPageWithHeader />); });
     expect(container.querySelector("textarea")?.value).toBe("");
   });
 
   it("submits the draft, updates only streaming Markdown, and retains stop recovery", async () => {
-    await act(async () => { root.render(<ChatPage />); });
+    await act(async () => { root.render(<ChatPageWithHeader />); });
     await act(async () => { context.onChange!("  New question  "); });
     await act(async () => { container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
     const sent = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/messages"))!;
     expect(JSON.parse(String(sent[1]?.body)).message).toBe("New question");
     expect(container.querySelector("textarea")?.value).toBe("");
     expect(container.querySelector("textarea")?.disabled).toBe(true);
+    const status = container.querySelector('[role="status"]');
+    for (const content of ["Checking sources.", "Comparing a longer description of the sources."]) {
+      vi.mocked(ReactMarkdown).mockClear();
+      await act(async () => {
+        stream!.enqueue(new TextEncoder().encode(JSON.stringify({ type: "progress", title: "Working", content }) + "\n"));
+      });
+      expect(container.querySelector('[role="status"]')).toBe(status);
+      expect(status?.textContent).toContain(content);
+      expect(ReactMarkdown).not.toHaveBeenCalled();
+    }
     for (const content of ["New answer", " continues"]) {
       vi.mocked(ReactMarkdown).mockClear();
       await act(async () => {

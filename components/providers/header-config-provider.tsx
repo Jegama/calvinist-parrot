@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useCallback, ReactNode } from "rea
 
 interface HeaderConfig {
   disableShrinking: boolean;
+  scrollContainer: HTMLElement | null;
 }
 
 interface HeaderConfigContextType {
@@ -16,6 +17,7 @@ const HeaderConfigContext = createContext<HeaderConfigContextType | undefined>(u
 export function HeaderConfigProvider({ children }: { children: ReactNode }) {
   const [config, setConfigState] = useState<HeaderConfig>({
     disableShrinking: false,
+    scrollContainer: null,
   });
 
   const setConfig = useCallback((newConfig: Partial<HeaderConfig>) => {

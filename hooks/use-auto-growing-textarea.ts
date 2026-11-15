@@ -7,7 +7,8 @@ import {
 } from "react";
 
 type AutoGrowingTextareaOptions = {
-  minHeight: number;
+  // Omit to use the textarea's responsive CSS minimum.
+  minHeight?: number;
   maxHeight: number;
   maxViewportRatio?: number;
   enabled?: boolean;
@@ -24,6 +25,7 @@ export function useAutoGrowingTextarea(
 ) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const resizeFrameRef = useRef<number | null>(null);
+  const cssMinimumRef = useRef<number | null>(null);
 
   const resizeTextarea = useCallback(
     (textarea: HTMLTextAreaElement | null = textareaRef.current) => {
@@ -31,15 +33,19 @@ export function useAutoGrowingTextarea(
 
       const viewportHeight =
         typeof window === "undefined" ? maxHeight : window.innerHeight;
+      if (minHeight === undefined && cssMinimumRef.current === null) {
+        cssMinimumRef.current = parseFloat(window.getComputedStyle(textarea).minHeight) || 0;
+      }
+      const minimum = minHeight ?? cssMinimumRef.current ?? 0;
       const responsiveMaximum = Math.max(
-        minHeight,
+        minimum,
         Math.min(maxHeight, viewportHeight * maxViewportRatio),
       );
 
       textarea.style.height = "auto";
       const contentHeight = textarea.scrollHeight;
       const nextHeight = Math.min(
-        Math.max(contentHeight, minHeight),
+        Math.max(contentHeight, minimum),
         responsiveMaximum,
       );
       textarea.style.height = `${nextHeight}px`;
@@ -62,9 +68,16 @@ export function useAutoGrowingTextarea(
   }, [scheduleResize, value]);
 
   useEffect(() => {
-    window.addEventListener("resize", scheduleResize);
+    // Breakpoint changes invalidate the CSS minimum; keystrokes only measure
+    // content height and keep sharing the existing animation frame.
+    const handleResize = () => {
+      cssMinimumRef.current = null;
+      scheduleResize();
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
     return () => {
-      window.removeEventListener("resize", scheduleResize);
+      window.removeEventListener("resize", handleResize);
       if (resizeFrameRef.current !== null) {
         window.cancelAnimationFrame(resizeFrameRef.current);
         resizeFrameRef.current = null;

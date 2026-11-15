@@ -18,6 +18,7 @@ import { DenominationContextMenu } from "@/components/chat/denomination-context-
 import { EditMessageDialog } from "@/components/chat/edit-message-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useHeaderConfig } from "@/components/providers/header-config-provider";
 import { useAuth } from "@/hooks/use-auth";
 import { useChatList } from "@/hooks/use-chat-list";
 import {
@@ -80,6 +81,7 @@ function ChatPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { setConfig: setHeaderConfig } = useHeaderConfig();
   const {
     chats,
     invalidate: invalidateChatList,
@@ -209,6 +211,7 @@ function ChatPageContent() {
     const container = messagesContainerRef.current;
     if (!container) return;
 
+    setHeaderConfig({ scrollContainer: container });
     const updateScrollState = () => {
       const distanceFromBottom =
         container.scrollHeight - container.scrollTop - container.clientHeight;
@@ -218,8 +221,11 @@ function ChatPageContent() {
     };
 
     container.addEventListener("scroll", updateScrollState, { passive: true });
-    return () => container.removeEventListener("scroll", updateScrollState);
-  }, []);
+    return () => {
+      container.removeEventListener("scroll", updateScrollState);
+      setHeaderConfig({ scrollContainer: null });
+    };
+  }, [setHeaderConfig]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
