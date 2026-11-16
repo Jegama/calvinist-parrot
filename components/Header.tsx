@@ -17,47 +17,59 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/use-auth";
 import { useHeaderConfig } from "@/components/providers/header-config-provider";
+import { cn } from "@/lib/utils";
 
 export function Header() {
   const { user, loading } = useAuth();
   const { config } = useHeaderConfig();
   const [isScrolled, setIsScrolled] = useState(false);
   const lastScrolledRef = useRef<boolean>(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const compactChat = isScrolled && config.scrollContainer !== null;
+  const hideNavigation = isScrolled && !compactChat;
 
   useEffect(() => {
+    const scrollTarget = config.scrollContainer ?? window;
     const handleScroll = () => {
-      // Skip shrinking if disabled via context
-      if (config.disableShrinking) {
-        if (lastScrolledRef.current) {
-          lastScrolledRef.current = false;
-          setIsScrolled(false);
-          document.body.style.setProperty("--app-header-height", "4.6rem");
-        }
-        return;
-      }
-
-      // Shrink header when scrolled down more than 50px
-      const scrolled = window.scrollY > 50;
+      const scrollTop = config.scrollContainer?.scrollTop ?? window.scrollY;
+      // A smaller expansion threshold avoids flicker as shrinking the header
+      // enlarges the transcript and clamps its scroll position near the bottom.
+      const threshold = lastScrolledRef.current ? 8 : 50;
+      const scrolled = !config.disableShrinking && scrollTop > threshold;
       if (scrolled !== lastScrolledRef.current) {
         lastScrolledRef.current = scrolled;
         setIsScrolled(scrolled);
-        // Update CSS variable for header height so other components can adapt
-        // Unscrolled: 3.6rem (inner) + 1rem (padding) = 4.6rem
-        // Scrolled: 1.7rem (inner) + 0.5rem (padding) = 2.2rem
-        const newHeight = scrolled ? "2.2rem" : "4.6rem";
-        document.body.style.setProperty("--app-header-height", newHeight);
       }
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    // Initialize once on mount
+    scrollTarget.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [config.disableShrinking]);
+    return () => scrollTarget.removeEventListener("scroll", handleScroll);
+  }, [config.disableShrinking, config.scrollContainer]);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    // Keep the fixed-height chat shell aligned throughout the header animation.
+    let previousHeight: number | undefined;
+    const updateHeight = (height: number) => {
+      if (height === previousHeight) return;
+      previousHeight = height;
+      document.body.style.setProperty("--app-header-height", `${height}px`);
+    };
+    const observer = new ResizeObserver(([entry]) => {
+      // Use the observer's layout result, avoiding a second synchronous read.
+      updateHeight(entry.borderBoxSize?.[0]?.blockSize ?? header.getBoundingClientRect().height);
+    });
+    observer.observe(header, { box: "border-box" });
+    updateHeight(header.getBoundingClientRect().height);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <header
-      className={`app-header sticky top-0 z-50 w-full px-2 transition-all duration-700 ease-in-out sm:px-4 ${
+      ref={headerRef}
+      className={`app-header sticky top-0 z-50 w-full px-2 transition-all duration-700 ease-in-out motion-reduce:transition-none sm:px-4 ${
         isScrolled ? "liquid-glass-header" : ""
       }`}
       style={{
@@ -66,14 +78,14 @@ export function Header() {
       }}
     >
       <div
-        className="container mx-auto flex items-center transition-all duration-700 ease-in-out"
+        className="container mx-auto flex items-center transition-all duration-700 ease-in-out motion-reduce:transition-none"
         style={{
-          height: isScrolled ? "1.7rem" : "3.5rem",
+          height: compactChat ? "2.5rem" : isScrolled ? "1.7rem" : "3.5rem",
         }}
       >
         {/* Left side: Logo and Navigation */}
         <div className="flex min-w-0 items-center gap-1 sm:gap-2">
-          <Link href="/" prefetch={false} className="flex min-w-0 items-center gap-1 hover:opacity-70 transition-opacity sm:gap-2">
+          <Link href="/" prefetch={false} className={cn("flex min-w-0 items-center gap-1 hover:opacity-70 transition-opacity sm:gap-2", compactChat && "min-h-11 min-w-11 justify-center")}>
             <Image
               src="/Logo.png"
               alt="Calvinist Parrot"
@@ -101,8 +113,8 @@ export function Header() {
           {/* Fade-out separator when scrolled */}
           <span
             className="hidden transition-opacity duration-700 ease-in-out min-[360px]:inline-block"
-            style={{ opacity: isScrolled ? 0 : 1, pointerEvents: isScrolled ? "none" : "auto" }}
-            aria-hidden={isScrolled}
+            style={{ opacity: hideNavigation ? 0 : 1, pointerEvents: hideNavigation ? "none" : "auto" }}
+            aria-hidden={hideNavigation}
           >
             <Separator orientation="vertical" className="header-separator mr-2 h-4" />
           </span>
@@ -110,8 +122,9 @@ export function Header() {
           {/* Desktop Navigation (visible on lg and above) - fade out when scrolled */}
           <div
             className="hidden lg:flex items-center transition-opacity duration-700 ease-in-out"
-            style={{ opacity: isScrolled ? 0 : 1, pointerEvents: isScrolled ? "none" : "auto" }}
-            aria-hidden={isScrolled}
+            style={{ opacity: hideNavigation ? 0 : 1, pointerEvents: hideNavigation ? "none" : "auto" }}
+            aria-hidden={hideNavigation}
+            inert={hideNavigation}
           >
             <nav className="flex items-center space-x-4 xl:space-x-6 text-sm font-medium">
               <Link href="/" prefetch={false} className="hover:opacity-70 transition-opacity">
@@ -158,12 +171,13 @@ export function Header() {
           {/* Mobile Dropdown (hidden on lg and above) - fade out when scrolled */}
           <div
             className="lg:hidden transition-opacity duration-700 ease-in-out"
-            style={{ opacity: isScrolled ? 0 : 1, pointerEvents: isScrolled ? "none" : "auto" }}
-            aria-hidden={isScrolled}
+            style={{ opacity: hideNavigation ? 0 : 1, pointerEvents: hideNavigation ? "none" : "auto" }}
+            aria-hidden={hideNavigation}
+            inert={hideNavigation}
           >
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="hover:bg-muted/50">
+                <Button variant="ghost" size="sm" className={cn("hover:bg-muted/50", compactChat && "h-11")}>
                   More
                 </Button>
               </DropdownMenuTrigger>
@@ -229,7 +243,7 @@ export function Header() {
           {loading ? null : user ? (
             // If logged in, show the user's name linking to profile
             <Link href="/profile" prefetch={false}>
-              <Button variant="outline" className="hover:bg-muted/50 max-sm:h-8 max-sm:px-2 max-sm:text-xs" size={isScrolled ? "xsm" : "default"}>
+              <Button variant="outline" className={cn("hover:bg-muted/50 max-sm:px-2 max-sm:text-xs", compactChat ? "h-11" : "max-sm:h-8")} size={isScrolled ? "xsm" : "default"}>
                 {user.name}
               </Button>
             </Link>
@@ -237,13 +251,13 @@ export function Header() {
             <>
               {/* If not logged in, show Login and Register */}
               <Link href="/login" prefetch={false}>
-                <Button variant="outline" className="hover:bg-muted/50 max-sm:h-8 max-sm:px-2 max-sm:text-xs" size={isScrolled ? "sm" : "default"}>
+                <Button variant="outline" className={cn("hover:bg-muted/50 max-sm:px-2 max-sm:text-xs", compactChat ? "h-11" : "max-sm:h-8")} size={isScrolled ? "sm" : "default"}>
                   Login
                 </Button>
               </Link>
               <Link href="/register" prefetch={false}>
                 <Button
-                  className="bg-accent text-accent-foreground hover:bg-accent/90 max-sm:h-8 max-sm:px-2 max-sm:text-xs"
+                  className={cn("bg-accent text-accent-foreground hover:bg-accent/90 max-sm:px-2 max-sm:text-xs", compactChat ? "h-11" : "max-sm:h-8")}
                   size={isScrolled ? "sm" : "default"}
                 >
                   Register

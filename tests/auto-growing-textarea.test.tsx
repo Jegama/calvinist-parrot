@@ -52,3 +52,56 @@ it("coalesces input/value/viewport work, shrinks cleared drafts, and cancels on 
     vi.unstubAllGlobals();
   }
 });
+
+it("caches the CSS minimum while typing and refreshes it on resize without losing the draft", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  let frame: FrameRequestCallback | undefined;
+  vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+    frame = callback;
+    return 1;
+  });
+  vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+  const readStyle = vi.spyOn(window, "getComputedStyle");
+  function Harness() {
+    const { textareaRef, handleInput } = useAutoGrowingTextarea("Unsent draft", { maxHeight: 200 });
+    return <textarea ref={textareaRef} onInput={handleInput} defaultValue="Unsent draft" style={{ minHeight: 48 }} />;
+  }
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  const flush = () => { const callback = frame; frame = undefined; callback?.(0); };
+  try {
+    await act(async () => { root.render(<Harness />); });
+    const textarea = container.querySelector("textarea")!;
+    let contentHeight = 30;
+    Object.defineProperty(textarea, "scrollHeight", { get: () => contentHeight });
+    flush();
+    expect(textarea.style.height).toBe("48px");
+    expect(readStyle).toHaveBeenCalledTimes(1);
+
+    for (let i = 0; i < 3; i++) {
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      flush();
+    }
+    expect(readStyle).toHaveBeenCalledTimes(1);
+
+    textarea.style.minHeight = "72px";
+    window.dispatchEvent(new Event("resize"));
+    flush();
+    expect(textarea.style.height).toBe("72px");
+    expect(readStyle).toHaveBeenCalledTimes(2);
+
+    textarea.style.minHeight = "48px";
+    contentHeight = 300;
+    window.dispatchEvent(new Event("resize"));
+    flush();
+    expect(textarea.style.height).toBe("200px");
+    expect(textarea.style.overflowY).toBe("auto");
+    expect(textarea.value).toBe("Unsent draft");
+  } finally {
+    await act(async () => { root.unmount(); });
+    container.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});

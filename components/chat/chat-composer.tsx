@@ -51,8 +51,11 @@ export function ChatComposer({
 }: ChatComposerProps) {
   const isComposingRef = useRef(false);
   const disclaimerId = useId();
+  // Reserve a stable status row for the whole request, including gaps between
+  // progress events. Idle composers reclaim the space on compact screens.
+  const hasStatus = Boolean(progress || isLoading || isStreaming || isSubmitting || error);
   const { textareaRef, handleInput } = useAutoGrowingTextarea(value, {
-    minHeight: size === "hero" ? 144 : 72,
+    minHeight: size === "hero" ? 144 : undefined,
     maxHeight: size === "hero" ? 560 : 200,
     maxViewportRatio: size === "hero" ? 0.6 : 0.4,
   });
@@ -82,6 +85,7 @@ export function ChatComposer({
       >
         <Textarea
           ref={textareaRef}
+          rows={size === "hero" ? undefined : 1}
           autoFocus={autoFocus}
           value={value}
           onInput={handleInput}
@@ -112,7 +116,7 @@ export function ChatComposer({
             layout === "inline" ? "flex-1" : "w-full shrink-0",
             size === "hero"
               ? "min-h-36 max-h-[60vh] px-4 py-4 sm:text-base"
-              : "min-h-[72px] max-h-[200px] sm:text-sm",
+              : "min-h-12 max-h-[200px] sm:min-h-[72px] sm:text-sm [@media(max-height:500px)]:min-h-12",
           )}
         />
         {isStreaming ? (
@@ -149,26 +153,27 @@ export function ChatComposer({
           </Button>
         )}
       </form>
-      {size !== "hero" || progress || isLoading || error ? (
-        <div
-          className="mt-2 h-10 overflow-y-auto text-xs leading-5"
-          role={error ? "alert" : "status"}
-          aria-live={error ? "assertive" : "polite"}
-          tabIndex={progress || error ? 0 : undefined}
-        >
-          {isLoading ? "Loading conversation…" : error ? (
-            <p className="text-destructive">{error}</p>
-          ) : progress ? (
-            <div className="flex items-start gap-2">
-              <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
-              <div>
-                <span className="font-medium">{progress.title}</span>{" "}
-                <span className="text-muted-foreground">{progress.content}</span>
-              </div>
+      <div
+        className={cn(
+          "text-xs leading-5",
+          hasStatus ? "mt-2 h-10 overflow-y-auto" : "sr-only",
+        )}
+        role={error ? "alert" : "status"}
+        aria-live={error ? "assertive" : "polite"}
+        tabIndex={progress || error ? 0 : undefined}
+      >
+        {isLoading ? "Loading conversation…" : error ? (
+          <p className="text-destructive">{error}</p>
+        ) : progress ? (
+          <div className="flex items-start gap-2">
+            <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
+            <div>
+              <span className="font-medium">{progress.title}</span>{" "}
+              <span className="text-muted-foreground">{progress.content}</span>
             </div>
-          ) : null}
-        </div>
-      ) : null}
+          </div>
+        ) : null}
+      </div>
       <p
         id={disclaimerId}
         className={cn(

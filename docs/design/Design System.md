@@ -126,7 +126,7 @@ Patterns below reference tokens and Tailwind utilities already configured.
 - Container: `.app-header` with Cream background (light) or dark card (dark).
 - Text: Deep Teal in light; foreground in dark.
 - Separator: `.header-separator` uses accent tint in light, border in dark.
-- Behavior: graceful scroll shrink; liquid-glass variant available.
+- Behavior: graceful scroll shrink; liquid-glass variant available. Chat registers its transcript as the scroll source and keeps navigation accessible in its compact header. Shrink after 50px and expand near the top (8px) to avoid oscillation as the transcript resizes. The shared header-height variable follows the rendered header through its transition so the chat shell stays aligned.
 
 ### 4.2 Page Headers (Feature Pages)
 
@@ -201,7 +201,7 @@ All main feature pages use a standardized header pattern for consistency:
 - User: `bg-user-message text-user-message-foreground` (Sage)
 - Long-form Parrot answers: `bg-card text-card-foreground` with a subtle `border-border` edge. Keep the prose measure near `66–72ch`; this limits line length, never total answer length.
 - `bg-parrot-message text-parrot-message-foreground` (Deep Blue) remains available for legacy or compact assistant bubbles, but it is not the preferred surface for long-form answers.
-- Composer: `bg-input-bg border-input` with subtle elevation so it remains distinct from the Cream page and legible in dark mode. The landing composer is the entry screen’s visual anchor: it starts at 144px and auto-grows to `min(560px, 60vh)`. The in-conversation composer starts at 72px and auto-grows to `min(200px, 40vh)`.
+- Composer: `bg-input-bg border-input` with subtle elevation so it remains distinct from the Cream page and legible in dark mode. The landing composer is the entry screen’s visual anchor: it starts at 144px and auto-grows to `min(560px, 60vh)`. The in-conversation composer starts at 48px below 640px wide or at heights of 500px and below; otherwise it starts at 72px. It auto-grows to `min(200px, 40vh)` and recomputes its CSS minimum on resize. Keep the status live region mounted but visually hidden when idle; reserve a stable 40px status row throughout loading, submitting, streaming, or errors so progress changes do not move the transcript. Collapse it when idle to reclaim empty space.
 - Place message actions immediately outside both user and Parrot surfaces. Use icon-only controls with accessible names and tooltips to keep the transcript visually quiet.
 - Keep user and assistant content wrapped with `MarkdownWithBibleVerses` so headings, lists, tables, code, links, and Bible popovers retain their semantics.
 - The landing disclaimer is exactly: “The Parrot is not a substitute for your own study, prayer, or pastoral counsel.”
