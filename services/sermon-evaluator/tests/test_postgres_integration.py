@@ -1,27 +1,45 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import os
+import tempfile
 import uuid
+import wave
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
 import sermon_evaluator.persistence as persistence_module
 
+from sermon_evaluator.gemini import GeminiProvider, ProviderResponseMetadata
 from sermon_evaluator.persistence import (
     AudioHashMismatch,
     LeaseUnavailable,
     PsycopgPersistence,
 )
+from sermon_evaluator.rubric import RUBRIC_SECTIONS
+from sermon_evaluator.schemas import (
+    AggregatedSummaryFeedback,
+    SermonExtractionStep1,
+    SermonHarmonizedFeedback,
+    SermonScoringStep2Raw,
+)
+from sermon_evaluator.service import SermonEvaluationService
 from sermon_evaluator.stages import (
     AttemptResult,
     AttemptSpec,
     EvaluationCanceled,
     EvaluationStatus,
 )
+from sermon_evaluator.storage import LocalFilesystemStorage
 
 RUN_DATABASE_TESTS = (
     os.getenv("RUN_SERMON_DATABASE_INTEGRATION_TESTS") == "1"
@@ -79,12 +97,14 @@ def _insert_bundle(
     status: str = "QUEUED",
     fingerprint_state: str = "PROVISIONAL",
     asset_state: str = "PENDING",
+    requested_runs: int = 1,
     reserved_credits: int = 1,
     consumed_credits: int = 0,
     reference_count: int = 1,
     with_credit_reservation: bool = True,
 ) -> None:
     now = datetime.now(timezone.utc)
+    preset = "STANDARD" if requested_runs == 1 else "HIGH_CONFIDENCE"
     cursor.execute(
         """
         INSERT INTO "sermonAudioFingerprint"
@@ -132,7 +152,7 @@ def _insert_bundle(
             ("id", "ownerId", "preacherId", "fingerprintId", "audioAssetId",
              "title", "preachedOn", "preset", "requestedRuns",
              "completedRuns", "status", "version", "createdAt", "updatedAt")
-        VALUES (%s, %s, %s, %s, %s, %s, %s, 'STANDARD', 1, %s,
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s::"SermonEvaluationStatus", 0, %s, %s)
         """,
         (
@@ -143,6 +163,8 @@ def _insert_bundle(
             asset_id,
             f"Integration {prefix}",
             date(2026, 7, 27),
+            preset,
+            requested_runs,
             completed_runs,
             status,
             now,
@@ -156,12 +178,14 @@ def _insert_bundle(
                 ("id", "fingerprintId", "evaluationId", "requestedCredits",
                  "preset", "state", "actorId", "reservedAt",
                  "createdAt", "updatedAt")
-            VALUES (%s, %s, %s, 1, 'STANDARD', 'RESERVED', %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, 'RESERVED', %s, %s, %s, %s)
             """,
             (
                 f"credit-{prefix}",
                 fingerprint_id,
                 evaluation_id,
+                requested_runs,
+                preset,
                 owner_id,
                 now,
                 now,
@@ -872,3 +896,165 @@ def test_psycopg_persistence_against_prisma_schema() -> None:
             _cleanup_owner(pool, owner_id)
         finally:
             pool.close()
+
+
+@pytest.fixture
+def queued_report_job(tmp_path, requested_runs, retry, extraction, raw_scoring):
+    suffix = uuid.uuid4().hex[:24]
+    evaluation_id = f"evaluation-{suffix}"
+    owner_id = f"owner-{suffix}"
+    preacher_id = f"preacher-{suffix}"
+    asset_id = f"asset-{suffix}"
+    bucket_id = f"bucket-{suffix}"
+    audio = tmp_path / f"file-{suffix}.audio"
+    with wave.open(str(audio), "wb") as wav:
+        wav.setparams((1, 2, 8000, 0, "NONE", "not compressed"))
+        wav.writeframes(bytes(16000))
+
+    storage = LocalFilesystemStorage(root=tmp_path, allowed_bucket_id=bucket_id)
+    with ConnectionPool(DATABASE_URL, kwargs={"row_factory": dict_row}) as pool:
+        try:
+            with pool.connection() as conn, conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO "sermonPreacher"
+                        ("id", "ownerId", "displayName", "normalizedName", "updatedAt")
+                    VALUES (%s, %s, 'Pastor', 'pastor', NOW())
+                    """,
+                    (preacher_id, owner_id),
+                )
+                _insert_bundle(
+                    cur,
+                    prefix=suffix,
+                    owner_id=owner_id,
+                    preacher_id=preacher_id,
+                    fingerprint_id=f"fingerprint-{suffix}",
+                    asset_id=asset_id,
+                    evaluation_id=evaluation_id,
+                    sha256=hashlib.sha256(audio.read_bytes()).hexdigest(),
+                    requested_runs=requested_runs,
+                    reserved_credits=requested_runs,
+                )
+                cur.execute(
+                    """
+                    UPDATE "sermonAudioAsset" SET "originalFilename" = 'sermon.wav',
+                        "mimeType" = 'audio/wav', "byteSize" = %s WHERE id = %s
+                    """,
+                    (audio.stat().st_size, asset_id),
+                )
+                if retry:
+                    # The retry endpoint requeues the evaluation and preserves its outputs.
+                    result = {
+                        "audio": {
+                            "geminiFile": {"name": "files/saved"},
+                            "durationSeconds": 1,
+                        },
+                        "extraction": extraction.model_dump(mode="json"),
+                    }
+                    cur.execute(
+                        'UPDATE "sermonEvaluation" SET result = %s WHERE id = %s',
+                        (Jsonb(result), evaluation_id),
+                    )
+                    raw_score = Jsonb(raw_scoring.model_dump())
+                    cur.executemany(
+                        """
+                        INSERT INTO "sermonScoringRun"
+                            (id, "evaluationId", ordinal, status, "rawScore", "updatedAt")
+                        VALUES (%s, %s, %s, 'SUCCEEDED', %s, NOW())
+                        """,
+                        [
+                            (uuid.uuid4().hex, evaluation_id, ordinal, raw_score)
+                            for ordinal in range(1, requested_runs + 1)
+                        ],
+                    )
+
+            yield evaluation_id, pool, storage
+        finally:
+            _cleanup_owner(pool, owner_id)
+
+
+@pytest.mark.parametrize(
+    ("requested_runs", "retry", "expired_file"),
+    [(1, False, False), (3, False, False), (3, True, False), (3, True, True)],
+    ids=["standard", "high-confidence", "retry-active-file", "retry-expired-file"],
+)
+def test_worker_publishes_reports_from_read_only_directory(
+    queued_report_job,
+    tmp_path: Path,
+    monkeypatch,
+    extraction,
+    raw_scoring,
+    requested_runs,
+    retry,
+    expired_file,
+) -> None:
+    evaluation_id, pool, storage = queued_report_job
+    provider = Mock(spec=GeminiProvider)
+    provider.model_name = "test-model"
+    provider.last_response_metadata = ProviderResponseMetadata()
+    provider.upload_file.return_value = SimpleNamespace(name="files/uploaded")
+    provider.file_metadata.side_effect = GeminiProvider.file_metadata
+    provider.get_file.return_value = SimpleNamespace(name="files/saved")
+    if expired_file:
+        provider.get_file.side_effect = FileNotFoundError("Expired Gemini file")
+    provider.wait_until_active.side_effect = lambda file, **_: file
+    responses = {
+        SermonExtractionStep1: extraction.model_dump(),
+        SermonScoringStep2Raw: raw_scoring.model_dump(),
+        SermonHarmonizedFeedback: {
+            section.key: "Combined feedback" for section in RUBRIC_SECTIONS
+        },
+        AggregatedSummaryFeedback: {"Overall_Impact": "Summary feedback"},
+    }
+
+    def generate(*, response_schema, **_):
+        return responses[response_schema]
+
+    provider.generate_structured_with_contents.side_effect = generate
+    provider.generate_structured.side_effect = generate
+    service = SermonEvaluationService(
+        persistence=PsycopgPersistence(pool=pool), storage=storage, provider=provider
+    )
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(scratch))
+    deployment = tmp_path / "deployment"
+    deployment.mkdir(mode=0o555)
+    monkeypatch.chdir(deployment)
+    try:
+        assert service.process(evaluation_id)["status"] == "COMPLETE"
+        assert list(deployment.iterdir()) == []
+        assert list(scratch.iterdir()) == []
+    finally:
+        deployment.chmod(0o755)
+
+    with pool.connection() as conn:
+        artifacts = conn.execute(
+            'SELECT format, content FROM "sermonReportArtifact" WHERE "evaluationId" = %s',
+            (evaluation_id,),
+        ).fetchall()
+    reports = {row["format"]: bytes(row["content"]) for row in artifacts}
+    assert set(reports) == {"JSON", "MARKDOWN", "CSV"}
+    assert all(reports.values())
+    report = json.loads(reports["JSON"])
+    assert report["metadata"]["completedRuns"] == requested_runs
+    feedback = report["scoring"]["Aggregated_Summary_Feedback"]
+    assert feedback["Overall_Impact"] == "Summary feedback"
+    if requested_runs > 1:
+        assert report["scoring"]["Introduction"]["Feedback"] == "Combined feedback"
+
+    audio_calls = [
+        call.kwargs["response_schema"]
+        for call in provider.generate_structured_with_contents.call_args_list
+    ]
+    if retry:
+        assert audio_calls == []
+        provider.get_file.assert_called_once()
+    else:
+        assert audio_calls == [SermonExtractionStep1] + [
+            SermonScoringStep2Raw
+        ] * requested_runs
+    if retry and not expired_file:
+        provider.upload_file.assert_not_called()
+    else:
+        provider.upload_file.assert_called_once()

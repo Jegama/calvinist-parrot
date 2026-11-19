@@ -67,7 +67,6 @@ class SermonHarmonizer:
         self.model = model
         self.prompts = prompts
         self.apply_duration_adjustment = apply_duration_adjustment
-        self.audio_manager = AudioFileManager()
 
     def score_single_run(
         self,
@@ -273,7 +272,7 @@ class SermonHarmonizer:
         )
 
         try:
-            with self.audio_manager.upload_indicator(
+            with AudioFileManager.upload_indicator(
                 message="Harmonizing self-consistency feedback"
             ):
                 feedback_data = self.provider.generate_structured(
@@ -358,7 +357,7 @@ class SermonHarmonizer:
             f"{json.dumps(summary_payload, ensure_ascii=False)}"
         )
 
-        with self.audio_manager.upload_indicator(
+        with AudioFileManager.upload_indicator(
             message="Generating aggregate feedback"
         ):
             feedback_data = self.provider.generate_structured(

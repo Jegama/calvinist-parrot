@@ -4,11 +4,42 @@ from pathlib import Path
 from struct import pack
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 
 import sermon_evaluator.audio as audio_module
 from sermon_evaluator.audio import AudioFileManager, InvalidAudioError
+
+
+@pytest.mark.parametrize("custom_directory", [False, True])
+def test_cli_upload_cache_is_lazy_and_reused(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, custom_directory: bool
+) -> None:
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    monkeypatch.setattr(audio_module.tempfile, "tempdir", str(scratch))
+    deployment = tmp_path / "deployment"
+    deployment.mkdir()
+    monkeypatch.chdir(deployment)
+    cache_dir = scratch / "custom" if custom_directory else None
+    manager = AudioFileManager(cache_dir)
+    assert list(scratch.iterdir()) == []
+
+    audio = tmp_path / "sermon.wav"
+    audio.write_bytes(b"audio")
+    provider = Mock()
+    remote = SimpleNamespace(name="files/sermon")
+    provider.upload_file.return_value = remote
+    provider.get_file.return_value = remote
+    uploaded = manager.upload_or_get_gemini_file(str(audio), provider)
+    assert uploaded == (remote.name, remote)
+    assert manager.audio_cache_path.is_relative_to(cache_dir or scratch)
+    next_manager = AudioFileManager(cache_dir)
+    assert next_manager.upload_or_get_gemini_file(str(audio), provider) == uploaded
+    provider.upload_file.assert_called_once_with(str(audio))
+    provider.get_file.assert_called_once_with(remote.name)
+    assert list(deployment.iterdir()) == []
 
 
 def _fake_container(

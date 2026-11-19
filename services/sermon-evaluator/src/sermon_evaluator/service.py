@@ -699,15 +699,15 @@ class SermonEvaluationService:
             scoring = SermonScoringStep2(**result["harmonized"])
             transition(EvaluationStatus.AGGREGATING)
         elif status == EvaluationStatus.HARMONIZING:
-            harmonizer = SermonHarmonizer(
-                bound_provider,
-                self.provider.model_name,
-                prompts,
-                apply_duration_adjustment=job.duration_adjustment_enabled,
-            )
             if len(raw_runs) == 1:
                 scoring = _to_full_scoring(raw_runs[0])
             else:
+                harmonizer = SermonHarmonizer(
+                    bound_provider,
+                    self.provider.model_name,
+                    prompts,
+                    apply_duration_adjustment=job.duration_adjustment_enabled,
+                )
                 scoring = harmonizer.harmonize_runs(
                     raw_runs, extraction, gemini_file_object
                 )

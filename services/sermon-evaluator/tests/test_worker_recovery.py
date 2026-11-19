@@ -3,7 +3,6 @@ from __future__ import annotations
 import csv
 import io
 import json
-from contextlib import nullcontext
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -11,7 +10,6 @@ from typing import Any
 
 import pytest
 
-import sermon_evaluator.harmonization as harmonization_module
 import sermon_evaluator.service as service_module
 from sermon_evaluator import prompts
 from sermon_evaluator.aggregation import SermonAggregator
@@ -1180,7 +1178,6 @@ def test_lost_final_cas_inserts_no_partial_report_artifacts(
     ],
 )
 def test_harmonization_never_swallows_worker_control_flow(
-    monkeypatch: pytest.MonkeyPatch,
     extraction: Any,
     raw_scoring: Any,
     control_error: Exception,
@@ -1189,13 +1186,6 @@ def test_harmonization_never_swallows_worker_control_flow(
         def generate_structured(self, **_: Any) -> dict[str, Any]:
             raise control_error
 
-    monkeypatch.setattr(
-        harmonization_module,
-        "AudioFileManager",
-        lambda: SimpleNamespace(
-            upload_indicator=lambda **_: nullcontext()
-        ),
-    )
     harmonizer = SermonHarmonizer(
         Provider(),
         "gemini-3.6-flash",
@@ -1216,7 +1206,6 @@ def test_harmonization_never_swallows_worker_control_flow(
     ],
 )
 def test_aggregate_feedback_never_swallows_worker_control_flow(
-    monkeypatch: pytest.MonkeyPatch,
     extraction: Any,
     scoring: Any,
     control_error: Exception,
@@ -1225,13 +1214,6 @@ def test_aggregate_feedback_never_swallows_worker_control_flow(
         def generate_structured(self, **_: Any) -> dict[str, Any]:
             raise control_error
 
-    monkeypatch.setattr(
-        harmonization_module,
-        "AudioFileManager",
-        lambda: SimpleNamespace(
-            upload_indicator=lambda **_: nullcontext()
-        ),
-    )
     harmonizer = SermonHarmonizer(
         Provider(),
         "gemini-3.6-flash",
@@ -1246,7 +1228,6 @@ def test_aggregate_feedback_never_swallows_worker_control_flow(
 
 
 def test_aggregate_feedback_provider_failure_is_not_published_as_complete(
-    monkeypatch: pytest.MonkeyPatch,
     extraction: Any,
     scoring: Any,
 ) -> None:
@@ -1254,13 +1235,6 @@ def test_aggregate_feedback_provider_failure_is_not_published_as_complete(
         def generate_structured(self, **_: Any) -> dict[str, Any]:
             raise RuntimeError("aggregate provider failed")
 
-    monkeypatch.setattr(
-        harmonization_module,
-        "AudioFileManager",
-        lambda: SimpleNamespace(
-            upload_indicator=lambda **_: nullcontext()
-        ),
-    )
     harmonizer = SermonHarmonizer(
         Provider(),
         "gemini-3.6-flash",

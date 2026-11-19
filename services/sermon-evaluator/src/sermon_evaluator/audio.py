@@ -6,9 +6,12 @@ import hashlib
 import itertools
 import json
 import os
+import stat
+import tempfile
 import threading
 import time
 from contextlib import contextmanager
+from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, Iterator, Optional, Tuple
 
@@ -53,12 +56,30 @@ class InvalidAudioError(ValueError):
 class AudioFileManager:
     """Manage deterministic audio validation, duration, hashing, and CLI caching."""
 
-    def __init__(self, cache_dir: Path = Path(".cache")) -> None:
+    def __init__(self, cache_dir: Path | None = None) -> None:
         self.cache_dir = cache_dir
-        self.cache_dir.mkdir(exist_ok=True)
-        self.audio_cache_path = self.cache_dir / "gemini_files_cache.json"
-        if not self.audio_cache_path.exists():
-            self.audio_cache_path.write_text("{}", encoding="utf-8")
+
+    @cached_property
+    def audio_cache_path(self) -> Path:
+        """Prepare the CLI cache only when looking up or saving an upload."""
+        directory = self.cache_dir
+        uid = os.getuid() if hasattr(os, "getuid") else None
+        if directory is None:
+            name = "calvinist-parrot" if uid is None else f"calvinist-parrot-{uid}"
+            directory = Path(tempfile.gettempdir()) / name
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if self.cache_dir is None and uid is not None:
+            # A system temp directory may be shared by multiple local users.
+            info = directory.lstat()
+            if (
+                not stat.S_ISDIR(info.st_mode)
+                or info.st_uid != uid
+                or info.st_mode & 0o077
+            ):
+                raise PermissionError(
+                    f"Expected a private CLI cache directory: {directory}"
+                )
+        return directory / "gemini_files_cache.json"
 
     @staticmethod
     def _exact_mp3_duration(path: Path, audio: MP3) -> float:
@@ -244,8 +265,9 @@ class AudioFileManager:
             print(f"{message} done.")
 
     def load_cache(self) -> Dict[str, Any]:
+        path = self.audio_cache_path
         try:
-            value = json.loads(self.audio_cache_path.read_text(encoding="utf-8"))
+            value = json.loads(path.read_text(encoding="utf-8"))
             return value if isinstance(value, dict) else {}
         except (FileNotFoundError, json.JSONDecodeError, OSError):
             return {}
