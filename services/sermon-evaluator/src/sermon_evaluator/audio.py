@@ -10,6 +10,7 @@ import tempfile
 import threading
 import time
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple
@@ -32,6 +33,8 @@ ALLOWED_AUDIO_MIME_TYPES = {
 MAX_AUDIO_MIB = 100
 MAX_AUDIO_BYTES = MAX_AUDIO_MIB * 1024 * 1024
 MAX_AUDIO_DURATION_SECONDS = 3 * 60 * 60
+# The CLI can spend five minutes in extraction and several scoring waves.
+MIN_CACHED_FILE_LIFETIME = timedelta(hours=1)
 CONTAINER_BY_EXTENSION = {
     ".mp3": "mpeg",
     ".m4a": "mp4",
@@ -57,28 +60,33 @@ class AudioFileManager:
 
     def __init__(self, cache_dir: Path | None = None) -> None:
         self.cache_dir = cache_dir
+        self._private_cache: tempfile.TemporaryDirectory | None = None
 
     @cached_property
     def _upload_cache_dir(self) -> Path:
         """Prepare the CLI cache only when looking up or saving an upload."""
-        directory = self.cache_dir
+        if self.cache_dir is not None:
+            self.cache_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            return self.cache_dir
+
         uid = os.getuid() if hasattr(os, "getuid") else None
-        if directory is None:
-            name = "calvinist-parrot" if uid is None else f"calvinist-parrot-{uid}"
-            directory = Path(tempfile.gettempdir()) / name
-        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-        if self.cache_dir is None and uid is not None:
-            # A system temp directory may be shared by multiple local users.
+        name = "calvinist-parrot" if uid is None else f"calvinist-parrot-{uid}"
+        directory = Path(tempfile.gettempdir()) / name
+        try:
+            directory.mkdir(mode=0o700, exist_ok=True)
             info = directory.lstat()
             if (
-                not stat.S_ISDIR(info.st_mode)
-                or info.st_uid != uid
-                or info.st_mode & 0o077
+                stat.S_ISDIR(info.st_mode)
+                and (uid is None or (info.st_uid == uid and not info.st_mode & 0o077))
+                and os.access(directory, os.R_OK | os.W_OK | os.X_OK)
             ):
-                raise PermissionError(
-                    f"Expected a private CLI cache directory: {directory}"
-                )
-        return directory
+                return directory
+        except OSError:
+            pass
+
+        # Leave an occupied or inaccessible shared-temp path untouched.
+        self._private_cache = tempfile.TemporaryDirectory(prefix="calvinist-parrot-")
+        return Path(self._private_cache.name)
 
     @staticmethod
     def _exact_mp3_duration(path: Path, audio: MP3) -> float:
@@ -284,6 +292,21 @@ class AudioFileManager:
             pending.close()
             os.replace(pending.name, entry)
 
+    @staticmethod
+    def _has_time_for_evaluation(file_object: Any) -> bool:
+        expires = getattr(file_object, "expiration_time", None) or getattr(
+            file_object, "expires_at", None
+        )
+        if expires is None:
+            return True  # Gemini omits this field for files without a scheduled expiry.
+        if isinstance(expires, str):
+            expires = datetime.fromisoformat(expires)
+        if not isinstance(expires, datetime):
+            return False
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=UTC)
+        return expires > datetime.now(UTC) + MIN_CACHED_FILE_LIFETIME
+
     def upload_or_get_gemini_file(
         self, local_path: str, provider: Any
     ) -> Tuple[str, Any]:
@@ -308,9 +331,10 @@ class AudioFileManager:
         if remote_id:
             try:
                 file_object = provider.get_file(remote_id)
+                reusable = self._has_time_for_evaluation(file_object)
             except Exception:
-                pass
-            else:
+                reusable = False
+            if reusable:
                 require_unchanged_audio()
                 return remote_id, file_object
 

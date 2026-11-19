@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import multiprocessing
+import os
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from struct import pack
 from types import SimpleNamespace
@@ -62,6 +64,59 @@ def test_replaced_audio_at_the_same_path_is_uploaded_again(tmp_path, monkeypatch
     provider.get_file.assert_called_once_with(revised.name)
 
 
+@pytest.mark.skipif(not hasattr(os, "getuid"), reason="POSIX cache permissions")
+@pytest.mark.parametrize("obstruction", ["non-private directory", "regular file"])
+def test_unavailable_default_cache_falls_back_to_private_temp(
+    tmp_path, monkeypatch, obstruction
+):
+    monkeypatch.setattr(audio_module.tempfile, "tempdir", str(tmp_path))
+    stable = tmp_path / f"calvinist-parrot-{os.getuid()}"
+    if obstruction == "regular file":
+        stable.write_bytes(b"keep")
+    else:
+        stable.mkdir()
+        stable.chmod(0o755)
+
+    audio = tmp_path / "sermon.wav"
+    audio.write_bytes(b"sermon")
+    manager = AudioFileManager()
+    provider = Mock()
+    remote = SimpleNamespace(name="files/original")
+    provider.get_file.return_value = provider.upload_file.return_value = remote
+    assert manager.upload_or_get_gemini_file(str(audio), provider)[1] is remote
+    assert manager.upload_or_get_gemini_file(str(audio), provider)[1] is remote
+    provider.upload_file.assert_called_once()
+    fallback, = [p for p in tmp_path.iterdir() if p not in (audio, stable)]
+    assert fallback.stat().st_mode & 0o777 == 0o700
+    if stable.is_dir():
+        assert list(stable.iterdir()) == []
+    else:
+        assert stable.read_bytes() == b"keep"
+
+
+@pytest.mark.parametrize(("remaining", "refresh"), [
+    (timedelta(minutes=2), True),
+    (timedelta(days=1), False),
+])
+def test_cached_gemini_file_has_time_for_extraction_and_scoring(
+    tmp_path, remaining, refresh
+):
+    audio = tmp_path / "sermon.wav"
+    audio.write_bytes(b"sermon")
+    manager = AudioFileManager(tmp_path / "cache")
+    original = SimpleNamespace(name="files/original")
+    cached = SimpleNamespace(name=original.name, expiration_time=datetime.now(UTC) + remaining)
+    fresh = SimpleNamespace(name="files/fresh")
+    provider = Mock()
+    provider.upload_file.side_effect = [original, fresh]
+    provider.get_file.return_value = cached
+    manager.upload_or_get_gemini_file(str(audio), provider)
+    selected_id, selected_file = manager.upload_or_get_gemini_file(str(audio), provider)
+    expected = fresh if refresh else cached
+    assert selected_file is expected
+    assert selected_id == expected.name
+
+
 def test_legacy_path_only_cache_entry_requires_a_fresh_upload(tmp_path):
     audio = tmp_path / "sermon.wav"
     audio.write_bytes(b"current sermon")
@@ -110,6 +165,7 @@ def test_overlapping_cli_uploads_preserve_both_entries(tmp_path):
 
     provider = Mock()
     provider.upload_file.side_effect = AssertionError("Lost a saved upload")
+    provider.get_file.side_effect = lambda name: SimpleNamespace(name=name)
     manager = AudioFileManager(cache_dir)
     for audio in audio_files:
         remote_id, _ = manager.upload_or_get_gemini_file(str(audio), provider)
