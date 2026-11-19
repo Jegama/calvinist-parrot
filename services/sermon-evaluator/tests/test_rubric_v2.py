@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from contextlib import nullcontext
-
 import pytest
 from pydantic import ValidationError
 
@@ -209,13 +207,6 @@ class _Prompts:
     SCORING_SYSTEM_PROMPT = "score-system"
 
 
-class _Audio:
-    @staticmethod
-    def upload_indicator(*, message: str):
-        assert message
-        return nullcontext()
-
-
 class _Provider:
     def __init__(self) -> None:
         self.schemas: list[type] = []
@@ -252,7 +243,6 @@ class _Provider:
 def test_harmonization_uses_feedback_only_schema(extraction) -> None:
     provider = _Provider()
     harmonizer = SermonHarmonizer(provider, "gemini-test-model", _Prompts())
-    harmonizer.audio_manager = _Audio()
 
     scoring = harmonizer.harmonize_runs(
         [make_raw(2, 0.25), make_raw(4, 0.75)], extraction, None
@@ -275,7 +265,6 @@ def test_harmonized_gate_reason_is_empty_when_weighted_gate_passes(
     failing.Doctrinal_Fidelity.Gate_Reason = "A lower-weight run found a denial."
     provider = _Provider()
     harmonizer = SermonHarmonizer(provider, "gemini-test-model", _Prompts())
-    harmonizer.audio_manager = _Audio()
 
     scoring = harmonizer.harmonize_runs(
         [passing, failing], extraction, None
@@ -298,7 +287,6 @@ def test_disabled_duration_policy_is_not_exposed_to_coaching_prompt(
     )
     provider = _Provider()
     harmonizer = SermonHarmonizer(provider, "gemini-test-model", _Prompts())
-    harmonizer.audio_manager = _Audio()
 
     harmonizer._generate_aggregate_feedback(scoring, extraction, 1)
 

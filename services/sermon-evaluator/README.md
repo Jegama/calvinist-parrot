@@ -63,6 +63,8 @@ zsh -ic 'workon cp_evals && python -m sermon_evaluator.cli --audio data/sermons/
 
 The CLI preserves `--audio`, `--model`, `--out-dir`, `--label`, `--md-file`, `--preacher`, `--markdown`, and `--num-scoring-runs`, and adds `--preached-date` plus the off-by-default `--apply-duration-adjustment`. Historic `<label>_step1_extraction.json` and `<label>_step2_scoring.json` filenames contain append-only newline-delimited JSON records. It also appends `sermon_aggregated_summary.csv` and optionally writes `<label>.md`.
 
+The CLI caches Gemini file IDs across invocations in the system temporary directory. It creates the cache on the first audio lookup and keeps one entry per SHA-256 audio digest. If the default cache directory is unavailable or unsafe to use, the CLI uses a private temporary directory for that invocation. Replacing a recording at the same path triggers a fresh upload when its new content is absent from the cache. The CLI also refreshes a cached file with an hour or less until expiry before extraction, so scoring can use the same upload. The first CLI run after upgrading may upload the audio once to populate the new cache. The Appwrite worker stores its Gemini file reference in the evaluation's Postgres result.
+
 ## Dependency lock regeneration
 
 Python 3.14 is required. `pyproject.toml` owns direct dependencies; committed lock inputs are regenerated with:
@@ -95,3 +97,11 @@ After the control plane updates the duration-policy fields, it may regenerate im
 ```
 
 `action` defaults to `evaluate`; those are the only accepted actions. The entrypoint never accepts an owner, role, model, status, run count, or Appwrite execution identifier from the caller.
+
+### Recovering a failed evaluation after scoring
+
+After deploying the fixed Function, open the failed evaluation and select **Retry attempt** (`POST /api/v1/sermon-evaluations/{id}/retry`). This requeues the same evaluation with a fresh attempt deadline. The retry requires the retained audio asset and enough available credits to restore any released reservation.
+
+The worker checks the saved Gemini file first. If it is active, retry reuses it. If it has expired or cannot be retrieved, the worker downloads the retained Appwrite audio to temporary storage, verifies it, and uploads it to Gemini again. Neither case requires the user to upload the sermon.
+
+With `result.extraction` and all three `sermonScoringRun.rawScore` values saved, retry skips extraction and scoring calls. For the post-scoring failure in issue 89, the remaining work is to harmonize the scores, compute aggregates, generate summary feedback, and publish the Markdown, JSON, and CSV reports. A missing extraction or score requires a provider call for that missing output.

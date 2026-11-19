@@ -78,6 +78,13 @@ class SermonEvaluationEngine:
 
     def extract_structure_from_audio(self, audio_path: str) -> SermonExtractionStep1:
         """Extract sermon structure from audio file."""
+        extraction, _ = self.extract_structure_with_audio_file(audio_path)
+        return extraction
+
+    def extract_structure_with_audio_file(
+        self, audio_path: str
+    ) -> tuple[SermonExtractionStep1, Any]:
+        """Return the extraction and the Gemini file used to produce it."""
         if self.provider_name != "gemini":
             raise ValueError("Audio extraction currently supported only for Gemini")
 
@@ -100,12 +107,13 @@ class SermonEvaluationEngine:
 
         instruction = self.prompts.EXTRACTION_INSTRUCTIONS_AUDIO
         system = self.prompts.EXTRACTION_SYSTEM_PROMPT
+        audio_file = file_obj or file_id
 
         with self.audio_manager.upload_indicator(
             message="Step 1: Extracting structure from audio"
         ):
             data = self.provider.generate_structured_with_contents(
-                contents=[instruction, file_obj or file_id],
+                contents=[instruction, audio_file],
                 response_schema=SermonExtractionStep1,
                 system=system,
                 model=self.model,
@@ -113,7 +121,7 @@ class SermonEvaluationEngine:
 
         extraction = SermonExtractionStep1(**data)
         extraction.audio_duration = duration
-        return extraction
+        return extraction, audio_file
 
     # ----------- Step 2: Scoring -----------
     def score_from_extraction(

@@ -2,13 +2,21 @@ from __future__ import annotations
 
 import csv
 import json
+import wave
 from datetime import date, datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
 
 from sermon_evaluator.aggregation import SermonAggregator
+from sermon_evaluator.audio import AudioFileManager
 from sermon_evaluator.cli import DEFAULT_MODEL, main, parse_args
+from sermon_evaluator.engine import SermonEvaluationEngine
 from sermon_evaluator.reports import render_json, render_markdown
+from sermon_evaluator.rubric import RUBRIC_SECTIONS
+from sermon_evaluator.schemas import SermonExtractionStep1, SermonHarmonizedFeedback
 from sermon_evaluator.service import SermonEvaluationService
 
 
@@ -44,20 +52,10 @@ def test_cli_historic_files_are_jsonl_and_append(
         scoring, extraction
     )
 
-    class FakeAudioManager:
-        def upload_or_get_gemini_file(self, path, provider):
-            return "files/fake", object()
-
-    class FakeEngine:
-        def __init__(self, **kwargs):
-            self.audio_manager = FakeAudioManager()
-            self.provider = object()
-
-        def extract_structure_from_audio(self, path):
-            return extraction
-
-        def score_from_extraction(self, value, audio_file_obj):
-            return scoring
+    engine = Mock()
+    engine.extract_structure_with_audio_file.return_value = extraction, "files/fake"
+    engine.score_from_extraction.return_value = scoring
+    engine_factory = Mock(return_value=engine)
 
     argv = [
         "--audio",
@@ -69,8 +67,8 @@ def test_cli_historic_files_are_jsonl_and_append(
         "--preacher",
         "Pastor",
     ]
-    assert main(argv, engine_factory=FakeEngine) == 0
-    assert main(argv, engine_factory=FakeEngine) == 0
+    assert main(argv, engine_factory=engine_factory) == 0
+    assert main(argv, engine_factory=engine_factory) == 0
     step1 = tmp_path / "sermon_step1_extraction.json"
     step2 = tmp_path / "sermon_step2_scoring.json"
     assert len(step1.read_text().splitlines()) == 2
@@ -78,6 +76,52 @@ def test_cli_historic_files_are_jsonl_and_append(
     assert all(json.loads(line) for line in step1.read_text().splitlines())
     with (tmp_path / "sermon_aggregated_summary.csv").open(newline="") as stream:
         assert len(list(csv.DictReader(stream))) == 2
+
+
+@pytest.mark.parametrize("runs", [1, 3])
+def test_cli_scores_the_original_upload_if_audio_changes_during_extraction(
+    tmp_path: Path, extraction, raw_scoring, runs
+) -> None:
+    audio = tmp_path / "sermon.wav"
+    with wave.open(str(audio), "wb") as wav:
+        wav.setparams((1, 2, 8000, 0, "NONE", "not compressed"))
+        wav.writeframes(bytes(16000))
+
+    original = SimpleNamespace(name="files/original")
+    provider = Mock()
+    provider.upload_file.side_effect = [
+        original, SimpleNamespace(name="files/replacement")
+    ]
+
+    def generate_with_audio(*, response_schema, **_):
+        if response_schema is SermonExtractionStep1:
+            audio.write_bytes(b"replacement sermon")
+            return extraction.model_dump()
+        return raw_scoring.model_dump()
+
+    def generate_feedback(*, response_schema, **_):
+        if response_schema is SermonHarmonizedFeedback:
+            return {section.key: "Combined feedback" for section in RUBRIC_SECTIONS}
+        return {"Overall_Impact": "Summary feedback"}
+
+    provider.generate_structured_with_contents.side_effect = generate_with_audio
+    provider.generate_structured.side_effect = generate_feedback
+    engine = SermonEvaluationEngine(provider=provider)
+    engine.audio_manager = AudioFileManager(tmp_path / "cache")
+    argv = [
+        "--audio", str(audio),
+        "--out-dir", str(tmp_path),
+        "--label", "sermon",
+        "--preacher", "Pastor",
+        "--num-scoring-runs", str(runs),
+    ]
+    assert main(argv, engine_factory=lambda **_: engine) == 0
+    files_used = [
+        call.kwargs["contents"][1]
+        for call in provider.generate_structured_with_contents.call_args_list
+    ]
+    assert files_used == [original] * (1 + runs)
+    provider.upload_file.assert_called_once_with(str(audio))
 
 
 def test_reports_include_structure_scores_and_metadata(extraction, scoring) -> None:
