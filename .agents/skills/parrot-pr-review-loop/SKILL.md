@@ -1,13 +1,15 @@
 ---
 name: parrot-pr-review-loop
-description: Run a Calvinist Parrot pull request through review and CI. Use when asked to address PR feedback, push fixes, and monitor Copilot re-reviews through a clean pass or the ten-round limit.
+description: Run a GitHub pull request through review and CI. Use when asked to address PR feedback, push fixes, and monitor Copilot re-reviews through a clean pass or the ten-round limit.
 ---
 
 # Calvinist Parrot PR review loop
 
 ## Start with the PR
 
-Use the requested PR in `Jegama/calvinist-parrot`, or the open PR for the current branch if unambiguous. Read the PR description, linked issue, repository `AGENTS.md`, and instructions for the affected paths. Record the intended behavior, base, starting head SHA, and head repository and branch. Work on that head in a clean checkout, preserving other contributors’ commits and local edits. A request to run the loop covers fixes, tests, pushes to the PR branch, review replies, and Copilot review requests. Leave the merge decision to the user.
+Use the repository and number from the supplied GitHub PR URL or `OWNER/REPO#NUMBER`. For a bare number, resolve it in the current checkout’s GitHub repository. If no PR was specified, use the current branch’s open PR when unambiguous. Ask for the PR URL if the target is still unclear. Use the PR’s base repository (`repo`) and number (`pr`) for GitHub checks, comments, and review requests. For a fork PR, push fixes to its head repository and branch.
+
+Read the PR description, linked issue, and any repository or path-specific instructions in the target checkout. Record the intended behavior, base, starting head SHA, and head repository and branch. Work on that head in a clean checkout, preserving other contributors’ commits and local edits. A request to run the loop covers fixes, tests, pushes to the PR branch, review replies, and Copilot review requests. Leave the merge decision to the user.
 
 Keep a short record in the Codex chat throughout the run. Save the starting SHA, round number, requested SHA and time, last seen review ID, each distinct finding and its disposition, fix commits, and check results. On resumption, reconcile this record with GitHub before posting, pushing, or requesting again. The initial inspection is round zero. Each fresh Copilot review requested or adopted during this run uses one of ten rounds, even if a newer push supersedes it. Polls, replies, and CI reruns consume no rounds.
 
