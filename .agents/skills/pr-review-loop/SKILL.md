@@ -1,9 +1,9 @@
 ---
-name: parrot-pr-review-loop
+name: pr-review-loop
 description: Run a GitHub pull request through review and CI. Use when asked to address PR feedback, push fixes, and monitor Copilot re-reviews through a clean pass or the ten-round limit.
 ---
 
-# Calvinist Parrot PR review loop
+# PR Review Loop
 
 ## Start with the PR
 
@@ -15,7 +15,7 @@ Keep a short record in the Codex chat throughout the run. Save the starting SHA,
 
 ## Inspect, fix, and reply
 
-1. Read the PR conversation, all review submissions with their **full raw Markdown bodies**, and inline threads with replies and resolution state. Fetch every page. Expand nested `<details>` in the UI or read their raw contents. Look for “previously missed issue”, “open issues”, and “needs a closer look” even when the headline says “No open issues”. Distinguish new issues from resolved history. For example, on [PR #85](https://github.com/Jegama/calvinist-parrot/pull/85#pullrequestreview-5898190150) the regeneration backlog bug appeared only in the review body.
+1. Read the PR conversation, all review submissions with their **full raw Markdown bodies**, and inline threads with replies and resolution state. Fetch every page. Expand nested `<details>` in the UI or read their raw contents. Look for “previously missed issue”, “open issues”, and “needs a closer look” even when the headline says “No open issues”. Distinguish new issues from resolved history.
 2. Inspect the PR’s complete checks and commit statuses, including external providers. Match each to the current PR revision or its current GitHub test merge. Read failed job logs and compare the affected behavior to the base branch when relevant. Use the connected GitHub tools or the CLI. For example, `gh pr checks "$pr" -R "$repo"` shows the check rollup, and `gh api --paginate "repos/$repo/pulls/$pr/reviews"` retrieves review bodies and commit IDs.
 3. Evaluate each distinct claim against the current code, the PR’s intent, and existing tests. Deduplicate by underlying behavior across the summary, thread, and earlier rounds. Reopen the question if a repeat supplies new evidence. Reproduce a plausible defect or trace the failing path. Fix valid in-scope findings and CI regressions, grouping related changes. Run the closest relevant checks and add a regression test when it can distinguish the broken behavior from the fix. Retry a failing job when the evidence supports a transient failure.
 4. Record the current review IDs and recheck the remote head before pushing. If it moved, incorporate the new work and revalidate affected fixes. Push the tested commit to the PR head branch with an ordinary push. Reply in the original thread with the disposition, short SHA, and specific test or evidence. For a body-only finding, use a PR conversation reply linking the review and naming the finding. Explain declined, duplicate, or already-fixed suggestions where a reply helps. Resolve addressed threads when appropriate. Record genuine human decisions, out-of-scope requests, and validation gaps for the user.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR Review Loop"
+  short_description: "Address PR feedback and monitor Copilot and CI"
+  default_prompt: "Use $pr-review-loop on the selected GitHub PR. Fix valid findings, monitor Copilot and CI, and report the outcome."
