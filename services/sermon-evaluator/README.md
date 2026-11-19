@@ -63,7 +63,7 @@ zsh -ic 'workon cp_evals && python -m sermon_evaluator.cli --audio data/sermons/
 
 The CLI preserves `--audio`, `--model`, `--out-dir`, `--label`, `--md-file`, `--preacher`, `--markdown`, and `--num-scoring-runs`, and adds `--preached-date` plus the off-by-default `--apply-duration-adjustment`. Historic `<label>_step1_extraction.json` and `<label>_step2_scoring.json` filenames contain append-only newline-delimited JSON records. It also appends `sermon_aggregated_summary.csv` and optionally writes `<label>.md`.
 
-The CLI caches Gemini file IDs across invocations in the system temporary directory. It creates the cache on the first audio lookup. The first CLI run after upgrading may upload the audio once to populate the new cache. The Appwrite worker stores its Gemini file reference in the evaluation's Postgres result.
+The CLI caches Gemini file IDs across invocations in the system temporary directory. It creates the cache on the first audio lookup and keeps one entry per SHA-256 audio digest. Replacing a recording at the same path triggers a fresh upload when its new content is absent from the cache. The first CLI run after upgrading may upload the audio once to populate the new cache. The Appwrite worker stores its Gemini file reference in the evaluation's Postgres result.
 
 ## Dependency lock regeneration
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import itertools
-import json
 import os
 import stat
 import tempfile
@@ -13,7 +12,7 @@ import time
 from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Dict, Iterator, Optional, Tuple
+from typing import Any, Iterator, Optional, Tuple
 
 from mutagen import File as MutagenFile
 from mutagen.mp3 import BitrateMode, HeaderNotFoundError, MP3, MPEGFrame
@@ -60,7 +59,7 @@ class AudioFileManager:
         self.cache_dir = cache_dir
 
     @cached_property
-    def audio_cache_path(self) -> Path:
+    def _upload_cache_dir(self) -> Path:
         """Prepare the CLI cache only when looking up or saving an upload."""
         directory = self.cache_dir
         uid = os.getuid() if hasattr(os, "getuid") else None
@@ -79,7 +78,7 @@ class AudioFileManager:
                 raise PermissionError(
                     f"Expected a private CLI cache directory: {directory}"
                 )
-        return directory / "gemini_files_cache.json"
+        return directory
 
     @staticmethod
     def _exact_mp3_duration(path: Path, audio: MP3) -> float:
@@ -264,43 +263,59 @@ class AudioFileManager:
             thread.join(timeout=1.0)
             print(f"{message} done.")
 
-    def load_cache(self) -> Dict[str, Any]:
-        path = self.audio_cache_path
+    @staticmethod
+    def _audio_revision(path: Path) -> tuple[int, ...]:
         try:
-            value = json.loads(path.read_text(encoding="utf-8"))
-            return value if isinstance(value, dict) else {}
-        except (FileNotFoundError, json.JSONDecodeError, OSError):
-            return {}
+            info = path.stat()
+        except OSError as error:
+            raise InvalidAudioError(f"Audio file is unavailable: {error}") from error
+        if info.st_size > MAX_AUDIO_BYTES:
+            raise InvalidAudioError(f"Audio exceeds the {MAX_AUDIO_MIB} MiB limit")
+        return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns
 
-    def save_cache(self, cache: Dict[str, Any]) -> None:
-        self.audio_cache_path.write_text(
-            json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+    @staticmethod
+    def _cache_upload(entry: Path, remote_id: str) -> None:
+        # Each digest owns one entry. Readers see a complete ID even if other
+        # CLI processes are uploading or refreshing files at the same time.
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=entry.parent, delete_on_close=False
+        ) as pending:
+            pending.write(remote_id)
+            pending.close()
+            os.replace(pending.name, entry)
 
     def upload_or_get_gemini_file(
         self, local_path: str, provider: Any
     ) -> Tuple[str, Any]:
-        absolute_path = str(Path(local_path).expanduser().resolve())
-        cache = self.load_cache()
-        remote_id = cache.get(absolute_path)
+        path = Path(local_path).expanduser().resolve()
+        revision = self._audio_revision(path)
+
+        def require_unchanged_audio() -> None:
+            if self._audio_revision(path) != revision:
+                raise InvalidAudioError(
+                    "Audio changed during file preparation. Retry with the finished file."
+                )
+
+        try:
+            digest, _ = self.stream_sha256(path)
+        except OSError as error:
+            raise InvalidAudioError(f"Audio file is unavailable: {error}") from error
+        entry = self._upload_cache_dir / f"gemini-{digest}.id"
+        try:
+            remote_id = entry.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            remote_id = None
         if remote_id:
             try:
                 file_object = provider.get_file(remote_id)
-                return remote_id, file_object
             except Exception:
                 pass
-
-        try:
-            size = os.path.getsize(absolute_path)
-        except OSError as error:
-            raise InvalidAudioError(f"Audio file is unavailable: {error}") from error
-        if size > MAX_AUDIO_BYTES:
-            raise InvalidAudioError(
-                f"Audio exceeds the {MAX_AUDIO_MIB} MiB limit"
-            )
+            else:
+                require_unchanged_audio()
+                return remote_id, file_object
 
         with self.upload_indicator(message="Uploading to Gemini"):
-            file_object = provider.upload_file(absolute_path)
+            file_object = provider.upload_file(str(path))
         remote_id = (
             getattr(file_object, "name", None)
             or getattr(file_object, "uri", None)
@@ -308,8 +323,8 @@ class AudioFileManager:
         )
         if not remote_id:
             raise RuntimeError("Gemini upload response did not include a file identifier")
-        cache[absolute_path] = remote_id
-        self.save_cache(cache)
+        require_unchanged_audio()
+        self._cache_upload(entry, str(remote_id))
         return str(remote_id), file_object
 
 
