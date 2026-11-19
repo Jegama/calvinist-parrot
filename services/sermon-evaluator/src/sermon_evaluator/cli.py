@@ -61,10 +61,7 @@ def main(
         model=args.model,
         apply_duration_adjustment=args.apply_duration_adjustment,
     )
-    step1 = engine.extract_structure_from_audio(args.audio)
-    _, audio_file = engine.audio_manager.upload_or_get_gemini_file(
-        args.audio, engine.provider
-    )
+    step1, audio_file = engine.extract_structure_with_audio_file(args.audio)
     with step1_path.open("a", encoding="utf-8") as destination:
         destination.write(
             json.dumps(step1.model_dump(), ensure_ascii=False) + "\n"
