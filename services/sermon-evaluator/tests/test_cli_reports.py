@@ -39,7 +39,7 @@ def test_cli_preserves_flags_and_defaults() -> None:
             "--apply-duration-adjustment",
         ]
     )
-    assert args.model == DEFAULT_MODEL
+    assert args.model == "gemini-4-hydrogen"
     assert args.num_scoring_runs == 3
     assert args.apply_duration_adjustment is True
     assert args.preached_date == "2026-07-27"
@@ -192,7 +192,7 @@ def test_report_regeneration_is_no_llm_and_idempotent(extraction, scoring) -> No
                     "extraction": extraction.model_dump(mode="json"),
                     "scoring": scoring.model_dump(mode="json"),
                 },
-                "provenance": {"configuredModelAlias": DEFAULT_MODEL},
+                "provenance": {"configuredModelAlias": "gemini-3.8-flash"},
             }
 
         def publish_report_set(
@@ -229,6 +229,7 @@ def test_report_regeneration_is_no_llm_and_idempotent(extraction, scoring) -> No
     aggregate = json_report["scoring"]["Aggregated_Summary"]
     assert aggregate["duration_adjustment_enabled"] is True
     assert aggregate["Overall_Impact"] == aggregate["Overall_Impact_Adjusted"]
+    assert json_report["metadata"]["configuredModelAlias"] == "gemini-3.8-flash"
     assert json_report["metadata"]["title"] == "Romans 8: No Condemnation"
     assert json_report["metadata"]["preacherName"] == "Pastor"
     assert json_report["metadata"]["preachedOn"] == "2026-07-27"

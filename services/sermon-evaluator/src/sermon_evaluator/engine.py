@@ -19,7 +19,7 @@ from typing import Any, Dict, Optional
 from . import prompts
 from .aggregation import SermonAggregator
 from .audio import AudioFileManager
-from .gemini import ParrotAIGemini
+from .gemini import DEFAULT_MODEL, ParrotAIGemini
 from .harmonization import SermonHarmonizer
 from .schemas import (
     SermonExtractionStep1,
@@ -39,7 +39,7 @@ class SermonEvaluationEngine:
 
     def __init__(
         self,
-        model: str = "gemini-3.8-flash",
+        model: str = DEFAULT_MODEL,
         *,
         provider: Optional[Any] = None,
         apply_duration_adjustment: bool = False,

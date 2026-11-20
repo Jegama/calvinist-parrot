@@ -40,7 +40,12 @@ export default function DashboardClient({ data }: { data: EvaluationRun[] }) {
     HISTORICAL_EDITION_ID,
     metrics.activePromptLabel ?? undefined,
   );
-  const { edition, activePromptLabel, narrativeStats: stats } = metrics;
+  const { edition, activePromptLabel, narrativeStats: stats, questionCountSummary } =
+    metrics;
+  const questionRange =
+    questionCountSummary.min === questionCountSummary.max
+      ? questionCountSummary.max
+      : `${questionCountSummary.min}–${questionCountSummary.max}`;
   const isPanel = edition.judges.length > 1;
   const promptLabel = activePromptLabel
     ? formatPromptLabel(activePromptLabel)
@@ -186,8 +191,8 @@ export default function DashboardClient({ data }: { data: EvaluationRun[] }) {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {edition.description} Scores from different editions are not
-            directly comparable.
+            {edition.description} Switching editions changes how the same saved
+            answers are scored.
           </p>
           <ul className="flex flex-col gap-2 text-sm lg:flex-row lg:flex-wrap lg:gap-x-6">
             {edition.judges.map((judge) => (
@@ -307,7 +312,7 @@ export default function DashboardClient({ data }: { data: EvaluationRun[] }) {
               )}
               <p className="text-sm text-muted-foreground">
                 {useHistoricalPrompt
-                  ? "The selected panel lacks matching baseline judgments. This chart preserves the original GPT-5 Mini comparison; it does not mix historical baselines with panel scores."
+                  ? "The selected panel lacks matching baseline judgments. GPT-5 Mini scored both the baseline and the later prompts shown here."
                   : `Prompt progression for the same answer model, scored consistently by ${edition.label}.`}
               </p>
             </CardHeader>
@@ -359,6 +364,7 @@ export default function DashboardClient({ data }: { data: EvaluationRun[] }) {
               runs={data}
               evalVersion={edition.evalVersion}
               initialReference={edition.judges[0].model}
+              initialComparison={edition.judges[1]?.model}
               activePromptLabel={activePromptLabel}
             />
           )}
@@ -377,12 +383,7 @@ export default function DashboardClient({ data }: { data: EvaluationRun[] }) {
             </CardHeader>
             <CardContent>
               {metrics.providerSpread.length > 0 ? (
-                <ProviderSpreadScatter
-                  data={metrics.providerSpread}
-                  domainMin={
-                    edition.id === "three-family-2026-10" ? 3.6 : undefined
-                  }
-                />
+                <ProviderSpreadScatter data={metrics.providerSpread} />
               ) : (
                 <p>No covered non-baseline answer sets.</p>
               )}
@@ -483,9 +484,17 @@ export default function DashboardClient({ data }: { data: EvaluationRun[] }) {
           the rubric; expert review is needed to assess theological accuracy.
         </p>
         <p>
-          {metrics.activeAnswers.length > 0
-            ? `Covered runs: ${metrics.questionCountSummary.min === metrics.questionCountSummary.max ? metrics.questionCountSummary.max : `${metrics.questionCountSummary.min}–${metrics.questionCountSummary.max}`} successfully scored questions each · ${metrics.questionCountSummary.totalErrors} recorded failed attempt${metrics.questionCountSummary.totalErrors === 1 ? "" : "s"} (including errors recovered by retries).`
-            : "No covered runs in this selection."}{" "}
+          {metrics.activeAnswers.length > 0 ? (
+            <>
+              Each covered run includes {questionRange} scored questions,
+              including any generation-failure penalties. The selected runs record{" "}
+              {questionCountSummary.totalErrors} failed judge{" "}
+              {questionCountSummary.totalErrors === 1 ? "attempt" : "attempts"}{" "}
+              (including errors recovered by retries).
+            </>
+          ) : (
+            "No covered runs in this selection."
+          )}{" "}
           {metrics.latestEvaluatedAt &&
             `Latest included evaluation: ${new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(metrics.latestEvaluatedAt))}.`}
         </p>

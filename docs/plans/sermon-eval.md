@@ -1,5 +1,7 @@
 # Canonical Sermon Evaluation Service
 
+This plan records the original v1 migration and parity checks. The [worker README](../../services/sermon-evaluator/README.md) documents the current model and runtime settings.
+
 ## Summary and locked decisions
 
 - Move the sermon evaluator from CP-Evals-Lab into Calvinist Parrot through a one-time, provenance-recorded copy. Calvinist Parrot becomes the only maintained implementation after production parity is proven.

@@ -31,6 +31,7 @@ const METADATA_COLUMNS = [
   "evaluated_at",
   "timestamp_source",
   "question_count",
+  "generation_failure_count",
   "error_count",
   "source_dataset",
   "source_results",
@@ -90,6 +91,11 @@ export function parseEvaluationRuns(csv: string): EvaluationRun[] {
 
   const runs = rows.map<EvaluationRun>((row, index) => {
     const rowNumber = index + 2;
+    const questionCount = parseCount(row, "question_count", rowNumber);
+    const generationFailureCount = parseCount(row, "generation_failure_count", rowNumber);
+    if (generationFailureCount > questionCount) {
+      throw new Error(`Master CSV row ${rowNumber} has more generation failures than scored questions.`);
+    }
     const evaluatedAt = requireText(row, "evaluated_at", rowNumber);
     if (Number.isNaN(Date.parse(evaluatedAt))) {
       throw new Error(`Master CSV row ${rowNumber} has an invalid evaluated_at timestamp.`);
@@ -119,7 +125,8 @@ export function parseEvaluationRuns(csv: string): EvaluationRun[] {
       evalVersion: requireText(row, "eval_version", rowNumber),
       evaluatedAt,
       timestampSource: requireText(row, "timestamp_source", rowNumber),
-      questionCount: parseCount(row, "question_count", rowNumber),
+      questionCount,
+      generationFailureCount,
       errorCount: parseCount(row, "error_count", rowNumber),
       sourceDataset: requireText(row, "source_dataset", rowNumber),
       sourceResults: requireText(row, "source_results", rowNumber),

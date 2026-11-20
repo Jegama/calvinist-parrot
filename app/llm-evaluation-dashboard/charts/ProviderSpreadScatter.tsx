@@ -14,7 +14,6 @@ import { formatModelLabel, formatPromptLabel } from "../constants";
 import { CHART_INITIAL_DIMENSIONS } from "./chart-dimensions";
 
 interface ProviderSpreadScatterProps {
-  domainMin?: number;
   data: Array<{
     provider: string;
     min: number;
@@ -31,16 +30,11 @@ interface ProviderSpreadScatterProps {
   }>;
 }
 
-export function ProviderSpreadScatter({
-  data,
-  domainMin,
-}: ProviderSpreadScatterProps) {
-  // Compute domain from data with 0.2 padding
-  const allValues = data.flatMap((d) => [d.min, d.max]);
-  const dataMin = allValues.length > 0 ? Math.min(...allValues) + 0.2 : 3.5;
-  const dataMax = allValues.length > 0 ? Math.max(...allValues) - 0.2 : 5;
-  const domainLow = domainMin ?? Math.floor((dataMin - 0.2) * 10) / 10;
-  const domainHigh = Math.ceil((dataMax + 0.2) * 10) / 10;
+export function ProviderSpreadScatter({ data }: ProviderSpreadScatterProps) {
+  const lowest = data.length ? Math.min(...data.map((point) => point.min)) : 1;
+  const highest = data.length ? Math.max(...data.map((point) => point.max)) : 5;
+  const domainLow = Math.max(1, Math.floor((lowest - 0.05) * 10) / 10);
+  const domainHigh = Math.min(5, Math.ceil((highest + 0.05) * 10) / 10);
 
   return (
     <div className="w-full min-w-0">

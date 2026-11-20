@@ -9,9 +9,8 @@ from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
 from .engine import SermonEvaluationEngine
+from .gemini import DEFAULT_MODEL
 from .reports import append_aggregated_summary_csv, render_markdown
-
-DEFAULT_MODEL = "gemini-3.8-flash"
 
 
 def iso_date(value: str) -> str:

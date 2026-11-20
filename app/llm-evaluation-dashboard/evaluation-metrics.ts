@@ -191,8 +191,9 @@ export interface EvaluationRun {
   evalVersion: string;
   evaluatedAt: string;
   timestampSource: string;
-  // Successful evaluations deduplicated by question in the master CSV.
+  // Scoring denominator, including recorded minimum scores for generation failures.
   questionCount: number;
+  generationFailureCount: number;
   // Failed attempts in the raw log, including errors later recovered by retry.
   // This is not a count of questions still missing a score.
   errorCount: number;

@@ -26,17 +26,18 @@ describe("vertical evaluation master CSV", () => {
     expect(Object.keys(runs[0].scores)).toHaveLength(19);
     for (const [index, run] of runs.entries()) {
       expect(run.questionCount).toBe(Number(rows[index].question_count));
+      expect(run.generationFailureCount).toBe(Number(rows[index].generation_failure_count));
       expect(run.errorCount).toBe(Number(rows[index].error_count));
     }
   });
 
-  it("keeps successful-question counts separate from failed attempts recovered by retries", () => {
+  it("includes penalized generations in the denominator and keeps judge errors separate", () => {
     const [row] = parse(masterCsv, {
       columns: true,
       skip_empty_lines: true,
     }) as Record<string, string>[];
     const headers = Object.keys(row);
-    const recovered = { ...row, question_count: "500", error_count: "2" };
+    const recovered = { ...row, question_count: "500", generation_failure_count: "1", error_count: "2" };
     const csv = [
       headers,
       headers.map((key) => recovered[key as keyof typeof recovered]),
@@ -47,6 +48,7 @@ describe("vertical evaluation master CSV", () => {
       .join("\n");
     expect(parseEvaluationRuns(csv)[0]).toMatchObject({
       questionCount: 500,
+      generationFailureCount: 1,
       errorCount: 2,
     });
   });

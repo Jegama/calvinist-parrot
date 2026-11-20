@@ -61,12 +61,14 @@ SERMON_RUNTIME=appwrite
 SERMON_DATABASE_URL=<development Neon URL, dedicated worker role>
 GEMINI_API_KEY=<worker Gemini key>
 SERMON_AUDIO_BUCKET_ID=<the bucket ID above>
-SERMON_GEMINI_MODEL=gemini-3.8-flash
+SERMON_GEMINI_MODEL=gemini-4-hydrogen
 SERMON_SOFT_DEADLINE_SECONDS=840
 SERMON_MAX_PARALLEL_SCORING_RUNS=9
 ```
 
 Appwrite injects `APPWRITE_FUNCTION_API_ENDPOINT`, `APPWRITE_FUNCTION_PROJECT_ID`, and `APPWRITE_FUNCTION_ID`, and passes the execution's dynamic API key in the `x-appwrite-key` request header; do not configure those yourself. Variable changes require redeploying the Function. [Appwrite Docs, [Develop Functions](https://appwrite.io/docs/products/functions/develop), “Function examples read the project ID from the environment and the dynamic key from `x-appwrite-key`”] [Appwrite Docs, [Function environment variables](https://appwrite.io/docs/products/functions/environment-variables), “custom variable changes require redeployment”]
+
+For a model rollout, check the effective `SERMON_GEMINI_MODEL` in the Preview Appwrite project and Function, remove or update a stale override, and verify the newly deployed worker revision. Start a fresh evaluation with test audio, let it finish scoring, and open its reports. Confirm that **Configured Model Alias** is `gemini-4-hydrogen` and **Model Version** identifies Hydrogen. Repeat in production after the Preview check passes. A retry can reuse saved Flash outputs.
 
 Deploy the recovery-aware worker and add `execution.write` before changing an existing one-minute schedule to hourly. Pending evaluations register a delayed execution before processing; terminal evaluations stop the chain. The hourly sweep catches failed initial dispatches (with up to an hour of delay) and runs cleanup without keeping idle Neon databases awake all day. Keep both preview and production configured this way. See the [worker deployment contract](../../services/sermon-evaluator/README.md#deployment) for deadline and backlog behavior.
 

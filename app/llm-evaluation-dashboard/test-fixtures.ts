@@ -1,5 +1,5 @@
 import { METRIC_DEFINITIONS, type EvaluationRun } from "./evaluation-metrics";
-import { SCORING_EDITIONS } from "./scoring-editions";
+import { DEFAULT_EDITION_ID, getScoringEdition } from "./scoring-editions";
 
 export function fixtureRun(
   model: string,
@@ -18,6 +18,7 @@ export function fixtureRun(
     evaluatedAt: "2026-10-31T00:00:00Z",
     timestampSource: "fixture",
     questionCount: 500,
+    generationFailureCount: 0,
     errorCount: 0,
     sourceDataset: `${model}.jsonl`,
     sourceResults: `${model}-${judge}.jsonl`,
@@ -33,7 +34,7 @@ export function panelRuns(
   means: [number, number, number],
   overrides: Partial<EvaluationRun> = {},
 ) {
-  return SCORING_EDITIONS[0].judges.map((judge, index) =>
+  return getScoringEdition(DEFAULT_EDITION_ID).judges.map((judge, index) =>
     fixtureRun(model, judge.model, means[index], overrides),
   );
 }

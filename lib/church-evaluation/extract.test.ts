@@ -156,7 +156,7 @@ describe("extractChurchEvaluation", () => {
     );
     expect(generateContent).toHaveBeenCalledTimes(6);
     expect(generateContent.mock.calls.every(
-      ([request]) => request.model === "gemini-3.8-flash",
+      ([request]) => request.model === "gemini-4-hydrogen",
     )).toBe(true);
     expect(
       generateContent.mock.calls[1][0].config.thinkingConfig.thinkingLevel,
@@ -171,7 +171,7 @@ describe("extractChurchEvaluation", () => {
     expect(result.church.core_doctrines.christ_deity_humanity).toBe("true");
     expect(result.church.badges).toContain("👩‍🏫 Ordained Women");
     expect(result.metadata).toMatchObject({
-      model: "gemini-3.8-flash",
+      model: "gemini-4-hydrogen",
       prompt_version: EVALUATION_PROMPT_VERSION,
     });
     expect(result.metadata?.source_pages).toHaveLength(3);
@@ -183,7 +183,7 @@ describe("extractChurchEvaluation", () => {
   });
 
   it("exports the production model and medium core thinking level", () => {
-    expect(EVALUATION_MODEL).toBe("gemini-3.8-flash");
+    expect(EVALUATION_MODEL).toBe("gemini-4-hydrogen");
     expect(CORE_EXTRACTION_THINKING_LEVEL).toBe(ThinkingLevel.MEDIUM);
     expect(EVALUATION_PROMPT_VERSION).toBe("2026-10-31-affiliation");
   });

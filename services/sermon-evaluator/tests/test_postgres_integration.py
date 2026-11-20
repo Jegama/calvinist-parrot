@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import os
@@ -899,7 +900,7 @@ def test_psycopg_persistence_against_prisma_schema() -> None:
 
 
 @pytest.fixture
-def queued_report_job(tmp_path, requested_runs, retry, extraction, raw_scoring):
+def queued_report_job(tmp_path, requested_runs, retry, saved_alias, extraction, raw_scoring):
     suffix = uuid.uuid4().hex[:24]
     evaluation_id = f"evaluation-{suffix}"
     owner_id = f"owner-{suffix}"
@@ -951,6 +952,11 @@ def queued_report_job(tmp_path, requested_runs, retry, extraction, raw_scoring):
                         },
                         "extraction": extraction.model_dump(mode="json"),
                     }
+                    if saved_alias:
+                        result["provenance"] = {
+                            "configuredModelAlias": saved_alias,
+                            "modelVersion": "flash-version-from-saved-response",
+                        }
                     cur.execute(
                         'UPDATE "sermonEvaluation" SET result = %s WHERE id = %s',
                         (Jsonb(result), evaluation_id),
@@ -974,9 +980,15 @@ def queued_report_job(tmp_path, requested_runs, retry, extraction, raw_scoring):
 
 
 @pytest.mark.parametrize(
-    ("requested_runs", "retry", "expired_file"),
-    [(1, False, False), (3, False, False), (3, True, False), (3, True, True)],
-    ids=["standard", "high-confidence", "retry-active-file", "retry-expired-file"],
+    ("requested_runs", "retry", "expired_file", "saved_alias"),
+    [
+        (1, False, False, None),
+        (3, False, False, None),
+        (3, True, False, None),
+        (3, True, True, None),
+        (3, True, False, "gemini-3.8-flash"),
+    ],
+    ids=["standard", "high-confidence", "retry-active-file", "retry-expired-file", "retry-flash"],
 )
 def test_worker_publishes_reports_from_read_only_directory(
     queued_report_job,
@@ -987,11 +999,14 @@ def test_worker_publishes_reports_from_read_only_directory(
     requested_runs,
     retry,
     expired_file,
+    saved_alias,
 ) -> None:
     evaluation_id, pool, storage = queued_report_job
     provider = Mock(spec=GeminiProvider)
-    provider.model_name = "test-model"
-    provider.last_response_metadata = ProviderResponseMetadata()
+    provider.model_name = "gemini-4-hydrogen"
+    provider.last_response_metadata = ProviderResponseMetadata(
+        response_id="offline-response", model_version="hydrogen-version-from-response",
+    )
     provider.upload_file.return_value = SimpleNamespace(name="files/uploaded")
     provider.file_metadata.side_effect = GeminiProvider.file_metadata
     provider.get_file.return_value = SimpleNamespace(name="files/saved")
@@ -1007,7 +1022,8 @@ def test_worker_publishes_reports_from_read_only_directory(
         AggregatedSummaryFeedback: {"Overall_Impact": "Summary feedback"},
     }
 
-    def generate(*, response_schema, **_):
+    def generate(*, response_schema, model, **_):
+        assert model == (saved_alias or "gemini-4-hydrogen")
         return responses[response_schema]
 
     provider.generate_structured_with_contents.side_effect = generate
@@ -1037,7 +1053,20 @@ def test_worker_publishes_reports_from_read_only_directory(
     assert set(reports) == {"JSON", "MARKDOWN", "CSV"}
     assert all(reports.values())
     report = json.loads(reports["JSON"])
-    assert report["metadata"]["completedRuns"] == requested_runs
+    metadata = report["metadata"]
+    assert metadata["completedRuns"] == requested_runs
+    expected_alias = saved_alias if retry else "gemini-4-hydrogen"
+    assert metadata["configuredModelAlias"] == expected_alias
+    if saved_alias:
+        assert metadata["modelVersion"] == "flash-version-from-saved-response"
+    elif retry:
+        assert metadata["modelVersion"] is None
+        assert "reused stages" in metadata["modelProvenanceNote"]
+    else:
+        assert metadata["modelVersion"] == "hydrogen-version-from-response"
+    csv_row = next(csv.DictReader(reports["CSV"].decode().splitlines()))
+    assert csv_row["model"] == (expected_alias or "")
+    assert f'Model: {expected_alias or "-"}' in reports["MARKDOWN"].decode()
     feedback = report["scoring"]["Aggregated_Summary_Feedback"]
     assert feedback["Overall_Impact"] == "Summary feedback"
     if requested_runs > 1:

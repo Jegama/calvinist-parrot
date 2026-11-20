@@ -101,7 +101,15 @@ describe("Parrot chat model", () => {
       PARROT_AGENT_PROVIDER: "gemini",
     });
     expect(gemini).toBeInstanceOf(ChatGoogleGenerativeAI);
-    expect(gemini.model).toBe("gemini-3.8-flash");
+    expect(gemini.model).toBe("gemini-4-hydrogen");
+    expect(gemini.streaming).toBe(true);
+    expect(
+      createParrotChatModel({
+        ...credentials,
+        PARROT_AGENT_PROVIDER: "gemini",
+        PARROT_GEMINI_MODEL: "custom-gemini",
+      }).model,
+    ).toBe("custom-gemini");
   });
 
   it("rejects an unknown provider instead of silently routing elsewhere", () => {

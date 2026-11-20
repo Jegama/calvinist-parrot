@@ -2,15 +2,43 @@ import { describe, expect, it } from "vitest";
 import { METRIC_DEFINITIONS } from "./evaluation-metrics";
 import {
   buildEditionScores,
+  DEFAULT_EDITION_ID,
   getScoringEdition,
   HISTORICAL_EDITION_ID,
   SCORING_EDITIONS,
 } from "./scoring-editions";
 import { fixtureRun, panelRuns } from "./test-fixtures";
 
-const edition = SCORING_EDITIONS[0];
+const edition = getScoringEdition(DEFAULT_EDITION_ID);
 
 describe("versioned scoring editions", () => {
+  it("defaults to the provisional November edition and keeps its predecessors reproducible", () => {
+    expect(DEFAULT_EDITION_ID).toBe("three-family-2026-11");
+    const panels = [
+      [
+        DEFAULT_EDITION_ID,
+        ["gpt-6-luna", "gemini-4-hydrogen", "claude-haiku-5-5"],
+      ],
+      [
+        "three-family-2026-10",
+        ["gpt-6-luna", "gemini-3.8-flash", "claude-haiku-5-5"],
+      ],
+      [
+        "four-judge-2026-10",
+        ["gpt-5.6-luna", "gpt-6-luna", "gemini-3.7-flash", "gemini-3.8-flash"],
+      ],
+      ["gpt-5-mini-v2", ["gpt-5-mini"]],
+    ] as const;
+    for (const [id, judges] of panels) {
+      expect(getScoringEdition(id)).toMatchObject({
+        status: id === DEFAULT_EDITION_ID ? "provisional" : "historical",
+        evalVersion: "v2",
+        expectedQuestionCount: 500,
+        judges: judges.map((model) => ({ model, weight: 1 })),
+      });
+    }
+  });
+
   it("uses fixed weights for all metrics, retaining the judge range without averaging SDs", () => {
     const data = panelRuns("model", [3, 4, 5]);
     const original = structuredClone(data);
@@ -36,18 +64,18 @@ describe("versioned scoring editions", () => {
     expect(data).toEqual(original);
   });
 
-  it("does not substitute another judge, a different rubric, or a partial panel", () => {
-    const partial = panelRuns("model", [3, 4, 5]).slice(0, 2);
+  it("reports missing Hydrogen when only Flash or another rubric reviewed the saved answers", () => {
     const { answers, coverage } = buildEditionScores(
       [
-        ...partial,
-        fixtureRun("model", "gpt-5-mini", 5),
-        fixtureRun("model", "claude-haiku-5-5", 5, { evalVersion: "v3" }),
+        fixtureRun("model", "gpt-6-luna", 3),
+        fixtureRun("model", "claude-haiku-5-5", 5),
+        fixtureRun("model", "gemini-3.8-flash", 4),
+        fixtureRun("model", "gemini-4-hydrogen", 4, { evalVersion: "v3" }),
       ],
       edition,
     );
     expect(answers).toEqual([]);
-    expect(coverage[0].missingJudges).toEqual(["claude-haiku-5-5"]);
+    expect(coverage[0].missingJudges).toEqual(["gemini-4-hydrogen"]);
     expect(coverage[0].presentJudgeCount).toBe(2);
   });
 
@@ -97,6 +125,7 @@ describe("versioned scoring editions", () => {
   it.each([
     { questionCount: 499 },
     { questionCount: 499, errorCount: 1 },
+    { generationFailureCount: 1 },
     { sourceDataset: "different.jsonl" },
     { genModel: "different-model" },
     { provider: "openai" },

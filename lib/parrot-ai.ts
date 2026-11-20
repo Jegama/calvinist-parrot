@@ -2,6 +2,7 @@
 // Centralized LLM wrapper for OpenAI, Gemini, and Anthropic SDKs.
 // Provides a single `generateStructured<T>()` method that routes to the correct provider.
 
+import { DEFAULT_GEMINI_MODEL } from "@/lib/gemini-model";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
@@ -50,7 +51,7 @@ export interface StructuredOutputResult<T> {
 
 export const DEFAULT_MODEL: ModelSpec = {
   provider: "gemini",
-  model: "gemini-3.8-flash",
+  model: DEFAULT_GEMINI_MODEL,
 };
 
 // ---------------------------------------------------------------------------

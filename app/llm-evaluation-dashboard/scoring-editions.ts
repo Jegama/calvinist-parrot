@@ -19,9 +19,24 @@ export interface ScoringEdition {
 // complete answer sets can join it; changing judges/weights/rubric needs a new ID.
 export const SCORING_EDITIONS: readonly ScoringEdition[] = [
   {
+    id: "three-family-2026-11",
+    label: "Three-family panel · November 2026",
+    status: "provisional",
+    description:
+      "GPT-6 Luna, Gemini 4 Hydrogen, and Claude Haiku 5.5 have equal weight. Human calibration is still needed.",
+    evalVersion: "v2",
+    benchmark: "English 500-question benchmark",
+    expectedQuestionCount: 500,
+    judges: [
+      { model: "gpt-6-luna", weight: 1 },
+      { model: "gemini-4-hydrogen", weight: 1 },
+      { model: "claude-haiku-5-5", weight: 1 },
+    ],
+  },
+  {
     id: "three-family-2026-10",
     label: "Three-family panel · October 2026",
-    status: "provisional",
+    status: "historical",
     description:
       "Equal weight for GPT-6 Luna, Gemini 3.8 Flash, and Claude Haiku 5.5. Human calibration is still needed.",
     evalVersion: "v2",
@@ -62,7 +77,7 @@ export const SCORING_EDITIONS: readonly ScoringEdition[] = [
   },
 ];
 
-export const DEFAULT_EDITION_ID = SCORING_EDITIONS[0].id;
+export const DEFAULT_EDITION_ID = "three-family-2026-11";
 export const HISTORICAL_EDITION_ID = "gpt-5-mini-v2";
 
 export function getScoringEdition(id: string): ScoringEdition {
@@ -111,7 +126,8 @@ export function haveMatchingAnswerMetadata(
     left.genModel === right.genModel &&
     left.provider === right.provider &&
     left.systemPromptLabel === right.systemPromptLabel &&
-    left.sourceDataset === right.sourceDataset
+    left.sourceDataset === right.sourceDataset &&
+    left.generationFailureCount === right.generationFailureCount
   );
 }
 
@@ -171,7 +187,7 @@ export function buildEditionScores(
       )
     ) {
       issues.push(
-        `Each panel judge must have ${edition.expectedQuestionCount} successfully scored questions`,
+        `Each panel judge must have scores for all ${edition.expectedQuestionCount} questions, including recorded generation-failure penalties`,
       );
     }
     const complete = missingJudges.length === 0 && issues.length === 0;
