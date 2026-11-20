@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import {
   DEFAULT_ADULT_CAPACITY,
+  DEFAULT_CHILD_CAPACITY,
   MIN_FAMILY_LIMIT,
   MAX_PERSONAL_REQUESTS_PER_ROTATION,
 } from "@/app/prayer-tracker/constants";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { assignFamilies } from "./assign-families";
 
 export async function GET(request: Request) {
   void request;
@@ -17,7 +19,7 @@ export async function GET(request: Request) {
 
   const members = await prisma.prayerMember.findMany({
     where: { spaceId: membership.spaceId },
-    orderBy: { joinedAt: "asc" },
+    orderBy: [{ joinedAt: "asc" }, { id: "asc" }],
     select: {
       id: true,
       displayName: true,
@@ -29,10 +31,14 @@ export async function GET(request: Request) {
       birthdate: true,
     },
   });
-  const totalCapacity = members.reduce((sum, member) => {
-    const capacity = member.assignmentCapacity ?? (member.isChild ? 1 : DEFAULT_ADULT_CAPACITY);
-    return sum + Math.max(0, capacity);
-  }, 0);
+  const capacities = members.map((member) => ({
+    id: member.id,
+    capacity: Math.max(
+      0,
+      member.assignmentCapacity ?? (member.isChild ? DEFAULT_CHILD_CAPACITY : DEFAULT_ADULT_CAPACITY),
+    ),
+  }));
+  const totalCapacity = capacities.reduce((sum, member) => sum + member.capacity, 0);
   const familyLimit = Math.max(MIN_FAMILY_LIMIT, totalCapacity || members.length * DEFAULT_ADULT_CAPACITY);
 
   const families = await prisma.prayerFamily.findMany({
@@ -46,7 +52,7 @@ export async function GET(request: Request) {
         orderBy: [{ lastPrayedAt: { sort: "asc", nulls: "first" } }, { dateAdded: "asc" }],
       },
     },
-    orderBy: [{ lastPrayedAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }],
+    orderBy: [{ lastPrayedAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }, { id: "asc" }],
     take: familyLimit,
   });
 
@@ -89,54 +95,6 @@ export async function GET(request: Request) {
     personal = personal.slice(0, MAX_PERSONAL_REQUESTS_PER_ROTATION);
   }
 
-  const memberOrder = members.map((member) => member.id);
-  const currentLoads = members.reduce<Record<string, number>>((acc, member) => {
-    acc[member.id] = 0;
-    return acc;
-  }, {});
-
-  const assignments: Record<string, string> = {};
-
-  families.forEach((family) => {
-    const capacityAwareMembers = members.map((member) => ({
-      ...member,
-      capacity: Math.max(0, member.assignmentCapacity ?? (member.isChild ? 1 : DEFAULT_ADULT_CAPACITY)),
-      load: currentLoads[member.id] ?? 0,
-    }));
-
-    const eligible = capacityAwareMembers.filter((member) => member.capacity > 0);
-    if (!eligible.length) {
-      assignments[family.id] = "skip";
-      return;
-    }
-
-    // Filter to those under capacity first
-    const underCapacity = eligible.filter((member) => member.load < member.capacity);
-    const selectionPool = underCapacity.length ? underCapacity : eligible;
-
-    // Sort by load (lowest first), then by non-repeating preference, then by member order
-    selectionPool.sort((a, b) => {
-      const loadDiff = a.load - b.load;
-      if (loadDiff !== 0) return loadDiff;
-
-      // Prefer not repeating if loads are equal
-      const aRepeats = a.id === family.lastPrayedByMemberId ? 1 : 0;
-      const bRepeats = b.id === family.lastPrayedByMemberId ? 1 : 0;
-      if (aRepeats !== bRepeats) return aRepeats - bRepeats;
-
-      const remainingA = a.capacity - a.load;
-      const remainingB = b.capacity - b.load;
-      if (remainingA !== remainingB) return remainingB - remainingA;
-
-      return memberOrder.indexOf(a.id) - memberOrder.indexOf(b.id);
-    });
-
-    const chosen = selectionPool[0];
-    if (chosen) {
-      assignments[family.id] = chosen.id;
-      currentLoads[chosen.id] = (currentLoads[chosen.id] ?? 0) + 1;
-    }
-  });
-
+  const assignments = assignFamilies(families, capacities);
   return NextResponse.json({ families, personal, members, assignments });
 }

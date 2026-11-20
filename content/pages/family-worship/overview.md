@@ -62,6 +62,12 @@ Evenings often fill with hospitality and church gatherings, so meeting in the mo
 
 We use the [Calvinist Parrot prayer tracker](/prayer-tracker) to steward intercession faithfully. The rotation keeps our requests from slipping through the cracks, and logging answers stirs our faith to keep approaching the throne of grace (Philippians 4:6-7; Hebrews 4:14-16). Whether you are new to family worship or simply looking for structure, we hope this tool helps your household persevere in prayer.
 
+When you prepare a rotation, active families with no recorded prayer come first, followed by those who have waited the longest since their last prayer. If two families have waited equally long, the one added earlier comes first. For example, if two people can pray for two families each and a third person can pray for one, the tracker picks the first five families. The rest wait for a later rotation.
+
+The tracker then suggests who will pray for each family. It gives as many families as possible a different person from last time, within each person’s capacity. If only one slot is available and the tracker shows two families, the second is marked “Skip tonight.”
+
+You can change who leads before you confirm. The next rotation uses the person you confirmed and the date you prayed. A family you skip keeps its place according to its previous prayer history.
+
 Turn from self-reliance, trust Jesus Christ who died and rose for sinners, and join us in worshiping Him together at home. If you have any questions [please reach out](mailto:contact@calvinistparrotministries.org)!
 
 # Soli Deo Gloria
