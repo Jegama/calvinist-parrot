@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Family, NewFamilyFormState } from "../types";
 import { useCallback, useMemo, useState } from "react";
-import { formatRelative } from "../utils";
+import { formatRelative, isFamilyArchived } from "../utils";
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
 import { ARCHIVED_CATEGORY } from "../constants";
 
@@ -22,10 +22,12 @@ type FamilySectionProps = {
   familyFormError: string | null;
   categories: string[];
   categoryFilter: string;
+  familySearch: string;
   filteredFamilies: Family[];
   onNewFamilyChange: (changes: Partial<NewFamilyFormState>) => void;
   onCreateFamily: () => void;
   onCategoryFilterChange: (value: string) => void;
+  onFamilySearchChange: (value: string) => void;
   onEditFamily: (family: Family) => void;
   onViewFamilyDetail: (family: Family) => void;
 };
@@ -36,10 +38,12 @@ export function FamilySection({
   familyFormError,
   categories,
   categoryFilter,
+  familySearch,
   filteredFamilies,
   onNewFamilyChange,
   onCreateFamily,
   onCategoryFilterChange,
+  onFamilySearchChange,
   onEditFamily,
   onViewFamilyDetail,
 }: FamilySectionProps) {
@@ -214,34 +218,47 @@ export function FamilySection({
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Overview</p>
             <h3 className="text-base font-serif text-foreground">Current families</h3>
-            <p className="text-sm text-muted-foreground">
-              Tap a card for details or use the menu to filter by category.
-            </p>
+            <p className="text-sm text-muted-foreground">Tap a card for details.</p>
           </div>
-          <Select value={categoryFilter} onValueChange={handleCategoryFilterChange}>
-            <SelectTrigger className="w-full md:w-[220px]">
-              <SelectValue placeholder="Filter by category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
-              {categories.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {category}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="grid gap-3 sm:grid-cols-2 sm:items-end">
+            <label className="space-y-1 text-sm font-medium">
+              <span>Search families</span>
+              <Input
+                type="search"
+                value={familySearch}
+                onChange={(event) => {
+                  onFamilySearchChange(event.target.value);
+                  setPageForFilter(1);
+                }}
+              />
+            </label>
+            <Select value={categoryFilter} onValueChange={handleCategoryFilterChange}>
+              <SelectTrigger aria-label="Filter by category">
+                <SelectValue placeholder="Filter by category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {filteredFamilies.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Add a family card to get started.</p>
+          <p className="text-sm text-muted-foreground">
+            {familySearch.trim() ? "No matching families" : "Add a family card to get started."}
+          </p>
         ) : (
           <div className="space-y-4">
             {paginationControls}
 
             <div className="grid gap-4 md:grid-cols-2">
               {pagedFamilies.map((family) => {
-                const isArchived = Boolean(family.archivedAt);
+                const isArchived = isFamilyArchived(family);
                 return (
                   <div
                     key={family.id}
@@ -259,7 +276,7 @@ export function FamilySection({
                           </h4>
                         </div>
                         <div className="flex flex-wrap gap-2 text-[11px] font-medium">
-                          {family.categoryTag && (
+                          {family.categoryTag && family.categoryTag !== ARCHIVED_CATEGORY && (
                             <span className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-2 py-0.5">
                               {family.categoryTag}
                             </span>

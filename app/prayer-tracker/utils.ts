@@ -1,7 +1,22 @@
 import { Family, Member, NewFamilyFormState, NewPersonalFormState } from "./types";
-import { DEFAULT_ADULT_CAPACITY, DEFAULT_CHILD_CAPACITY } from "./constants";
+import { ARCHIVED_CATEGORY, DEFAULT_ADULT_CAPACITY, DEFAULT_CHILD_CAPACITY } from "./constants";
 
 export const defaultCategories = ["Church Friends", "Neighbors", "Extended Family", "Missionaries", "Coworkers"];
+
+export function isFamilyArchived(family: Pick<Family, "categoryTag" | "archivedAt">) {
+  return Boolean(family.archivedAt) || family.categoryTag === ARCHIVED_CATEGORY;
+}
+
+export function filterFamiliesByName(families: Family[], query: string, categoryFilter = "all") {
+  const search = query.trim().toLocaleLowerCase();
+  return families
+    .filter((family) => {
+      if (!family.familyName.toLocaleLowerCase().includes(search)) return false;
+      if (categoryFilter === ARCHIVED_CATEGORY) return isFamilyArchived(family);
+      return !isFamilyArchived(family) && (categoryFilter === "all" || family.categoryTag === categoryFilter);
+    })
+    .sort((a, b) => a.familyName.localeCompare(b.familyName, undefined, { sensitivity: "base" }));
+}
 
 export function formatRelative(dateString?: string | null) {
   if (!dateString) return "Never";

@@ -39,7 +39,7 @@ export async function GET() {
   // Fetch family-specific requests (prayerFamilyRequest) with family details and linked entry
   const familyRequestsRaw = await prisma.prayerFamilyRequest.findMany({
     where: {
-      family: { spaceId: membership.spaceId, archivedAt: null },
+      family: { spaceId: membership.spaceId },
       status: { not: "ARCHIVED" },
     },
     include: {

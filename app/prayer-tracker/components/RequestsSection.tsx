@@ -8,10 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -19,6 +16,7 @@ import { UnifiedRequest, NewPersonalFormState, Family } from "../types";
 import { formatRelative, formatTimeSince } from "../utils";
 import { useCallback, useMemo, useState } from "react";
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
+import { RequestFamilyPicker } from "./RequestFamilyPicker";
 import { FromSourceBadge } from "./FromSourceBadge";
 
 const joinClassNames = (base: string, extra?: string) => {
@@ -98,19 +96,6 @@ export function RequestsSection({
 
   const hasAnyRequests = requests.length > 0;
 
-  // Group families by category for the dropdown
-  const familiesByCategory = useMemo(() => {
-    const grouped: Record<string, Family[]> = {};
-    families.forEach((family) => {
-      const category = family.categoryTag || "Uncategorized";
-      if (!grouped[category]) grouped[category] = [];
-      grouped[category].push(family);
-    });
-    return grouped;
-  }, [families]);
-
-  const categoryKeys = useMemo(() => Object.keys(familiesByCategory).sort(), [familiesByCategory]);
-
   const paginationControls = (
     <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
       <span>
@@ -187,33 +172,11 @@ export function RequestsSection({
             value={newRequest.notes}
             onChange={(event) => onNewRequestChange({ notes: event.target.value })}
           />
-          <Select
+          <RequestFamilyPicker
+            families={families}
             value={newRequest.linkedToFamily}
-            onValueChange={(value) => onNewRequestChange({ linkedToFamily: value })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Link to..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Your Household</SelectLabel>
-                <SelectItem value="household">Our Family</SelectItem>
-              </SelectGroup>
-              {categoryKeys.map((category, index) => (
-                <div key={category}>
-                  {index > 0 && <SelectSeparator />}
-                  <SelectGroup>
-                    <SelectLabel>{category}</SelectLabel>
-                    {familiesByCategory[category].map((family) => (
-                      <SelectItem key={family.id} value={family.id}>
-                        {family.familyName}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </div>
-              ))}
-            </SelectContent>
-          </Select>
+            onValueChange={(linkedToFamily) => onNewRequestChange({ linkedToFamily })}
+          />
           {requestFormError && <p className="text-xs text-destructive">{requestFormError}</p>}
           <Button onClick={onCreateRequest} className="w-full">
             Add Request
