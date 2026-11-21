@@ -121,10 +121,17 @@ export function EditionResults({ metrics }: { metrics: DashboardMetrics }) {
                         className="text-right tabular-nums"
                       >
                         {run.scores[metricKey].mean.toFixed(2)}
+                        {run.generationFailureCount > 0 && (
+                          <span className="block text-xs text-muted-foreground">
+                            {run.questionCount} scored · {run.generationFailureCount}{" "}
+                            {run.generationFailureCount === 1
+                              ? "generation failure"
+                              : "generation failures"} at 1/5
+                          </span>
+                        )}
                         {run.errorCount > 0 && (
                           <span className="block text-xs text-muted-foreground">
-                            {run.questionCount} scored · {run.errorCount}{" "}
-                            recorded failed{" "}
+                            {run.errorCount} failed judge{" "}
                             {run.errorCount === 1 ? "attempt" : "attempts"}
                           </span>
                         )}
@@ -148,8 +155,9 @@ export function EditionResults({ metrics }: { metrics: DashboardMetrics }) {
             </TableBody>
           </Table>
           <p className="mt-3 text-xs text-muted-foreground">
-            Coverage uses successfully scored questions. Failed attempts remain
-            visible even when a later retry succeeds.{" "}
+            Scored questions include recorded generation failures at the minimum
+            score of 1/5. Failed judge attempts are counted separately, including
+            attempts recovered by retries.{" "}
             {isPanel
               ? "Judge range is the lowest to highest judge mean. It is not a confidence interval, and the original run standard deviations are not averaged."
               : "Population SD describes dispersion within the recorded run. It is not a confidence interval."}

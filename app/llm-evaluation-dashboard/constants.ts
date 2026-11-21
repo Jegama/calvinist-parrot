@@ -35,6 +35,7 @@ const MODEL_LABELS: Record<string, string> = {
   "gemini-3.5-flash": "Gemini 3.5 Flash",
   "gemini-3.7-flash": "Gemini 3.7 Flash",
   "gemini-3.8-flash": "Gemini 3.8 Flash",
+  "gemini-4-hydrogen": "Gemini 4 Hydrogen",
   "gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite",
   "gpt-5-mini": "GPT-5 Mini",
   "gpt-5.4-mini": "GPT-5.4 Mini",
@@ -87,9 +88,15 @@ export const JUDGE_ROLE_CONFIG: Record<string, JudgeRoleDefinition> = {
     order: 0,
   },
   "gemini-3.8-flash": {
+    role: "historical",
+    label: "Earlier panel judge",
+    description: "Member of the October three-family and four-judge panels",
+    order: 1,
+  },
+  "gemini-4-hydrogen": {
     role: "panel",
     label: "Panel judge",
-    description: "Member of the three-family panel",
+    description: "Member of the November three-family panel",
     order: 0,
   },
   "claude-haiku-5-5": {

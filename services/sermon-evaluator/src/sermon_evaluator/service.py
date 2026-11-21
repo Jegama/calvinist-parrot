@@ -16,7 +16,7 @@ from typing import Any, Callable, Mapping, Optional
 from . import __version__, prompts
 from .aggregation import SermonAggregator
 from .audio import InvalidAudioError
-from .gemini import GeminiProvider, ProviderResponseMetadata
+from .gemini import DEFAULT_MODEL, GeminiProvider, ProviderResponseMetadata
 from .harmonization import SermonHarmonizer
 from .persistence import (
     AudioHashMismatch,
@@ -178,12 +178,13 @@ def _sha256_text(value: str) -> str:
 
 
 def evaluator_provenance(
-    provider: GeminiProvider, gemini_file: Mapping[str, Any]
+    provider: Optional[GeminiProvider], gemini_file: Mapping[str, Any]
 ) -> dict[str, Any]:
+    response = provider.last_response_metadata if provider else ProviderResponseMetadata()
     return {
-        "configuredModelAlias": provider.model_name,
-        "modelVersion": provider.last_response_metadata.model_version,
-        "responseId": provider.last_response_metadata.response_id,
+        "configuredModelAlias": provider.model_name if provider else None,
+        "modelVersion": response.model_version,
+        "responseId": response.response_id,
         "evaluatorVersion": __version__,
         "promptVersion": PROMPT_VERSION,
         "rubricVersion": RUBRIC_VERSION,
@@ -230,7 +231,7 @@ class SermonEvaluationService:
         runtime = os.getenv("SERMON_RUNTIME", "appwrite").strip().lower()
         if runtime not in {"local", "appwrite"}:
             raise ValueError("SERMON_RUNTIME must be either local or appwrite")
-        model = os.getenv("SERMON_GEMINI_MODEL", "gemini-3.8-flash")
+        model = os.getenv("SERMON_GEMINI_MODEL") or DEFAULT_MODEL
         return cls(
             persistence=PsycopgPersistence(),
             storage=(
@@ -586,8 +587,15 @@ class SermonEvaluationService:
                 )
                 result["audio"] = audio_state
 
+        model = self.provider.model_name
         extraction_data = result.get("extraction")
         if extraction_data:
+            provenance = dict(result.get("provenance") or job.provenance)
+            if not provenance:
+                # Older incomplete jobs saved extraction without recording its model.
+                provenance = evaluator_provenance(None, result["audio"]["geminiFile"])
+                provenance["modelProvenanceNote"] = "The model for reused stages was not recorded."
+            model = provenance.get("configuredModelAlias") or model
             extraction = SermonExtractionStep1(**extraction_data)
             if status == EvaluationStatus.EXTRACTING:
                 transition(EvaluationStatus.SCORING)
@@ -596,17 +604,17 @@ class SermonEvaluationService:
                 contents=[prompts.EXTRACTION_INSTRUCTIONS_AUDIO, gemini_file_object],
                 response_schema=SermonExtractionStep1,
                 system=prompts.EXTRACTION_SYSTEM_PROMPT,
-                model=self.provider.model_name,
+                model=model,
                 seed=1689,
             )
             extraction = SermonExtractionStep1(**extraction_payload)
             extraction.audio_duration = result["audio"]["durationSeconds"]
             extraction_data = extraction.model_dump(mode="json")
-            self.persistence.save_stage_output(
-                job.id, "extraction", extraction_data, lease=lease
-            )
-            result["extraction"] = extraction_data
-            transition(EvaluationStatus.SCORING)
+            provenance = evaluator_provenance(self.provider, result["audio"]["geminiFile"])
+            # The first model output and its routing information must survive retries together.
+            checkpoint = {"extraction": extraction_data, "provenance": provenance}
+            transition(EvaluationStatus.SCORING, checkpoint)
+            result.update(checkpoint)
         else:
             raise RuntimeError("Durable extraction output is missing")
 
@@ -643,7 +651,7 @@ class SermonEvaluationService:
                     contents=[scoring_prompt, gemini_file_object],
                     response_schema=SermonScoringStep2Raw,
                     system=prompts.SCORING_SYSTEM_PROMPT,
-                    model=self.provider.model_name,
+                    model=model,
                     seed=seed,
                     timeout_seconds=timeout,
                 )
@@ -704,7 +712,7 @@ class SermonEvaluationService:
             else:
                 harmonizer = SermonHarmonizer(
                     bound_provider,
-                    self.provider.model_name,
+                    model,
                     prompts,
                     apply_duration_adjustment=job.duration_adjustment_enabled,
                 )
@@ -744,7 +752,7 @@ class SermonEvaluationService:
         if scoring.Aggregated_Summary_Feedback is None:
             harmonizer = SermonHarmonizer(
                 bound_provider,
-                self.provider.model_name,
+                model,
                 prompts,
                 apply_duration_adjustment=job.duration_adjustment_enabled,
             )
@@ -754,9 +762,6 @@ class SermonEvaluationService:
             scoring_data = scoring.model_dump(mode="json")
             result["scoring"] = scoring_data
 
-        provenance = evaluator_provenance(
-            self.provider, result["audio"]["geminiFile"]
-        )
         result["provenance"] = provenance
         after_external_call()
         reports = self._render_reports(
@@ -828,7 +833,7 @@ class SermonEvaluationService:
                 extraction,
                 scoring,
                 label=job.title,
-                model=self.provider.model_name,
+                model=provenance.get("configuredModelAlias"),
                 num_scoring_runs=completed_runs,
             ),
             "JSON": render_json(
@@ -838,7 +843,7 @@ class SermonEvaluationService:
                 preacher=job.preacher_name,
                 label=job.title,
                 scoring=scoring,
-                model=self.provider.model_name,
+                model=provenance.get("configuredModelAlias") or "",
                 extraction=extraction,
                 num_scoring_runs=completed_runs,
                 preached_date=job.preached_on.isoformat(),

@@ -6,7 +6,6 @@ import { parseEvaluationRuns } from "../lib";
 import {
   DEFAULT_EDITION_ID,
   HISTORICAL_EDITION_ID,
-  SCORING_EDITIONS,
 } from "../scoring-editions";
 import { fixtureRun, panelRuns } from "../test-fixtures";
 
@@ -92,7 +91,7 @@ describe("dashboard metrics", () => {
     expect(metrics.bestPerProvider).toEqual([]);
   });
 
-  it("reconciles the current master CSV against the fixed panel's complete intersection", () => {
+  it("reconciles the master CSV against the complete November panel and retains the recorded penalties", () => {
     const runs = parseEvaluationRuns(
       fs.readFileSync(
         path.join(process.cwd(), "content/data/api_evals_master.csv"),
@@ -108,7 +107,7 @@ describe("dashboard metrics", () => {
     const expected = [
       ...new Set(context.map((run) => run.answersLabel)),
     ].filter((label) =>
-      SCORING_EDITIONS[0].judges.every(({ model }) =>
+      metrics.edition.judges.every(({ model }) =>
         context.some(
           (run) =>
             run.answersLabel === label &&
@@ -130,12 +129,64 @@ describe("dashboard metrics", () => {
         12,
       );
     }
+    const flashLite = metrics.activeAnswers.find(
+      (answer) => answer.answersLabel === "google-gemini-3.5-flash-lite-v1_4",
+    )!;
+    for (const run of flashLite.runs) {
+      expect(run.questionCount).toBe(500);
+      expect(run.generationFailureCount).toBe(1);
+    }
+    expect(flashLite.scores.finalOverall.mean).toBeCloseTo(
+      (3.6 + 4.07 + 3.51) / 3, 12,
+    );
+    const october = buildDashboardMetrics(runs, "three-family-2026-10");
+    const octoberFlashLite = october.activeAnswers.find(
+      (answer) => answer.answersLabel === flashLite.answersLabel,
+    )!;
+    expect(octoberFlashLite.scores.finalOverall.mean).toBeCloseTo(
+      (3.6 + 4.54 + 3.51) / 3, 12,
+    );
+
     const historical = buildDashboardMetrics(runs, HISTORICAL_EDITION_ID);
     for (const answer of historical.activeAnswers)
       expect(answer.scores.finalOverall.mean).toBe(
         answer.runs[0].scores.finalOverall.mean,
       );
   });
+
+  it.each([
+    ["three-family-2026-11", 4, "gemini-4-hydrogen"],
+    ["three-family-2026-10", 3, "gemini-3.8-flash"],
+  ] as const)(
+    "uses %s for the same saved answers in every view",
+    (id, expected, googleJudge) => {
+      const metrics = buildDashboardMetrics(
+        [
+          ...panelRuns("answer-model", [3, 4, 5]),
+          fixtureRun("answer-model", "gemini-3.8-flash", 1),
+        ],
+        id,
+      );
+      const [answer] = metrics.activeAnswers;
+      expect(answer.runs.map((run) => run.judgeModel)).toEqual([
+        "gpt-6-luna", googleJudge, "claude-haiku-5-5",
+      ]);
+      for (const score of Object.values(answer.scores)) {
+        expect(score.mean).toBeCloseTo(expected, 12);
+      }
+      expect(metrics.narrativeStats?.winnerScore).toBeCloseTo(expected, 12);
+      expect(metrics.bestPerProvider[0].score).toBeCloseTo(expected, 12);
+      expect(metrics.providerSpread[0].runs[0].score).toBeCloseTo(expected, 12);
+      const [category] = metrics.categoryScoresByModel;
+      for (const score of [category.adherence, category.kindness, category.interfaith]) {
+        expect(score).toBeCloseTo(expected, 12);
+      }
+      const radars = [metrics.radarAdherence, metrics.radarKindness, metrics.radarInterfaith];
+      for (const point of radars.flat()) {
+        expect(point.google).toBeCloseTo(expected, 12);
+      }
+    },
+  );
 
   it("includes recovered Grok evaluations consistently across the main table, charts, and coverage", () => {
     const grok = panelRuns("grok-4.3", [3.51, 4.2, 3.37], { provider: "xai" });

@@ -89,7 +89,7 @@ def test_appwrite_dynamic_key_is_read_case_insensitively() -> None:
     assert _dynamic_api_key(SimpleNamespace(headers={})) is None
 
 
-def test_gemini_config_matches_38_migration_rules() -> None:
+def test_gemini_structured_generation_config() -> None:
     captured = {}
 
     class FakeConfig:
@@ -196,8 +196,9 @@ def test_gemini_sdk_serializes_schema_and_uses_stable_endpoint(
 
     assert SermonExtractionStep1.model_validate(result) == extraction
     assert provider.last_response_metadata.response_id == "offline-response"
+    assert provider.last_response_metadata.model_version == "offline-model"
     assert len(requests) == 1
-    assert requests[0].url.path == "/v1/models/gemini-3.8-flash:generateContent"
+    assert requests[0].url.path == "/v1/models/gemini-4-hydrogen:generateContent"
     body = json.loads(requests[0].content)
     config = body["generationConfig"]
     assert config["responseMimeType"] == "application/json"

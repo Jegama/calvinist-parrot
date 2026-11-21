@@ -33,7 +33,6 @@ export function getDevotionalId(date: Date): string {
     return `${year}_${month}_${day}_morning_devotional`;
 }
 
-// Generate the prompt message for the OpenAI API
 function generateMessage(
         devotionalType: string,
         date: Date,
@@ -127,7 +126,6 @@ export async function createDevotional(devotionalId: string, data: {
     });
 }
 
-// Generate a devotional using OpenAI
 export async function generateDevotional(date: Date) {
     // Fetch latest news
     const { articles } = await fetchNews();

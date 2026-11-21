@@ -43,6 +43,7 @@ describe("paired judge analysis", () => {
     for (const overrides of [
       { evalVersion: "v3" },
       { sourceDataset: "other" },
+      { generationFailureCount: 1 },
       { questionCount: 499 },
       { questionCount: 499, errorCount: 1 },
     ]) {
@@ -55,6 +56,26 @@ describe("paired judge analysis", () => {
       expect(analysis.pearson).toBeNull();
       expect(analysis.evidenceStatus).toBe("none");
     }
+  });
+
+  it("compares Flash and Hydrogen directly, including matching penalized answers", () => {
+    const flash = "gemini-3.8-flash";
+    const hydrogen = "gemini-4-hydrogen";
+    const analysis = buildJudgePairAnalysis(
+      [
+        fixtureRun("shared", flash, 4.54, { generationFailureCount: 1 }),
+        fixtureRun("shared", hydrogen, 4.07, { generationFailureCount: 1 }),
+        fixtureRun("flash-only", flash, 4.2),
+      ],
+      { ...selection, primaryJudge: flash, comparisonJudge: hydrogen },
+    );
+    expect(analysis).toMatchObject({
+      primaryRunCount: 2,
+      comparisonRunCount: 1,
+      sharedRunCount: 1,
+      evidenceStatus: "partial",
+    });
+    expect(analysis.points[0].difference).toBeCloseTo(-0.47, 12);
   });
 
   it("compares complete runs after retries but excludes matching incomplete counts", () => {

@@ -15,6 +15,7 @@ import httpx
 import httpx2
 
 
+DEFAULT_MODEL = "gemini-4-hydrogen"
 T = TypeVar("T")
 
 
@@ -40,13 +41,13 @@ class GeminiProvider:
     """Google Gen AI structured-output and Files API adapter.
 
     The adapter intentionally omits deprecated sampling controls and
-    ``candidate_count``. Gemini 3.8 receives medium thinking and a structured
-    Pydantic response schema on every evaluator call.
+    ``candidate_count``. Generation requests use medium thinking and a structured
+    Pydantic response schema.
     """
 
     def __init__(
         self,
-        model: str = "gemini-3.8-flash",
+        model: str = DEFAULT_MODEL,
         *,
         api_key: Optional[str] = None,
         default_timeout_seconds: int = 300,
@@ -318,6 +319,7 @@ class GeminiProvider:
 ParrotAIGemini = GeminiProvider
 
 __all__ = [
+    "DEFAULT_MODEL",
     "GeminiFileMetadata",
     "GeminiProvider",
     "ParrotAIGemini",

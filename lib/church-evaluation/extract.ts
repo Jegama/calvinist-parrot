@@ -4,6 +4,7 @@ import {
   type Schema,
 } from "@google/genai";
 
+import { DEFAULT_GEMINI_MODEL } from "@/lib/gemini-model";
 import {
   BASIC_FIELDS_PROMPT,
   CORE_DOCTRINES_PROMPT,
@@ -56,7 +57,7 @@ import {
   TAVILY_ENRICHMENT_STAGE_TIMEOUT_MS,
 } from "./runtime";
 
-export const EVALUATION_MODEL = "gemini-3.8-flash";
+export const EVALUATION_MODEL = DEFAULT_GEMINI_MODEL;
 export const EVALUATION_PROMPT_VERSION = "2026-10-31-affiliation";
 export const CORE_EXTRACTION_THINKING_LEVEL = ThinkingLevel.MEDIUM;
 

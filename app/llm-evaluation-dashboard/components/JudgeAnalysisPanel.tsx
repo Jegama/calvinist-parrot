@@ -37,6 +37,7 @@ interface JudgeAnalysisPanelProps {
   evalVersion: string;
   expectedQuestionCount: number;
   initialReference: string;
+  initialComparison?: string;
   activePromptLabel: string | null;
 }
 
@@ -58,6 +59,7 @@ export function JudgeAnalysisPanel({
   evalVersion,
   expectedQuestionCount,
   initialReference,
+  initialComparison,
   activePromptLabel,
 }: JudgeAnalysisPanelProps) {
   const judges = useMemo(
@@ -77,7 +79,7 @@ export function JudgeAnalysisPanel({
   const [requestedReference, setRequestedReference] =
     useState(initialReference);
   const [requestedComparison, setRequestedComparison] =
-    useState("gemini-3.8-flash");
+    useState(initialComparison ?? "");
   const [metricKey, setMetricKey] = useState<MetricKey>("finalOverall");
   const reference = judges.includes(requestedReference)
     ? requestedReference
@@ -113,7 +115,7 @@ export function JudgeAnalysisPanel({
     {
       label: "Paired coverage",
       value: `${analysis.sharedRunCount} / ${analysis.totalAnswerSetCount}`,
-      detail: `Available answer sets with compatible runs and ${expectedQuestionCount} successfully scored questions from both judges.`,
+      detail: `Answer sets with compatible runs covering all ${expectedQuestionCount} questions for both judges, including recorded generation-failure penalties.`,
     },
     {
       label: "Mean difference",

@@ -2,6 +2,8 @@ import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatOpenAI } from "@langchain/openai";
 
+import { DEFAULT_GEMINI_MODEL } from "@/lib/gemini-model";
+
 /** Select the conversational agent's model independently of auxiliary features. */
 export function createParrotChatModel(
   env: Record<string, string | undefined> = process.env,
@@ -35,7 +37,7 @@ export function createParrotChatModel(
       });
     case "gemini":
       return new ChatGoogleGenerativeAI({
-        model: env.PARROT_GEMINI_MODEL || "gemini-3.8-flash",
+        model: env.PARROT_GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
         apiKey: env.GEMINI_API_KEY || "",
         streaming: true,
       });

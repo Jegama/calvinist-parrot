@@ -35,12 +35,19 @@ def test_local_storage_copies_private_audio_and_deletes_source(
     assert not metadata.exists()
 
 
+@pytest.mark.parametrize(
+    ("override", "expected_model"),
+    [(None, "gemini-4-hydrogen"), ("gemini-test-model", "gemini-test-model")],
+)
 def test_local_environment_selects_filesystem_and_gemini(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, override: str | None, expected_model: str
 ) -> None:
     monkeypatch.setenv("SERMON_RUNTIME", "local")
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    monkeypatch.setenv("SERMON_GEMINI_MODEL", "gemini-test-model")
+    if override is None:
+        monkeypatch.delenv("SERMON_GEMINI_MODEL", raising=False)
+    else:
+        monkeypatch.setenv("SERMON_GEMINI_MODEL", override)
     monkeypatch.setenv("SERMON_LOCAL_AUDIO_DIR", str(tmp_path))
     monkeypatch.setattr(
         "sermon_evaluator.service.PsycopgPersistence",
@@ -50,7 +57,7 @@ def test_local_environment_selects_filesystem_and_gemini(
     service = SermonEvaluationService.from_environment()
     assert isinstance(service.storage, LocalFilesystemStorage)
     assert isinstance(service.provider, GeminiProvider)
-    assert service.provider.model_name == "gemini-test-model"
+    assert service.provider.model_name == expected_model
 
 
 def test_worker_readiness_reports_gemini(
