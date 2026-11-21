@@ -3,9 +3,13 @@
 // Provides a single `generateStructured<T>()` method that routes to the correct provider.
 
 import { DEFAULT_GEMINI_MODEL } from "@/lib/gemini-model";
+import { fromJSONSchema, type ZodType } from "zod";
+import {
+  startUsageAttempt, recordUsageAttempt, type UsageAttempt, type UsageContext,
+} from "./provider-usage";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { ApiError, GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,6 +41,8 @@ export interface StructuredOutputParams {
   schema: JsonSchema;
   thinking?: ThinkingEffort;
   seed?: number;
+  usage?: UsageContext;
+  validate?: (data: unknown) => boolean;
 }
 
 export interface StructuredOutputResult<T> {
@@ -54,6 +60,11 @@ export const DEFAULT_MODEL: ModelSpec = {
   model: DEFAULT_GEMINI_MODEL,
 };
 
+export const JOURNAL_MODEL: ModelSpec = {
+  provider: "anthropic",
+  model: "claude-haiku-5-5",
+};
+
 // ---------------------------------------------------------------------------
 // Thinking-level mappings
 // ---------------------------------------------------------------------------
@@ -63,6 +74,76 @@ const GEMINI_THINKING_MAP: Record<ThinkingEffort, ThinkingLevel> = {
   medium: ThinkingLevel.MEDIUM,
   high: ThinkingLevel.HIGH,
 };
+
+const validators = new WeakMap<JsonSchema, ZodType>();
+
+// Anthropic supports minItems of 0 or 1. Keep other array bounds in the
+// description and validate the original schema locally, including its enums.
+function journalWireSchema(schema: Record<string, unknown>): Record<string, unknown> {
+  const wire = { ...schema };
+  if (schema.properties) {
+    const fields = schema.properties as Record<string, Record<string, unknown>>;
+    wire.properties = Object.fromEntries(
+      Object.entries(fields).map(([key, value]) => [key, journalWireSchema(value)])
+    );
+  }
+  if (schema.items) wire.items = journalWireSchema(schema.items as Record<string, unknown>);
+  if (schema.type === "array") {
+    const bounds: string[] = [];
+    if (typeof schema.minItems === "number" && schema.minItems > 1) {
+      bounds.push(`at least ${schema.minItems} items`);
+      delete wire.minItems;
+    }
+    if (typeof schema.maxItems === "number") {
+      bounds.push(`at most ${schema.maxItems} items`);
+      delete wire.maxItems;
+    }
+    if (bounds.length) wire.description = [schema.description, bounds.join(", ")].filter(Boolean).join(". ");
+  }
+  if (Array.isArray(schema.type)) {
+    wire.anyOf = schema.type.map(type => ({ type }));
+    delete wire.type;
+  }
+  return wire;
+}
+
+interface ProviderReceipt {
+  model?: string;
+  usage?: unknown;
+  text: () => string | undefined;
+}
+
+async function readStructured<T>(
+  params: StructuredOutputParams, spec: ModelSpec, receipt: ProviderReceipt, attempt?: UsageAttempt,
+): Promise<StructuredOutputResult<T>> {
+  const durationMs = attempt ? Date.now() - attempt.startedAt.getTime() : 0;
+  const record = (outcome: "received" | "invalid_output" | "success") =>
+    attempt && recordUsageAttempt(attempt, outcome, durationMs, receipt.model, receipt.usage);
+  await record("received");
+  try {
+    const text = receipt.text();
+    if (!text) throw new Error(`Empty response from ${spec.provider} (${spec.model})`);
+    const data = JSON.parse(text);
+    if (attempt) {
+      let validator = validators.get(params.schema);
+      if (!validator) {
+        validator = fromJSONSchema(params.schema.schema);
+        validators.set(params.schema, validator);
+      }
+      if (!validator.safeParse(data).success) {
+        throw new Error(`Invalid ${params.schema.name} response structure`);
+      }
+    }
+    if (params.validate && !params.validate(data)) {
+      throw new Error(`Invalid ${params.schema.name} response structure`);
+    }
+    await record("success");
+    return { data, model: receipt.model || spec.model, provider: spec.provider };
+  } catch (error) {
+    await record("invalid_output");
+    throw error;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // ParrotAI class
@@ -157,18 +238,25 @@ class ParrotAI {
       };
     }
 
+    const attempt = params.usage && startUsageAttempt(params.usage, spec);
     const response = await genai.models.generateContent({
-      model: spec.model,
-      contents,
-      config,
+      model: spec.model, contents, config,
+    }).catch(async error => {
+      if (attempt) {
+        // This SDK exposes the HTTP error envelope as JSON in ApiError.message.
+        let body;
+        if (error instanceof ApiError) {
+          try { body = JSON.parse(error.message); } catch { /* no reported counters */ }
+        }
+        await recordUsageAttempt(attempt, "provider_error", Date.now() - attempt.startedAt.getTime(),
+          typeof body?.modelVersion === "string" ? body.modelVersion : undefined, body?.usageMetadata);
+      }
+      throw error;
     });
 
-    if (!response.text) {
-      throw new Error(`Empty response from Gemini (${spec.model})`);
-    }
-
-    const data = JSON.parse(response.text) as T;
-    return { data, model: spec.model, provider: "gemini" };
+    return readStructured<T>(params, spec, {
+      model: response.modelVersion, usage: response.usageMetadata, text: () => response.text,
+    }, attempt);
   }
 
   private async callOpenAI<T>(
@@ -240,7 +328,7 @@ class ParrotAI {
     spec: ModelSpec,
     params: StructuredOutputParams
   ): Promise<StructuredOutputResult<T>> {
-    const anthropic = this.getAnthropicClient();
+    let anthropic = this.getAnthropicClient();
 
     // Extract system message (Anthropic uses top-level `system` param)
     const systemMessage = params.messages.find((m) => m.role === "system");
@@ -253,6 +341,32 @@ class ParrotAI {
       content: m.content,
     }));
 
+    const context = params.usage;
+    let attempt: UsageAttempt | undefined;
+    if (context) {
+      // The SDK retries at the HTTP layer. Keep its retry/backoff policy and
+      // give each request its own receipt, even when the SDK hides a failure.
+      anthropic = anthropic.withOptions({ fetch: async (input, init) => {
+        attempt = startUsageAttempt(context, spec);
+        const started = attempt.startedAt.getTime();
+        let response: Response;
+        try {
+          response = await fetch(input, init);
+        } catch (error) {
+          await recordUsageAttempt(attempt, "provider_error", Date.now() - started);
+          attempt = undefined;
+          throw error;
+        }
+        if (!response.ok) {
+          const body = await response.clone().json().catch(() => null);
+          await recordUsageAttempt(attempt, "provider_error", Date.now() - started,
+            typeof body?.model === "string" ? body.model : undefined, body?.usage);
+          attempt = undefined;
+        }
+        return response;
+      } });
+    }
+    const haiku55 = /^claude-haiku-5-5(?:$|-\d{8}$)/.test(spec.model);
     const response = await anthropic.messages.create({
       model: spec.model,
       max_tokens: 8192,
@@ -261,22 +375,24 @@ class ParrotAI {
       output_config: {
         format: {
           type: "json_schema",
-          schema: params.schema.schema,
+          schema: haiku55 ? journalWireSchema(params.schema.schema) : params.schema.schema,
         },
+        ...(haiku55 && params.thinking && { effort: params.thinking }),
       },
-      thinking: params.thinking
-        ? { type: "enabled", budget_tokens: 4096 }
-        : { type: "disabled" },
+      thinking: !params.thinking ? { type: "disabled" }
+        : haiku55 ? { type: "adaptive" } : { type: "enabled", budget_tokens: 4096 },
+    }).catch(async error => {
+      // A successful HTTP status can still have an unreadable response envelope.
+      if (attempt) {
+        await recordUsageAttempt(attempt, "provider_error", Date.now() - attempt.startedAt.getTime());
+      }
+      throw error;
     });
 
-    // Extract text content from Anthropic response
-    const textBlock = response.content.find((block) => block.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
-      throw new Error(`No text content from Anthropic (${spec.model})`);
-    }
-
-    const data = JSON.parse(textBlock.text) as T;
-    return { data, model: spec.model, provider: "anthropic" };
+    return readStructured<T>(params, spec, {
+      model: response.model, usage: response.usage,
+      text: () => response.content.find(block => block.type === "text")?.text,
+    }, attempt);
   }
 }
 

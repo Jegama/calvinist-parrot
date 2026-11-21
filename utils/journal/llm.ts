@@ -5,15 +5,18 @@
 
 import { createHash } from "crypto";
 import prisma from "@/lib/prisma";
-import { parrotAI, DEFAULT_MODEL } from "@/lib/parrot-ai";
+import { parrotAI, JOURNAL_MODEL } from "@/lib/parrot-ai";
 import type {
   Call1aOutput,
   Call1bOutput,
   Call1cOutput,
   Call1Output,
   Call2Output,
+  PersistedJournalAIOutput,
   JournalGenerationStage,
 } from "@/types/journal";
+import { failedJournalStages } from "@/types/journal";
+import { markUsageOperationComplete } from "@/lib/provider-usage";
 import {
   JOURNAL_CALL1A_SCHEMA,
   JOURNAL_CALL1B_SCHEMA,
@@ -129,14 +132,18 @@ export const DEFAULT_CALL2: Call2Output = {
  * This is the fast first paint - runs first to get summary for other calls
  */
 export async function runCall1a(params: {
+  operationId: string;
   entryText: string;
-}): Promise<Call1aOutput> {
+}): Promise<{ output: Call1aOutput; model: string }> {
   const systemPrompt = buildCall1SystemPrompt("a");
   const userMessage = buildCall1aUserMessage({
     entryText: params.entryText,
   });
 
   const result = await parrotAI.generateStructured<Call1aOutput>({
+    modelSpec: JOURNAL_MODEL,
+    usage: { feature: "personal_journal", stage: "call1a", operationId: params.operationId },
+    validate: isCall1aOutput,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
@@ -145,17 +152,14 @@ export async function runCall1a(params: {
     thinking: "low",
   });
 
-  if (!isCall1aOutput(result.data)) {
-    throw new Error("Invalid Call 1a response structure");
-  }
-
-  return result.data;
+  return { output: result.data, model: result.model };
 }
 
 /**
  * Run Call 1b: Heart Analysis (heartReflection, putOffPutOn)
  */
 export async function runCall1b(params: {
+  operationId: string;
   entryText: string;
   situationSummary: string;
   recentContext?: RecentEntryContext;
@@ -167,6 +171,9 @@ export async function runCall1b(params: {
     recentContext: params.recentContext,
   });
   const result = await parrotAI.generateStructured<Call1bOutput>({
+    modelSpec: JOURNAL_MODEL,
+    usage: { feature: "personal_journal", stage: "call1b", operationId: params.operationId },
+    validate: isCall1bOutput,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
@@ -175,10 +182,6 @@ export async function runCall1b(params: {
     thinking: "low",
   });
 
-  if (!isCall1bOutput(result.data)) {
-    throw new Error("Invalid Call 1b response structure");
-  }
-
   return { output: result.data, model: result.model };
 }
 
@@ -186,6 +189,7 @@ export async function runCall1b(params: {
  * Run Call 1c: Biblical Guidance (scripture, practicalNextSteps, safetyFlags)
  */
 export async function runCall1c(params: {
+  operationId: string;
   entryText: string;
   situationSummary: string;
   recentContext?: RecentEntryContext;
@@ -197,6 +201,9 @@ export async function runCall1c(params: {
     recentContext: params.recentContext,
   });
   const result = await parrotAI.generateStructured<Call1cOutput>({
+    modelSpec: JOURNAL_MODEL,
+    usage: { feature: "personal_journal", stage: "call1c", operationId: params.operationId },
+    validate: isCall1cOutput,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userMessage },
@@ -204,10 +211,6 @@ export async function runCall1c(params: {
     schema: JOURNAL_CALL1C_SCHEMA,
     thinking: "low",
   });
-
-  if (!isCall1cOutput(result.data)) {
-    throw new Error("Invalid Call 1c response structure");
-  }
 
   return { output: result.data, model: result.model };
 }
@@ -217,15 +220,19 @@ export async function runCall1c(params: {
  * Extracts structured tags and suggests prayer requests
  */
 export async function runTagsAndSuggestions(params: {
+  operationId: string;
   entryText: string;
   call1Summary: string;
-}): Promise<Call2Output> {
+}): Promise<{ output: Call2Output; model: string }> {
   const userMessage = buildCall2UserMessage({
     entryText: params.entryText,
     call1Summary: params.call1Summary,
   });
 
   const result = await parrotAI.generateStructured<Call2Output>({
+    modelSpec: JOURNAL_MODEL,
+    usage: { feature: "personal_journal", stage: "call2", operationId: params.operationId },
+    validate: isCall2Output,
     messages: [
       { role: "system", content: JOURNAL_CALL2_SYSTEM_PROMPT },
       { role: "user", content: userMessage },
@@ -234,11 +241,7 @@ export async function runTagsAndSuggestions(params: {
     thinking: "low",
   });
 
-  if (!isCall2Output(result.data)) {
-    throw new Error("Invalid Call 2 response structure");
-  }
-
-  return result.data;
+  return { output: result.data, model: result.model };
 }
 
 // Re-export RecentEntryContext from prompts for convenience
@@ -308,85 +311,93 @@ export async function getRecentEntryContext(
   }
 }
 
-/**
- * Store final AI output after all calls complete
- * Includes automatic retry with exponential backoff for transient errors
- */
-export async function storeJournalAIOutput(params: {
-  entryId: string;
-  call1: Call1Output;
-  call2: Call2Output;
-  models: {
-    call1bModel: string;
-    call1cModel: string;
-  };
-  failedStages?: JournalGenerationStage[];
-}): Promise<void> {
-  const { entryId, call1, call2 } = params;
-  const flatTags = flattenTags(call2.tags);
+interface Stage<T> {
+  output: T;
+  model?: string;
+}
 
-  const modelInfo = {
-    call1aModel: DEFAULT_MODEL.model,
-    call1bModel: params.models.call1bModel,
-    call1cModel: params.models.call1cModel,
-    call2Model: DEFAULT_MODEL.model,
-    promptVersion: PROMPT_VERSION,
-    status: params.failedStages?.length ? "partial" : "complete",
-    failedStages: params.failedStages ?? [],
+type JournalStages = {
+  call1a?: Stage<Call1aOutput>;
+  call1b?: Stage<Call1bOutput>;
+  call1c?: Stage<Call1cOutput>;
+  call2?: Stage<Call2Output>;
+};
+
+/** Split the combined legacy reflection into just the fields each stage owns. */
+export function readJournalStages(saved: PersistedJournalAIOutput): JournalStages {
+  if (!saved) return {};
+  const { call1, call2 } = saved;
+  const failed = failedJournalStages(saved);
+  const info = typeof saved.modelInfo === "object" && saved.modelInfo !== null
+    ? saved.modelInfo as Record<string, unknown> : {};
+  const modelFor = (stage: JournalGenerationStage) => {
+    // Early entries stored a single model for the whole reflection.
+    const model = info[`${stage}Model`] ?? info.model;
+    return typeof model === "string" ? model : undefined;
   };
 
-  // Retry configuration
+  const stages: JournalStages = {};
+  if (!failed.has("call1a") && isCall1aOutput(call1)) {
+    const { title, situationSummary, oneSentenceSummary } = call1;
+    stages.call1a = { output: { title, situationSummary, oneSentenceSummary }, model: modelFor("call1a") };
+  }
+  if (!failed.has("call1b") && isCall1bOutput(call1)) {
+    const { heartReflection, putOffPutOn } = call1;
+    stages.call1b = { output: { heartReflection, putOffPutOn }, model: modelFor("call1b") };
+  }
+  if (!failed.has("call1c") && isCall1cOutput(call1)) {
+    const { scripture, practicalNextSteps, safetyFlags } = call1;
+    stages.call1c = { output: { scripture, practicalNextSteps, safetyFlags }, model: modelFor("call1c") };
+  }
+  if (!failed.has("call2") && isCall2Output(call2)) {
+    stages.call2 = { output: call2, model: modelFor("call2") };
+  }
+  return stages;
+}
+
+export async function storeJournalAIOutput(entryId: string, results: JournalStages & { call1a: Stage<Call1aOutput> }) {
   const maxRetries = 3;
-  const baseDelay = 1000; // 1 second
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+  for (let attempt = 0; ; attempt++) {
     try {
-      await prisma.$transaction(async (tx) => {
-        const existingEntry = await tx.journalEntry.findUnique({
-          where: { id: entryId },
-          select: { tags: true },
-        });
+      const stored = await prisma.$transaction(async (tx) => {
+        // Recoveries may finish concurrently. Merge with the most recently saved stages under the entry lock.
+        const [entry] = await tx.$queryRaw<{ tags: string[] }[]>`
+          SELECT tags FROM "journalEntry" WHERE id = ${entryId} FOR UPDATE
+        `;
+        if (!entry) throw new Error("Journal entry not found when storing AI output");
+        const existing = await tx.journalEntryAI.findUnique({ where: { entryId } });
+        const stages = { ...results, ...readJournalStages(existing) };
 
-        if (!existingEntry) {
-          throw new Error("Journal entry not found when storing AI output");
+        const call1: Call1Output = {
+          ...stages.call1a.output,
+          ...(stages.call1b?.output ?? DEFAULT_CALL1B),
+          ...(stages.call1c?.output ?? DEFAULT_CALL1C),
+        };
+        const call2 = stages.call2?.output ?? DEFAULT_CALL2;
+        const failedStages: JournalGenerationStage[] = [];
+        for (const stage of ["call1b", "call1c", "call2"] as const) {
+          if (!stages[stage]) failedStages.push(stage);
         }
-
-        const mergedTags = Array.from(new Set([...(existingEntry.tags || []), ...flatTags]));
-
-        await tx.journalEntryAI.upsert({
-          where: { entryId },
-          create: {
-            entryId,
-            call1: call1 as object,
-            call2: call2 as object,
-            modelInfo,
-          },
-          update: {
-            call1: call1 as object,
-            call2: call2 as object,
-            modelInfo,
-          },
-        });
-
-        await tx.journalEntry.update({
-          where: { id: entryId },
-          data: { tags: mergedTags },
-        });
+        const modelInfo = {
+          call1aModel: stages.call1a.model ?? null,
+          call1bModel: stages.call1b?.model ?? null,
+          call1cModel: stages.call1c?.model ?? null,
+          call2Model: stages.call2?.model ?? null,
+          promptVersion: PROMPT_VERSION,
+          status: failedStages.length ? "partial" : "complete",
+          failedStages,
+        };
+        const data = { call1, call2, modelInfo };
+        await tx.journalEntryAI.upsert({ where: { entryId }, create: { entryId, ...data }, update: data });
+        const tags = Array.from(new Set([...entry.tags, ...flattenTags(call2.tags)]));
+        await tx.journalEntry.update({ where: { id: entryId }, data: { tags } });
+        return { call1, call2, failedStages, stages };
       });
-      // Success - exit retry loop
-      return;
-    } catch (error: unknown) {
-      // Check if it's a transaction timeout (P2028)
-      const prismaError = error as { code?: string };
-      if (prismaError.code === "P2028" && attempt < maxRetries) {
-        // Exponential backoff: 1s, 2s, 4s
-        const delay = baseDelay * Math.pow(2, attempt);
-        console.log(`Transaction timeout (P2028), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        continue;
-      }
-      // If not P2028 or max retries reached, rethrow
-      throw error;
+      if (!stored.failedStages.length) await markUsageOperationComplete("personal_journal", entryId);
+      return stored;
+    } catch (error) {
+      if ((error as { code?: string }).code !== "P2028" || attempt >= maxRetries) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** attempt));
     }
   }
 }

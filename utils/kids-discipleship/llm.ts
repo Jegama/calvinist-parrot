@@ -3,8 +3,9 @@
 // Handles parent shepherding reflection (Call 1) and tags/prayer suggestions (Call 2)
 
 import { createHash } from "crypto";
+import { markUsageOperationComplete } from "@/lib/provider-usage";
 import prisma from "@/lib/prisma";
-import { parrotAI, DEFAULT_MODEL } from "@/lib/parrot-ai";
+import { parrotAI, JOURNAL_MODEL } from "@/lib/parrot-ai";
 import {
   type KidsCall1Output,
   type KidsCall2Output,
@@ -37,10 +38,11 @@ const PROMPT_HASH = createHash("sha256")
   .slice(0, 8);
 const PROMPT_VERSION = `1.0.0-${PROMPT_HASH}`;
 
-/**
- * Type guard to validate KidsCall1Output structure
- */
-function isKidsCall1Output(value: unknown): value is KidsCall1Output {
+// Reflections saved before the recommended-reading feature have no resource list.
+type StoredKidsCall1 = Omit<KidsCall1Output, "recommendedResources"> &
+  Partial<Pick<KidsCall1Output, "recommendedResources">>;
+
+function isStoredKidsCall1(value: unknown): value is StoredKidsCall1 {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
@@ -48,11 +50,15 @@ function isKidsCall1Output(value: unknown): value is KidsCall1Output {
     Array.isArray(v.whatMightBeGoingOnInTheHeart) &&
     typeof v.gospelConnectionSuggestion === "object" &&
     Array.isArray(v.parentShepherdingNextSteps) &&
-    Array.isArray(v.recommendedResources) &&
+    (v.recommendedResources === undefined || Array.isArray(v.recommendedResources)) &&
     Array.isArray(v.scripture) &&
     typeof v.encouragementForParent === "string" &&
     Array.isArray(v.safetyFlags)
   );
+}
+
+function isKidsCall1Output(value: unknown): value is KidsCall1Output {
+  return isStoredKidsCall1(value) && Array.isArray(value.recommendedResources);
 }
 
 /**
@@ -113,7 +119,8 @@ export function buildPromptContext(ctx: KidsLogContext): KidsPromptContext {
  * Provides pastoral guidance for the parenting moment
  */
 export async function runKidsCall1(
-  context: KidsPromptContext
+  context: KidsPromptContext,
+  entryId: string
 ): Promise<{ output: KidsCall1Output; model: string }> {
   const systemPrompt = buildKidsCall1SystemPrompt(context);
   const userMessage = buildKidsCall1UserMessage(context);
@@ -124,12 +131,11 @@ export async function runKidsCall1(
       { role: "user", content: userMessage },
     ],
     schema: KIDS_CALL1_SCHEMA,
+    modelSpec: JOURNAL_MODEL,
+    usage: { feature: "heritage_journal", stage: "call1", operationId: entryId },
+    validate: isKidsCall1Output,
     thinking: "low",
   });
-
-  if (!isKidsCall1Output(result.data)) {
-    throw new Error("Invalid Kids Call 1 response structure");
-  }
 
   return { output: result.data, model: result.model };
 }
@@ -139,8 +145,9 @@ export async function runKidsCall1(
  * Extracts tags and suggests prayer topics for the child
  */
 export async function runKidsCall2(
-  context: KidsPromptContext & { call1Summary: string }
-): Promise<KidsCall2Output> {
+  context: KidsPromptContext & { call1Summary: string },
+  entryId: string
+): Promise<{ output: KidsCall2Output; model: string }> {
   const userMessage = buildKidsCall2UserMessage(context);
 
   const result = await parrotAI.generateStructured<KidsCall2Output>({
@@ -149,14 +156,13 @@ export async function runKidsCall2(
       { role: "user", content: userMessage },
     ],
     schema: KIDS_CALL2_SCHEMA,
+    modelSpec: JOURNAL_MODEL,
+    usage: { feature: "heritage_journal", stage: "call2", operationId: entryId },
+    validate: isKidsCall2Output,
     thinking: "low",
   });
 
-  if (!isKidsCall2Output(result.data)) {
-    throw new Error("Invalid Kids Call 2 response structure");
-  }
-
-  return result.data;
+  return { output: result.data, model: result.model };
 }
 
 /**
@@ -207,14 +213,15 @@ export async function getCurrentMonthlyVision(memberId: string) {
  */
 export async function storeKidsAIOutput(
   entryId: string,
-  call1: KidsCall1Output,
+  call1: StoredKidsCall1,
   call2: KidsCall2Output,
-  call1Model: string
+  call1Model: string,
+  call2Model: string
 ): Promise<void> {
   const tags = flattenKidsTags(call2);
   const modelInfo = {
     call1Model,
-    call2Model: DEFAULT_MODEL.model,
+    call2Model,
     promptVersion: PROMPT_VERSION,
   };
   const serializedCall1 = JSON.parse(JSON.stringify(call1));
@@ -241,4 +248,59 @@ export async function storeKidsAIOutput(
       data: { tags },
     });
   });
+  await markUsageOperationComplete("heritage_journal", entryId);
+}
+
+type SavedKidsReflection = {
+  call1: unknown;
+  call2: unknown;
+  modelInfo: unknown;
+};
+
+function savedModel(modelInfo: unknown, stage: "call1Model" | "call2Model"): string {
+  if (typeof modelInfo === "object" && modelInfo !== null) {
+    const info = modelInfo as Record<string, unknown>;
+    const model = info[stage] ?? info.model;
+    if (typeof model === "string") return model;
+  }
+  return "unknown";
+}
+
+/** A retry shares the entry's operation ID and only calls the provider for missing output. */
+export async function generateKidsReflection(
+  entryId: string,
+  context: KidsPromptContext,
+  send: (event: Record<string, unknown>) => void,
+  saved?: SavedKidsReflection | null
+) {
+  let reflection;
+  if (saved && isStoredKidsCall1(saved.call1)) {
+    reflection = { output: saved.call1, model: savedModel(saved.modelInfo, "call1Model") };
+  } else {
+    send({ type: "progress", stage: "call1", message: "Generating shepherding reflection..." });
+    reflection = await runKidsCall1(context, entryId);
+    // A retry may already have saved a result. A late checkpoint must never replace it.
+    await prisma.journalEntryAI.createMany({
+      data: {
+        entryId,
+        call1: JSON.parse(JSON.stringify(reflection.output)),
+        modelInfo: { call1Model: reflection.model, promptVersion: PROMPT_VERSION },
+      },
+      skipDuplicates: true,
+    });
+  }
+  const call1 = reflection.output;
+  send({ type: "call1_complete", call1 });
+
+  let suggestions;
+  if (saved && isKidsCall2Output(saved.call2)) {
+    suggestions = { output: saved.call2, model: savedModel(saved.modelInfo, "call2Model") };
+  } else {
+    send({ type: "progress", stage: "call2", message: "Analyzing tags and prayer suggestions..." });
+    suggestions = await runKidsCall2({ ...context, call1Summary: call1.summary }, entryId);
+  }
+  const call2 = suggestions.output;
+  await storeKidsAIOutput(entryId, call1, call2, reflection.model, suggestions.model);
+  send({ type: "call2_complete", call2 });
+  return { call1, call2, tags: flattenKidsTags(call2) };
 }

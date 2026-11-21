@@ -5,12 +5,15 @@ const mocks = vi.hoisted(() => ({
   assertHouseholdAccess: vi.fn(),
   findLog: vi.fn(),
   findChild: vi.fn(),
-  buildPromptContext: vi.fn(),
-  flattenKidsTags: vi.fn(),
+  findProfile: vi.fn(),
+  createLog: vi.fn(),
   getCurrentAnnualPlan: vi.fn(),
-  runKidsCall1: vi.fn(),
-  runKidsCall2: vi.fn(),
-  storeKidsAIOutput: vi.fn(),
+  generate: vi.fn(),
+  checkpoint: vi.fn(),
+  transaction: vi.fn(),
+  saveAI: vi.fn(),
+  updateTags: vi.fn(),
+  markComplete: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -23,25 +26,26 @@ vi.mock("@/lib/householdService", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   default: {
-    journalEntry: {
-      findUnique: mocks.findLog,
-    },
-    prayerMember: {
-      findUnique: mocks.findChild,
-    },
+    journalEntry: { findUnique: mocks.findLog, create: mocks.createLog },
+    prayerMember: { findUnique: mocks.findChild },
+    userProfile: { findUnique: mocks.findProfile },
+    discipleshipAnnualPlan: { findUnique: mocks.getCurrentAnnualPlan },
+    journalEntryAI: { createMany: mocks.checkpoint },
+    $transaction: mocks.transaction,
   },
 }));
 
-vi.mock("@/utils/kids-discipleship/llm", () => ({
-  buildPromptContext: mocks.buildPromptContext,
-  flattenKidsTags: mocks.flattenKidsTags,
-  getCurrentAnnualPlan: mocks.getCurrentAnnualPlan,
-  runKidsCall1: mocks.runKidsCall1,
-  runKidsCall2: mocks.runKidsCall2,
-  storeKidsAIOutput: mocks.storeKidsAIOutput,
+vi.mock("@/lib/parrot-ai", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/parrot-ai")>(),
+  parrotAI: { generateStructured: mocks.generate },
+}));
+
+vi.mock("@/lib/provider-usage", () => ({
+  markUsageOperationComplete: mocks.markComplete,
 }));
 
 import { POST } from "./route";
+import { POST as createLog } from "../../route";
 
 const entryDate = new Date("2026-08-15T12:00:00.000Z");
 const birthdate = new Date("2018-04-12T00:00:00.000Z");
@@ -50,7 +54,7 @@ const log = {
   id: "log-1",
   entryType: "DISCIPLESHIP",
   entryDate,
-  entryText: "A detailed parenting moment that was saved before generation failed.",
+  entryText: "Our child offered to help a younger sibling clean up blocks today when we were tired.",
   category: "NURTURE",
   subjectMemberId: "child-1",
   gospelConnection: "We talked about Christ's patient love.",
@@ -129,13 +133,15 @@ describe("POST /api/kids-discipleship/logs/[id]/reprocess", () => {
       characterGoal: "Kindness",
       competencyGoal: "Serving",
     });
-    mocks.buildPromptContext.mockReturnValue({ prompt: "context" });
-    mocks.runKidsCall1.mockResolvedValue({
-      output: call1,
-      model: "gemini-3.6-flash",
-    });
-    mocks.runKidsCall2.mockResolvedValue(call2);
-    mocks.flattenKidsTags.mockReturnValue(["service", "kindness"]);
+    mocks.createLog.mockResolvedValue(log);
+    mocks.findProfile.mockResolvedValue({ id: "profile" });
+    mocks.transaction.mockImplementation(async (run) =>
+      run({ journalEntryAI: { upsert: mocks.saveAI }, journalEntry: { update: mocks.updateTags } })
+    );
+    mocks.generate.mockImplementation(async ({ usage }) => ({
+      model: `returned-haiku-${usage.stage}`,
+      data: usage.stage === "call1" ? call1 : call2,
+    }));
   });
 
   it("reprocesses the existing entry and streams the completed reflection", async () => {
@@ -172,12 +178,15 @@ describe("POST /api/kids-discipleship/logs/[id]/reprocess", () => {
       "user-1",
       "space-1"
     );
-    expect(mocks.storeKidsAIOutput).toHaveBeenCalledWith(
-      log.id,
-      call1,
-      call2,
-      "gemini-3.6-flash"
-    );
+    expect(mocks.saveAI).toHaveBeenCalledWith(expect.objectContaining({
+      update: expect.objectContaining({
+        modelInfo: expect.objectContaining({
+          call1Model: "returned-haiku-call1",
+          call2Model: "returned-haiku-call2",
+        }),
+      }),
+    }));
+    expect(mocks.markComplete).toHaveBeenCalledWith("heritage_journal", log.id);
   });
 
   it("rejects a log outside the authenticated household", async () => {
@@ -192,8 +201,8 @@ describe("POST /api/kids-discipleship/logs/[id]/reprocess", () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
-    expect(mocks.runKidsCall1).not.toHaveBeenCalled();
-    expect(mocks.storeKidsAIOutput).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.saveAI).not.toHaveBeenCalled();
   });
 
   it("rejects retry when the saved reflection is already complete", async () => {
@@ -213,12 +222,12 @@ describe("POST /api/kids-discipleship/logs/[id]/reprocess", () => {
     await expect(response.json()).resolves.toEqual({
       error: "This log already has a complete shepherding reflection.",
     });
-    expect(mocks.runKidsCall1).not.toHaveBeenCalled();
-    expect(mocks.storeKidsAIOutput).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.saveAI).not.toHaveBeenCalled();
   });
 
   it("streams a retryable error without replacing the saved entry", async () => {
-    mocks.runKidsCall1.mockRejectedValue(new Error("provider unavailable"));
+    mocks.generate.mockRejectedValue(new Error("provider unavailable"));
 
     const response = await POST(
       new Request(`http://localhost/api/kids-discipleship/logs/${log.id}/reprocess`, {
@@ -232,13 +241,67 @@ describe("POST /api/kids-discipleship/logs/[id]/reprocess", () => {
       {
         type: "progress",
         stage: "call1",
-        message: "Regenerating shepherding reflection...",
+        message: "Generating shepherding reflection...",
       },
       {
         type: "error",
         message: "AI processing failed. Please try again.",
       },
     ]);
-    expect(mocks.storeKidsAIOutput).not.toHaveBeenCalled();
+    expect(mocks.saveAI).not.toHaveBeenCalled();
+  });
+
+  it("checkpoints a new reflection when suggestions fail, then skips the saved call on retry", async () => {
+    mocks.generate
+      .mockResolvedValueOnce({ data: call1, model: "returned-haiku-call1" })
+      .mockRejectedValueOnce(new Error("unavailable"));
+    const response = await createLog(new Request("http://localhost/api/kids-discipleship/logs", {
+      method: "POST",
+      body: JSON.stringify({ ...log, memberId: child.id }),
+    }));
+    expect((await readEvents(response)).map((event) => event.type)).toEqual([
+      "entry_created", "progress", "call1_complete", "progress", "error",
+    ]);
+    expect(mocks.generate.mock.calls.map(([request]) => request.usage)).toEqual([
+      { operationId: log.id, feature: "heritage_journal", stage: "call1" },
+      { operationId: log.id, feature: "heritage_journal", stage: "call2" },
+    ]);
+    for (const [request] of mocks.generate.mock.calls) {
+      expect(request.modelSpec).toEqual({ provider: "anthropic", model: "claude-haiku-5-5" });
+    }
+    expect(mocks.markComplete).not.toHaveBeenCalled();
+    const checkpoint = mocks.checkpoint.mock.calls[0][0].data;
+    expect(checkpoint).toMatchObject({ entryId: log.id, call1, modelInfo: { call1Model: "returned-haiku-call1" } });
+    mocks.findLog.mockResolvedValue({ ...log, aiOutput: { ...checkpoint, call2: null } });
+    const retried = await POST(new Request("http://localhost", { method: "POST" }), requestContext());
+    expect((await readEvents(retried)).map((event) => event.type)).toEqual([
+      "call1_complete", "progress", "call2_complete", "done",
+    ]);
+    expect(mocks.generate).toHaveBeenCalledTimes(3);
+    expect(mocks.generate.mock.calls[2][0].usage).toEqual({
+      operationId: log.id, feature: "heritage_journal", stage: "call2",
+    });
+    expect(mocks.markComplete).toHaveBeenCalledWith("heritage_journal", log.id);
+  });
+
+  it.each([
+    { modelInfo: { call1Model: "gemini-4-hydrogen" }, expectedModel: "gemini-4-hydrogen" },
+    { modelInfo: { model: "gpt-5-mini", version: "1.0" }, expectedModel: "gpt-5-mini" },
+  ])("preserves a saved $expectedModel reflection when only suggestions need retrying", async ({ modelInfo, expectedModel }) => {
+    const legacyCall1: Partial<typeof call1> = { ...call1 };
+    delete legacyCall1.recommendedResources;
+    mocks.findLog.mockResolvedValue({
+      ...log,
+      aiOutput: { call1: legacyCall1, call2: null, modelInfo },
+    });
+    const retried = await POST(new Request("http://localhost", { method: "POST" }), requestContext());
+    const events = await readEvents(retried);
+    expect(events[0]).toEqual({ type: "call1_complete", call1: legacyCall1 });
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(mocks.generate.mock.calls[0][0].usage.stage).toBe("call2");
+    expect(mocks.saveAI.mock.calls[0][0].update).toMatchObject({
+      call1: legacyCall1, call2,
+      modelInfo: { call1Model: expectedModel, call2Model: "returned-haiku-call2" },
+    });
   });
 });

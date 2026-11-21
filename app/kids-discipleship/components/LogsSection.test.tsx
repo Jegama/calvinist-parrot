@@ -112,7 +112,7 @@ describe("LogsSection retry recovery", () => {
     vi.restoreAllMocks();
   });
 
-  it("restores the saved partial reflection when retry fails", async () => {
+  async function retryReflection() {
     const retryButton = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent?.includes("Retry Reflection")
     );
@@ -124,9 +124,35 @@ describe("LogsSection retry recovery", () => {
       );
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
+  }
+
+  it("keeps the saved partial reflection when retry fails", async () => {
+    await retryReflection();
 
     expect(container.textContent).toContain("Provider unavailable");
     expect(container.textContent).toContain("Shepherding Reflection");
     expect(container.textContent).toContain("Shepherding reflection incomplete");
+  });
+
+  it("keeps a newly checkpointed reflection when the next stage of a retry fails", async () => {
+    const logsKey = ["kids-discipleship", "logs", "child-1"];
+    await act(async () => {
+      queryClient.setQueryData(logsKey, {
+        logs: [{ ...partialLog, aiOutput: null }], total: 1, page: 1, limit: 50, totalPages: 1,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    vi.mocked(fetch).mockResolvedValueOnce(new Response([
+      JSON.stringify({ type: "call1_complete", call1: partialCall1 }),
+      JSON.stringify({ type: "error", message: "Suggestions unavailable" }),
+    ].join("\n")));
+
+    await retryReflection();
+
+    expect(queryClient.getQueryData(logsKey)).toMatchObject({
+      logs: [{ aiOutput: { call1: partialCall1, call2: null } }],
+    });
+    expect(container.textContent).toContain("Suggestions unavailable");
+    expect(container.textContent).toContain("Retry Reflection");
   });
 });

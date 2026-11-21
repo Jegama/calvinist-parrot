@@ -1,9 +1,11 @@
 // utils/devotionalUtils.ts
 
+import { createHash } from "node:crypto";
 import { tavily } from "@tavily/core";
 import prisma from "@/lib/prisma";
 import * as prompts from "@/lib/prompts/core";
 import { parrotAI } from "@/lib/parrot-ai";
+import { markUsageOperationComplete } from "@/lib/provider-usage";
 
 // Initialize clients
 const tavilyClient = tavily({ apiKey: process.env.TAVILY_API_KEY });
@@ -31,6 +33,10 @@ export function getDevotionalId(date: Date): string {
     const month = String(easternTime.getMonth() + 1).padStart(2, "0");
     const day = String(easternTime.getDate()).padStart(2, "0");
     return `${year}_${month}_${day}_morning_devotional`;
+}
+
+function devotionalOperationId(devotionalId: string): string {
+    return createHash("sha256").update(devotionalId).digest("hex");
 }
 
 function generateMessage(
@@ -110,7 +116,7 @@ export async function createDevotional(devotionalId: string, data: {
     title: string;
     devotional: string;
 }) {
-    return await prisma.parrotDevotionals.upsert({
+    const devotional = await prisma.parrotDevotionals.upsert({
         where: { devotional_id: devotionalId },
         update: {
             bible_verse: data.bible_verse,
@@ -124,6 +130,8 @@ export async function createDevotional(devotionalId: string, data: {
             devotional_text: data.devotional,
         },
     });
+    await markUsageOperationComplete("daily_devotional", devotionalOperationId(devotionalId));
+    return devotional;
 }
 
 export async function generateDevotional(date: Date) {
@@ -147,6 +155,16 @@ export async function generateDevotional(date: Date) {
             { role: "user", content: userPrompt },
         ],
         schema: devotionalSchema,
+        usage: {
+            feature: "daily_devotional",
+            stage: "generation",
+            operationId: devotionalOperationId(getDevotionalId(date)),
+        },
+        validate: (value) =>
+            typeof value === "object" && value !== null &&
+            "title" in value && typeof value.title === "string" &&
+            "bible_verse" in value && typeof value.bible_verse === "string" &&
+            "devotional" in value && typeof value.devotional === "string",
     });
 
     return result.data;

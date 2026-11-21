@@ -12,15 +12,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-vi.mock("@/lib/parrot-ai", () => ({
-  DEFAULT_MODEL: {
-    provider: "gemini",
-    model: "gemini-3.6-flash",
-  },
-  parrotAI: {
-    generateStructured: vi.fn(),
-  },
-}));
+vi.mock("@/lib/provider-usage", () => ({ markUsageOperationComplete: vi.fn() }));
 
 import { storeKidsAIOutput } from "./llm";
 
@@ -84,7 +76,8 @@ describe("storeKidsAIOutput", () => {
       "entry-1",
       call1,
       call2,
-      "gemini-3.6-flash"
+      "gemini-3.6-flash",
+      "returned-haiku"
     );
 
     expect(mocks.transaction).toHaveBeenCalledOnce();
@@ -108,7 +101,7 @@ describe("storeKidsAIOutput", () => {
     mocks.updateEntry.mockRejectedValue(tagError);
 
     await expect(
-      storeKidsAIOutput("entry-1", call1, call2, "gemini-3.6-flash")
+      storeKidsAIOutput("entry-1", call1, call2, "gemini-3.6-flash", "returned-haiku")
     ).rejects.toBe(tagError);
 
     expect(mocks.transaction).toHaveBeenCalledOnce();

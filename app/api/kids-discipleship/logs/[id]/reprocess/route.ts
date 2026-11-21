@@ -7,11 +7,8 @@ import { requireAuthenticatedUser } from "@/lib/auth";
 import { assertHouseholdAccess } from "@/lib/householdService";
 import {
   buildPromptContext,
-  flattenKidsTags,
+  generateKidsReflection,
   getCurrentAnnualPlan,
-  runKidsCall1,
-  runKidsCall2,
-  storeKidsAIOutput,
 } from "@/utils/kids-discipleship/llm";
 
 function streamEvent(
@@ -25,7 +22,7 @@ function streamEvent(
 
 /**
  * POST /api/kids-discipleship/logs/[id]/reprocess
- * Re-runs the full AI pipeline for an existing Heritage Journal entry.
+ * Generates missing AI stages for an existing Heritage Journal entry.
  */
 export async function POST(
   request: Request,
@@ -51,6 +48,7 @@ export async function POST(
         select: {
           call1: true,
           call2: true,
+          modelInfo: true,
         },
       },
     },
@@ -117,32 +115,12 @@ export async function POST(
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        streamEvent(controller, {
-          type: "progress",
-          stage: "call1",
-          message: "Regenerating shepherding reflection...",
-        });
-
-        const { output: call1, model: call1Model } =
-          await runKidsCall1(promptContext);
-
-        streamEvent(controller, { type: "call1_complete", call1 });
-        streamEvent(controller, {
-          type: "progress",
-          stage: "call2",
-          message: "Analyzing tags and prayer suggestions...",
-        });
-
-        const call2 = await runKidsCall2({
-          ...promptContext,
-          call1Summary: call1.summary,
-        });
-
-        streamEvent(controller, { type: "call2_complete", call2 });
-
-        await storeKidsAIOutput(log.id, call1, call2, call1Model);
-
-        const tags = flattenKidsTags(call2);
+        const { call1, call2, tags } = await generateKidsReflection(
+          log.id,
+          promptContext,
+          (event) => streamEvent(controller, event),
+          log.aiOutput
+        );
 
         streamEvent(controller, {
           type: "done",

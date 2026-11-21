@@ -61,7 +61,7 @@ export type JournalGenerationStatus =
     | "partial"
     | "failed";
 
-type PersistedJournalAIOutput = {
+export type PersistedJournalAIOutput = {
     call1: unknown;
     call2: unknown;
     modelInfo: unknown;
@@ -100,40 +100,38 @@ function isLegacyCall2Fallback(call2: unknown): boolean {
     );
 }
 
-/**
- * Derive the durable generation state without requiring a schema migration.
- * Legacy `unknown` model markers and the empty Call 2 fallback indicate that a
- * stage failed before durable status metadata was added.
- */
+/** Historical rows used placeholder models and an empty Call 2 before failedStages existed. */
+export function failedJournalStages(aiOutput: PersistedJournalAIOutput): Set<JournalGenerationStage> {
+    const stages: JournalGenerationStage[] = ["call1a", "call1b", "call1c", "call2"];
+    if (!aiOutput) return new Set(stages);
+
+    const info = typeof aiOutput.modelInfo === "object" && aiOutput.modelInfo !== null
+        ? aiOutput.modelInfo as Record<string, unknown> : {};
+    const failed = new Set(stages.filter(stage =>
+        Array.isArray(info.failedStages) && info.failedStages.includes(stage)
+    ));
+    if (!aiOutput.call1) {
+        failed.add("call1a");
+        failed.add("call1b");
+        failed.add("call1c");
+    }
+    if (info.call1bModel === "unknown") failed.add("call1b");
+    if (info.call1cModel === "unknown") failed.add("call1c");
+
+    const hasStageStatus = Array.isArray(info.failedStages) || info.status === "complete";
+    if (!aiOutput.call2 || (!hasStageStatus && isLegacyCall2Fallback(aiOutput.call2))) {
+        failed.add("call2");
+    }
+    return failed;
+}
+
 export function getPersistedJournalGenerationStatus(
     aiOutput: PersistedJournalAIOutput
 ): Exclude<JournalGenerationStatus, "pending"> {
     if (!aiOutput) return "failed";
-    if (!aiOutput.call1 || !aiOutput.call2) return "partial";
-
-    if (typeof aiOutput.modelInfo !== "object" || aiOutput.modelInfo === null) {
-        return isLegacyCall2Fallback(aiOutput.call2) ? "partial" : "complete";
-    }
-
-    const modelInfo = aiOutput.modelInfo as Record<string, unknown>;
-    if (
-        modelInfo.status === "partial" ||
-        (Array.isArray(modelInfo.failedStages) && modelInfo.failedStages.length > 0) ||
-        modelInfo.call1bModel === "unknown" ||
-        modelInfo.call1cModel === "unknown"
-    ) {
+    const info = aiOutput.modelInfo;
+    if (typeof info === "object" && info !== null && "status" in info && info.status === "partial") {
         return "partial";
     }
-
-    // Before durable status metadata was added, a failed Call 2 was stored as
-    // the empty fallback object. Keep those entries retryable, while honoring
-    // an explicit complete status for newer successfully generated entries.
-    if (
-        modelInfo.status !== "complete" &&
-        isLegacyCall2Fallback(aiOutput.call2)
-    ) {
-        return "partial";
-    }
-
-    return "complete";
+    return failedJournalStages(aiOutput).size ? "partial" : "complete";
 }

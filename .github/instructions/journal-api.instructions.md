@@ -17,9 +17,9 @@ applyTo: "app/api/journal/**"
   - `error`: Error occurred
 
 ## AI Pipeline
-- Use `utils/journal/llm.ts` for AI calls; Call 1 runs in parallel (a/b/c) for better latency.
+- Route the four stages through the journal-scoped model in `utils/journal/llm.ts`. After the overview (1a), run heart reflection (1b), biblical guidance (1c) and suggestions (2) in parallel.
 - Persist outputs via `storeJournalAIOutput` with retry/backoff and tag merging.
-- Persist partial-generation status and failed stage names in `modelInfo`; reprocessing is allowed only for failed or partial entries.
+- Persist each successful stage’s returned model and failed stage names in `modelInfo`. Retry missing or failed stages and preserve the stored output and attribution of successful stages.
 
 ## Data Management
 - Maintain profile counters: increment on create, decrement on delete.

@@ -455,12 +455,6 @@ export function LogsSection({ userId, memberId, childName }: Props) {
       });
       setLogActionError(null);
       let completed = false;
-      const previousAIOutput = entry.aiOutput;
-
-      updateVisibleLog(entry.id, (current) => ({
-        ...current,
-        aiOutput: null,
-      }));
 
       try {
         const response = await fetch(
@@ -527,10 +521,6 @@ export function LogsSection({ userId, memberId, childName }: Props) {
               ? error.message
               : "AI processing failed. Please try again.",
         });
-        updateVisibleLog(entry.id, (current) => ({
-          ...current,
-          aiOutput: previousAIOutput,
-        }));
       } finally {
         setRetryingLogId(null);
         setRetryProgress(null);

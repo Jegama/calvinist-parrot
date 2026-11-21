@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Effective Date:** April 6, 2026  
-**Last Updated:** October 31, 2026
+**Last Updated:** November 21, 2026
 
 Calvinist Parrot ("we," "us," or "our") is a ministry project of [Calvinist Parrot Ministries](https://www.calvinistparrotministries.org/). We are committed to protecting your privacy and handling your data with transparency and care. This Privacy Policy explains what information we collect, how we use it, and what choices you have.
 
@@ -33,6 +33,7 @@ When you use our features, we store the content you provide:
 
 - **Cookies:** We use essential cookies for authentication (session token), anonymous guest identity, and OAuth flow state. We do not use advertising or third-party tracking cookies. See Section 5 for details.
 - **Performance data:** We use Vercel Analytics and Speed Insights to collect anonymized page views, Core Web Vitals, and general performance metrics. This data is not tied to your identity.
+- **AI usage records:** For journal reflections and daily devotionals, we record the feature, generation step, operation and attempt identifiers, time, environment, provider, model, outcome, and available token counts to measure reliability and cost. These records exclude prompts, generated text, and family details.
 - **User agent:** Your browser's user-agent string is forwarded to our authentication provider for session security purposes.
 
 ### AI Memory
@@ -66,9 +67,9 @@ We use the following third-party services to operate Calvinist Parrot. Your data
 | Service | Data Shared | Purpose |
 |---------|-------------|---------|
 | **Appwrite** (Authentication) | Name, email, session tokens | User authentication and account management |
-| **Anthropic (Claude)** | Chat messages and conversation history; account or guest identifier; denomination and pastoral profile; relevant saved AI memories and tool results included in the conversation | Default conversational AI provider for personalized theological responses |
-| **OpenAI** | Chat messages, journal entries, conversation context | AI-powered theological responses, pastoral reflections, and memory extraction |
-| **Google Gemini** | Chat messages, church website content | AI-powered theological responses and church doctrinal evaluations |
+| **Anthropic (Claude)** | Chat messages, conversation history, account or guest identifier, denomination, pastoral profile, and relevant AI memories and tool results. Personal Journal entry text, recent entry summaries and recurring themes. For Heritage Journal, parents’ observations, the child’s name and age, the entry category, any gospel connection the parent describes, and relevant character and competency goals. | Default chat provider for personalized theological responses. Generates journal reflections, biblical guidance, tags, prayer suggestions, and discipleship plan suggestions. |
+| **OpenAI** | Chat messages and conversation context, including journal content you choose to continue in chat | AI-powered theological responses and memory extraction |
+| **Google Gemini** | Chat messages, including journal text you choose to continue in chat, church website content, and public news excerpts for the daily devotional | AI-powered theological responses, conversation titles, church doctrinal evaluations, and daily devotional generation |
 | **Tavily** | Search queries, church website URLs | Web search for supplemental theological articles, church website analysis, and daily devotional generation |
 | **Vercel** | Anonymized performance metrics | Hosting, analytics, and speed monitoring |
 | **Neon** (PostgreSQL) | All stored data | Database hosting |

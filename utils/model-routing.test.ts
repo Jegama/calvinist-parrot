@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/prisma", () => ({ default: {} }));
+import { journalResponses } from "@/tests/fixtures/journal-responses";
+
+vi.mock("@/lib/prisma", () => ({
+  default: { providerCallAttempt: { upsert: vi.fn(), update: vi.fn(), create: vi.fn(), updateMany: vi.fn() } },
+}));
 vi.mock("@tavily/core", () => ({
   tavily: () => ({ search: async () => ({ results: [] }) }),
 }));
@@ -40,40 +44,23 @@ describe("structured generation model routing", () => {
     vi.unstubAllEnvs();
   });
 
-  it("uses Hydrogen for a long journal reflection", async () => {
-    const output = { heartReflection: [], putOffPutOn: [] };
-    const transport = mockGeminiResponse(output);
+  it("routes long Personal and Heritage entries to Haiku with low adaptive thinking", async () => {
+    vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
+    const transport = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", transport);
+    for (const output of [journalResponses.heartReflection, journalResponses.summary]) {
+      transport.mockResolvedValueOnce(Response.json({
+        model: "claude-haiku-5-5-fixture",
+        content: [{ type: "text", text: JSON.stringify(output) }],
+        usage: { input_tokens: 15, output_tokens: 4 },
+      }));
+    }
 
     await expect(runCall1b({
+      operationId: "personal-fixture",
       entryText: "reflection ".repeat(500),
       situationSummary: "A long journal reflection.",
-    })).resolves.toEqual({ output, model: "gemini-4-hydrogen" });
-    expectStructuredHydrogenRequest(transport, "heartReflection");
-  });
-
-  it("uses Hydrogen for a long kids discipleship log", async () => {
-    const output = {
-      summary: "A parenting moment.",
-      whatMightBeGoingOnInTheHeart: [],
-      gospelConnectionSuggestion: {
-        ageAppropriatePhrase: "Jesus is kind to us.",
-        scriptureToShare: "Ephesians 4:32",
-        explanation: "Christ's kindness shapes ours.",
-      },
-      parentShepherdingNextSteps: [],
-      recommendedResources: [
-        {
-          title: "Shepherding a Child's Heart",
-          author: "Tedd Tripp",
-          whyItFits: "It keeps parenting focused on the child's heart.",
-        },
-      ],
-      scripture: [],
-      encouragementForParent: "Keep shepherding patiently.",
-      safetyFlags: [],
-    };
-    const transport = mockGeminiResponse(output);
-
+    })).resolves.toEqual({ output: journalResponses.heartReflection, model: "claude-haiku-5-5-fixture" });
     await expect(runKidsCall1({
       childName: "Sam",
       childAge: "8 years old",
@@ -83,8 +70,20 @@ describe("structured generation model routing", () => {
       category: "NURTURE",
       entryText: "parenting moment ".repeat(500),
       gospelConnection: null,
-    })).resolves.toEqual({ output, model: "gemini-4-hydrogen" });
-    expectStructuredHydrogenRequest(transport, "gospelConnectionSuggestion");
+    }, "heritage-fixture")).resolves.toEqual({ output: journalResponses.summary, model: "claude-haiku-5-5-fixture" });
+
+    expect(transport).toHaveBeenCalledTimes(2);
+    for (const [index, field] of ["heartReflection", "gospelConnectionSuggestion"].entries()) {
+      const [url, init] = transport.mock.calls[index];
+      expect(new URL(String(url)).pathname).toBe("/v1/messages");
+      const body = JSON.parse(String(init?.body));
+      expect(body).toMatchObject({
+        model: "claude-haiku-5-5",
+        thinking: { type: "adaptive" },
+        output_config: { effort: "low", format: { type: "json_schema" } },
+      });
+      expect(body.output_config.format.schema.properties).toHaveProperty(field);
+    }
   });
 
   it("returns the structured devotional from Hydrogen", async () => {
