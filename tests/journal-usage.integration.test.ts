@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { POST as createPersonal } from "@/app/api/journal/entries/route";
 import { POST as retryPersonal } from "@/app/api/journal/entries/[id]/reprocess/route";
 import { POST as createHeritage } from "@/app/api/kids-discipleship/logs/route";
+import { PATCH as editHeritage } from "@/app/api/kids-discipleship/logs/[id]/route";
 import { POST as retryHeritage } from "@/app/api/kids-discipleship/logs/[id]/reprocess/route";
 import { GET as readDevotional } from "@/app/api/devotional-generation/route";
 import { getDevotionalId } from "@/utils/devotionalUtils";
@@ -49,11 +50,26 @@ const transport = vi.fn<typeof fetch>(async (url, init) => {
   const key = responseKeys.find((field) => Object.hasOwn(properties, field));
   if (!key) throw new Error("Unrecognized journal schema");
   const response = key === invalidStage ? "{" : JSON.stringify(journalResponses[key]);
+  return anthropicResponse(response, returnedModel);
+});
+
+function anthropicResponse(text: string, model: string) {
   return Response.json({
-    model: returnedModel, content: [{ type: "text", text: response }],
+    model, content: [{ type: "text", text }],
     usage: { input_tokens: 15, output_tokens: 4, output_tokens_details: { thinking_tokens: 2 } },
   });
-});
+}
+
+function pauseNextResponse(output: object, model: string) {
+  const started = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  transport.mockImplementationOnce(async () => {
+    started.resolve();
+    await release.promise;
+    return anthropicResponse(JSON.stringify(output), model);
+  });
+  return { started: started.promise, release: release.resolve };
+}
 
 const features = [
   { feature: "personal_journal", create: createPersonal, retry: retryPersonal, failing: "heartReflection", stage: "call1b",
@@ -145,6 +161,86 @@ describe.skipIf(!databaseUrl)("structured generation through the HTTP handlers a
     expect(new Set(repeated.map(row => row.outcome)).size).toBe(2);
     expect(new Set(repeated.map(row => row.attemptId)).size).toBe(2);
     expect(rows.every(row => row.completedAt)).toBe(true);
+  });
+
+  async function newHeritageLog() {
+    const log = await db.journalEntry.create({
+      data: { spaceId, authorProfileId: profileId, subjectMemberId: memberId,
+        entryType: "DISCIPLESHIP", entryText: text, category: "NURTURE", tags: [] },
+    });
+    operationIds.push(log.id);
+    return { params: Promise.resolve({ id: log.id }) };
+  }
+
+  it("uses the first persisted result and model for each stage across overlapping Heritage retries", async () => {
+    invalidStage = undefined;
+    const context = await newHeritageLog();
+    const before = transport.mock.calls.length;
+    const lateReflection = { ...journalResponses.summary, summary: "Discarded reflection." };
+    const slowCall1 = pauseNextResponse(lateReflection, "discarded-call1-model");
+    const first = await retryHeritage(request(), context);
+    await slowCall1.started;
+
+    const reflection = { ...journalResponses.summary, summary: "The saved reflection." };
+    transport.mockImplementationOnce(async () => anthropicResponse(JSON.stringify(reflection), "saved-call1-model"));
+    const suggestions = journalResponses.suggestedChildPrayerRequests;
+    const slowCall2 = pauseNextResponse({ ...suggestions, tags: { ...suggestions.tags, virtue: ["Discarded"] } }, "discarded-call2-model");
+    const second = await retryHeritage(request(), context);
+    await slowCall2.started;
+    slowCall1.release();
+    const firstEvents = await readEvents(first);
+    slowCall2.release();
+    const secondEvents = await readEvents(second);
+
+    for (const events of [firstEvents, secondEvents]) {
+      expect(events.find(event => event.type === "call1_complete").call1).toEqual(reflection);
+      expect(events.find(event => event.type === "call2_complete").call2).toEqual(suggestions);
+      expect(events.at(-1)).toMatchObject({ type: "done", call1: reflection, call2: suggestions });
+    }
+    const calls = transport.mock.calls.slice(before);
+    expect(calls).toHaveLength(4);
+    for (const [, init] of calls.slice(2)) {
+      expect(JSON.parse(String(init?.body)).messages[0].content).toContain(reflection.summary);
+    }
+    const log = await db.journalEntry.findUniqueOrThrow({ where: await context.params, include: { aiOutput: true } });
+    expect(log.tags).toEqual(["Parenting", "Patience", "Social skills"]);
+    expect(log.aiOutput).toMatchObject({ call1: reflection, call2: suggestions,
+      modelInfo: { call1Model: "saved-call1-model", call2Model: returnedModel } });
+  });
+
+  it.each(["call1", "call2"])("discards in-flight %s after a Heritage edit and retries from the edited input", async (stage) => {
+    invalidStage = undefined;
+    const context = await newHeritageLog();
+    const patch = (data: object) => editHeritage(new Request("http://localhost/api", {
+      method: "PATCH", body: JSON.stringify(data),
+    }), context);
+    if (stage === "call2") {
+      transport.mockImplementationOnce(async () => anthropicResponse(JSON.stringify(journalResponses.summary), "old-model"));
+    }
+    const pending = pauseNextResponse(stage === "call1" ? journalResponses.summary : journalResponses.suggestedChildPrayerRequests, "late-model");
+    const stale = await retryHeritage(request(), context);
+    await pending.started;
+    const same = await (await patch({ entryText: text })).json();
+    if (stage === "call2") expect(same.log.aiOutput.call1).toEqual(journalResponses.summary);
+    const edit = stage === "call1" ? { category: "ADMONITION" } : { entryText: "A different observation." };
+    const changed = await (await patch(edit)).json();
+    expect(changed.log).toMatchObject({ ...edit, tags: [], aiOutput: null });
+
+    const before = transport.mock.calls.length;
+    const retried = await readEvents(await retryHeritage(request(), context));
+    expect(retried.at(-1)?.type).toBe("done");
+    const calls = transport.mock.calls.slice(before);
+    expect(calls).toHaveLength(2);
+    for (const [, init] of calls) {
+      const prompt = JSON.parse(String(init?.body)).messages[0].content;
+      expect(prompt.toLowerCase()).toContain(Object.values(edit)[0].toLowerCase());
+    }
+    pending.release();
+    expect((await readEvents(stale)).at(-1)?.type).toBe("error");
+    const saved = await db.journalEntryAI.findUniqueOrThrow({ where: { entryId: (await context.params).id } });
+    expect(saved.modelInfo).toMatchObject({ call1Model: returnedModel, call2Model: returnedModel });
+    const changedAgain = await (await patch({ entryText: "Another edit." })).json();
+    expect(changedAgain.log).toMatchObject({ tags: [], aiOutput: null });
   });
 
   it("persists Hydrogen usage once across devotional generation and a cache hit", async () => {

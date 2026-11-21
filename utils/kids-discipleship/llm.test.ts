@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   transaction: vi.fn(),
-  upsertAIOutput: vi.fn(),
+  updateAIOutput: vi.fn(),
   updateEntry: vi.fn(),
 }));
 
@@ -14,33 +14,7 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("@/lib/provider-usage", () => ({ markUsageOperationComplete: vi.fn() }));
 
-import { storeKidsAIOutput } from "./llm";
-
-const call1 = {
-  summary: "A shepherding summary.",
-  whatMightBeGoingOnInTheHeart: ["A desire for approval may be involved."],
-  gospelConnectionSuggestion: {
-    ageAppropriatePhrase: "Jesus loves us before we perform.",
-    scriptureToShare: "Romans 5:8",
-    explanation: "Christ loved us while we were sinners.",
-  },
-  parentShepherdingNextSteps: ["Affirm grace rather than performance."],
-  recommendedResources: [
-    {
-      title: "Parenting: 14 Gospel Principles That Can Radically Change Your Family",
-      author: "Paul David Tripp",
-      whyItFits: "It helps parents apply gospel grace to everyday shepherding.",
-    },
-  ],
-  scripture: [
-    {
-      reference: "Romans 5:8",
-      whyItApplies: "God's love rests on Christ, not performance.",
-    },
-  ],
-  encouragementForParent: "Keep pointing to Christ's finished work.",
-  safetyFlags: [],
-};
+import { storeKidsSuggestions } from "./llm";
 
 const call2 = {
   tags: {
@@ -54,41 +28,33 @@ const call2 = {
   parentConsistencyNote: null,
 };
 
-describe("storeKidsAIOutput", () => {
+describe("storeKidsSuggestions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.transaction.mockImplementation(
-      async (
-        callback: (tx: {
-          journalEntryAI: { upsert: typeof mocks.upsertAIOutput };
-          journalEntry: { update: typeof mocks.updateEntry };
-        }) => Promise<unknown>
-      ) =>
-        callback({
-          journalEntryAI: { upsert: mocks.upsertAIOutput },
-          journalEntry: { update: mocks.updateEntry },
-        })
-    );
+    mocks.transaction.mockImplementation(async (run) => run({
+      $queryRaw: async () => [{ id: "entry-1" }],
+      journalEntryAI: {
+        findUniqueOrThrow: async () => ({ call2: null, modelInfo: { model: "gemini-3.6-flash" } }),
+        update: mocks.updateAIOutput,
+      },
+      journalEntry: { update: mocks.updateEntry },
+    }));
   });
 
-  it("stores the reflection and flattened tags in one transaction", async () => {
-    await storeKidsAIOutput(
-      "entry-1",
-      call1,
-      call2,
-      "gemini-3.6-flash",
-      "returned-haiku"
-    );
+  it("stores suggestions and flattened tags in one transaction", async () => {
+    await storeKidsSuggestions("entry-1", "checkpoint", { output: call2, model: "returned-haiku" });
 
     expect(mocks.transaction).toHaveBeenCalledOnce();
-    expect(mocks.upsertAIOutput).toHaveBeenCalledWith({
-      where: { entryId: "entry-1" },
-      create: expect.objectContaining({
-        entryId: "entry-1",
-        call1,
+    expect(mocks.updateAIOutput).toHaveBeenCalledWith({
+      where: { id: "checkpoint" },
+      data: {
         call2,
-      }),
-      update: expect.objectContaining({ call1, call2 }),
+        modelInfo: {
+          call1Model: "gemini-3.6-flash",
+          call2Model: "returned-haiku",
+          promptVersion: expect.any(String),
+        },
+      },
     });
     expect(mocks.updateEntry).toHaveBeenCalledWith({
       where: { id: "entry-1" },
@@ -101,11 +67,11 @@ describe("storeKidsAIOutput", () => {
     mocks.updateEntry.mockRejectedValue(tagError);
 
     await expect(
-      storeKidsAIOutput("entry-1", call1, call2, "gemini-3.6-flash", "returned-haiku")
+      storeKidsSuggestions("entry-1", "checkpoint", { output: call2, model: "returned-haiku" })
     ).rejects.toBe(tagError);
 
     expect(mocks.transaction).toHaveBeenCalledOnce();
-    expect(mocks.upsertAIOutput).toHaveBeenCalledOnce();
+    expect(mocks.updateAIOutput).toHaveBeenCalledOnce();
     expect(mocks.updateEntry).toHaveBeenCalledOnce();
   });
 });

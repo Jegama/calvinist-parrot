@@ -27,7 +27,8 @@ import {
   formatAge,
   type AgeBracket,
 } from "@/utils/ageUtils";
-import type { LogCategory } from "@prisma/client";
+import { Prisma, type LogCategory } from "@prisma/client";
+import { lockKidsLog } from "./lock-log";
 
 const PROMPT_HASH = createHash("sha256")
   .update(KIDS_CALL1_SYSTEM_PROMPT)
@@ -208,50 +209,8 @@ export async function getCurrentMonthlyVision(memberId: string) {
   });
 }
 
-/**
- * Store AI output for a kids discipleship log entry
- */
-export async function storeKidsAIOutput(
-  entryId: string,
-  call1: StoredKidsCall1,
-  call2: KidsCall2Output,
-  call1Model: string,
-  call2Model: string
-): Promise<void> {
-  const tags = flattenKidsTags(call2);
-  const modelInfo = {
-    call1Model,
-    call2Model,
-    promptVersion: PROMPT_VERSION,
-  };
-  const serializedCall1 = JSON.parse(JSON.stringify(call1));
-  const serializedCall2 = JSON.parse(JSON.stringify(call2));
-
-  await prisma.$transaction(async (tx) => {
-    await tx.journalEntryAI.upsert({
-      where: { entryId },
-      create: {
-        entryId,
-        call1: serializedCall1,
-        call2: serializedCall2,
-        modelInfo,
-      },
-      update: {
-        call1: serializedCall1,
-        call2: serializedCall2,
-        modelInfo,
-      },
-    });
-
-    await tx.journalEntry.update({
-      where: { id: entryId },
-      data: { tags },
-    });
-  });
-  await markUsageOperationComplete("heritage_journal", entryId);
-}
-
 type SavedKidsReflection = {
+  id: string;
   call1: unknown;
   call2: unknown;
   modelInfo: unknown;
@@ -266,6 +225,64 @@ function savedModel(modelInfo: unknown, stage: "call1Model" | "call2Model"): str
   return "unknown";
 }
 
+// A concurrent request may have saved Call 1 while the provider was running.
+async function checkpointKidsReflection(
+  entryId: string,
+  context: KidsPromptContext,
+  generated: { output: KidsCall1Output; model: string },
+) {
+  return prisma.$transaction(async (tx) => {
+    const log = await lockKidsLog(tx, entryId);
+    if (!log || log.entryText !== context.entryText || log.category !== context.category
+      || log.gospelConnection !== context.gospelConnection) {
+      throw new Error("Heritage log changed during generation");
+    }
+    const saved = await tx.journalEntryAI.findUnique({ where: { entryId } });
+    if (saved && isStoredKidsCall1(saved.call1)) return { ...saved, call1: saved.call1 };
+
+    const data = {
+      call1: JSON.parse(JSON.stringify(generated.output)),
+      modelInfo: { call1Model: generated.model, promptVersion: PROMPT_VERSION },
+    };
+    const checkpoint = await tx.journalEntryAI.upsert({
+      where: { entryId },
+      create: { entryId, ...data },
+      update: { ...data, call2: Prisma.DbNull },
+    });
+    return { ...checkpoint, call1: generated.output };
+  });
+}
+
+export async function storeKidsSuggestions(
+  entryId: string,
+  checkpointId: string,
+  suggestions: { output: KidsCall2Output; model: string },
+) {
+  return prisma.$transaction(async (tx) => {
+    await lockKidsLog(tx, entryId);
+    // An edit deletes the checkpoint. A late result cannot recreate it or write
+    // suggestions against a newer reflection, even if the parent reverted the edit.
+    const saved = await tx.journalEntryAI.findUniqueOrThrow({ where: { id: checkpointId } });
+    if (isKidsCall2Output(saved.call2)) return saved.call2;
+    await tx.journalEntryAI.update({
+      where: { id: checkpointId },
+      data: {
+        call2: JSON.parse(JSON.stringify(suggestions.output)),
+        modelInfo: {
+          call1Model: savedModel(saved.modelInfo, "call1Model"),
+          call2Model: suggestions.model,
+          promptVersion: PROMPT_VERSION,
+        },
+      },
+    });
+    await tx.journalEntry.update({
+      where: { id: entryId },
+      data: { tags: flattenKidsTags(suggestions.output) },
+    });
+    return suggestions.output;
+  });
+}
+
 /** A retry shares the entry's operation ID and only calls the provider for missing output. */
 export async function generateKidsReflection(
   entryId: string,
@@ -273,34 +290,26 @@ export async function generateKidsReflection(
   send: (event: Record<string, unknown>) => void,
   saved?: SavedKidsReflection | null
 ) {
-  let reflection;
+  let checkpoint;
   if (saved && isStoredKidsCall1(saved.call1)) {
-    reflection = { output: saved.call1, model: savedModel(saved.modelInfo, "call1Model") };
+    checkpoint = { ...saved, call1: saved.call1 };
   } else {
     send({ type: "progress", stage: "call1", message: "Generating shepherding reflection..." });
-    reflection = await runKidsCall1(context, entryId);
-    // A retry may already have saved a result. A late checkpoint must never replace it.
-    await prisma.journalEntryAI.createMany({
-      data: {
-        entryId,
-        call1: JSON.parse(JSON.stringify(reflection.output)),
-        modelInfo: { call1Model: reflection.model, promptVersion: PROMPT_VERSION },
-      },
-      skipDuplicates: true,
-    });
+    const generated = await runKidsCall1(context, entryId);
+    checkpoint = await checkpointKidsReflection(entryId, context, generated);
   }
-  const call1 = reflection.output;
+  const call1 = checkpoint.call1;
   send({ type: "call1_complete", call1 });
 
-  let suggestions;
-  if (saved && isKidsCall2Output(saved.call2)) {
-    suggestions = { output: saved.call2, model: savedModel(saved.modelInfo, "call2Model") };
+  let call2: KidsCall2Output;
+  if (isKidsCall2Output(checkpoint.call2)) {
+    call2 = checkpoint.call2;
   } else {
     send({ type: "progress", stage: "call2", message: "Analyzing tags and prayer suggestions..." });
-    suggestions = await runKidsCall2({ ...context, call1Summary: call1.summary }, entryId);
+    const suggestions = await runKidsCall2({ ...context, call1Summary: call1.summary }, entryId);
+    call2 = await storeKidsSuggestions(entryId, checkpoint.id, suggestions);
   }
-  const call2 = suggestions.output;
-  await storeKidsAIOutput(entryId, call1, call2, reflection.model, suggestions.model);
+  await markUsageOperationComplete("heritage_journal", entryId);
   send({ type: "call2_complete", call2 });
   return { call1, call2, tags: flattenKidsTags(call2) };
 }

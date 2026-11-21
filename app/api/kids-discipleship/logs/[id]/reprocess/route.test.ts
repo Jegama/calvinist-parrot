@@ -30,7 +30,6 @@ vi.mock("@/lib/prisma", () => ({
     prayerMember: { findUnique: mocks.findChild },
     userProfile: { findUnique: mocks.findProfile },
     discipleshipAnnualPlan: { findUnique: mocks.getCurrentAnnualPlan },
-    journalEntryAI: { createMany: mocks.checkpoint },
     $transaction: mocks.transaction,
   },
 }));
@@ -135,9 +134,21 @@ describe("POST /api/kids-discipleship/logs/[id]/reprocess", () => {
     });
     mocks.createLog.mockResolvedValue(log);
     mocks.findProfile.mockResolvedValue({ id: "profile" });
-    mocks.transaction.mockImplementation(async (run) =>
-      run({ journalEntryAI: { upsert: mocks.saveAI }, journalEntry: { update: mocks.updateTags } })
-    );
+    let checkpoint = { id: "checkpoint", call2: null, modelInfo: {} };
+    mocks.checkpoint.mockImplementation(async ({ create }) => {
+      checkpoint = { ...checkpoint, ...create };
+      return checkpoint;
+    });
+    mocks.transaction.mockImplementation(async (run) => run({
+      $queryRaw: async () => [log],
+      journalEntryAI: {
+        findUnique: async () => null,
+        upsert: mocks.checkpoint,
+        findUniqueOrThrow: async () => (await mocks.findLog()).aiOutput ?? checkpoint,
+        update: mocks.saveAI,
+      },
+      journalEntry: { update: mocks.updateTags },
+    }));
     mocks.generate.mockImplementation(async ({ usage }) => ({
       model: `returned-haiku-${usage.stage}`,
       data: usage.stage === "call1" ? call1 : call2,
@@ -179,7 +190,7 @@ describe("POST /api/kids-discipleship/logs/[id]/reprocess", () => {
       "space-1"
     );
     expect(mocks.saveAI).toHaveBeenCalledWith(expect.objectContaining({
-      update: expect.objectContaining({
+      data: expect.objectContaining({
         modelInfo: expect.objectContaining({
           call1Model: "returned-haiku-call1",
           call2Model: "returned-haiku-call2",
@@ -270,9 +281,9 @@ describe("POST /api/kids-discipleship/logs/[id]/reprocess", () => {
       expect(request.modelSpec).toEqual({ provider: "anthropic", model: "claude-haiku-5-5" });
     }
     expect(mocks.markComplete).not.toHaveBeenCalled();
-    const checkpoint = mocks.checkpoint.mock.calls[0][0].data;
+    const checkpoint = mocks.checkpoint.mock.calls[0][0].create;
     expect(checkpoint).toMatchObject({ entryId: log.id, call1, modelInfo: { call1Model: "returned-haiku-call1" } });
-    mocks.findLog.mockResolvedValue({ ...log, aiOutput: { ...checkpoint, call2: null } });
+    mocks.findLog.mockResolvedValue({ ...log, aiOutput: { ...checkpoint, id: "checkpoint", call2: null } });
     const retried = await POST(new Request("http://localhost", { method: "POST" }), requestContext());
     expect((await readEvents(retried)).map((event) => event.type)).toEqual([
       "call1_complete", "progress", "call2_complete", "done",
@@ -292,15 +303,15 @@ describe("POST /api/kids-discipleship/logs/[id]/reprocess", () => {
     delete legacyCall1.recommendedResources;
     mocks.findLog.mockResolvedValue({
       ...log,
-      aiOutput: { call1: legacyCall1, call2: null, modelInfo },
+      aiOutput: { id: "legacy-checkpoint", call1: legacyCall1, call2: null, modelInfo },
     });
     const retried = await POST(new Request("http://localhost", { method: "POST" }), requestContext());
     const events = await readEvents(retried);
     expect(events[0]).toEqual({ type: "call1_complete", call1: legacyCall1 });
     expect(mocks.generate).toHaveBeenCalledTimes(1);
     expect(mocks.generate.mock.calls[0][0].usage.stage).toBe("call2");
-    expect(mocks.saveAI.mock.calls[0][0].update).toMatchObject({
-      call1: legacyCall1, call2,
+    expect(mocks.saveAI.mock.calls[0][0].data).toMatchObject({
+      call2,
       modelInfo: { call1Model: expectedModel, call2Model: "returned-haiku-call2" },
     });
   });

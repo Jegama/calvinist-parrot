@@ -46,6 +46,7 @@ export async function POST(
       gospelConnection: true,
       aiOutput: {
         select: {
+          id: true,
           call1: true,
           call2: true,
           modelInfo: true,
