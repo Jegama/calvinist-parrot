@@ -5,6 +5,7 @@ import {
   buildFamilyPayload,
   dateInputToIso,
   defaultCategories,
+  filterFamiliesByName,
   isoToDateInput,
   normalizeChildren,
   resetFamilyForm,
@@ -42,6 +43,7 @@ export function useFamilyManager({ user, families, refreshLists }: UseFamilyMana
   });
   const [familyFormError, setFamilyFormError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [familySearch, setFamilySearch] = useState("");
 
   const [isFamilySheetOpen, setIsFamilySheetOpen] = useState(false);
   const [familySheet, setFamilySheet] = useState<FamilySheetState>(EMPTY_FAMILY_SHEET);
@@ -63,18 +65,10 @@ export function useFamilyManager({ user, families, refreshLists }: UseFamilyMana
     return Array.from(unique);
   }, [families, newFamily.categorySelect, newFamily.customCategory]);
 
-  const filteredFamilies = useMemo(() => {
-    const sortByName = (list: Family[]) =>
-      [...list].sort((a, b) => a.familyName.localeCompare(b.familyName, undefined, { sensitivity: "base" }));
-
-    if (categoryFilter === "all") {
-      return sortByName(families.filter((family) => !family.archivedAt));
-    }
-    if (categoryFilter === ARCHIVED_CATEGORY) {
-      return sortByName(families.filter((family) => Boolean(family.archivedAt)));
-    }
-    return sortByName(families.filter((family) => family.categoryTag === categoryFilter && !family.archivedAt));
-  }, [families, categoryFilter]);
+  const filteredFamilies = useMemo(
+    () => filterFamiliesByName(families, familySearch, categoryFilter),
+    [families, familySearch, categoryFilter]
+  );
 
   const handleNewFamilyChange = useCallback((changes: Partial<NewFamilyFormState>) => {
     setNewFamily((prev) => ({ ...prev, ...changes }));
@@ -246,6 +240,8 @@ export function useFamilyManager({ user, families, refreshLists }: UseFamilyMana
     categories,
     categoryFilter,
     setCategoryFilter,
+    familySearch,
+    setFamilySearch,
     filteredFamilies,
     newFamily,
     familyFormError,

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sheet";
 import { ARCHIVED_CATEGORY } from "../constants";
 import { FamilySheetState } from "../types";
-import { formatRelative } from "../utils";
+import { formatRelative, isFamilyArchived } from "../utils";
 
 type FamilySheetProps = {
   isOpen: boolean;
@@ -56,7 +56,7 @@ export function FamilySheet({
     return categories.filter((category) => category !== ARCHIVED_CATEGORY);
   }, [categories, sheetState.categorySelect]);
 
-  const showRestore = Boolean(sheetState.archivedAt);
+  const showRestore = isFamilyArchived({ archivedAt: sheetState.archivedAt, categoryTag: sheetState.categorySelect });
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange} modal={false}>

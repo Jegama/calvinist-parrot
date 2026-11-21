@@ -4,16 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Sheet,
   SheetClose,
   SheetContent,
@@ -23,7 +13,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { PersonalSheetState, Family } from "../types";
-import { useMemo } from "react";
+import { RequestFamilyPicker } from "./RequestFamilyPicker";
 
 type RequestSheetProps = {
   isOpen: boolean;
@@ -57,19 +47,6 @@ export function RequestSheet({
   const isAnswered = sheetState.status === "ANSWERED";
   const isMarking = answeringRequestId === sheetState.id;
 
-  // Group families by category for the dropdown
-  const familiesByCategory = useMemo(() => {
-    const grouped: Record<string, Family[]> = {};
-    families.forEach((family) => {
-      const category = family.categoryTag || "Uncategorized";
-      if (!grouped[category]) grouped[category] = [];
-      grouped[category].push(family);
-    });
-    return grouped;
-  }, [families]);
-
-  const categoryKeys = useMemo(() => Object.keys(familiesByCategory).sort(), [familiesByCategory]);
-
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange} modal={false}>
       <SheetContent className="sm:max-w-lg bg-card">
@@ -88,30 +65,11 @@ export function RequestSheet({
             value={sheetState.notes}
             onChange={(event) => onUpdate({ notes: event.target.value })}
           />
-          <Select value={sheetState.linkedToFamily} onValueChange={(value) => onUpdate({ linkedToFamily: value })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Link to..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Your Household</SelectLabel>
-                <SelectItem value="household">Our Family</SelectItem>
-              </SelectGroup>
-              {categoryKeys.map((category, index) => (
-                <div key={category}>
-                  {index > 0 && <SelectSeparator />}
-                  <SelectGroup>
-                    <SelectLabel>{category}</SelectLabel>
-                    {familiesByCategory[category].map((family) => (
-                      <SelectItem key={family.id} value={family.id}>
-                        {family.familyName}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </div>
-              ))}
-            </SelectContent>
-          </Select>
+          <RequestFamilyPicker
+            families={families}
+            value={sheetState.linkedToFamily}
+            onValueChange={(linkedToFamily) => onUpdate({ linkedToFamily })}
+          />
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground" htmlFor="request-last-prayed">
               Last prayed on

@@ -239,10 +239,12 @@ function PrayerTrackerContent() {
                 familyFormError={familyManager.familyFormError}
                 categories={familyManager.categories}
                 categoryFilter={familyManager.categoryFilter}
+                familySearch={familyManager.familySearch}
                 filteredFamilies={familyManager.filteredFamilies}
                 onNewFamilyChange={familyManager.handleNewFamilyChange}
                 onCreateFamily={familyManager.createFamily}
-                onCategoryFilterChange={(value) => familyManager.setCategoryFilter(value)}
+                onCategoryFilterChange={familyManager.setCategoryFilter}
+                onFamilySearchChange={familyManager.setFamilySearch}
                 onEditFamily={familyManager.openFamilySheet}
                 onViewFamilyDetail={(family) => {
                   setSelectedFamilyForDetail(family);
