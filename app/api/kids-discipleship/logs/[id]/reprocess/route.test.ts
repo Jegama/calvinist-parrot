@@ -52,6 +52,7 @@ const birthdate = new Date("2018-04-12T00:00:00.000Z");
 const log = {
   id: "log-1",
   entryType: "DISCIPLESHIP",
+  heritageOperationId: null,
   entryDate,
   entryText: "Our child offered to help a younger sibling clean up blocks today when we were tired.",
   category: "NURTURE",

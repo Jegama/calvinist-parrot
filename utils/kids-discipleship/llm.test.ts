@@ -16,6 +16,8 @@ vi.mock("@/lib/provider-usage", () => ({ markUsageOperationComplete: vi.fn() }))
 
 import { storeKidsSuggestions } from "./llm";
 
+const entry = { id: "entry-1", heritageOperationId: null };
+
 const call2 = {
   tags: {
     circumstance: ["school"],
@@ -32,7 +34,7 @@ describe("storeKidsSuggestions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.transaction.mockImplementation(async (run) => run({
-      $queryRaw: async () => [{ id: "entry-1" }],
+      $queryRaw: async () => [entry],
       journalEntryAI: {
         findUniqueOrThrow: async () => ({ call2: null, modelInfo: { model: "gemini-3.6-flash" } }),
         update: mocks.updateAIOutput,
@@ -42,7 +44,7 @@ describe("storeKidsSuggestions", () => {
   });
 
   it("stores suggestions and flattened tags in one transaction", async () => {
-    await storeKidsSuggestions("entry-1", "checkpoint", { output: call2, model: "returned-haiku" });
+    await storeKidsSuggestions(entry, "checkpoint", { output: call2, model: "returned-haiku" });
 
     expect(mocks.transaction).toHaveBeenCalledOnce();
     expect(mocks.updateAIOutput).toHaveBeenCalledWith({
@@ -67,7 +69,7 @@ describe("storeKidsSuggestions", () => {
     mocks.updateEntry.mockRejectedValue(tagError);
 
     await expect(
-      storeKidsSuggestions("entry-1", "checkpoint", { output: call2, model: "returned-haiku" })
+      storeKidsSuggestions(entry, "checkpoint", { output: call2, model: "returned-haiku" })
     ).rejects.toBe(tagError);
 
     expect(mocks.transaction).toHaveBeenCalledOnce();

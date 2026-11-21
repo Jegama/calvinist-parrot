@@ -246,7 +246,7 @@ export async function POST(request: Request) {
         });
 
         const { call1, call2, tags } = await generateKidsReflection(
-          entry.id,
+          entry,
           promptContext,
           (event) => streamEvent(controller, event)
         );

@@ -186,6 +186,7 @@ model journalEntry {
   entryType       JournalEntryType  @default(PERSONAL)
   category        LogCategory?      // Only used for DISCIPLESHIP entries (Phase 3)
   subjectMemberId String?           // Child member ID for DISCIPLESHIP entries
+  heritageOperationId String?     @db.Uuid // Edited Heritage logs use a fresh generation ID. The original revision uses the entry ID.
   gospelConnection String?          // How the parent pointed the child to Jesus (Phase 3)
   tags            String[]          // Flat array for quick filtering
   createdAt       DateTime          @default(now())

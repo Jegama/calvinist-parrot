@@ -2,6 +2,7 @@
 // GET: Get log detail
 // PATCH: Update log inputs and invalidate their generated output
 
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { lockKidsLog } from "@/utils/kids-discipleship/lock-log";
@@ -159,7 +160,7 @@ export async function PATCH(
     }
     return tx.journalEntry.update({
       where: { id },
-      data: changed ? { ...updateData, tags: [] } : updateData,
+      data: changed ? { ...updateData, tags: [], heritageOperationId: randomUUID() } : updateData,
       include: { aiOutput: true },
     });
   });

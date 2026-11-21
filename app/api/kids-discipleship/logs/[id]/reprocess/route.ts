@@ -39,6 +39,7 @@ export async function POST(
     select: {
       id: true,
       entryType: true,
+      heritageOperationId: true,
       entryDate: true,
       entryText: true,
       category: true,
@@ -117,7 +118,7 @@ export async function POST(
     async start(controller) {
       try {
         const { call1, call2, tags } = await generateKidsReflection(
-          log.id,
+          log,
           promptContext,
           (event) => streamEvent(controller, event),
           log.aiOutput

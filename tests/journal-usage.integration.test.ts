@@ -172,6 +172,18 @@ describe.skipIf(!databaseUrl)("structured generation through the HTTP handlers a
     return { params: Promise.resolve({ id: log.id }) };
   }
 
+  async function editHeritageLog(context: Awaited<ReturnType<typeof newHeritageLog>>, data: object) {
+    const response = await editHeritage(new Request("http://localhost/api", {
+      method: "PATCH", body: JSON.stringify(data),
+    }), context);
+    expect(response.status).toBe(200);
+    const { heritageOperationId } = await db.journalEntry.findUniqueOrThrow({
+      where: await context.params, select: { heritageOperationId: true },
+    });
+    if (heritageOperationId) operationIds.push(heritageOperationId);
+    return { log: (await response.json()).log, operationId: heritageOperationId };
+  }
+
   it("uses the first persisted result and model for each stage across overlapping Heritage retries", async () => {
     invalidStage = undefined;
     const context = await newHeritageLog();
@@ -211,19 +223,16 @@ describe.skipIf(!databaseUrl)("structured generation through the HTTP handlers a
   it.each(["call1", "call2"])("discards in-flight %s after a Heritage edit and retries from the edited input", async (stage) => {
     invalidStage = undefined;
     const context = await newHeritageLog();
-    const patch = (data: object) => editHeritage(new Request("http://localhost/api", {
-      method: "PATCH", body: JSON.stringify(data),
-    }), context);
     if (stage === "call2") {
       transport.mockImplementationOnce(async () => anthropicResponse(JSON.stringify(journalResponses.summary), "old-model"));
     }
     const pending = pauseNextResponse(stage === "call1" ? journalResponses.summary : journalResponses.suggestedChildPrayerRequests, "late-model");
     const stale = await retryHeritage(request(), context);
     await pending.started;
-    const same = await (await patch({ entryText: text })).json();
+    const same = await editHeritageLog(context, { entryText: text });
     if (stage === "call2") expect(same.log.aiOutput.call1).toEqual(journalResponses.summary);
     const edit = stage === "call1" ? { category: "ADMONITION" } : { entryText: "A different observation." };
-    const changed = await (await patch(edit)).json();
+    const changed = await editHeritageLog(context, edit);
     expect(changed.log).toMatchObject({ ...edit, tags: [], aiOutput: null });
 
     const before = transport.mock.calls.length;
@@ -239,8 +248,37 @@ describe.skipIf(!databaseUrl)("structured generation through the HTTP handlers a
     expect((await readEvents(stale)).at(-1)?.type).toBe("error");
     const saved = await db.journalEntryAI.findUniqueOrThrow({ where: { entryId: (await context.params).id } });
     expect(saved.modelInfo).toMatchObject({ call1Model: returnedModel, call2Model: returnedModel });
-    const changedAgain = await (await patch({ entryText: "Another edit." })).json();
+    const changedAgain = await editHeritageLog(context, { entryText: "Another edit." });
     expect(changedAgain.log).toMatchObject({ tags: [], aiOutput: null });
+  });
+
+  it("counts an edited Heritage log as a separate operation and resumes that revision on retry", async () => {
+    invalidStage = undefined;
+    const context = await newHeritageLog();
+    const { id } = await context.params;
+    expect((await readEvents(await retryHeritage(request(), context))).at(-1)?.type).toBe("done");
+
+    const edit = { entryText: "A new observation about our family." };
+    const revision = await editHeritageLog(context, edit);
+    expect(revision.operationId).toEqual(expect.any(String));
+    expect(revision.operationId).not.toBe(id);
+    invalidStage = "suggestedChildPrayerRequests";
+    expect((await readEvents(await retryHeritage(request(), context))).at(-1)?.type).toBe("error");
+    const attempts = (operationId: string) => db.providerCallAttempt.findMany({ where: { operationId } });
+    const original = await attempts(id);
+    expect(original).toHaveLength(2);
+    expect(original.every(row => row.completedAt)).toBe(true);
+    const failed = await attempts(revision.operationId!);
+    expect(failed.map(row => row.stage).sort()).toEqual(["call1", "call2"]);
+    expect(failed.every(row => row.completedAt === null && row.outputTokens === 4)).toBe(true);
+
+    expect((await editHeritageLog(context, edit)).operationId).toBe(revision.operationId);
+    invalidStage = undefined;
+    expect((await readEvents(await retryHeritage(request(), context))).at(-1)?.type).toBe("done");
+    const completed = await attempts(revision.operationId!);
+    expect(completed.map(row => row.stage).sort()).toEqual(["call1", "call2", "call2"]);
+    expect(completed.every(row => row.completedAt)).toBe(true);
+    expect(await attempts(id)).toHaveLength(2);
   });
 
   it("persists Hydrogen usage once across devotional generation and a cache hit", async () => {

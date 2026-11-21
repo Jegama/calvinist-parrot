@@ -121,7 +121,7 @@ export function buildPromptContext(ctx: KidsLogContext): KidsPromptContext {
  */
 export async function runKidsCall1(
   context: KidsPromptContext,
-  entryId: string
+  operationId: string
 ): Promise<{ output: KidsCall1Output; model: string }> {
   const systemPrompt = buildKidsCall1SystemPrompt(context);
   const userMessage = buildKidsCall1UserMessage(context);
@@ -133,7 +133,7 @@ export async function runKidsCall1(
     ],
     schema: KIDS_CALL1_SCHEMA,
     modelSpec: JOURNAL_MODEL,
-    usage: { feature: "heritage_journal", stage: "call1", operationId: entryId },
+    usage: { feature: "heritage_journal", stage: "call1", operationId },
     validate: isKidsCall1Output,
     thinking: "low",
   });
@@ -147,7 +147,7 @@ export async function runKidsCall1(
  */
 export async function runKidsCall2(
   context: KidsPromptContext & { call1Summary: string },
-  entryId: string
+  operationId: string
 ): Promise<{ output: KidsCall2Output; model: string }> {
   const userMessage = buildKidsCall2UserMessage(context);
 
@@ -158,7 +158,7 @@ export async function runKidsCall2(
     ],
     schema: KIDS_CALL2_SCHEMA,
     modelSpec: JOURNAL_MODEL,
-    usage: { feature: "heritage_journal", stage: "call2", operationId: entryId },
+    usage: { feature: "heritage_journal", stage: "call2", operationId },
     validate: isKidsCall2Output,
     thinking: "low",
   });
@@ -225,18 +225,23 @@ function savedModel(modelInfo: unknown, stage: "call1Model" | "call2Model"): str
   return "unknown";
 }
 
+type HeritageEntry = { id: string; heritageOperationId: string | null };
+
+async function lockHeritageRevision(tx: Prisma.TransactionClient, entry: HeritageEntry) {
+  const log = await lockKidsLog(tx, entry.id);
+  if (!log || log.heritageOperationId !== entry.heritageOperationId) {
+    throw new Error("Heritage log changed during generation");
+  }
+}
+
 // A concurrent request may have saved Call 1 while the provider was running.
 async function checkpointKidsReflection(
-  entryId: string,
-  context: KidsPromptContext,
+  entry: HeritageEntry,
   generated: { output: KidsCall1Output; model: string },
 ) {
+  const entryId = entry.id;
   return prisma.$transaction(async (tx) => {
-    const log = await lockKidsLog(tx, entryId);
-    if (!log || log.entryText !== context.entryText || log.category !== context.category
-      || log.gospelConnection !== context.gospelConnection) {
-      throw new Error("Heritage log changed during generation");
-    }
+    await lockHeritageRevision(tx, entry);
     const saved = await tx.journalEntryAI.findUnique({ where: { entryId } });
     if (saved && isStoredKidsCall1(saved.call1)) return { ...saved, call1: saved.call1 };
 
@@ -254,12 +259,12 @@ async function checkpointKidsReflection(
 }
 
 export async function storeKidsSuggestions(
-  entryId: string,
+  entry: HeritageEntry,
   checkpointId: string,
   suggestions: { output: KidsCall2Output; model: string },
 ) {
   return prisma.$transaction(async (tx) => {
-    await lockKidsLog(tx, entryId);
+    await lockHeritageRevision(tx, entry);
     // An edit deletes the checkpoint. A late result cannot recreate it or write
     // suggestions against a newer reflection, even if the parent reverted the edit.
     const saved = await tx.journalEntryAI.findUniqueOrThrow({ where: { id: checkpointId } });
@@ -276,27 +281,28 @@ export async function storeKidsSuggestions(
       },
     });
     await tx.journalEntry.update({
-      where: { id: entryId },
+      where: { id: entry.id },
       data: { tags: flattenKidsTags(suggestions.output) },
     });
     return suggestions.output;
   });
 }
 
-/** A retry shares the entry's operation ID and only calls the provider for missing output. */
+/** A retry shares the input revision's operation ID and only calls the provider for missing output. */
 export async function generateKidsReflection(
-  entryId: string,
+  entry: HeritageEntry,
   context: KidsPromptContext,
   send: (event: Record<string, unknown>) => void,
   saved?: SavedKidsReflection | null
 ) {
+  const operationId = entry.heritageOperationId ?? entry.id;
   let checkpoint;
   if (saved && isStoredKidsCall1(saved.call1)) {
     checkpoint = { ...saved, call1: saved.call1 };
   } else {
     send({ type: "progress", stage: "call1", message: "Generating shepherding reflection..." });
-    const generated = await runKidsCall1(context, entryId);
-    checkpoint = await checkpointKidsReflection(entryId, context, generated);
+    const generated = await runKidsCall1(context, operationId);
+    checkpoint = await checkpointKidsReflection(entry, generated);
   }
   const call1 = checkpoint.call1;
   send({ type: "call1_complete", call1 });
@@ -306,10 +312,10 @@ export async function generateKidsReflection(
     call2 = checkpoint.call2;
   } else {
     send({ type: "progress", stage: "call2", message: "Analyzing tags and prayer suggestions..." });
-    const suggestions = await runKidsCall2({ ...context, call1Summary: call1.summary }, entryId);
-    call2 = await storeKidsSuggestions(entryId, checkpoint.id, suggestions);
+    const suggestions = await runKidsCall2({ ...context, call1Summary: call1.summary }, operationId);
+    call2 = await storeKidsSuggestions(entry, checkpoint.id, suggestions);
   }
-  await markUsageOperationComplete("heritage_journal", entryId);
+  await markUsageOperationComplete("heritage_journal", operationId);
   send({ type: "call2_complete", call2 });
   return { call1, call2, tags: flattenKidsTags(call2) };
 }

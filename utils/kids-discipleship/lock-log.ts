@@ -5,9 +5,9 @@ export async function lockKidsLog(tx: Prisma.TransactionClient, id: string) {
   const [log] = await tx.$queryRaw<Array<{
     entryText: string;
     category: LogCategory | null;
-    gospelConnection: string | null;
+    heritageOperationId: string | null;
   }>>`
-    SELECT "entryText", category, "gospelConnection"
+    SELECT "entryText", category, "heritageOperationId"
     FROM "journalEntry" WHERE id = ${id} AND "entryType" = 'DISCIPLESHIP' FOR UPDATE
   `;
   return log;
