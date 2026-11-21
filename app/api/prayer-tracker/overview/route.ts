@@ -110,14 +110,14 @@ export async function GET() {
     // Prayer - family active (requests linked to families in this space)
     prisma.prayerFamilyRequest.count({
       where: {
-        family: { spaceId, archivedAt: null },
+        family: { spaceId },
         status: "ACTIVE",
       },
     }),
     // Prayer - family answered
     prisma.prayerFamilyRequest.count({
       where: {
-        family: { spaceId, archivedAt: null },
+        family: { spaceId },
         status: "ANSWERED",
       },
     }),
