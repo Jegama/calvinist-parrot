@@ -8,10 +8,7 @@ import { requireAuthenticatedUser } from "@/lib/auth";
 import { assertHouseholdAccess } from "@/lib/householdService";
 import {
   buildPromptContext,
-  runKidsCall1,
-  runKidsCall2,
-  storeKidsAIOutput,
-  flattenKidsTags,
+  generateKidsReflection,
   getCurrentAnnualPlan,
 } from "@/utils/kids-discipleship/llm";
 import type { LogCategory } from "@prisma/client";
@@ -248,41 +245,11 @@ export async function POST(request: Request) {
           competencyGoal: annualPlan?.competencyGoal || null,
         });
 
-        streamEvent(controller, {
-          type: "progress",
-          stage: "call1",
-          message: "Generating shepherding reflection...",
-        });
-
-        // Run Call 1
-        const { output: call1, model: call1Model } = await runKidsCall1(promptContext);
-
-        streamEvent(controller, {
-          type: "call1_complete",
-          call1,
-        });
-
-        streamEvent(controller, {
-          type: "progress",
-          stage: "call2",
-          message: "Analyzing tags and prayer suggestions...",
-        });
-
-        // Run Call 2
-        const call2 = await runKidsCall2({
-          ...promptContext,
-          call1Summary: call1.summary,
-        });
-
-        streamEvent(controller, {
-          type: "call2_complete",
-          call2,
-        });
-
-        // Store AI output
-        await storeKidsAIOutput(entry.id, call1, call2, call1Model);
-
-        const tags = flattenKidsTags(call2);
+        const { call1, call2, tags } = await generateKidsReflection(
+          entry,
+          promptContext,
+          (event) => streamEvent(controller, event)
+        );
 
         streamEvent(controller, {
           type: "done",
@@ -303,7 +270,7 @@ export async function POST(request: Request) {
         console.error("Error creating kids log:", error);
         streamEvent(controller, {
           type: "error",
-          message: error instanceof Error ? error.message : "Unknown error",
+          message: "AI processing failed. Please try again.",
         });
         controller.close();
       }

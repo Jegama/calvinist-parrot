@@ -440,8 +440,8 @@ export default function JournalPage() {
             setActiveEntry(prev => prev?.id === entry.id ? {
               ...prev,
               aiOutput: {
-                call1: { ...event.call1a } as Call1Output,
-                call2: null
+                call1: { ...prev.aiOutput?.call1, ...event.call1a } as Call1Output,
+                call2: prev.aiOutput?.call2 ?? null
               }
             } : prev);
             break;

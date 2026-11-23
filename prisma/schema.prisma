@@ -186,6 +186,7 @@ model journalEntry {
   entryType       JournalEntryType  @default(PERSONAL)
   category        LogCategory?      // Only used for DISCIPLESHIP entries (Phase 3)
   subjectMemberId String?           // Child member ID for DISCIPLESHIP entries
+  heritageOperationId String?     @db.Uuid // Edited Heritage logs use a fresh generation ID. The original revision uses the entry ID.
   gospelConnection String?          // How the parent pointed the child to Jesus (Phase 3)
   tags            String[]          // Flat array for quick filtering
   createdAt       DateTime          @default(now())
@@ -800,4 +801,35 @@ model discipleshipMonthlyVision {
 
   @@unique([memberId, yearMonth])
   @@index([memberId])
+}
+
+// Provider billing and operational metadata. No request or response bodies.
+model ProviderCallAttempt {
+  attemptId           String    @id @db.Uuid
+  operationId         String
+  feature             String
+  stage               String
+  startedAt           DateTime  @db.Timestamptz(3)
+  durationMs          Int
+  environment         String
+  provider            String
+  requestedModel      String
+  returnedModel       String?
+  serviceTier         String?
+  outcome             String
+  completedAt         DateTime? @db.Timestamptz(3)
+  inputTokens         Int?
+  cacheReadTokens     Int?
+  cacheWriteTokens    Int?
+  cacheWrite5mTokens  Int?
+  cacheWrite1hTokens  Int?
+  outputTokens        Int?
+  thinkingTokens      Int?
+  toolUsePromptTokens Int?
+  providerTotalTokens Int?
+  promptTokens        Int?
+  candidateTokens     Int?
+
+  @@index([environment, feature, operationId])
+  @@index([startedAt])
 }

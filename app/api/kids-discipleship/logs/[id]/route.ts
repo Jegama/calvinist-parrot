@@ -1,9 +1,11 @@
 // app/api/kids-discipleship/logs/[id]/route.ts
 // GET: Get log detail
-// PATCH: Update log text (re-runs AI if changed)
+// PATCH: Update log inputs and invalidate their generated output
 
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { lockKidsLog } from "@/utils/kids-discipleship/lock-log";
 import { requireAuthenticatedUser } from "@/lib/auth";
 import { assertHouseholdAccess } from "@/lib/householdService";
 
@@ -148,13 +150,21 @@ export async function PATCH(
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   }
 
-  const updatedLog = await prisma.journalEntry.update({
-    where: { id },
-    data: updateData,
-    include: {
-      aiOutput: true,
-    },
+  const updatedLog = await prisma.$transaction(async (tx) => {
+    const current = await lockKidsLog(tx, id);
+    if (!current) return null;
+    const changed = (entryText !== undefined && entryText !== current.entryText)
+      || (category !== undefined && category !== current.category);
+    if (changed) {
+      await tx.journalEntryAI.deleteMany({ where: { entryId: id } });
+    }
+    return tx.journalEntry.update({
+      where: { id },
+      data: changed ? { ...updateData, tags: [], heritageOperationId: randomUUID() } : updateData,
+      include: { aiOutput: true },
+    });
   });
+  if (!updatedLog) return NextResponse.json({ error: "Log not found" }, { status: 404 });
 
   return NextResponse.json({
     log: {
