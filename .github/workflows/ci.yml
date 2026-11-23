@@ -58,6 +58,12 @@ jobs:
       - name: Install pinned dependencies
         run: python -m pip install -r requirements-dev.txt
 
+      - name: Verify both worker locks against the project manifest
+        run: |
+          python -m piptools compile --resolver=backtracking --strip-extras -o requirements.txt pyproject.toml
+          python -m piptools compile --resolver=backtracking --strip-extras --allow-unsafe --extra dev -o requirements-dev.txt pyproject.toml
+          git diff --exit-code -- requirements.txt requirements-dev.txt
+
       - name: Install sermon evaluator
         run: python -m pip install --no-deps -e .
 
