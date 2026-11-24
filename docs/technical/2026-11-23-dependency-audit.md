@@ -38,6 +38,16 @@ CI and local Compose use PostgreSQL 17.12 with pgvector 0.8.7 on Debian 12.15. T
 
 **Outstanding image findings.** Trivy 0.76.2 scanned the Linux amd64 image with its November 23 vulnerability database. It reported 556 OS package matches across 196 distinct advisories, including Debian temporary IDs. Three are critical, 37 high, 65 medium, 76 low and 15 have unknown severity. Debian supplied no fixed package version for these matches. They affect libraries shipped in the development and CI database container. This scan does not establish reachability through PostgreSQL or the state of the managed production database. The repository maintainer owns the November 30, 2026 review of the Bookworm packages and upstream image for all findings in the image inventory. The three critical matches are in libsqlite3-0, libxml2 and zlib1g.
 
+### Maintainer disposition for the pinned development and CI image
+
+Compose publishes PostgreSQL on IPv4 loopback at `127.0.0.1:54322`. The team accepts the remaining exposure for development and CI through November 30, 2026. Review earlier if Debian ships a fix or an application change introduces a reachable input path. Retain the scanner findings and prioritize the high-severity matches in libraries loaded by PostgreSQL. The production service requires a separate assessment.
+
+| Critical scanner match | Disposition and evidence |
+| --- | --- |
+| zlib1g, CVE-2023-45853 | Inapplicable to this binary. Debian omits the affected MiniZip code from Bookworm's zlib build, and the image has no separate MiniZip package installed. [Debian tracker](https://security-tracker.debian.org/tracker/CVE-2023-45853) |
+| libsqlite3-0, CVE-2025-7458 | Temporarily accepted. The affected SQLite library is installed. The issue requires SQL execution through SQLite. The app uses PostgreSQL, and the repository review found no SQLite execution path. [Debian tracker](https://security-tracker.debian.org/tracker/CVE-2025-7458) |
+| libxml2, CVE-2026-6653 | Open, first priority for re-review. PostgreSQL links libxml2. The repository review found no database query that parses user-supplied XML, although a direct SQL client can invoke PostgreSQL's XML functions. Debian has deferred the Bookworm fix. [Debian tracker](https://security-tracker.debian.org/tracker/CVE-2026-6653) |
+
 ## Remediated npm inventory
 
 Package | Before | After | Tree | Remediated advisories
