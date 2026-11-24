@@ -8,7 +8,7 @@
 
 An AI-powered theological assistant – merging centuries-old Reformed wisdom with modern machine intelligence.
 
-[**Website**](https://www.calvinistparrot.com/)
+[**Website**](https://www.calvinistparrot.com/) · [Changelog](./CHANGELOG.md)
 
 This work is part of the [Calvinist Parrot Ministries](https://www.calvinistparrotministries.org/), we exist to glorify God by creating and freely distributing AI tools that proclaim the Gospel, strengthen the Church, and equip believers across the globe.
 
@@ -125,7 +125,8 @@ The former `/api/parrot-chat` route remains a deprecated compatibility endpoint.
   Get filter metadata (states, denominations, totals) for church discovery.
 
 ## Contributing
-We welcome contributions! Please see our Contributing Guide for details.
+
+We welcome contributions! See the [Contributing Guide](./CONTRIBUTING.md) for setup, pull requests, and versioning.
 
 ## Acknowledgements
 Huge thanks to [AO Lab](https://www.helloao.org/) for providing the Bible API with the Berean Standard Bible ([BSB](https://berean.bible/)) translation and Bible Commentaries.

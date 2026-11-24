@@ -6,6 +6,10 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 - Do not hard-wrap Markdown prose to a fixed maximum column width. Keep each paragraph and list item on one logical line unless Markdown structure, a code block, or readability genuinely requires a line break.
 
+## Pull requests and releases
+
+For work intended for `master`, follow the [PR and versioning guidelines](./CONTRIBUTING.md#pull-requests-and-versioning). Give each PR a release impact (`major`, `minor`, `patch`, or `none`) and a one-sentence reason. Add user or operator changes to `Unreleased` in the [changelog](./CHANGELOG.md). The release PR updates the app version once for the whole batch.
+
 ## GitHub CLI Authentication in Codex
 
 - On macOS, Codex's sandbox may be unable to read the GitHub CLI credential stored in Keychain, causing a sandboxed `gh auth status` to incorrectly report that the active token is invalid even after a successful login.
