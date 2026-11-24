@@ -94,6 +94,8 @@ typing-extensions==4.16.0
 typing-inspection==0.4.2
     # via pydantic
 urllib3==2.8.0
-    # via requests
+    # via
+    #   appwrite
+    #   requests
 websockets==16.1.1
     # via google-genai
