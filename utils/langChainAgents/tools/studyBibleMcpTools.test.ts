@@ -2,7 +2,7 @@ import { once } from "node:events";
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { text } from "node:stream/consumers";
-import { MultiServerMCPClient } from "@langchain/mcp-adapters";
+import { MCPAdapter } from "@langchain/mcp-adapters";
 import { expect, it, vi } from "vitest";
 
 it("discovers and invokes a Study Bible tool over the configured SSE transport", async () => {
@@ -51,7 +51,7 @@ it("discovers and invokes a Study Bible tool over the configured SSE transport",
     stream.write(`event: message\ndata: ${JSON.stringify({ jsonrpc: "2.0", id, result })}\n\n`);
   });
 
-  const discovery = vi.spyOn(MultiServerMCPClient.prototype, "getTools");
+  const discovery = vi.spyOn(MCPAdapter.prototype, "listTools");
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   try {
@@ -65,7 +65,7 @@ it("discovers and invokes a Study Bible tool over the configured SSE transport",
   } finally {
     // The application keeps this client alive for subsequent tool calls.
     const client = discovery.mock.contexts[0];
-    if (client instanceof MultiServerMCPClient) await client.close();
+    if (client instanceof MCPAdapter) await client.close();
     discovery.mockRestore();
     vi.unstubAllEnvs();
     await new Promise<void>((resolve) => {
