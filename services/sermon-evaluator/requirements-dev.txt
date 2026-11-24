@@ -50,7 +50,7 @@ httpx2==2.16.0
     # via
     #   calvinist-parrot-sermon-evaluator (pyproject.toml)
     #   google-genai
-idna==3.18
+idna==3.20
     # via
     #   anyio
     #   httpx
