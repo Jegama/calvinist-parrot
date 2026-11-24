@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { getChatActorId, resolveChatActor } from "@/lib/guest";
 import prisma from "@/lib/prisma";
+import { acquireChatCreationLocks } from "@/lib/api/handlers/request-persistence-lock";
+import { derivedCreationRequestId, recordChatEvents } from "@/lib/chat-analytics";
 import { deterministicConversationTitle } from "@/lib/chat-title";
 import { selectBranchPrefix } from "@/lib/chat-turns";
 import { generateConversationName } from "@/utils/generateConversationName";
@@ -10,6 +12,7 @@ import { generateConversationName } from "@/utils/generateConversationName";
 const branchSchema = z.object({
   sourceChatId: z.string().trim().min(1),
   sourceMessageId: z.string().trim().min(1),
+  requestId: z.string().trim().min(1).max(191).optional(),
   editedText: z.string().trim().min(1).max(20_000),
 });
 
@@ -86,11 +89,27 @@ export async function POST(request: Request) {
     sourceChat.conversationName,
     parsed.data.editedText,
   );
-  const requestId = crypto.randomUUID();
+  const requestId = parsed.data.requestId
+    ? derivedCreationRequestId("branch", sourceChat.id, parsed.data.sourceMessageId, parsed.data.requestId)
+    : crypto.randomUUID();
 
   const result = await prisma.$transaction(async (transaction) => {
+    await acquireChatCreationLocks(transaction, actorId, requestId);
+    const existing = await transaction.chatHistory.findUnique({
+      where: { userId_creationRequestId: { userId: actorId, creationRequestId: requestId } },
+      select: {
+        id: true, conversationName: true,
+        messages: { where: { sender: "user", requestId }, select: { id: true, content: true } },
+      },
+    });
+    if (existing) {
+      const editedMessage = existing.messages[0];
+      if (existing.messages.length !== 1 || editedMessage.content !== parsed.data.editedText) return null;
+      return { branchedChat: existing, editedMessage };
+    }
     const branchedChat = await transaction.chatHistory.create({
       data: {
+        creationRequestId: requestId,
         userId: actorId,
         conversationName,
         category: sourceChat.category,
@@ -100,6 +119,8 @@ export async function POST(request: Request) {
       },
     });
 
+    await recordChatEvents(transaction, branchedChat.id, requestId, "web", actor, ["created", "submission"]);
+
     if (prefix.length > 0) {
       await transaction.chatMessage.createMany({
         data: prefix.map((message) => ({
@@ -108,6 +129,7 @@ export async function POST(request: Request) {
           content: message.content,
           requestId: message.requestId,
           timestamp: message.timestamp,
+          analyticsExcluded: true,
         })),
       });
     }
@@ -129,6 +151,9 @@ export async function POST(request: Request) {
     return { branchedChat, editedMessage };
   });
 
+  if (!result) {
+    return NextResponse.json({ error: "Request ID conflicts with an existing branch" }, { status: 409 });
+  }
   return NextResponse.json({
     chatId: result.branchedChat.id,
     title: result.branchedChat.conversationName,

@@ -14,7 +14,7 @@
 - Profile UI state is centralized in the Zustand store `app/profile/ui-store.ts`; extend it instead of scattering `useState` when touching profile dialogs or alerts.
 
 ## Conversational Pipelines
-- `/api/parrot-chat` streams JSONL events via `lib/progressUtils.sendProgress`; the chat UI keys on `{type}` values (`progress`, `parrot`, `gotQuestions`, etc.).
+- The chat UI streams NDJSON through `/api/web/chats`; public clients use `/api/v1/chats`. Both entry points share handlers in `lib/api/handlers/chat.ts` and the stream event types.
 - `utils/langChainAgents/mainAgent.ts` defines the LangGraph agent; new tools register in `utils/langChainAgents/tools/index.ts` and follow the Tavily whitelist in `supplementalArticleSearchTool.ts`.
 - `/api/parrot-qa` orchestrates the "Counsel of Three" workflow, Calvin review, and stores results in Prisma `questionHistory`.
 - Conversation titles and categories reuse mini OpenAI models through `utils/generateConversationName.ts` and prompt constants in `lib/prompts.ts`.

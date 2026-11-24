@@ -31,7 +31,8 @@ This document maps the Brand Identity colors to their usage in the application's
 | **Charcoal** | `#333333` | `0, 0%, 20%` | `--foreground`<br>`--card-foreground`<br>`--user-message-foreground`<br>`--sidebar-primary` | Body text, headings |
 | **Light Gray** | `#E5E5E5` | `0, 0%, 90%` | `--border` | General borders and dividers |
 | **Warm Neutral** | token-derived | `42, 20%, 74%` | `--sidebar-border` | Light-mode sidebar and chat-toolbar dividers |
-| **Very Light Gray** | `#F5F5F5` | `0, 0%, 96%` | `--muted`<br>`--input`<br>`--secondary` | Muted backgrounds, input fields, secondary actions |
+| **Very Light Gray** | `#F5F5F5` | `0, 0%, 96%` | `--muted`<br>`--secondary` | Muted backgrounds and secondary actions |
+| **Gray-teal** | `#7A8585` | `180, 4.3%, 50%` | `--input` | Light-mode form field outlines. Focus uses a 2px Deep Teal ring. |
 | **Pure White** | `#FFFFFF` | `0, 0%, 100%` | `--input-bg` | Input backgrounds in light mode |
 
 `--input-bg` is the required surface token for the main chat composer. Pair it

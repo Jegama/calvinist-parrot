@@ -10,6 +10,12 @@ const nextConfig = {
       },
     ],
   },
+  async headers() {
+    return [{
+      source: '/admin/analytics',
+      headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
+    }];
+  },
   async rewrites() {
     return [
       {

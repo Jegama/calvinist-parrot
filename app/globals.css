@@ -40,7 +40,8 @@
     --destructive-foreground: 0 0% 100%;
     /* Brand: Light Gray #E5E5E5 - Borders */
     --border: 0 0% 90%;
-    --input: 0 0% 96%;
+    /* Gray-teal #7A8585 outlines editable controls on cards and cream surfaces. */
+    --input: 180 4.3% 50%;
     /* Input background - Pure white in light mode for better contrast */
     --input-bg: 0 0% 100%;
     /* Brand: Deep Blue - Focus rings */
@@ -179,6 +180,22 @@
 }
 
 @layer components {
+  .form-field {
+    @apply border border-input bg-input-bg;
+  }
+
+  .form-field:focus {
+    @apply outline-none ring-2 ring-accent;
+  }
+
+  :where(.dark) .form-field {
+    @apply bg-transparent;
+  }
+
+  :where(.dark) .form-field:focus {
+    @apply ring-1 ring-ring;
+  }
+
   .sidebar-button {
     background-color: transparent;
     transition: background-color 0.2s;

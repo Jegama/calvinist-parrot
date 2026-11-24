@@ -50,6 +50,8 @@ Identity is resolved by the server. Signed-in users are identified through the A
 
 The v1 API does not accept a caller-supplied `userId`. Browser clients should include credentials normally, and server integrations should retain the cookies returned for the conversation actor. Chat history access is checked against that resolved actor, and internal ownership identifiers are not part of the public response contract.
 
+The website sends new chat operations through its own first-party routes. Public clients continue to use the documented v1 endpoints with the same cookies, request identifiers and ownership checks. Analytics records the server entry point and actor when each chat or submission is created. Signing in later preserves the attribution of earlier turns.
+
 ## Theological Commitments
 
 Denominational modes affect secondary doctrines while sharing non-negotiable commitments: the Trinity; God's holy, sovereign, loving, and just character; the inspiration, inerrancy, and authority of Scripture; Christ's true deity and humanity; the incarnation and virgin birth; the necessity and sufficiency of Christ's atonement; the historical death, burial, and bodily resurrection of Christ; justification by grace alone through faith alone in Christ alone; Christ's bodily return; final judgment; and the renewal of all things.

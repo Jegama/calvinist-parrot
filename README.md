@@ -86,6 +86,14 @@ Codex-managed worktrees share the local Postgres container but receive separate 
 
 For the database workflow, CI/CD notes, and testing recommendations, see [Local Development](./docs/technical/Local%20Development.md).
 
+### Admin analytics
+
+Accounts with the Appwrite label `analyticsadmin` can open `/admin/analytics` or read its aggregate JSON at `/api/admin/analytics`. Both accept `?days=7` or `?days=30` and report through the last completed day in America/Chicago.
+
+Registration counts use a server-only `APPWRITE_ANALYTICS_READ_KEY` with the `users.read` scope. Production pageviews use `VERCEL_ANALYTICS_TOKEN`, `VERCEL_PROJECT_ID`, and `VERCEL_TEAM_ID`. The dashboard labels unavailable sources and shows the remaining metrics. See the [environment template](./.env.template) for configuration.
+
+Deleting an individual chat or journal entry leaves its content-free activity records in place. When fulfilling an account deletion request, include the account’s chat and action records and any journal completion and provider records linked to its entry or revision IDs.
+
 ### Chat model configuration
 
 The conversational Parrot agent uses Claude Haiku 5.5 through LangChain's `ChatAnthropic`. Configure `ANTHROPIC_API_KEY`, `PARROT_AGENT_PROVIDER=anthropic`, and `PARROT_ANTHROPIC_MODEL=claude-haiku-5-5` in each environment. Existing deployments with `PARROT_AGENT_PROVIDER=gemini` or `openai` must change that setting to switch providers; restart or redeploy after updating it.

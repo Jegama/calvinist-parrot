@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Family, NewFamilyFormState } from "../types";
 import { useCallback, useMemo, useState } from "react";
 import { formatRelative, isFamilyArchived } from "../utils";
-import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { ARCHIVED_CATEGORY } from "../constants";
 
 const joinClassNames = (base: string, extra?: string) => {
@@ -223,14 +223,19 @@ export function FamilySection({
           <div className="grid gap-3 sm:grid-cols-2 sm:items-end">
             <label className="space-y-1 text-sm font-medium">
               <span>Search families</span>
-              <Input
-                type="search"
-                value={familySearch}
-                onChange={(event) => {
-                  onFamilySearchChange(event.target.value);
-                  setPageForFilter(1);
-                }}
-              />
+              <span className="relative block">
+                <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  className="h-11 pl-10 md:h-9"
+                  placeholder="Search by name"
+                  value={familySearch}
+                  onChange={(event) => {
+                    onFamilySearchChange(event.target.value);
+                    setPageForFilter(1);
+                  }}
+                />
+              </span>
             </label>
             <Select value={categoryFilter} onValueChange={handleCategoryFilterChange}>
               <SelectTrigger aria-label="Filter by category">

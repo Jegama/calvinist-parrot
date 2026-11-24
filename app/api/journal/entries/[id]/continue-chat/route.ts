@@ -4,6 +4,8 @@
 
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { acquireChatCreationLocks } from "@/lib/api/handlers/request-persistence-lock";
+import { derivedCreationRequestId, recordChatEvents } from "@/lib/chat-analytics";
 import { generateConversationName } from "@/utils/generateConversationName";
 import type { Call1Output } from "@/types/journal";
 import { formatCall1ForChat } from "@/lib/prompts/journal";
@@ -55,11 +57,18 @@ export async function POST(
     // Generate conversation name from entry text
     const conversationName = await generateConversationName(entry.entryText.substring(0, 500));
 
-    // Create chat with seeded messages
+    const key = request.headers.get("Idempotency-Key") || crypto.randomUUID();
+    const creationRequestId = derivedCreationRequestId("journal", id, key);
     const chat = await prisma.$transaction(async (tx) => {
+      await acquireChatCreationLocks(tx, authenticatedUserId, creationRequestId);
+      const existing = await tx.chatHistory.findUnique({
+        where: { userId_creationRequestId: { userId: authenticatedUserId, creationRequestId } },
+      });
+      if (existing) return existing;
       const createdChat = await tx.chatHistory.create({
         data: {
           userId: authenticatedUserId,
+          creationRequestId,
           conversationName,
           category: "journal",
           subcategory: "reflection",
@@ -67,15 +76,20 @@ export async function POST(
         },
       });
 
+      await recordChatEvents(tx, createdChat.id, creationRequestId, "web",
+        { kind: "authenticated", userId: authenticatedUserId }, ["created"]);
+
       await tx.chatMessage.createMany({
         data: [
           {
             chatId: createdChat.id,
+            analyticsExcluded: true,
             sender: "user",
             content: entry.entryText,
           },
           {
             chatId: createdChat.id,
+            analyticsExcluded: true,
             sender: "parrot",
             content: reflectionText,
           },

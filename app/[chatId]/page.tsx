@@ -129,7 +129,7 @@ function ChatPageContent() {
       fetchControllerRef.current = fetchController;
       try {
         const response = await fetch(
-          `/api/v1/chats/${encodeURIComponent(params.chatId)}`,
+          `/api/web/chats/${encodeURIComponent(params.chatId)}`,
           { cache: "no-store", signal: fetchController.signal },
         );
         if (!response.ok) {
@@ -317,7 +317,7 @@ function ChatPageContent() {
 
       try {
         const response = await fetch(
-          `/api/v1/chats/${encodeURIComponent(params.chatId)}/messages`,
+          `/api/web/chats/${encodeURIComponent(params.chatId)}/messages`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -569,6 +569,7 @@ function ChatPageContent() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        requestId: crypto.randomUUID(),
         sourceChatId: params.chatId,
         sourceMessageId: message.id,
         editedText,
@@ -607,7 +608,7 @@ function ChatPageContent() {
 
     try {
       const response = await fetch(
-        `/api/v1/chats/${encodeURIComponent(params.chatId)}/requests/${encodeURIComponent(activeRequest.requestId)}/stop`,
+        `/api/web/chats/${encodeURIComponent(params.chatId)}/requests/${encodeURIComponent(activeRequest.requestId)}/stop`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

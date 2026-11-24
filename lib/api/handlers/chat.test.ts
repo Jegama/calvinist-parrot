@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   getChatActorId: vi.fn(),
   generateConversationName: vi.fn(),
   chatHistoryFindFirst: vi.fn(),
+  chatAnalyticsFindFirst: vi.fn(),
   chatHistoryFindUnique: vi.fn(),
   userProfileFindUnique: vi.fn(),
   chatMessageFindMany: vi.fn(),
@@ -22,6 +23,7 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: mocks.chatHistoryFindFirst,
       findUnique: mocks.chatHistoryFindUnique,
     },
+    chatAnalyticsEvent: { findFirst: mocks.chatAnalyticsFindFirst },
     userProfile: {
       findUnique: mocks.userProfileFindUnique,
     },
@@ -317,6 +319,7 @@ describe("chat runtime mappings", () => {
     mocks.getChatActorId.mockReturnValue("owner-1");
     mocks.generateConversationName.mockResolvedValue("Grace");
     mocks.chatHistoryFindFirst.mockResolvedValue(null);
+    mocks.chatAnalyticsFindFirst.mockResolvedValue(null);
     mocks.chatHistoryFindUnique.mockResolvedValue(null);
   });
 
@@ -330,6 +333,7 @@ describe("chat runtime mappings", () => {
         ...data,
         id: data.id ?? "chat-generated",
       }));
+      const captureEvents = vi.fn();
       const chatMessageCreate = vi
         .fn()
         .mockResolvedValueOnce({ id: "message-1" })
@@ -343,6 +347,7 @@ describe("chat runtime mappings", () => {
             create: chatHistoryCreate,
           },
           chatMessage: { create: chatMessageCreate },
+          chatAnalyticsEvent: { createMany: captureEvents },
         }),
       );
 
@@ -373,6 +378,11 @@ describe("chat runtime mappings", () => {
           issue_type: "secondary",
         }),
       });
+      const recorded = captureEvents.mock.calls[0][0].data;
+      expect(recorded.map((event: { kind: string }) => event.kind)).toEqual(
+        initialAnswer ? ["created"] : ["created", "submission"],
+      );
+      expect(recorded[0]).toMatchObject({ channel: "unknown", actorKind: "account", accountId: "owner-1" });
       expect(await response.json()).toEqual({
         chatId: "client-chat-1",
         messageId: "message-1",
@@ -446,6 +456,13 @@ describe("chat runtime mappings", () => {
       error: "Request ID conflicts with an existing chat creation",
     });
     expect(chatHistoryCreate).not.toHaveBeenCalled();
+
+    // The same transcript can instead have a genuine creation followed by a streamed reply.
+    mocks.chatAnalyticsFindFirst.mockResolvedValue({ kind: "submission" });
+    const afterStream = await executeChatCommand(jsonRequest({}), { ...command, initialAnswer: undefined });
+    expect(afterStream.status).toBe(200);
+    const suppliedGeneratedAnswer = await executeChatCommand(jsonRequest({}), command);
+    expect(suppliedGeneratedAnswer.status).toBe(409);
   });
 
   it("returns 409 when a new request reuses an existing client chat ID", async () => {

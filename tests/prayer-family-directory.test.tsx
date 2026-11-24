@@ -38,6 +38,8 @@ it("searches all directory pages and returns to page one when the query changes"
   try {
     await act(async () => root.render(<Directory />));
     const search = container.querySelector<HTMLInputElement>('input[type="search"]')!;
+    expect(search.labels?.[0].textContent).toBe("Search families");
+    expect(search.placeholder).toBe("Search by name");
     const changeSearch = async (value: string) => {
       await act(async () => {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, value);
