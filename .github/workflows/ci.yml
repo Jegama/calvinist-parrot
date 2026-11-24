@@ -16,26 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    services:
-      postgres:
-        image: pgvector/pgvector:pg17
-        env:
-          POSTGRES_USER: calvinist_parrot
-          POSTGRES_PASSWORD: calvinist_parrot
-          POSTGRES_DB: sermon_evaluator_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U calvinist_parrot -d sermon_evaluator_test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     env:
       RUN_SERMON_DATABASE_INTEGRATION_TESTS: "1"
-      DATABASE_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:5432/sermon_evaluator_test?schema=public
+      DATABASE_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:54322/calvinist_parrot_test?schema=public
       # The local CI service has no TLS; production keeps the worker's TLS default.
-      SERMON_DATABASE_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:5432/sermon_evaluator_test?sslmode=disable
+      SERMON_DATABASE_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:54322/calvinist_parrot_test?sslmode=disable
 
     defaults:
       run:
@@ -43,10 +28,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Start test database
+        working-directory: ${{ github.workspace }}
+        run: docker compose up --wait postgres
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -60,7 +49,7 @@ jobs:
         run: npx prisma migrate deploy
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.14"
           cache: pip
@@ -68,6 +57,12 @@ jobs:
 
       - name: Install pinned dependencies
         run: python -m pip install -r requirements-dev.txt
+
+      - name: Verify both worker locks against the project manifest
+        run: |
+          python -m piptools compile --resolver=backtracking --strip-extras -o requirements.txt pyproject.toml
+          python -m piptools compile --resolver=backtracking --strip-extras --allow-unsafe --extra dev -o requirements-dev.txt pyproject.toml
+          git diff --exit-code -- requirements.txt requirements-dev.txt
 
       - name: Install sermon evaluator
         run: python -m pip install --no-deps -e .
@@ -82,26 +77,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    services:
-      postgres:
-        image: pgvector/pgvector:pg17
-        env:
-          POSTGRES_USER: calvinist_parrot
-          POSTGRES_PASSWORD: calvinist_parrot
-          POSTGRES_DB: calvinist_parrot_dev
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U calvinist_parrot -d calvinist_parrot_dev"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     env:
       NEXT_TELEMETRY_DISABLED: "1"
       RUN_SERMON_DATABASE_INTEGRATION_TESTS: "1"
-      DATABASE_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:5432/calvinist_parrot_dev?schema=public
-      CCEL_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:5432/calvinist_parrot_dev?schema=public
+      DATABASE_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:54322/calvinist_parrot_test?schema=public
+      CCEL_URL: postgresql://calvinist_parrot:calvinist_parrot@localhost:54322/calvinist_parrot_test?schema=public
       ANTHROPIC_API_KEY: ci-placeholder
       GEMINI_API_KEY: ci-placeholder
       OPENAI_API_KEY: ci-placeholder
@@ -123,10 +103,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Start test database
+        run: docker compose up --wait postgres
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm

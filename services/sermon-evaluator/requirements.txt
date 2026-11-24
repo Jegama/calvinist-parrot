@@ -13,7 +13,7 @@ anyio==4.14.2
     #   httpx2
 appwrite==22.2.0
     # via calvinist-parrot-sermon-evaluator (pyproject.toml)
-certifi==2026.7.22
+certifi==2026.11.20
     # via
     #   httpcore
     #   httpx
@@ -22,7 +22,7 @@ cffi==2.1.0
     # via cryptography
 charset-normalizer==3.4.9
     # via requests
-cryptography==49.0.0
+cryptography==50.0.2
     # via google-auth
 distro==1.9.0
     # via google-genai
@@ -58,7 +58,7 @@ psycopg-binary==3.3.4
     # via psycopg
 psycopg-pool==3.3.1
     # via psycopg
-pyasn1==0.6.4
+pyasn1==0.6.5
     # via pyasn1-modules
 pyasn1-modules==0.4.2
     # via google-auth
@@ -93,7 +93,7 @@ typing-extensions==4.16.0
     #   typing-inspection
 typing-inspection==0.4.2
     # via pydantic
-urllib3==2.7.0
+urllib3==2.8.0
     # via requests
 websockets==16.1.1
     # via google-genai

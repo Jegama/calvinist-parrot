@@ -71,7 +71,7 @@ Python 3.14 is required. `pyproject.toml` owns direct dependencies; committed lo
 
 ```bash
 python -m piptools compile --resolver=backtracking --strip-extras -o requirements.txt pyproject.toml
-python -m piptools compile --resolver=backtracking --strip-extras --extra dev -o requirements-dev.txt pyproject.toml
+python -m piptools compile --resolver=backtracking --strip-extras --allow-unsafe --extra dev -o requirements-dev.txt pyproject.toml
 ```
 
 ## Deployment

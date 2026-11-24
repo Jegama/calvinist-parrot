@@ -2,7 +2,7 @@ name: calvinist-parrot
 
 services:
   postgres:
-    image: pgvector/pgvector:pg17
+    image: pgvector/pgvector:0.8.7-pg17-bookworm@sha256:b513c48566e4777cd3370451400000c78eda6a08131d68f4c31d4a76f27bd8fd
     container_name: calvinist-parrot-postgres
     restart: unless-stopped
     environment:
@@ -10,15 +10,19 @@ services:
       POSTGRES_PASSWORD: calvinist_parrot
       POSTGRES_DB: calvinist_parrot_dev
     ports:
-      - "54322:5432"
+      - "127.0.0.1:54322:5432"
     volumes:
       - calvinist_parrot_postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  trivy:
+    image: aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+    profiles: [audit]
 
 volumes:
   calvinist_parrot_postgres_data:

@@ -1,0 +1,51 @@
+name: Dependency audit
+
+on:
+  schedule:
+    - cron: "23 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Audit production lock
+        run: npm audit --package-lock-only --omit=dev
+      - name: Audit full lock
+        if: ${{ !cancelled() }}
+        run: npm audit --package-lock-only
+
+  worker:
+    name: Audit worker ${{ matrix.lock }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lock: [requirements.txt, requirements-dev.txt]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version-file: services/sermon-evaluator/.python-version
+      - uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
+        with:
+          inputs: services/sermon-evaluator/${{ matrix.lock }}
+          no-deps: true
+
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Audit Debian packages for available security fixes
+        run: |
+          image=$(docker compose config --images postgres)
+          docker compose run --rm trivy image --db-repository ghcr.io/aquasecurity/trivy-db:2 \
+            --image-src remote --scanners vuln --pkg-types os --severity HIGH,CRITICAL \
+            --ignore-unfixed --exit-code 1 "registry-1.docker.io/$image"
