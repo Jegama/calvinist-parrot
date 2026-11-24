@@ -69,7 +69,7 @@ pydantic==2.13.4
     #   appwrite
     #   calvinist-parrot-sermon-evaluator (pyproject.toml)
     #   google-genai
-pydantic-core==2.46.4
+pydantic-core==2.50.5
     # via pydantic
 requests==2.34.2
     # via
