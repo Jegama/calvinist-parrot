@@ -54,7 +54,7 @@ mutagen==1.48.1
     # via calvinist-parrot-sermon-evaluator (pyproject.toml)
 psycopg==3.3.4
     # via calvinist-parrot-sermon-evaluator (pyproject.toml)
-psycopg-binary==3.3.4
+psycopg-binary==3.3.9
     # via psycopg
 psycopg-pool==3.3.1
     # via psycopg
