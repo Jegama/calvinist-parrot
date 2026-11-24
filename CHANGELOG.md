@@ -69,10 +69,19 @@
 - **November 12, 2025 · v0.5.** Chat gained long-term memory, a denomination selector in the interface, and the ability to delete chats. The announcement also pointed readers to the doctrinal statement and API documentation. [#51](https://github.com/Jegama/calvinist-parrot/pull/51)
 - **October 31, 2025 · Church Finder.** The Reformation Day announcement invited people to find or submit a church and see how its website described its beliefs. The directory distinguished limited published information from an explicit doctrinal denial. The initial directory merged on October 29 with package version `0.4`. [#48](https://github.com/Jegama/calvinist-parrot/pull/48) · [#50](https://github.com/Jegama/calvinist-parrot/pull/50)
 
+## Earlier package versions
+
+| Version | First recorded on `master` | Milestone |
+| --- | --- | --- |
+| 0.3.1 | October 23, 2025 | Improved chat and profile caching and kept household profiles in sync when a prayer request was marked answered. [#47](https://github.com/Jegama/calvinist-parrot/pull/47) |
+| 0.3.0 | October 12, 2025 | Introduced the household Prayer Tracker, including family prayer rotation and invitations. [#42](https://github.com/Jegama/calvinist-parrot/pull/42) |
+| 0.2.0 | October 3, 2025 | Chat moved to GPT-5 and improved how it handled the first question in a conversation. [#39](https://github.com/Jegama/calvinist-parrot/pull/39) |
+| 0.1.0 | November 22, 2024 | First version recorded in the application manifest. [Initial package](https://github.com/Jegama/calvinist-parrot/blob/ff0c2dd/package.json) |
+
 ## Historical sources
 
 The backfill covers 45 PRs closed from November 24, 2025 through November 24, 2026. Of those, 44 merged into `master`. The header-layout proposal closed without merging. The earlier public announcements come from the maintainer's Facebook posts. [Closed PRs in the review window](https://github.com/Jegama/calvinist-parrot/pulls?q=is%3Apr+is%3Aclosed+closed%3A2025-11-24..2026-11-24) · [#53](https://github.com/Jegama/calvinist-parrot/pull/53)
 
-For versions through 1.0.0, the dates above mark the first merge carrying that package version on `master`, in U.S. Central time. Later changes under the same number are identified separately. Version 2.0.0 groups the 23 PRs merged after 1.0.0 through November 24, 2026. [Package history](https://github.com/Jegama/calvinist-parrot/commits/master/package.json)
+Package dates through 1.0.0 mark the first commit carrying that version on `master`, in U.S. Central time. The two public announcements carry their original dates. Later changes under the same number are identified separately. Version 2.0.0 groups the 23 PRs merged after 1.0.0 through November 24, 2026. [Package history](https://github.com/Jegama/calvinist-parrot/commits/master/package.json)
 
 Contributor work in the review included local Postgres and CI setup, Codex environment setup, and a PR review skill. [#70](https://github.com/Jegama/calvinist-parrot/pull/70) · [#71](https://github.com/Jegama/calvinist-parrot/pull/71) · [#91](https://github.com/Jegama/calvinist-parrot/pull/91)
