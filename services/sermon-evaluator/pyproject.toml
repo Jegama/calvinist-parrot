@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.14,<3.15"
 license = { text = "Proprietary" }
 dependencies = [
-  "appwrite>=22,<23",
+  "appwrite>=22,<29",
   "google-genai>=3.3,<4",
   "httpx>=0.28,<1",
   "httpx2>=2,<3",

@@ -11,7 +11,7 @@ anyio==4.14.2
     #   google-genai
     #   httpx
     #   httpx2
-appwrite==22.2.0
+appwrite==28.0.0
     # via calvinist-parrot-sermon-evaluator (pyproject.toml)
 certifi==2026.11.20
     # via
@@ -94,6 +94,8 @@ typing-extensions==4.16.0
 typing-inspection==0.4.5
     # via pydantic
 urllib3==2.8.0
-    # via requests
+    # via
+    #   appwrite
+    #   requests
 websockets==16.1.1
     # via google-genai
