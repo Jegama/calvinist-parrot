@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- **Admin analytics.** Accounts with the `analyticsadmin` label can view chat and account growth, guest activity, activation, feature usage, and estimated AI spend over 7 or 30 days.
-- **Form visibility.** Light-mode fields have clearer outlines and keyboard focus. Prayer Tracker’s family directory has a larger mobile search field with a search icon.
+- **Admin analytics.** Accounts with the `analyticsadmin` label can view chat and account growth, guest activity, activation, feature usage, and estimated AI spend over 7 or 30 days. [#121](https://github.com/Jegama/calvinist-parrot/pull/121)
+- **Form visibility.** Light-mode fields have clearer outlines and keyboard focus. Prayer Tracker’s family directory has a larger mobile search field with a search icon. [#121](https://github.com/Jegama/calvinist-parrot/pull/121)
 
 ## 2.0.0 — November 24, 2026
 
