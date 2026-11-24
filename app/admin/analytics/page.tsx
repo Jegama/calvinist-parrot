@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import AnalyticsDashboard from "@/components/analytics/AnalyticsDashboard";
 import { analyticsAccess } from "@/lib/analytics/access";
-import { loadAnalyticsReport, reportDays } from "@/lib/analytics/report";
+import { reportDays } from "@/lib/analytics/period";
+import { loadAnalyticsReport } from "@/lib/analytics/report";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin analytics", robots: { index: false, follow: false } };

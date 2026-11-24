@@ -10,6 +10,10 @@ const series = [
 
 export default function GrowthCharts({ report }: { report: AnalyticsReport }) {
   const { growth, coverage } = report.metrics;
+  // Keep bars readable on a phone. Each shows the end of an equal share of the period.
+  const barCount = Math.min(growth.length, 30);
+  const bars = Array.from({ length: barCount }, (_, index) =>
+    growth[Math.ceil((index + 1) * growth.length / barCount) - 1]);
   const { startDay, endDay, timeZone } = report.period;
   const chatStart = coverage.chat && new Date(coverage.chat).toLocaleDateString("en-US", { timeZone, dateStyle: "medium" });
 
@@ -19,6 +23,7 @@ export default function GrowthCharts({ report }: { report: AnalyticsReport }) {
         <h2 id="growth-heading" className="text-2xl font-semibold">Cumulative growth</h2>
         <p className="text-sm text-muted-foreground">
           Counts accumulate from {dayLabel(startDay)}. {chatStart ? `Chat attribution began ${chatStart}.` : "Chat attribution start is unavailable."}
+          {growth.length > barCount && " Each bar shows the cumulative total at the end of an interval. The table lists every day."}
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
@@ -39,7 +44,7 @@ export default function GrowthCharts({ report }: { report: AnalyticsReport }) {
                       <span>{numberLabel(maximum)}</span><span>0</span>
                     </div>
                     <div aria-hidden="true" className="flex h-24 flex-1 items-end gap-px border-y">
-                      {growth.map((point) => {
+                      {bars.map((point) => {
                         const value = point[key];
                         return value === null
                           ? <span key={point.day} className="h-full flex-1 bg-muted" />

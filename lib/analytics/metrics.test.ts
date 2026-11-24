@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { getAnalyticsMetrics } from "./metrics";
-import { getReportingWindow } from "./period";
+import { getReportingWindow, reportDays, reportingPeriods, shiftDay } from "./period";
 
 const now = new Date("2026-11-24T05:59:59Z");
 
@@ -11,6 +11,16 @@ describe("Chicago reporting windows", () => {
     expect(window.previousEndDay).toBe("2026-10-23");
     expect(window.previousEnd).toEqual(window.start);
     expect(window.end.toISOString()).toBe("2026-11-23T06:00:00.000Z");
+  });
+  it.each(reportingPeriods)("compares two full $days-day windows", ({ days }) => {
+    expect(reportDays(String(days))).toBe(days);
+    const window = getReportingWindow(days, "2024-03-01", now);
+    expect(shiftDay(window.startDay, days - 1)).toBe(window.endDay);
+    expect(shiftDay(window.previousStartDay, days)).toBe(window.startDay);
+    expect(window.previousEnd).toEqual(window.start);
+  });
+  it("keeps the default for unsupported inputs", () => {
+    for (const input of [undefined, ["90"], "99999", "0", "30days"]) expect(reportDays(input)).toBe(7);
   });
   it.each([["2026-03-09", 167], ["2026-11-02", 169]] as const)("spans seven local dates across DST ending %s", (end, hours) => {
     const window = getReportingWindow(7, end, now);

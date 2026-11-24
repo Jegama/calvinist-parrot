@@ -4,7 +4,6 @@ const session = vi.hoisted(() => ({ secret: "", labels: [] as string[] }));
 const report = vi.hoisted(() => vi.fn(async (days: number) => ({ period: { days } })));
 vi.mock("@/lib/analytics/report", () => ({
   loadAnalyticsReport: report,
-  reportDays: (days: string) => days === "30" ? 30 : 7,
 }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers(),
@@ -12,8 +11,8 @@ vi.mock("next/headers", () => ({
 }));
 vi.mock("@/components/analytics/AnalyticsDashboard", () => ({ default: () => null }));
 
-const request = new Request("http://local.test/api/admin/analytics?days=30");
-const props = { searchParams: Promise.resolve({ days: "30" }) };
+const request = new Request("http://local.test/api/admin/analytics?days=730");
+const props = { searchParams: Promise.resolve({ days: "730" }) };
 
 beforeEach(() => {
   session.secret = "";
@@ -50,8 +49,8 @@ it("checks the current session and label on every page and API request, includin
   expect(report).not.toHaveBeenCalled();
 
   session.labels = ["analyticsadmin"];
-  expect((await Page(props)).props.report).toEqual({ period: { days: 30 } });
-  expect(await expectApi(200)).toEqual({ period: { days: 30 } });
+  expect((await Page(props)).props.report).toEqual({ period: { days: 730 } });
+  expect(await expectApi(200)).toEqual({ period: { days: 730 } });
 
   session.labels = [];
   await expect(Page(props)).rejects.toMatchObject({ digest: expect.stringContaining("404") });

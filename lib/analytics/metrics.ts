@@ -49,6 +49,8 @@ function getAccountActivity(db: ReportDatabase, window: ReportingWindow, cohort:
                  WHERE kind = 'submission' AND "actorKind" = 'account'`
     : Prisma.sql`SELECT "accountId", "occurredAt" FROM "AnalyticsAccountAction" WHERE TRUE`;
   const signups = cohort.map(({ id, registeredAt }) => ({ id, registered: registeredAt.toISOString() }));
+  const since = cohort.reduce((earliest, account) =>
+    account.registeredAt < earliest ? account.registeredAt : earliest, window.activeStarts.monthly);
   // Return at most one row per account/source. Only aggregate counts leave
   // this module. Use exact instants for activation even on DST boundaries.
   return db.$queryRaw<AccountActivity[]>`
@@ -56,7 +58,7 @@ function getAccountActivity(db: ReportDatabase, window: ReportingWindow, cohort:
       SELECT id, registered AT TIME ZONE 'UTC' AS since
       FROM jsonb_to_recordset(${JSON.stringify(signups)}::jsonb) AS r(id text, registered timestamptz)
     ), actions AS (
-      ${actions} AND "occurredAt" >= ${utc(window.activeStarts.monthly)} AND "occurredAt" < ${utc(window.end)}
+      ${actions} AND "occurredAt" >= ${utc(since)} AND "occurredAt" < ${utc(window.end)}
     )
     SELECT "accountId", max("occurredAt") AT TIME ZONE 'UTC' AS latest,
            coalesce(bool_or("occurredAt" >= since AND "occurredAt" < since + interval '168 hours'), false) AS activated
@@ -123,9 +125,10 @@ export async function getAnalyticsMetrics(window: ReportingWindow, registrations
     const day = reportingDay(account.registeredAt);
     accountsByDay.set(day, (accountsByDay.get(day) ?? 0) + 1);
   }
+  const chatByDay = new Map(chat?.filter(row => row.day !== null).map(row => [row.day, row]));
   const growth = Array.from({ length: window.days }, (_, i) => {
     const day = shiftDay(window.startDay, i);
-    const row = chat?.find(row => row.day === day);
+    const row = chatByDay.get(day);
     newChats += row?.newChats ?? 0;
     userMessages += row?.userMessages ?? 0;
     newAccounts += accountsByDay.get(day) ?? 0;

@@ -80,7 +80,7 @@ export default function ProfilePage() {
 
   return (
     <ProtectedView fallback={fallback}>
-      <ProfileCard name={user.name || ""} email={user.email || ""} onLogout={handleLogout} />
+      <ProfileCard name={user.name || ""} email={user.email || ""} labels={user.labels} onLogout={handleLogout} />
 
       {profileStats && (
         <TheologicalPreferencesCard stats={profileStats} userId={user.$id} onUpdate={() => profileOverview.refetch()} />

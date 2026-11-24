@@ -37,7 +37,8 @@ describe("admin analytics presentation", () => {
     const document = new JSDOM(renderToStaticMarkup(<AnalyticsDashboard report={report} />)).window.document;
     const text = document.body.textContent ?? "";
     expect(document.querySelector('[aria-current="page"]')?.getAttribute("href")).toBe("/admin/analytics?days=7");
-    expect(document.querySelector('a[href="/admin/analytics?days=30"]')).not.toBeNull();
+    expect(Array.from(document.querySelectorAll('nav[aria-label="Reporting period"] a'), link => link.getAttribute("href")))
+      .toEqual([7, 30, 90, 180, 365, 730].map(days => `/admin/analytics?days=${days}`));
     expect(text).toContain("+2 vs. prior 7 days");
     expect(text).toContain("-1 vs. prior 7 days");
     const link = document.querySelector<HTMLAnchorElement>('header a[href="#data-coverage"]')!;

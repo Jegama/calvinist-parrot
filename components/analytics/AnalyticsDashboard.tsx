@@ -1,3 +1,4 @@
+import { reportingPeriods } from "@/lib/analytics/period";
 import type { AnalyticsReport } from "@/lib/analytics/report";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import FeatureTable from "./FeatureTable";
@@ -187,11 +188,11 @@ export default function AnalyticsDashboard({ report }: { report: AnalyticsReport
             Compared with {dayLabel(period.previousStartDay)} – {dayLabel(period.previousEndDay)} · {period.timeZone}
           </p>
         </div>
-        <nav aria-label="Reporting period" className="inline-flex rounded-md border bg-card p-1">
-          {([7, 30] as const).map((days) => (
+        <nav aria-label="Reporting period" className="grid w-full grid-cols-3 gap-1 rounded-md border bg-card p-1 sm:w-auto sm:grid-cols-6">
+          {reportingPeriods.map(({ days, label }) => (
             <a key={days} href={`/admin/analytics?days=${days}`} aria-current={days === period.days ? "page" : undefined}
-              className={`rounded-sm px-4 py-2 text-sm font-medium focus-visible:outline-ring ${days === period.days ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
-              {days} days
+              className={`rounded-sm px-3 py-2 text-center text-sm font-medium focus-visible:outline-ring ${days === period.days ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+              {label}
             </a>
           ))}
         </nav>

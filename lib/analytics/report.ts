@@ -1,13 +1,9 @@
 import { getFeatureReport } from "./features";
 import { getAnalyticsMetrics } from "./metrics";
-import { getReportingWindow, reportingTimeZone } from "./period";
+import { getReportingWindow, reportingTimeZone, type ReportingDays } from "./period";
 import { getRegistrations } from "./registrations";
 
-export function reportDays(value: unknown): 7 | 30 {
-  return value === "30" ? 30 : 7;
-}
-
-export async function loadAnalyticsReport(days: 7 | 30) {
+export async function loadAnalyticsReport(days: ReportingDays) {
   const now = new Date();
   const window = getReportingWindow(days, undefined, now);
   const [metrics, features] = await Promise.all([

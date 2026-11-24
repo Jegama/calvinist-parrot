@@ -64,6 +64,13 @@ describe.skipIf(!databaseUrl)("analytics against PostgreSQL", () => {
         expect(report.activation).toEqual({ eligible: 4, activated: 1, pending: 1, uncovered: 1, rate: 0.25,
           firstEligibleDay: "2099-03-01", lastEligibleDay: "2099-03-01" });
         expect(JSON.stringify(report)).not.toContain("guest-turn");
+        // These March signups activated months before the trailing active-user windows.
+        const longWindow = getReportingWindow(730, "2099-10-31", new Date("2099-11-02T12:00:00Z"));
+        const historical = await getAnalyticsMetrics(longWindow, registrations, tx);
+        expect(historical.active).toEqual({ daily: 0, weekly: 0, monthly: 0 });
+        expect(historical.activation).toMatchObject({ eligible: 5, activated: 2, pending: 0, uncovered: 1 });
+        expect(historical.growth).toHaveLength(730);
+        expect(historical.growth.at(-1)?.newAccounts).toBe(historical.hero.newAccounts.current);
         throw rollback;
       })).rejects.toBe(rollback);
     } finally {

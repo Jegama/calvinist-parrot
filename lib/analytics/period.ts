@@ -1,5 +1,17 @@
 export const reportingTimeZone = "America/Chicago";
-export type ReportingDays = 7 | 30;
+export const reportingPeriods = [
+  { days: 7, label: "7 days" },
+  { days: 30, label: "30 days" },
+  { days: 90, label: "90 days" },
+  { days: 180, label: "180 days" },
+  { days: 365, label: "1 year" },
+  { days: 730, label: "2 years" },
+] as const;
+export type ReportingDays = (typeof reportingPeriods)[number]["days"];
+
+export function reportDays(value: unknown): ReportingDays {
+  return reportingPeriods.find(period => String(period.days) === value)?.days ?? 7;
+}
 
 const dateFormat = new Intl.DateTimeFormat("en-CA", {
   timeZone: reportingTimeZone, year: "numeric", month: "2-digit", day: "2-digit",
@@ -31,8 +43,8 @@ function midnight(day: string): Date {
 export function getReportingWindow(days: ReportingDays, endDay?: string, now = new Date()) {
   const lastCompleteDay = shiftDay(reportingDay(now), -1);
   const day = endDay ?? lastCompleteDay;
-  if ((days !== 7 && days !== 30) || !/^\d{4}-\d{2}-\d{2}$/.test(day) || shiftDay(day, 0) !== day || day > lastCompleteDay) {
-    throw new Error("Choose a complete 7- or 30-day Chicago reporting period.");
+  if (!reportingPeriods.some(period => period.days === days) || !/^\d{4}-\d{2}-\d{2}$/.test(day) || shiftDay(day, 0) !== day || day > lastCompleteDay) {
+    throw new Error("Choose a supported reporting period ending on a complete Chicago day.");
   }
   const startDay = shiftDay(day, 1 - days);
   const previousStartDay = shiftDay(startDay, -days);

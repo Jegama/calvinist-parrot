@@ -88,7 +88,7 @@ For the database workflow, CI/CD notes, and testing recommendations, see [Local 
 
 ### Admin analytics
 
-Accounts with the Appwrite label `analyticsadmin` can open `/admin/analytics` or read its aggregate JSON at `/api/admin/analytics`. Both accept `?days=7` or `?days=30` and report through the last completed day in America/Chicago.
+Accounts with the Appwrite label `analyticsadmin` can open **Analytics dashboard** from their profile or read aggregate JSON at `/api/admin/analytics`. Both `/admin/analytics` and the API accept `?days=` with 7 (default), 30, 90, 180, 365, or 730 days. Each period ends on the last completed day in America/Chicago and is compared with the preceding period of equal length.
 
 Registration counts use a server-only `APPWRITE_ANALYTICS_READ_KEY` with the `users.read` scope. Production pageviews use `VERCEL_ANALYTICS_TOKEN`, `VERCEL_PROJECT_ID`, and `VERCEL_TEAM_ID`. The dashboard labels unavailable sources and shows the remaining metrics. See the [environment template](./.env.template) for configuration.
 
