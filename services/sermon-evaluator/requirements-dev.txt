@@ -71,7 +71,7 @@ pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
-psycopg==3.3.4
+psycopg==3.3.9
     # via calvinist-parrot-sermon-evaluator (pyproject.toml)
 psycopg-binary==3.3.9
     # via psycopg
