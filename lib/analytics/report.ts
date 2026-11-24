@@ -1,15 +1,25 @@
 import { getFeatureReport } from "./features";
 import { getAnalyticsMetrics } from "./metrics";
-import { getReportingWindow, reportingTimeZone, type ReportingDays } from "./period";
-import { getRegistrations } from "./registrations";
+import { getReportingWindow, reportingTimeZone, type ReportingDays, type ReportingWindow } from "./period";
+import { getRegistrations, RegistrationSourceError, type AccountRegistration } from "./registrations";
+
+async function loadMetrics(window: ReportingWindow) {
+  let registrations: AccountRegistration[] | null = null;
+  let registrationIssue: string | null = null;
+  try {
+    registrations = await getRegistrations(window.previousStart, window.end);
+  } catch (error) {
+    registrationIssue = error instanceof RegistrationSourceError ? error.message : "Appwrite registrations are temporarily unavailable.";
+  }
+  const metrics = await getAnalyticsMetrics(window, registrations);
+  return { ...metrics, registrationIssue };
+}
 
 export async function loadAnalyticsReport(days: ReportingDays) {
   const now = new Date();
   const window = getReportingWindow(days, undefined, now);
   const [metrics, features] = await Promise.all([
-    getRegistrations(window.previousStart, window.end)
-      .catch(() => null)
-      .then(registrations => getAnalyticsMetrics(window, registrations)),
+    loadMetrics(window),
     getFeatureReport(window),
   ]);
   const website = metrics.channels.find(row => row.channel === "web");

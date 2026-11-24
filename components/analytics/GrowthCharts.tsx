@@ -3,17 +3,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { dayLabel, numberLabel } from "./format";
 
 const series = [
-  { key: "newChats", label: "New chats", color: "bg-chart-2" },
-  { key: "userMessages", label: "User messages", color: "bg-primary" },
-  { key: "newAccounts", label: "New accounts", color: "bg-chart-3" },
+  { key: "newChats", label: "New chats", color: "stroke-chart-2" },
+  { key: "userMessages", label: "User messages", color: "stroke-primary" },
+  { key: "newAccounts", label: "New accounts", color: "stroke-chart-3" },
 ] as const;
+
+// A move starts a separate line after a missing day. A zero-length stroke
+// with a round cap keeps an isolated observation visible.
+function dailyLine(values: (number | null)[], maximum: number) {
+  return values.map((value, index) => {
+    if (value === null) return "";
+    const x = (100 * index / Math.max(1, values.length - 1)).toFixed(2);
+    const y = (97 - 94 * value / maximum).toFixed(2);
+    return index === 0 || values[index - 1] === null ? `M${x} ${y}h0` : `L${x} ${y}`;
+  }).join("");
+}
 
 export default function GrowthCharts({ report }: { report: AnalyticsReport }) {
   const { growth, coverage } = report.metrics;
-  // Keep bars readable on a phone. Each shows the end of an equal share of the period.
-  const barCount = Math.min(growth.length, 30);
-  const bars = Array.from({ length: barCount }, (_, index) =>
-    growth[Math.ceil((index + 1) * growth.length / barCount) - 1]);
   const { startDay, endDay, timeZone } = report.period;
   const chatStart = coverage.chat && new Date(coverage.chat).toLocaleDateString("en-US", { timeZone, dateStyle: "medium" });
 
@@ -23,14 +30,14 @@ export default function GrowthCharts({ report }: { report: AnalyticsReport }) {
         <h2 id="growth-heading" className="text-2xl font-semibold">Cumulative growth</h2>
         <p className="text-sm text-muted-foreground">
           Counts accumulate from {dayLabel(startDay)}. {chatStart ? `Chat attribution began ${chatStart}.` : "Chat attribution start is unavailable."}
-          {growth.length > barCount && " Each bar shows the cumulative total at the end of an interval. The table lists every day."}
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
         {series.map(({ key, label, color }) => {
           const last = growth.at(-1)?.[key] ?? null;
-          const maximum = Math.max(1, ...growth.map((point) => point[key] ?? 0));
-          const hasData = growth.some((point) => point[key] !== null);
+          const values = growth.map(point => point[key]);
+          const maximum = Math.max(1, ...values.map(value => value ?? 0));
+          const hasData = values.some(value => value !== null);
           return (
             <figure key={key} className="min-w-0 rounded-lg border bg-card p-5">
               <figcaption className="mb-4 flex items-baseline justify-between gap-2">
@@ -43,14 +50,10 @@ export default function GrowthCharts({ report }: { report: AnalyticsReport }) {
                     <div aria-hidden="true" className="flex h-24 flex-col justify-between text-xs tabular-nums text-muted-foreground">
                       <span>{numberLabel(maximum)}</span><span>0</span>
                     </div>
-                    <div aria-hidden="true" className="flex h-24 flex-1 items-end gap-px border-y">
-                      {bars.map((point) => {
-                        const value = point[key];
-                        return value === null
-                          ? <span key={point.day} className="h-full flex-1 bg-muted" />
-                          : <span key={point.day} className={`flex-1 rounded-t-sm ${color}`} style={{ height: `${100 * value / maximum}%` }} />;
-                      })}
-                    </div>
+                    <svg aria-hidden="true" className="h-24 min-w-0 flex-1 overflow-visible border-y" viewBox="0 0 100 100" preserveAspectRatio="none">
+                      <path d={dailyLine(values, maximum)} className={color} fill="none" strokeWidth="2.5"
+                        strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                    </svg>
                   </div>
                   <div className="mt-1 flex justify-between text-xs text-muted-foreground">
                     <span>{dayLabel(startDay, true)}</span><span>{dayLabel(endDay, true)}</span>

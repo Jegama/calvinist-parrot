@@ -13,6 +13,7 @@ describe("admin analytics presentation", () => {
       },
       generatedAt: "2026-11-19T08:00:00Z",
       metrics: {
+        registrationIssue: "Set APPWRITE_ANALYTICS_READ_KEY for this deployment and redeploy.",
         hero: {
           newChats: { current: 2, previous: 0 }, userMessages: { current: 7, previous: 8 },
           newAccounts: { current: null, previous: null }, averageMessages: { current: 3.5, previous: null },
@@ -20,6 +21,8 @@ describe("admin analytics presentation", () => {
         channels: [{ channel: "web", newChats: 2, userMessages: 7, activeChats: 2, averageMessages: 3.5 }],
         growth: [
           { day: "2026-11-12", newChats: 0, userMessages: null, newAccounts: null },
+          { day: "2026-11-13", newChats: 1, userMessages: 4, newAccounts: null },
+          { day: "2026-11-14", newChats: 1, userMessages: null, newAccounts: null },
           { day: "2026-11-18", newChats: 2, userMessages: 7, newAccounts: null },
         ],
         active: { daily: 1, weekly: 2, monthly: 5 },
@@ -43,12 +46,21 @@ describe("admin analytics presentation", () => {
     expect(text).toContain("-1 vs. prior 7 days");
     const link = document.querySelector<HTMLAnchorElement>('header a[href="#data-coverage"]')!;
     expect(document.querySelector(link.hash)?.closest("footer")?.textContent).toContain("Appwrite registrations unavailable.");
-    expect(document.querySelector('section[aria-label="Period overview"]')?.textContent).toContain("Registration data unavailable");
+    expect(document.querySelector('section[aria-label="Period overview"]')?.textContent).toContain("Set APPWRITE_ANALYTICS_READ_KEY");
     expect(document.getElementById("pageview-coverage")?.textContent).toContain("Vercel pageviews unavailable.");
     expect(text).toContain("Partial pricing.");
     const daily = document.querySelector<HTMLTableSectionElement>("details tbody")!;
     expect(daily.rows[0].cells[2].textContent).toBe("—");
-    expect(daily.rows[1].cells[2].textContent).toBe("7");
+    expect(daily.rows[daily.rows.length - 1].cells[2].textContent).toBe("7");
+    const charts = document.querySelectorAll("figure");
+    const line = charts[0].querySelector("svg path")?.getAttribute("d");
+    expect(line?.match(/L/g)).toHaveLength(3);
+    expect(line).toMatch(/^M0\.00 97\.00.*L100\.00 3\.00$/);
+    // Missing observations split the line, including isolated known days.
+    const brokenLine = charts[1].querySelector("svg path")?.getAttribute("d");
+    expect(brokenLine?.match(/M/g)).toHaveLength(2);
+    expect(brokenLine).not.toContain("L");
+    expect(charts[2].querySelector("svg")).toBeNull();
     const feature = document.querySelector<HTMLTableRowElement>('section[aria-labelledby="features-heading"] tbody tr')!;
     expect(feature.textContent).toContain("Saved entries3");
     expect(feature.textContent).toContain("$0.000032");

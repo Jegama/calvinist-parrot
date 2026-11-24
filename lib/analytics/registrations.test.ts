@@ -42,3 +42,15 @@ it("treats a failed later page as unavailable instead of returning incomplete co
     .mockResolvedValueOnce(new Response(null, { status: 429 }));
   await expect(getRegistrations(start, end)).rejects.toThrow();
 });
+
+it("identifies a missing analytics key without attempting a lookup", async () => {
+  const transport = configureSource();
+  vi.stubEnv("APPWRITE_ANALYTICS_READ_KEY", "");
+  await expect(getRegistrations(start, end)).rejects.toThrow("Set APPWRITE_ANALYTICS_READ_KEY");
+  expect(transport).not.toHaveBeenCalled();
+});
+
+it.each([401, 403])("identifies denied Appwrite access (%s) without exposing the response", async status => {
+  configureSource().mockResolvedValue(new Response("private provider details", { status }));
+  await expect(getRegistrations(start, end)).rejects.toThrow("Appwrite denied the registration lookup. Check that the analytics key has users.read for this project.");
+});

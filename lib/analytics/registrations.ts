@@ -4,6 +4,10 @@ import { APPWRITE_PROJECT_ID } from "@/lib/appwrite/server";
 
 export type AccountRegistration = { id: string; registeredAt: Date };
 
+// Only these operator-facing messages may leave the server. Provider bodies
+// and validation errors can include account data.
+export class RegistrationSourceError extends Error {}
+
 const PAGE_SIZE = 100;
 const registrationPage = z.object({
   users: z.array(z.object({ $id: z.string().min(1), registration: z.iso.datetime({ offset: true }) })),
@@ -14,7 +18,8 @@ const registrationPage = z.object({
 export async function getRegistrations(start: Date, end: Date): Promise<AccountRegistration[]> {
   const endpoint = process.env.APPWRITE_ENDPOINT ?? process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
   const key = process.env.APPWRITE_ANALYTICS_READ_KEY;
-  if (!endpoint || !key) throw new Error("Registration source is not configured");
+  if (!key) throw new RegistrationSourceError("Set APPWRITE_ANALYTICS_READ_KEY for this deployment and redeploy.");
+  if (!endpoint) throw new RegistrationSourceError("Configure the Appwrite endpoint for this deployment.");
 
   const queries = [
     Query.greaterThanEqual("registration", start.toISOString()),
@@ -37,6 +42,9 @@ export async function getRegistrations(start: Date, end: Date): Promise<AccountR
       redirect: "error",
       signal,
     });
+    if (response.status === 401 || response.status === 403) {
+      throw new RegistrationSourceError("Appwrite denied the registration lookup. Check that the analytics key has users.read for this project.");
+    }
     if (!response.ok) throw new Error("Registration source unavailable");
     const { users } = registrationPage.parse(await response.json());
     for (const user of users) {

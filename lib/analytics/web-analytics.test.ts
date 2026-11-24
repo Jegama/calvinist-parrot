@@ -9,6 +9,7 @@ describe("production Web Analytics", () => {
     vi.stubEnv("VERCEL_ANALYTICS_TOKEN", "synthetic");
     vi.stubEnv("VERCEL_PROJECT_ID", "project");
     vi.stubEnv("VERCEL_TEAM_ID", "team");
+    vi.stubEnv("VERCEL_TOKEN", "fallback");
     const transport = vi.fn().mockResolvedValue(Response.json({ data: [
       { requestPath: "/", route: "", pageviews: 3 },
       { requestPath: "/28bd830d-62ad-44e0-834e-7bab672deb12?private=value", route: "", pageviews: 1 },
@@ -31,6 +32,20 @@ describe("production Web Analytics", () => {
       since: "2026-11-10T06:00:00.000Z", until: "2026-11-17T05:59:59.999Z",
     });
     expect(init).toMatchObject({ cache: "no-store", headers: { Authorization: "Bearer synthetic" } });
+  });
+
+  it("uses the Vercel token with a project ID when no explicit team is set", async () => {
+    vi.stubEnv("VERCEL_ANALYTICS_TOKEN", "");
+    vi.stubEnv("VERCEL_TOKEN", "fallback");
+    vi.stubEnv("VERCEL_PROJECT_ID", "project");
+    vi.stubEnv("VERCEL_TEAM_ID", "");
+    const transport = vi.fn().mockResolvedValue(Response.json({ data: [] }));
+    vi.stubGlobal("fetch", transport);
+    await getPageviews(window);
+    const [url, init] = transport.mock.calls[0];
+    expect(url.searchParams.get("projectId")).toBe("project");
+    expect(url.searchParams.has("teamId")).toBe(false);
+    expect(init.headers.Authorization).toBe("Bearer fallback");
   });
 
   it("rejects malformed counters instead of presenting zero", async () => {

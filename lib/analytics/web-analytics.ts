@@ -62,17 +62,18 @@ export function chicagoTimestamp(date: Date) {
 }
 
 export async function getPageviews({ start, end }: FeatureWindow) {
-  const token = process.env.VERCEL_ANALYTICS_TOKEN;
+  const token = process.env.VERCEL_ANALYTICS_TOKEN || process.env.VERCEL_TOKEN;
   const projectId = process.env.VERCEL_PROJECT_ID;
   const teamId = process.env.VERCEL_TEAM_ID;
-  if (!token || !projectId || !teamId) throw new Error("Analytics source unavailable");
+  if (!token || !projectId) throw new Error("Analytics source unavailable");
 
   const url = new URL("https://api.vercel.com/v1/query/web-analytics/visits/aggregate");
   const until = new Date(end.getTime() - 1); // Vercel includes the upper bound.
   url.search = new URLSearchParams({
-    teamId, projectId, since: start.toISOString(), until: until.toISOString(),
+    projectId, since: start.toISOString(), until: until.toISOString(),
     by: "requestPath", filter: "environment eq 'production'", limit: "100",
   }).toString();
+  if (teamId) url.searchParams.set("teamId", teamId);
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store", redirect: "error", signal: AbortSignal.timeout(8000),

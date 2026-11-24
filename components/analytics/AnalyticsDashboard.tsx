@@ -31,7 +31,7 @@ function PeriodOverview({ report }: { report: AnalyticsReport }) {
           const change = delta === null ? "Change unavailable" : delta === 0 ? "No change" : `${delta > 0 ? "+" : ""}${numberLabel(delta)}`;
           let detail = delta === null ? change : `${change} vs. prior ${period.days} days`;
           if (current === null) {
-            if (key === "newAccounts") detail = "Registration data unavailable";
+            if (key === "newAccounts") detail = metrics.registrationIssue ?? "Registration data unavailable";
             else if (metrics.hero.userMessages.current === null) detail = "Chat data unavailable";
             else if (key === "averageMessages") detail = "No active chats this period";
           }
@@ -39,7 +39,7 @@ function PeriodOverview({ report }: { report: AnalyticsReport }) {
             <div key={key} className="flex flex-col rounded-lg border bg-card p-5 text-card-foreground">
               <dt className="text-sm font-medium">{label}</dt>
               <dd className="mt-auto pt-2 text-4xl font-semibold tracking-tight tabular-nums">{numberLabel(current)}</dd>
-              <dd className="mt-1 text-sm text-muted-foreground">{detail}</dd>
+              <dd className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{detail}</dd>
             </div>
           );
         })}
