@@ -58,6 +58,7 @@ describe("sermon upload client finalization", () => {
       durationAdjustmentEnabled: false,
     });
 
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/web/sermon-evaluations");
     const createRequest = fetchMock.mock.calls[1]?.[1] as
       | RequestInit
       | undefined;

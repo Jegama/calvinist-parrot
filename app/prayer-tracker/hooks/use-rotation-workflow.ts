@@ -124,7 +124,7 @@ export function useRotationWorkflow({ user, members, onMembersUpdate, refreshAll
     }));
     const prioritizedFamilies = sortFamiliesByAssignment(familiesWithAssignments, currentMemberId, memberOrder);
 
-    setRotation({ families: prioritizedFamilies, personal: fetchedPersonal, assignments: defaults });
+    setRotation({ flowId: result.data.flowId, families: prioritizedFamilies, personal: fetchedPersonal, assignments: defaults });
     setFamilyAssignments(defaults);
 
     const personalDefaults: Record<string, boolean> = {};
@@ -135,7 +135,7 @@ export function useRotationWorkflow({ user, members, onMembersUpdate, refreshAll
     setIsComputing(false);
   }, [members, onMembersUpdate, user]);
 
-  const confirmRotation = useCallback(async () => {
+  const confirmRotation = useCallback(async (shown?: Promise<void>) => {
     if (!user || !rotation) return;
 
     const familiesPayload = rotation.families
@@ -158,7 +158,10 @@ export function useRotationWorkflow({ user, members, onMembersUpdate, refreshAll
     setIsConfirming(true);
     setRotationError(null);
 
+    // Preserve the order of receipts when someone confirms as soon as the card appears.
+    await shown;
     const result = await api.confirmRotation({
+      flowId: rotation.flowId,
       familyAssignments: familiesPayload,
       personalIds: personalPayload,
     });

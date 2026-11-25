@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getAuthenticatedUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { mapChurchToDetail } from "@/lib/churchMapper";
+import { readChurchDetail } from "@/lib/api/handlers/church";
 import { isServerAdminUser } from "@/lib/admin";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -14,20 +14,12 @@ export async function GET(_request: Request, context: RouteParams) {
     return NextResponse.json({ error: "Missing church id" }, { status: 400 });
   }
 
-  const church = await prisma.church.findUnique({
-    where: { id },
-    include: {
-      addresses: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
-      serviceTimes: { orderBy: { createdAt: "asc" } },
-      evaluations: { orderBy: { createdAt: "desc" }, take: 1 },
-    },
-  });
-
+  const church = await readChurchDetail(id);
   if (!church) {
     return NextResponse.json({ error: "Church not found" }, { status: 404 });
   }
 
-  return NextResponse.json(mapChurchToDetail(church));
+  return NextResponse.json(church);
 }
 
 export async function DELETE(request: Request, context: RouteParams) {

@@ -964,7 +964,7 @@ export async function handleFinalizeSermonUpload(request: Request) {
   }
 }
 
-export async function handleCreateSermonEvaluation(request: Request) {
+export async function handleCreateSermonEvaluation(request: Request, channel: "web" | "public_api" = "public_api") {
   try {
     const { user, userId, errorResponse: authError } =
       await requireSermonEvaluationAccess();
@@ -1002,6 +1002,7 @@ export async function handleCreateSermonEvaluation(request: Request) {
     }
 
     const evaluation = await createReservedSermonEvaluation({
+      channel,
       ownerId: userId,
       actorId: userId,
       isAdmin: isSermonEvaluationAdmin(user),
@@ -1517,6 +1518,7 @@ export async function handleRetrySermonEvaluation(id: string) {
 export async function handleReevaluateSermon(
   request: Request,
   id: string,
+  channel: "web" | "public_api" = "public_api",
 ) {
   try {
     const { user, userId, errorResponse: authError } =
@@ -1553,6 +1555,7 @@ export async function handleReevaluateSermon(
       isSermonEvaluationAdmin(user),
     );
     const evaluation = await createReservedSermonEvaluation({
+      channel,
       ownerId: userId,
       actorId: userId,
       isAdmin: isSermonEvaluationAdmin(user),

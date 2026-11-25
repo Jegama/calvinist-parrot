@@ -20,6 +20,7 @@ export async function GET() {
         if (existing) {
             // Devotional exists - cache it heavily since it won't change for the day
             return Response.json({
+                readingId: devotionalId,
                 title: existing.title,
                 bible_verse: existing.bible_verse,
                 devotional: existing.devotional_text,
@@ -40,6 +41,7 @@ export async function GET() {
         // Return with shorter cache since this is newly generated
         return Response.json({
             bible_verse: created.bible_verse,
+            readingId: devotionalId,
             title: created.title,
             devotional: created.devotional_text,
         }, {

@@ -125,6 +125,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
       const evaluationIds = evaluations.map(
         (evaluation) => evaluation.id,
       );
+      await prisma.$executeRaw`DELETE FROM "AnalyticsEngagementEvent" WHERE feature = 'sermon' AND "flowId" = ANY(${evaluationIds}::text[])`;
       await prisma.sermonWorkerLease.updateMany({
         where: { evaluationId: { in: evaluationIds } },
         data: {
@@ -279,6 +280,35 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
       }),
     ]);
   }
+
+  it.each(["web", "public_api"] as const)("records %s sermon submission and generation separately from a report open", async channel => {
+    const fixture = await createFixture(`engagement-${channel}`);
+    const source = await createEvaluation(fixture, "Existing sermon", "COMPLETE");
+    const reevaluate = channel === "web"
+      ? (await import("@/app/api/web/sermon-evaluations/[id]/reevaluate/route")).POST
+      : (await import("@/app/api/v1/sermon-evaluations/[id]/reevaluate/route")).POST;
+    const opened = (await import("@/app/api/web/sermon-evaluations/[id]/report-opened/route")).POST;
+    handlerMocks.userId = fixture.ownerId;
+    const request = new Request("http://localhost/api", { method: "POST", body: JSON.stringify({ preset: "standard" }) });
+    const response = await reevaluate(request, { params: Promise.resolve({ id: source.id }) });
+    expect(response.status).toBe(201);
+    const { evaluation } = await response.json();
+    const context = { params: Promise.resolve({ id: evaluation.id }) };
+    const receipts = () => prisma.$queryRaw<{ step: string; channel: string }[]>`
+      SELECT step, channel FROM "AnalyticsEngagementEvent" WHERE feature = 'sermon' AND "flowId" = ${evaluation.id} ORDER BY step
+    `;
+    expect(await receipts()).toEqual([{ step: "submitted", channel }]);
+    expect((await opened(request, context)).status).toBe(404);
+    await prisma.sermonEvaluation.update({
+      where: { id: evaluation.id }, data: { status: "COMPLETE_WITH_WARNINGS", completedRuns: 1, completedAt: new Date() },
+    });
+    expect(await receipts()).toEqual([{ step: "report_ready", channel }, { step: "submitted", channel }]);
+    handlerMocks.userId = "another-owner";
+    expect((await opened(request, context)).status).toBe(404);
+    handlerMocks.userId = fixture.ownerId;
+    for (let i = 0; i < 2; i++) expect((await opened(request, context)).status).toBe(204);
+    expect(await receipts()).toEqual([{ step: "report_opened", channel: "web" }, { step: "report_ready", channel }, { step: "submitted", channel }]);
+  });
 
   it("enforces one active evaluation per owner while retaining terminal history", async () => {
     const fixture = await createFixture("active-owner");

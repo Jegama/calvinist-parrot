@@ -28,6 +28,7 @@ vi.mock("@/lib/prisma", () => {
     journalEntry: { create: mocks.create, findUnique: mocks.find, findMany: async () => [], update: vi.fn() },
     journalEntryAI: { findUnique: mocks.saved, upsert: mocks.upsert },
     $queryRaw: async () => [{ tags: [] }],
+    $executeRaw: async () => 1,
   };
   return { default: { ...database, $transaction: (fn: (tx: typeof database) => unknown) => fn(database) } };
 });

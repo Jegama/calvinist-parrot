@@ -3,6 +3,7 @@
 // Follows the pattern from app/api/parrot-chat/route.ts
 
 import { NextResponse } from "next/server";
+import { recordJournalFollowOn } from "@/lib/analytics/engagement-journal";
 import prisma from "@/lib/prisma";
 import { acquireChatCreationLocks } from "@/lib/api/handlers/request-persistence-lock";
 import { derivedCreationRequestId, recordChatEvents } from "@/lib/chat-analytics";
@@ -96,6 +97,9 @@ export async function POST(
         ],
       });
 
+      if (entry.entryType === "PERSONAL") {
+        await recordJournalFollowOn(tx, "personal_journal", "continued_chat", entry.id);
+      }
       return createdChat;
     });
 

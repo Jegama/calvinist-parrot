@@ -3,6 +3,7 @@
 // POST: Create entry + stream AI results progressively with parallel calls
 
 import { NextResponse } from "next/server";
+import { recordEngagement } from "@/lib/analytics/engagement-store";
 import prisma from "@/lib/prisma";
 import { getMembershipForUser } from "@/lib/householdService";
 import { getRecentEntryContext } from "@/utils/journal/llm";
@@ -174,6 +175,7 @@ export async function POST(request: Request) {
         data: { journalEntriesCount: { increment: 1 } },
       });
 
+      await recordEngagement("personal_journal", "saved", createdEntry.id, "web", tx);
       return createdEntry;
     });
 

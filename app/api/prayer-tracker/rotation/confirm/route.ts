@@ -1,3 +1,4 @@
+import { validate as isUuid } from "uuid";
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
@@ -7,6 +8,7 @@ type FamilyAssignment = { familyId: string; prayedByMemberId?: string | null };
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as {
+    flowId?: string;
     familyAssignments?: FamilyAssignment[];
     personalIds?: string[];
   };
@@ -124,6 +126,12 @@ export async function POST(request: Request) {
   }
 
   if (transactions.length) {
+    if (typeof body.flowId === "string" && isUuid(body.flowId)) {
+      transactions.push(prisma.analyticsEngagementEvent.createMany({
+        data: [{ feature: "prayer", step: "rotation_confirmed", channel: "web", flowId: body.flowId }],
+        skipDuplicates: true,
+      }));
+    }
     await prisma.$transaction(transactions);
   }
 

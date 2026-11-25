@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Effective Date:** April 6, 2026  
-**Last Updated:** November 24, 2026
+**Last Updated:** November 25, 2026
 
 Calvinist Parrot ("we," "us," or "our") is a ministry project of [Calvinist Parrot Ministries](https://www.calvinistparrotministries.org/). We are committed to protecting your privacy and handling your data with transparency and care. This Privacy Policy explains what information we collect, how we use it, and what choices you have.
 
@@ -35,6 +35,7 @@ When you use our features, we store the content you provide:
 - **Performance data:** We use Vercel Analytics and Speed Insights to collect anonymized page views, Core Web Vitals, and general performance metrics. This data is not tied to your identity.
 - **AI usage records:** For journal reflections and daily devotionals, we record the feature, generation step, operation and attempt identifiers, time, environment, provider, model, outcome, and available token counts to measure reliability and cost. These records exclude prompts, generated text, and family details.
 - **Feature activity.** We record when a conversation starts, a message is sent or answered, a journal entry is saved, or a sermon is submitted. Chat events record the entry channel and whether the actor was a guest, an account, or an integration. Signed-in activity includes an account identifier so we can count distinct active accounts and measure how soon new accounts use these features. Authorized administrators see aggregate counts.
+- **Feature engagement.** We measure whether website visitors see a chat reply, act on a journal reflection, confirm a prayer rotation, mark a request answered, view a church detail, or open a sermon report. We estimate engaged devotional reading after 30 seconds in a visible tab. These step records contain the feature, action, time, channel and an opaque identifier for the view or operation. They exclude content and family details. We do not match guest activity across devices.
 - **User agent:** Your browser's user-agent string is forwarded to our authentication provider for session security purposes.
 
 ### AI Memory

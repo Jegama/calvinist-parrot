@@ -5,6 +5,8 @@ import { config } from "dotenv";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { POST as addPrayer } from "@/app/api/prayer-tracker/requests/route";
+import { POST as continueChat } from "@/app/api/journal/entries/[id]/continue-chat/route";
 import { POST as createPersonal } from "@/app/api/journal/entries/route";
 import { POST as retryPersonal } from "@/app/api/journal/entries/[id]/reprocess/route";
 import { POST as createHeritage } from "@/app/api/kids-discipleship/logs/route";
@@ -29,6 +31,7 @@ let invalidStage: keyof typeof journalResponses | undefined;
 
 vi.mock("@/lib/prisma", () => ({ get default() { return db; } }));
 vi.mock("@/lib/auth", () => ({ requireAuthenticatedUser: async () => ({ userId, errorResponse: null }) }));
+vi.mock("@/utils/generateConversationName", () => ({ generateConversationName: async () => "Synthetic conversation" }));
 vi.mock("@tavily/core", () => ({ tavily: () => ({ search: async () => ({ results: [] }) }) }));
 
 // Exercise the actual SDKs and adapters, with deterministic provider responses at the HTTP boundary.
@@ -92,6 +95,7 @@ async function readEvents(response: Response) {
 describe.skipIf(!databaseUrl)("structured generation through the HTTP handlers and PostgreSQL", () => {
   let pool: Pool;
   const operationIds: string[] = [];
+  const chatIds: string[] = [];
   let savedDevotionalId: string | undefined;
 
   beforeAll(async () => {
@@ -112,6 +116,11 @@ describe.skipIf(!databaseUrl)("structured generation through the HTTP handlers a
     vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+    await db.$executeRaw`DELETE FROM "AnalyticsEngagementEvent" WHERE "flowId" = ANY(${operationIds}::text[])`;
+    await db.prayerPersonalRequest.deleteMany({ where: { spaceId } });
+    await db.chatAnalyticsEvent.deleteMany({ where: { chatId: { in: chatIds } } });
+    await db.chatMessage.deleteMany({ where: { chatId: { in: chatIds } } });
+    await db.chatHistory.deleteMany({ where: { id: { in: chatIds } } });
     await db.$executeRaw`DELETE FROM "AnalyticsJournalCompletion" WHERE "operationId" = ANY(${operationIds}::text[])`;
     await db.$executeRaw`DELETE FROM "AnalyticsAccountAction" WHERE "accountId" = ${userId}`;
     await db.providerCallAttempt.deleteMany({ where: { operationId: { in: operationIds } } });
@@ -143,6 +152,20 @@ describe.skipIf(!databaseUrl)("structured generation through the HTTP handlers a
     expect(transport).toHaveBeenCalledTimes(attempts);
   });
 
+  async function engagement(feature: string, entryId: string) {
+    const rows = await db.$queryRaw<{ step: string }[]>`
+      SELECT step FROM "AnalyticsEngagementEvent" WHERE feature = ${feature} AND "flowId" = ${entryId} AND channel = 'web' ORDER BY step
+    `;
+    return rows.map(row => row.step);
+  }
+
+  async function saveSuggestedPrayer(entryId: string) {
+    const response = await addPrayer(new Request("http://localhost/api/prayer-tracker/requests", {
+      method: "POST", body: JSON.stringify({ requestText: "Grow in patience", linkedToFamily: "household", linkedJournalEntryId: entryId }),
+    }));
+    expect(response.ok).toBe(true);
+  }
+
   it.each(features)("recovers $feature and counts both attempts at the failed stage", async ({ feature, create, retry, failing, stage, stages }) => {
     invalidStage = failing;
     const events = await readEvents(await create(request()));
@@ -153,6 +176,9 @@ describe.skipIf(!databaseUrl)("structured generation through the HTTP handlers a
     expect(first.find(row => row.stage === stage)).toMatchObject({ inputTokens: 15, outputTokens: 4, completedAt: null });
     expect(first.every(row => !row.completedAt)).toBe(true);
 
+    expect(await engagement(feature, operationId)).toEqual(["saved"]);
+    await saveSuggestedPrayer(operationId);
+    expect(await engagement(feature, operationId)).toEqual(["saved"]);
     invalidStage = undefined;
     const retried = await readEvents(await retry(request(), { params: Promise.resolve({ id: operationId }) }));
     expect(retried.at(-1)?.type).toBe("done");
@@ -163,6 +189,26 @@ describe.skipIf(!databaseUrl)("structured generation through the HTTP handlers a
     expect(new Set(repeated.map(row => row.outcome)).size).toBe(2);
     expect(new Set(repeated.map(row => row.attemptId)).size).toBe(2);
     expect(rows.every(row => row.completedAt)).toBe(true);
+
+    await saveSuggestedPrayer(operationId);
+    await saveSuggestedPrayer(operationId);
+    if (feature === "personal_journal") {
+      const chatRequest = () => new Request("http://localhost/api/journal/continue-chat", {
+        method: "POST", headers: { "Idempotency-Key": "engagement-fixture" },
+      });
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const response = await continueChat(chatRequest(), { params: Promise.resolve({ id: operationId }) });
+        expect(response.ok).toBe(true);
+        chatIds.push((await response.json()).chatId);
+      }
+      expect(await engagement(feature, operationId)).toEqual(["continued_chat", "prayer_saved", "reflection_ready", "saved"]);
+    } else {
+      const context = { params: Promise.resolve({ id: operationId }) };
+      const edit = await editHeritageLog(context, { entryText: "A different observation." });
+      expect((await readEvents(await retryHeritage(request(), context))).at(-1)?.type).toBe("done");
+      expect(await engagement(feature, operationId)).toEqual(["prayer_saved", "reflection_ready", "saved"]);
+      expect(await engagement(feature, edit.operationId!)).toEqual([]);
+    }
   });
 
   async function newHeritageLog() {
@@ -291,8 +337,8 @@ describe.skipIf(!databaseUrl)("structured generation through the HTTP handlers a
     expect(await db.parrotDevotionals.count({ where: { devotional_id: id } })).toBe(0);
     savedDevotionalId = id;
     const before = transport.mock.calls.length;
-    expect(await (await readDevotional()).json()).toEqual(devotional);
-    expect(await (await readDevotional()).json()).toEqual(devotional);
+    expect(await (await readDevotional()).json()).toEqual({ ...devotional, readingId: id });
+    expect(await (await readDevotional()).json()).toEqual({ ...devotional, readingId: id });
     expect(transport).toHaveBeenCalledTimes(before + 1);
     const operationId = createHash("sha256").update(id).digest("hex");
     operationIds.push(operationId);

@@ -7,6 +7,7 @@ import "leaflet/dist/leaflet.css";
 import { Marker, Popup, TileLayer } from "react-leaflet";
 
 import { cn } from "@/lib/utils";
+import { ChurchObservation } from "./church-observation";
 import type { ChurchListItem } from "@/types/church";
 
 import styles from "./church-map.module.css";
@@ -34,10 +35,11 @@ L.Marker.prototype.options.icon = DefaultIcon;
 type ChurchMapInnerProps = {
   churches: ChurchListItem[];
   onSelect: (church: ChurchListItem) => void;
+  showingResults: boolean;
   height?: number | null;
 };
 
-export function ChurchMapInner({ churches, onSelect, height }: ChurchMapInnerProps) {
+export function ChurchMapInner({ churches, onSelect, height, showingResults }: ChurchMapInnerProps) {
   const mapRef = useRef<L.Map | null>(null);
 
   const markers = churches.filter(
@@ -97,6 +99,7 @@ export function ChurchMapInner({ churches, onSelect, height }: ChurchMapInnerPro
           className="h-full w-full"
           style={{ height: resolvedHeight }}
         >
+          {showingResults && <ChurchObservation step="results_viewed" />}
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

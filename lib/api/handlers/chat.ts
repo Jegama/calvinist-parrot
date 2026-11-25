@@ -20,7 +20,8 @@ import { updateUserMemoriesFromConversation } from "@/utils/memoryExtraction";
 import { buildParrotSystemPrompt } from "@/utils/buildParrotSystemPrompt";
 import { getChatActorId, resolveChatActor } from "@/lib/guest";
 import { evaluateRetry } from "@/lib/chat-requests";
-import { chatOperationId, recordChatEvents, recordChatReply, type ChatChannel } from "@/lib/chat-analytics";
+import { chatOperationId, pendingVisibleReply, recordChatEvents, recordChatReply, type ChatChannel } from "@/lib/chat-analytics";
+import { recordEngagement } from "@/lib/analytics/engagement-store";
 import { resolveEffectiveDenomination } from "@/lib/chat-context";
 import {
   getRequestTerminalState,
@@ -469,6 +470,14 @@ export async function executeChatCommand(
 
     if (chatRecord.userId !== effectiveUserId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // The browser can submit a follow-up while its visibility receipt is still in flight.
+    // Confirm the same verified operation first so network ordering cannot reverse the steps.
+    const visible = channel === "web" && request.headers.get("x-parrot-visible-operation");
+    if (visible && /^[a-f0-9]{64}$/.test(visible)) {
+      const pending = await pendingVisibleReply(chatId, prisma).catch(() => undefined);
+      if (pending === visible) await recordEngagement("chat", "reply_visible", visible);
     }
 
     const conflict = await withRequestPersistenceLock(chatId, resolvedRequestId, async (tx) => {
@@ -1131,7 +1140,7 @@ export async function executeChatCommand(
 
 export async function executeGetChat(
   chatId: string | null,
-  options: { legacyShape?: boolean } = {},
+  options: { legacyShape?: boolean; website?: boolean } = {},
 ) {
   const actor = await resolveChatActor();
   const requesterUserId = getChatActorId(actor);
@@ -1238,7 +1247,19 @@ export async function executeGetChat(
     );
   }
 
-  return NextResponse.json(parsedResponse.data);
+  const response = NextResponse.json(parsedResponse.data);
+  if (options.website && messages.some(row => row.sender === "parrot" && row.requestId)) {
+    const operation = await pendingVisibleReply(chatId, prisma).catch(() => undefined);
+    if (!operation) return response;
+    const reply = messages.find(row =>
+      row.sender === "parrot" && row.requestId && chatOperationId(chatId, row.requestId) === operation);
+    if (reply) {
+      // The website only observes this one persisted reply, even on a long transcript.
+      response.headers.set("x-parrot-reply-target", encodeURIComponent(reply.id));
+      response.headers.set("x-parrot-reply-operation", operation);
+    }
+  }
+  return response;
 }
 
 export async function handleLegacyChatPost(

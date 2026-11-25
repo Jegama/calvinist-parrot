@@ -867,3 +867,14 @@ model AnalyticsJournalCompletion {
   @@id([feature, operationId])
   @@index([completedAt])
 }
+
+model AnalyticsEngagementEvent {
+  feature    String
+  step       String
+  flowId     String   @db.VarChar(128)
+  channel    String
+  occurredAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([feature, step, channel, flowId])
+  @@index([occurredAt])
+}

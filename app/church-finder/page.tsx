@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ChurchDetail, ChurchListItem } from "@/types/church";
@@ -12,6 +12,7 @@ import { ChevronDown, Info } from "lucide-react";
 import { ChurchDetailDialog } from "./components/church-detail-dialog";
 import { ChurchDiscoveryPanel } from "./components/church-discovery-panel";
 import { ChurchFiltersBar } from "./components/church-filters";
+import { ChurchObservation, ChurchView } from "./components/church-observation";
 import { ChurchList } from "./components/church-list";
 import { ChurchMap } from "./components/church-map";
 import type { ChurchFilters } from "./api";
@@ -40,20 +41,30 @@ const RESET_FILTERS: ChurchFilters = {
   status: "exclude_red_flag_and_limited",
 };
 
+// Dialog navigation stays in this history entry, including its anonymous view ID.
+function setChurchInUrl(id: string | null) {
+  const url = new URL(window.location.href);
+  if (id) url.searchParams.set("church", id);
+  else url.searchParams.delete("church");
+  // Next restores its router metadata for native history changes. Passing its
+  // private marker here would label this as an internal update and skip useSearchParams.
+  const state = { ...window.history.state };
+  delete state.__NA;
+  window.history.replaceState(state, "", url);
+}
+
 function ChurchFinderClient() {
   const [filters, setFilters] = useState<ChurchFilters>(DEFAULT_FILTERS);
-  const [listPage, setListPage] = useState(1);
+  const [requestedPage, setListPage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [selectedChurchId, setSelectedChurchId] = useState<string | null>(null);
+  const [explicitSelection, setExplicitSelection] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [discoveryOpen, setDiscoveryOpen] = useState(false);
   const filtersContainerRef = useRef<HTMLDivElement | null>(null);
   const discoveryRef = useRef<HTMLDivElement | null>(null);
   const [mapHeight, setMapHeight] = useState<number | null>(null);
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
+  const selectedChurchId = useSearchParams().get("church");
+  const detailOpen = !!selectedChurchId;
 
   const handleScrollToDiscovery = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -142,8 +153,8 @@ function ChurchFinderClient() {
   });
 
   const handleSelect = (church: ChurchListItem) => {
-    setDetailOpen(true);
-    setSelectedChurchId(church.id);
+    setExplicitSelection(church.id);
+    setChurchInUrl(church.id);
   };
 
   const handleFiltersChange = useCallback(
@@ -192,6 +203,7 @@ function ChurchFinderClient() {
 
   const handleChurchCreated = useCallback(
     (church: ChurchDetail) => {
+      setExplicitSelection(null);
       setListPage(1);
 
       // Invalidate and refetch both church list and metadata
@@ -201,19 +213,18 @@ function ChurchFinderClient() {
       // Cache the newly created church detail
       queryClient.setQueryData(["church-detail", church.id], church);
 
-      setSelectedChurchId(church.id);
-      setDetailOpen(true);
+      setChurchInUrl(church.id);
     },
     [queryClient, setListPage]
   );
 
   const handleChurchView = useCallback(
-    (church: ChurchDetail) => {
+    (church: ChurchDetail, explicitlyOpened: boolean) => {
+      setExplicitSelection(explicitlyOpened ? church.id : null);
       // Cache the church detail
       queryClient.setQueryData(["church-detail", church.id], church);
 
-      setSelectedChurchId(church.id);
-      setDetailOpen(true);
+      setChurchInUrl(church.id);
     },
     [queryClient]
   );
@@ -238,69 +249,21 @@ function ChurchFinderClient() {
     [queryClient]
   );
 
-  // Keep URL in sync with dialog state for shareable links (?church=<id>)
+  // Shared links to missing churches return to the directory.
   useEffect(() => {
-    const idFromParam = searchParams.get("church");
-    // If the URL has a church param, open the dialog for that ID
-    if (idFromParam && idFromParam !== selectedChurchId) {
-      setSelectedChurchId(idFromParam);
-      setDetailOpen(true);
-    }
-    // If there's no param and dialog is open without a selected id, ensure closed
-    if (!idFromParam && detailOpen && !selectedChurchId) {
-      setDetailOpen(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
-  useEffect(() => {
-    const current = searchParams.get("church");
-    // Add or update the church param when opening a church
-    if (detailOpen && selectedChurchId) {
-      if (current !== selectedChurchId) {
-        const params = new URLSearchParams(searchParams);
-        params.set("church", selectedChurchId);
-        const qs = params.toString();
-        router.replace(qs ? `${pathname}?${qs}` : pathname);
-      }
-    } else {
-      // Remove the param when dialog closes
-      if (current) {
-        const params = new URLSearchParams(searchParams);
-        params.delete("church");
-        const qs = params.toString();
-        router.replace(qs ? `${pathname}?${qs}` : pathname);
-      }
-    }
-  }, [detailOpen, selectedChurchId, searchParams, router, pathname]);
-
-  // If a shared link points to a non-existent church, gracefully close the dialog
-  useEffect(() => {
-    if (detailOpen && selectedChurchId && detailQuery.isError) {
-      // Remove invalid param from URL and reset state
-      const params = new URLSearchParams(searchParams);
-      params.delete("church");
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname);
-      setDetailOpen(false);
-      setSelectedChurchId(null);
-    }
-  }, [detailOpen, selectedChurchId, detailQuery.isError, searchParams, router, pathname]);
+    if (selectedChurchId && detailQuery.isError) setChurchInUrl(null);
+  }, [selectedChurchId, detailQuery.isError]);
 
   const churches = churchQuery.data?.items ?? EMPTY_CHURCHES;
   const total = churchQuery.data?.total ?? churches.length;
 
+  const totalPages = Math.max(1, Math.ceil(Math.max(total, churches.length) / CLIENT_PAGE_SIZE));
+  const listPage = Math.min(requestedPage, totalPages);
   const paginatedChurches = useMemo(() => {
     if (!churches.length) return [];
     const start = (listPage - 1) * CLIENT_PAGE_SIZE;
     return churches.slice(start, start + CLIENT_PAGE_SIZE);
   }, [churches, listPage]);
-
-  const totalPages = Math.max(1, Math.ceil(Math.max(total, churches.length) / CLIENT_PAGE_SIZE));
-
-  useEffect(() => {
-    setListPage((prev) => Math.min(prev, totalPages));
-  }, [setListPage, totalPages]);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -375,6 +338,7 @@ function ChurchFinderClient() {
               </div>
             ) : (
               <ChurchList
+                showingResults={!detailOpen}
                 items={paginatedChurches}
                 page={listPage}
                 pageSize={CLIENT_PAGE_SIZE}
@@ -389,7 +353,7 @@ function ChurchFinderClient() {
               Loading map data…
             </div>
           ) : (
-            <ChurchMap churches={churches} onSelect={handleSelect} height={mapHeight} />
+            <ChurchMap showingResults={!detailOpen} churches={churches} onSelect={handleSelect} height={mapHeight} />
           )}
         </div>
 
@@ -425,12 +389,15 @@ function ChurchFinderClient() {
         </Collapsible>
       </div>
 
+      {detailOpen && explicitSelection && detailQuery.data?.id === explicitSelection && (
+        <ChurchObservation step="detail_opened" />
+      )}
       <ChurchDetailDialog
         open={detailOpen}
         onOpenChange={(open) => {
-          setDetailOpen(open);
           if (!open) {
-            setSelectedChurchId(null);
+            setExplicitSelection(null);
+            setChurchInUrl(null);
           }
         }}
         church={detailQuery.data ?? null}
@@ -456,7 +423,7 @@ export default function ChurchFinderPage() {
         </div>
       }
     >
-      <ChurchFinderClient />
+      <ChurchView><ChurchFinderClient /></ChurchView>
     </Suspense>
   );
 }

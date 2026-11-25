@@ -3,6 +3,7 @@
 // POST: Create log + stream AI results progressively
 
 import { NextResponse } from "next/server";
+import { recordEngagement } from "@/lib/analytics/engagement-store";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
 import { assertHouseholdAccess } from "@/lib/householdService";
@@ -206,17 +207,21 @@ export async function POST(request: Request) {
     async start(controller) {
       try {
         // Create the journal entry
-        const entry = await prisma.journalEntry.create({
-          data: {
-            spaceId: child.spaceId,
-            authorProfileId: profile.id,
-            entryText,
-            entryType: "DISCIPLESHIP",
-            category: category as LogCategory,
-            subjectMemberId: memberId,
-            gospelConnection: gospelConnection || null,
-            tags: [],
-          },
+        const entry = await prisma.$transaction(async (tx) => {
+          const saved = await tx.journalEntry.create({
+            data: {
+              spaceId: child.spaceId,
+              authorProfileId: profile.id,
+              entryText,
+              entryType: "DISCIPLESHIP",
+              category: category as LogCategory,
+              subjectMemberId: memberId,
+              gospelConnection: gospelConnection || null,
+              tags: [],
+            },
+          });
+          await recordEngagement("heritage_journal", "saved", saved.id, "web", tx);
+          return saved;
         });
 
         streamEvent(controller, {

@@ -14,6 +14,7 @@ import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import type { ChurchDetail, ChurchSearchResult } from "@/types/church";
 import { checkChurchExists, createChurch, fetchChurchDetail, searchChurches } from "@/app/church-finder/api";
+import { ChurchObservation } from "./church-observation";
 import { isClientAdminUser } from "@/lib/admin";
 
 type EvaluationStatus = "idle" | "fetching" | "analyzing" | "complete";
@@ -28,7 +29,7 @@ type BulkReEvaluationProgress = {
 
 type ChurchDiscoveryPanelProps = {
   onChurchCreated: (church: ChurchDetail) => void;
-  onChurchView: (church: ChurchDetail) => void;
+  onChurchView: (church: ChurchDetail, explicitlyOpened: boolean) => void;
 };
 
 const CRAWL_STATUS_TRANSITION_TIMEOUT = 15000;
@@ -152,7 +153,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
       setCreationError(null);
       setWebsite("");
       if (wasExisting) {
-        onChurchView(church);
+        onChurchView(church, false);
       } else {
         onChurchCreated(church);
       }
@@ -183,7 +184,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
       if (existingChurchId) {
         // Fetch and show existing church
         const existingChurch = await fetchChurchDetail(existingChurchId);
-        onChurchView(existingChurch);
+        onChurchView(existingChurch, true);
       } else {
         // Create new evaluation
         const church = await createChurch({ website: result.website });
@@ -384,6 +385,7 @@ export function ChurchDiscoveryPanel({ onChurchCreated, onChurchView }: ChurchDi
                 Found {searchResults.length} {searchResults.length === 1 ? "result" : "results"}
               </p>
               <ul className="space-y-3">
+                {existingChurchIds.size > 0 && <ChurchObservation step="results_viewed" />}
                 {searchResults.map((result) => (
                   <li key={result.id} className="rounded-md border border-border bg-card shadow-sm p-3 space-y-2">
                     <div className="flex items-start justify-between gap-3">

@@ -26,7 +26,7 @@ vi.mock("@/lib/householdService", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   default: {
-    journalEntry: { findUnique: mocks.findLog, create: mocks.createLog },
+    journalEntry: { findUnique: mocks.findLog },
     prayerMember: { findUnique: mocks.findChild },
     userProfile: { findUnique: mocks.findProfile },
     discipleshipAnnualPlan: { findUnique: mocks.getCurrentAnnualPlan },
@@ -142,13 +142,14 @@ describe("POST /api/kids-discipleship/logs/[id]/reprocess", () => {
     });
     mocks.transaction.mockImplementation(async (run) => run({
       $queryRaw: async () => [log],
+      $executeRaw: async () => 1,
       journalEntryAI: {
         findUnique: async () => null,
         upsert: mocks.checkpoint,
         findUniqueOrThrow: async () => (await mocks.findLog()).aiOutput ?? checkpoint,
         update: mocks.saveAI,
       },
-      journalEntry: { update: mocks.updateTags },
+      journalEntry: { create: mocks.createLog, update: mocks.updateTags },
     }));
     mocks.generate.mockImplementation(async ({ usage }) => ({
       model: `returned-haiku-${usage.stage}`,

@@ -92,6 +92,21 @@ function ChatPageContent() {
   } = useChatList(user?.$id ?? "guest");
 
   const [chat, setChat] = useState<Chat | null>(null);
+  const [replyTarget, setReplyTarget] = useState<{ messageId: string; operation: string } | null>(null);
+  const pendingVisibility = useRef<{ chatId: string; operation: string } | null>(null);
+
+  const onReplyVisible = useCallback((operation: string) => {
+    const chatId = params.chatId;
+    const pending = { chatId, operation };
+    pendingVisibility.current = pending;
+    void fetch(`/api/web/chats/${encodeURIComponent(chatId)}/reply-visible`, {
+      method: "POST", keepalive: true, headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ operation }),
+    }).then(response => {
+      if (response.ok && pendingVisibility.current === pending) pendingVisibility.current = null;
+    }).catch(() => { /* Include the observation with the next website turn. */ });
+  }, [params.chatId]);
+
   const [messages, setMessages] = useState<ChatMessageRecord[]>([]);
   const [pageError, setPageError] = useState("");
   const [composerError, setComposerError] = useState("");
@@ -146,6 +161,9 @@ function ChatPageContent() {
         }
 
         const data = getChatResponseSchema.parse(await response.json());
+        const messageId = response.headers.get("x-parrot-reply-target");
+        const operation = response.headers.get("x-parrot-reply-operation");
+        setReplyTarget(messageId && operation ? { messageId, operation } : null);
         setChat(data.chat);
         setMessages(Array.isArray(data.messages) ? data.messages : []);
         upsertChat({
@@ -182,6 +200,8 @@ function ChatPageContent() {
     }
     isFetchingRef.current = false;
     setChat(null);
+    setReplyTarget(null);
+    pendingVisibility.current = null;
     setMessages([]);
     setPageError("");
     setComposerError("");
@@ -320,7 +340,12 @@ function ChatPageContent() {
           `/api/web/chats/${encodeURIComponent(params.chatId)}/messages`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(pendingVisibility.current?.chatId === params.chatId && {
+                "x-parrot-visible-operation": pendingVisibility.current.operation,
+              }),
+            },
             signal: controller.signal,
             body: JSON.stringify({
               message: outgoingMessage,
@@ -706,6 +731,8 @@ function ChatPageContent() {
                   <ChatTurn
                     key={turn.key}
                     turn={turn}
+                    visibilityOperation={turn.assistant && replyTarget?.messageId === encodeURIComponent(turn.assistant.id) ? replyTarget.operation : undefined}
+                    onReplyVisible={onReplyVisible}
                     onEdit={setEditingMessage}
                     onRetry={handleRetry}
                   />

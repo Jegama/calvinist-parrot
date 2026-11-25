@@ -97,6 +97,42 @@ describe("chat interaction rendering", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("confirms only the eligible reply on screen and carries a pending receipt on the follow-up", async () => {
+    const operation = "a".repeat(64);
+    fetchMock.mockImplementationOnce(async () => Response.json(transcript(), {
+      headers: { "x-parrot-reply-operation": operation, "x-parrot-reply-target": "a0" },
+    }));
+    let intersect!: (entries: { isIntersecting: boolean }[]) => void;
+    const observe = vi.fn();
+    vi.stubGlobal("IntersectionObserver", class {
+      constructor(callback: typeof intersect) { intersect = callback; }
+      observe = observe;
+      disconnect() {}
+    });
+    const state = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    try {
+      await act(async () => { root.render(<ChatPageWithHeader />); });
+      expect(observe).toHaveBeenCalledTimes(1);
+      expect(observe.mock.calls[0][0].textContent).toContain("Response 0");
+      intersect([{ isIntersecting: true }]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      state.mockReturnValue("visible");
+      fetchMock.mockImplementationOnce(() => new Promise(() => {})); // the observation has not reached the server
+      document.dispatchEvent(new Event("visibilitychange"));
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(fetchMock.mock.calls[1][0]).toBe("/api/web/chats/performance-test/reply-visible");
+      expect(fetchMock.mock.calls[1][1]?.body).toBe(JSON.stringify({ operation }));
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+
+      await act(async () => { context.onChange!("Follow-up"); });
+      await act(async () => { container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+      const sent = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/messages"))!;
+      expect(new Headers(sent[1]?.headers).get("x-parrot-visible-operation")).toBe(operation);
+    } finally {
+      state.mockRestore();
+    }
+  });
+
   it("keeps the composer mounted through loading and clears its draft when changing chats", async () => {
     let resolve!: (response: Response) => void;
     fetchMock.mockImplementationOnce(() => new Promise((done) => { resolve = done; }));

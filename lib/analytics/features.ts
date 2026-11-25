@@ -1,3 +1,4 @@
+import { getEngagementReport, type FeatureEngagement } from "./engagement";
 import prisma from "@/lib/prisma";
 import { getUsageTotals, type UsageTotals } from "./feature-spend";
 import { chicagoTimestamp, featureNames, getPageviews, type Feature, type FeatureWindow } from "./web-analytics";
@@ -8,6 +9,7 @@ export interface FeatureRow {
   name: string;
   pageviews: number | null;
   actions: Action[];
+  engagement?: FeatureEngagement;
   estimatedSpendUsd: number | null;
   costPerCompletionUsd: number | null;
   spendCoverage: string;
@@ -68,7 +70,7 @@ function spendFields(key: Feature, usage: UsageTotals | undefined, window: Featu
 
 export async function getFeatureReport(window: FeatureWindow): Promise<FeatureReport> {
   const dateRange = { gte: window.start, lt: window.end };
-  const [views, usage, saves, since, publications, prayerFamilies, churches, sermons] = await Promise.all([
+  const [views, usage, saves, since, publications, prayerFamilies, churches, sermons, engagement] = await Promise.all([
     getPageviews(window).catch(() => null),
     getUsageTotals(window).catch(() => null),
     getSavedActions(window).catch(() => null),
@@ -77,6 +79,7 @@ export async function getFeatureReport(window: FeatureWindow): Promise<FeatureRe
     prisma.prayerFamily.count({ where: { createdAt: dateRange } }).catch(() => null),
     prisma.churchEvaluation.count({ where: { createdAt: dateRange } }).catch(() => null),
     prisma.sermonEvaluation.count({ where: { completedAt: dateRange } }).catch(() => null),
+    getEngagementReport(window),
   ]);
   const reflectionStart = since?.[0]?.reflections;
   const savedCount = (key: Feature) => saves ? (saves.find((row) => row.kind === key)?.total ?? 0) : null;
@@ -100,7 +103,7 @@ export async function getFeatureReport(window: FeatureWindow): Promise<FeatureRe
         break;
     }
     return {
-      key, name: featureNames[key], actions,
+      key, name: featureNames[key], actions, engagement: engagement[key],
       pageviews: views ? (views.counts.get(key) ?? 0) : null,
       ...spendFields(key, recorded, window),
     };

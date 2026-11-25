@@ -75,6 +75,7 @@ describe("OpenAPI document", () => {
   it("documents all v1 operations and deprecated legacy shims", () => {
     const paths = buildTestSpec().paths;
 
+    expect(paths["/api/v1/churches/{id}"].get.operationId).toBe("getChurch");
     expect(paths["/api/v1/chats"].post.operationId).toBe("createChat");
     expect(paths["/api/v1/chats/{chatId}"].get.operationId).toBe("getChat");
     expect(paths["/api/v1/chats/{chatId}/messages"].post.operationId).toBe(
@@ -175,6 +176,7 @@ describe("OpenAPI document", () => {
   it("provides representative v1 request and successful response examples", () => {
     const paths = buildTestSpec().paths;
     const operations = [
+      { operation: paths["/api/v1/churches/{id}"].get, successStatus: "200" },
       {
         operation: paths["/api/v1/chats"].post,
         successStatus: "201",

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 
 import { requireAuthenticatedUser } from "@/lib/auth";
@@ -292,8 +292,20 @@ export async function PATCH(request: Request, context: RouteContext) {
     });
   }
 
+  if (markAnswered === true) {
+    // Lock before updating so simultaneous clicks and replays count a single
+    // transition. Reopening the request makes a subsequent answer eligible again.
+    const source = isHouseholdRequest ? Prisma.sql`"prayerPersonalRequest"` : Prisma.sql`"prayerFamilyRequest"`;
+    const receipt = prisma.$executeRaw`
+      WITH previous AS (SELECT status FROM ${source} WHERE id = ${requestId} FOR UPDATE)
+      INSERT INTO "AnalyticsEngagementEvent" (feature, step, channel, "flowId")
+      SELECT 'prayer', 'request_answered', 'web', ${crypto.randomUUID()} FROM previous
+      WHERE status <> 'ANSWERED'
+    `;
+    const [, updated] = await prisma.$transaction([receipt, ...transactions]);
+    return NextResponse.json(updated);
+  }
   const [updated] = await prisma.$transaction(transactions);
-
   return NextResponse.json(updated);
 }
 

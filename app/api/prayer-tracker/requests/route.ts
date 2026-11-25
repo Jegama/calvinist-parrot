@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordJournalFollowOn } from "@/lib/analytics/engagement-journal";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
 
@@ -189,16 +190,24 @@ export async function POST(request: Request) {
   // Route to appropriate table based on linkedToFamily
   if (linkedToFamily === "household" || !linkedToFamily) {
     // Create household request
-    const created = await prisma.prayerPersonalRequest.create({
-      data: {
-        spaceId: membership.spaceId,
-        requestText,
-        notes: notes || null,
-        linkedScripture: linkedScripture || null,
-        requesterMemberId: membership.id,
-        linkedJournalEntryId: validatedEntryId,
-        subjectMemberId: subjectMemberId || null,
-      },
+    const created = await prisma.$transaction(async (tx) => {
+      const saved = await tx.prayerPersonalRequest.create({
+        data: {
+          spaceId: membership.spaceId,
+          requestText,
+          notes: notes || null,
+          linkedScripture: linkedScripture || null,
+          requesterMemberId: membership.id,
+          linkedJournalEntryId: validatedEntryId,
+          subjectMemberId: subjectMemberId || null,
+        },
+      });
+      // Both journal suggestion panels save household requests with a validated source entry.
+      if (validatedEntryId && linkedEntryType) {
+        const feature = linkedEntryType === "PERSONAL" ? "personal_journal" : "heritage_journal";
+        await recordJournalFollowOn(tx, feature, "prayer_saved", validatedEntryId);
+      }
+      return saved;
     });
 
     return NextResponse.json({
