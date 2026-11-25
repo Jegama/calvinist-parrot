@@ -97,6 +97,42 @@ describe.skipIf(!databaseUrl)("Chat cost by submission cohort", () => {
     }
   });
 
+  it("cuts off replies and linked attempts at the all-time snapshot while fixed cohorts include later work", async () => {
+    // The fixture's Website reply and memory attempt both land exactly at this cutoff.
+    const window = { start, end: after };
+    const snapshot = (await getFeatureReport({ ...window, days: "all" })).chatSpend!;
+    expect(snapshot.byChannel[0]).toMatchObject({ completions: 3, attempts: 10 });
+    expect(snapshot.stages.some(row => row.stage === "memory")).toBe(false);
+    const fixed = (await getFeatureReport(window)).chatSpend!;
+    expect(fixed.byChannel[0]).toMatchObject({ completions: 4, attempts: 11 });
+    expect(fixed.stages.find(row => row.stage === "memory")?.attempts).toBe(1);
+  });
+
+  it("shows the unit cost for a covered channel when the reporting window spans the start of collection", async () => {
+    const [{ migrated }] = await db.$queryRaw<{ migrated: Date }[]>`
+      SELECT finished_at AS migrated FROM "_prisma_migrations"
+      WHERE migration_name = '20261125000000_chat_provider_usage' AND rolled_back_at IS NULL
+    `;
+    const historical = new Date(+migrated - 2);
+    const covered = new Date(+migrated + 2);
+    const operationIds = [randomUUID(), randomUUID(), randomUUID()];
+    ids.push(...operationIds);
+    await db.chatAnalyticsEvent.createMany({ data: operationIds.flatMap((operationId, index) =>
+      ["submission", "reply"].map(kind => ({
+        chatId, operationId, kind, actorKind: "guest", channel: index === 0 ? "web" : "unknown",
+        occurredAt: index === 0 ? covered : historical,
+      }))) });
+    await db.providerCallAttempt.createMany({ data: ["agent", "title", "memory"].map(stage =>
+      receipt(operationIds[0], stage, false, covered)) });
+
+    const report = await getFeatureReport({ start: historical, end: new Date(+covered + 1), days: "all" });
+    const row = report.rows.find(row => row.key === "chat")!;
+    expect(row.estimatedSpendUsd).toBeCloseTo(3 * unit, 9);
+    expect(row.costPerCompletionUsd).toBeNull();
+    expect(row.spendCoverage).toContain("1/3 completed turns with a successful model receipt");
+    expect(report.chatSpend?.byChannel.find(row => row.channel === "web")?.costPerCompletionUsd).toBeCloseTo(3 * unit, 9);
+  });
+
   it("keeps costs separate from completions when attempts lack counters or receipts", async () => {
     await db.chatAnalyticsEvent.createMany({ data: ["submission", "reply"].map(kind => ({
       chatId, operationId: interrupted, channel: "mcp", actorKind: "integration", kind, occurredAt: end,

@@ -46,7 +46,8 @@ export function getEvaluationStages({ start, end }: FeatureWindow, environment: 
   `;
 }
 
-export function getEvaluationUsage({ start, end }: FeatureWindow, environment: string) {
+export function getEvaluationUsage({ start, end, days }: FeatureWindow, environment: string) {
+  const cutoff = days === "all" ? end : "infinity";
   return prisma.$queryRaw<EvaluationUsage[]>`
     WITH features(feature) AS (VALUES ('church'), ('sermon')),
     channels(channel) AS (VALUES ('combined'), ('web'), ('public_api'), ('mcp'), ('unknown')),
@@ -84,7 +85,7 @@ export function getEvaluationUsage({ start, end }: FeatureWindow, environment: s
           AND (c.runs = 1 OR bool_or(a.stage = 'harmonization')) END
         THEN sum(a.usd) END AS cost
       FROM completed c LEFT JOIN analytics_priced_provider_attempt a ON a.feature = c.feature
-        AND a."operationId" = c.id AND a.environment = ${environment}
+        AND a."operationId" = c.id AND a.environment = ${environment} AND a."startedAt" < ${cutoff}::timestamptz
       GROUP BY c.feature, c.channel, c.id, c.runs, c."expectedUsageAttempts"
     ), cohort AS (
       SELECT feature, CASE WHEN grouping(channel) = 1 THEN 'combined' ELSE coalesce(channel, 'unknown') END AS channel, count(*)::int AS completions,
@@ -105,7 +106,7 @@ export function getEvaluationUsage({ start, end }: FeatureWindow, environment: s
       WHERE migration_name = '20261125010000_evaluation_costs' AND rolled_back_at IS NULL
     ) rollout
     LEFT JOIN LATERAL (
-      SELECT min("startedAt") AS "firstAttempt" FROM "ProviderCallAttempt" WHERE feature = f.feature AND environment = ${environment}
+      SELECT min("startedAt") AS "firstAttempt" FROM "ProviderCallAttempt" WHERE feature = f.feature AND environment = ${environment} AND "startedAt" < ${cutoff}::timestamptz
     ) first_receipt ON true
     ORDER BY f.feature, CASE ch.channel WHEN 'combined' THEN 0 WHEN 'web' THEN 1 WHEN 'public_api' THEN 2 WHEN 'mcp' THEN 3 ELSE 4 END
   `;

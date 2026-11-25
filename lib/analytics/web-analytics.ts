@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { reportingTimeZone } from "./period";
+import { reportingTimeZone, type ReportingDays } from "./period";
 
 export const featureNames = {
   chat: "Parrot Chat",
@@ -53,7 +53,7 @@ const analyticsResponse = z.object({
   query: z.object({ since: z.string().optional(), until: z.string().optional() }).optional(),
 });
 
-export interface FeatureWindow { start: Date; end: Date }
+export interface FeatureWindow { start: Date; end: Date; days?: ReportingDays }
 
 export function chicagoTimestamp(date: Date) {
   return new Intl.DateTimeFormat("en-US", {

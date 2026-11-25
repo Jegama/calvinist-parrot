@@ -151,6 +151,9 @@ describe.skipIf(!databaseUrl)("evaluation costs in the admin feature report", ()
         ...base, attemptId: lateAttempt, operationId: church, feature: "church", channel: "web",
         stage: "geocode", provider: "tavily", billingUnit: "credit", quantity: 2, startedAt: window.end,
       } });
+      const snapshot = await getFeatureReport({ ...window, days: "all" });
+      expect(snapshot.evaluationChannels!.find(item => item.feature === "church" && item.channel === "web"))
+        .toMatchObject({ completions: 1, costPerCompletionUsd: null });
       const completed = await getFeatureReport(window);
       const completedRow = completed.evaluationChannels!.find(item => item.feature === "church" && item.channel === "web")!;
       expect(completedRow.estimatedSpendUsd).toBeCloseTo(0.04 + 6 * geminiUsd, 8);
