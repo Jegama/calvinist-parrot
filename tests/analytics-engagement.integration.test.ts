@@ -4,6 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getEngagementReport } from "@/lib/analytics/engagement";
+import { chicagoTimestamp } from "@/lib/analytics/web-analytics";
 
 if (process.env.RUN_DATABASE_INTEGRATION_TESTS === "1") config();
 const url = process.env.CI ? process.env.DATABASE_URL
@@ -45,6 +46,23 @@ describe.skipIf(!url)("engagement reporting from durable receipts", () => {
     ]);
     expect(report.heritage_journal?.steps.map(s => s.count)).toEqual([0, 0, 0]);
     for (const id of ids) expect(JSON.stringify(report)).not.toContain(id);
+  });
+
+  it("keeps the chat collection date across later reporting windows without configured channel coverage", async () => {
+    vi.stubEnv("ANALYTICS_CHAT_COVERAGE_FROM", undefined);
+    try {
+      const [migration] = await db.$queryRaw<{ finished_at: Date }[]>`
+        SELECT finished_at FROM "_prisma_migrations"
+        WHERE migration_name = '20261125000000_analytics_engagement_events' AND rolled_back_at IS NULL
+      `;
+      const since = `Website flow collection since ${chicagoTimestamp(migration.finished_at)}.`;
+      for (const windowStart of [start, new Date(+start + 86_400_000)]) {
+        const report = await getEngagementReport({ start: windowStart, end }, db);
+        expect(report.chat?.coverage).toContain(since);
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("marks pre-collection counts and rates unavailable", async () => {

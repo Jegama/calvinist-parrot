@@ -281,6 +281,38 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
     ]);
   }
 
+  it("lets the restricted worker finish attributed and legacy evaluations without analytics table grants", async () => {
+    const tracked = await createEvaluation(await createFixture("worker-tracked"), "Tracked sermon");
+    const legacy = await createEvaluation(await createFixture("worker-legacy"), "Legacy sermon");
+    const client = await pool.connect();
+    // A unique, transaction-local test setup also works with concurrent test databases.
+    const role = `"test_worker_${randomUUID()}"`;
+    try {
+      await client.query("BEGIN");
+      await client.query(`INSERT INTO "AnalyticsEngagementEvent" (feature, step, channel, "flowId")
+        VALUES ('sermon', 'submitted', 'web', $1)`, [tracked.id]);
+      await client.query(`CREATE ROLE ${role} NOLOGIN`);
+      await client.query(`GRANT USAGE ON SCHEMA public TO ${role}`);
+      await client.query(`GRANT SELECT (id), UPDATE (status) ON "sermonEvaluation" TO ${role}`);
+      await client.query(`SET LOCAL ROLE ${role}`);
+      const { rows } = await client.query(`SELECT
+        has_table_privilege(current_user, 'public."AnalyticsEngagementEvent"', 'SELECT') AS can_read,
+        has_table_privilege(current_user, 'public."AnalyticsEngagementEvent"', 'INSERT') AS can_write,
+        has_function_privilege(current_user, 'public.record_engagement_sermon_ready()', 'EXECUTE') AS can_attach_trigger`);
+      const result = await client.query(`UPDATE "sermonEvaluation" SET status = 'COMPLETE' WHERE id = ANY($1::text[])`,
+        [[tracked.id, legacy.id]]);
+      expect(result.rowCount).toBe(2);
+      expect(rows[0]).toEqual({ can_read: false, can_write: false, can_attach_trigger: false });
+      await client.query("RESET ROLE");
+      const ready = await client.query(`SELECT channel, "flowId" FROM "AnalyticsEngagementEvent"
+        WHERE feature = 'sermon' AND step = 'report_ready' AND "flowId" = ANY($1::text[])`, [[tracked.id, legacy.id]]);
+      expect(ready.rows).toEqual([{ channel: "web", flowId: tracked.id }]);
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
   it.each(["web", "public_api"] as const)("records %s sermon submission and generation separately from a report open", async channel => {
     const fixture = await createFixture(`engagement-${channel}`);
     const source = await createEvaluation(fixture, "Existing sermon", "COMPLETE");

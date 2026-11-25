@@ -99,8 +99,9 @@ export async function getEngagementReport(window: FeatureWindow, db: Database = 
   ]);
   const viewStart = starts?.[0]?.views;
   const channelStart = configuredCoverage(process.env.ANALYTICS_CHAT_COVERAGE_FROM);
-  const chatStart = new Date(Math.max(+(viewStart ?? window.start), +(channelStart ?? window.start)));
-  const chat = await getChatEngagement(window, db, chatStart < window.start ? window.start : chatStart).catch(() => null);
+  const chatStart = viewStart && channelStart && channelStart > viewStart ? channelStart : viewStart;
+  const eligibleStart = chatStart && chatStart > window.start ? chatStart : window.start;
+  const chat = await getChatEngagement(window, db, eligibleStart).catch(() => null);
   const report: Partial<Record<Feature, FeatureEngagement>> = {};
   for (const [feature, steps] of entries) {
     const start = savedFeatures.has(feature) ? starts?.[0]?.saved : viewStart;
@@ -129,7 +130,7 @@ export async function getEngagementReport(window: FeatureWindow, db: Database = 
     report[feature] = engagement;
   }
 
-  const observed = viewStart && chatStart < window.end ? chat : null;
+  const observed = chatStart && chatStart < window.end ? chat : null;
   const hasChannelCoverage = Boolean(channelStart && channelStart < window.end);
   const firstMessages = chat && (chat.allStarted > 0 || hasChannelCoverage || observed) ? chat.allStarted : null;
   function answers(channel: "public_api" | "mcp" | "unknown") {
@@ -144,7 +145,7 @@ export async function getEngagementReport(window: FeatureWindow, db: Database = 
       { label: "Visible reply received", count: observed?.visible ?? null, denominator: observed?.started ?? null, denominatorLabel: "First messages during visibility coverage" },
       { label: "Follow-up sent", count: observed?.followup ?? null, denominator: observed?.visible ?? null, denominatorLabel: "Visible reply received" },
     ],
-    coverage: `${coverageNote(window, viewStart ? chatStart : null)} First messages span the selected period. Reply rates include only conversations started during visibility coverage. Server answers use the original channel. MCP coverage is unconfirmed until its client ships. ${channelStart ? `Chat attribution since ${chicagoTimestamp(channelStart)}.` : "Historical channel coverage is partial."}${chat ? "" : " Chat engagement data unavailable."}`,
+    coverage: `${coverageNote(window, chatStart)} First messages span the selected period. Reply rates include only conversations started during visibility coverage. Server answers use the original channel. MCP coverage is unconfirmed until its client ships. ${channelStart ? `Chat attribution since ${chicagoTimestamp(channelStart)}.` : "Historical channel coverage is partial."}${chat ? "" : " Chat engagement data unavailable."}`,
     external: [
       { label: "Direct API · answers returned", count: answers("public_api") },
       { label: "MCP · answers returned", count: answers("mcp") },
