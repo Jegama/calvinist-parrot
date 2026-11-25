@@ -203,6 +203,7 @@ describe.skipIf(!databaseUrl)("structured generation through the HTTP handlers a
       }
     } finally {
       await db.journalEntry.deleteMany({ where: { OR: [{ authorProfileId: otherAuthor.id }, { spaceId: otherSpace.id }] } });
+      await db.$executeRaw`DELETE FROM "AnalyticsAccountAction" WHERE "accountId" = ${otherAuthor.appwriteUserId}`;
       await db.userProfile.delete({ where: { id: otherAuthor.id } });
       await db.prayerFamilySpace.delete({ where: { id: otherSpace.id } });
     }
