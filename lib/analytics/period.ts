@@ -6,6 +6,7 @@ export const reportingPeriods = [
   { days: 180, label: "180 days" },
   { days: 365, label: "1 year" },
   { days: 730, label: "2 years" },
+  { days: "all", label: "All time" },
 ] as const;
 export type ReportingDays = (typeof reportingPeriods)[number]["days"];
 
@@ -40,18 +41,28 @@ function midnight(day: string): Date {
   return new Date(approximate.valueOf() - Number(hour) * 3_600_000);
 }
 
+export function nextReportingMidnight(now: Date) {
+  return midnight(shiftDay(reportingDay(now), 1));
+}
+
 export function getReportingWindow(days: ReportingDays, endDay?: string, now = new Date()) {
-  const lastCompleteDay = shiftDay(reportingDay(now), -1);
-  const day = endDay ?? lastCompleteDay;
-  if (!reportingPeriods.some(period => period.days === days) || !/^\d{4}-\d{2}-\d{2}$/.test(day) || shiftDay(day, 0) !== day || day > lastCompleteDay) {
-    throw new Error("Choose a supported reporting period ending on a complete Chicago day.");
+  const today = reportingDay(now);
+  // All-time totals include today's activity through the report snapshot.
+  // The epoch precedes every application source; the chart derives its axis
+  // from actual records and never renders empty decades.
+  const allTime = days === "all";
+  const latestDay = allTime ? today : shiftDay(today, -1);
+  const day = endDay ?? latestDay;
+  if (!reportingPeriods.some(period => period.days === days) || !/^\d{4}-\d{2}-\d{2}$/.test(day) || shiftDay(day, 0) !== day || day > latestDay) {
+    throw new Error("Choose a supported Chicago reporting period.");
   }
-  const startDay = shiftDay(day, 1 - days);
-  const previousStartDay = shiftDay(startDay, -days);
-  const start = midnight(startDay);
+  const startDay = allTime ? "1970-01-01" : shiftDay(day, 1 - days);
+  const previousStartDay = allTime ? startDay : shiftDay(startDay, -days);
+  const start = allTime ? new Date(0) : midnight(startDay);
+  const end = allTime && day === today ? now : midnight(shiftDay(day, 1));
   return {
     days, startDay, endDay: day, previousStartDay, previousEndDay: shiftDay(startDay, -1),
-    start, end: midnight(shiftDay(day, 1)), previousStart: midnight(previousStartDay), previousEnd: start,
+    start, end, previousStart: allTime ? start : midnight(previousStartDay), previousEnd: start,
     activeStarts: { daily: midnight(day), weekly: midnight(shiftDay(day, -6)), monthly: midnight(shiftDay(day, -29)) },
     now,
   };

@@ -15,6 +15,8 @@ import { POST as confirmReply } from "@/app/api/web/chats/[chatId]/reply-visible
 import { getChatEngagement } from "@/lib/analytics/engagement-chat";
 import { POST as sendWebMessage } from "@/app/api/web/chats/[chatId]/messages/route";
 import { POST as stop } from "@/app/api/web/chats/[chatId]/requests/[requestId]/stop/route";
+import { getChatSpend } from "@/lib/analytics/chat-spend";
+import { recordUsageAttempt, startUsageAttempt } from "@/lib/provider-usage";
 import { getAnalyticsMetrics } from "@/lib/analytics/metrics";
 import { getReportingWindow } from "@/lib/analytics/period";
 import { chatOperationId } from "@/lib/chat-analytics";
@@ -30,11 +32,36 @@ let pool: Pool;
 const guestCookies = new Map<string, string>();
 let signedInId: string | null = null;
 let failGeneration = false;
+type TurnContext = { operationId: string; isRetry: boolean };
+const modelContexts: TurnContext[] = [];
+const titleContexts: Array<TurnContext | undefined> = [];
+const memoryContexts: TurnContext[] = [];
+const afterResponse: Array<() => Promise<void>> = [];
 const accountId = randomUUID();
 const entryId = randomUUID();
 const chatIds: string[] = [];
 
+// Synthetic provider boundaries. Use the real recorder and dashboard query so
+// a lost turn ID or retry flag in the streaming handler breaks reconciliation.
+const costDay = new Date("2044-02-07T06:00:00Z");
+const costDayEnd = new Date("2044-02-08T06:00:00Z");
+const operationsToPrice = new Set<string>();
+
+async function recordFixtureCall(turn: TurnContext | undefined, stage: string, failed = false) {
+  if (!turn || !operationsToPrice.has(turn.operationId)) return;
+  const attempt = startUsageAttempt({ feature: "chat", stage, ...turn }, { provider: "anthropic", model: "claude-haiku-5-5" });
+  attempt.startedAt = stage === "memory" ? costDayEnd : costDay;
+  const usage = { input_tokens: 1000, output_tokens: 100 };
+  await recordUsageAttempt(attempt, failed ? "provider_error" : "success", 50, attempt.requestedModel, usage);
+  // A second delivery of an identical receipt must not add another charge.
+  await recordUsageAttempt(attempt, failed ? "provider_error" : "success", 50, attempt.requestedModel, usage);
+}
+
 vi.mock("@/lib/prisma", () => ({ get default() { return db; } }));
+vi.mock("next/server", async importOriginal => ({
+  ...await importOriginal<typeof import("next/server")>(),
+  after: (work: () => Promise<void>) => afterResponse.push(work),
+}));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) => guestCookies.has(name) ? { value: guestCookies.get(name) } : undefined,
@@ -46,14 +73,24 @@ vi.mock("@/lib/auth", () => ({
   getAuthenticatedUserId: async () => signedInId,
   requireAuthenticatedUser: async () => ({ userId: signedInId, errorResponse: null }),
 }));
-vi.mock("@/utils/generateConversationName", () => ({ generateConversationName: async () => "Patience" }));
-vi.mock("@/utils/memoryExtraction", () => ({ updateUserMemoriesFromConversation: async () => {} }));
+vi.mock("@/utils/generateConversationName", () => ({ generateConversationName: async (_text: string, context?: TurnContext) => {
+  titleContexts.push(context);
+  await recordFixtureCall(context, "title");
+  return "Patience";
+} }));
+vi.mock("@/utils/memoryExtraction", () => ({ updateUserMemoriesFromConversation: async (_user: string, _messages: unknown, context: TurnContext) => {
+  memoryContexts.push(context);
+  await recordFixtureCall(context, "memory");
+} }));
 vi.mock("@/utils/langChainAgents/tools", () => ({ toolsArray: [] }));
 vi.mock("@/utils/langChainAgents/mainAgent", () => ({
   getParrotWorkflow: async () => ({
-    async *stream() {
+    async *stream(_input: unknown, { configurable }: { configurable: { chatUsage: TurnContext } }) {
+      modelContexts.push(configurable.chatUsage);
+      await recordFixtureCall(configurable.chatUsage, "agent", failGeneration);
       if (failGeneration) throw new Error("Synthetic provider failure");
       yield ["updates", { tools: { messages: [{ name: "lookup", content: "Synthetic result" }] } }];
+      await recordFixtureCall(configurable.chatUsage, "agent");
       yield ["messages", [{ contentBlocks: [{ text: "A patient person listens carefully." }] }, { langgraph_node: "model" }]];
     },
   }),
@@ -68,7 +105,9 @@ function newChatId() {
 async function streamEvents(response: Response) {
   expect(response.status).toBe(200);
   expect(response.headers.get("Content-Type")).toContain("ndjson");
-  return (await response.text()).trim().split("\n").map(line => JSON.parse(line).type as string);
+  const events = (await response.text()).trim().split("\n").map(line => JSON.parse(line).type as string);
+  for (const work of afterResponse.splice(0)) await work();
+  return events;
 }
 
 async function receipts(chatId: string) {
@@ -88,6 +127,7 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
   afterAll(async () => {
     await db.$executeRaw`DELETE FROM "AnalyticsEngagementEvent" e USING "ChatAnalyticsEvent" c
       WHERE e.feature = 'chat' AND e."flowId" = c."operationId" AND c."chatId" = ANY(${chatIds}::text[])`;
+    await db.providerCallAttempt.deleteMany({ where: { operationId: { in: [...operationsToPrice] } } });
     await db.chatAnalyticsEvent.deleteMany({ where: { chatId: { in: chatIds } } });
     await db.chatMessage.deleteMany({ where: { chatId: { in: chatIds } } });
     await db.chatHistory.deleteMany({ where: { id: { in: chatIds } } });
@@ -112,7 +152,19 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
       const first = await created.json();
       expect(await (await createQuestion(channel, chatId, requestId)).json()).toEqual(first);
       const body = { requestId, messageId: first.messageId, message: fixtureQuestion, isAutoTrigger: true };
-      const events = await streamEvents(await sendMessage(channel, chatId, body));
+      operationsToPrice.add(chatOperationId(chatId, requestId));
+      if (channel === "web") {
+        failGeneration = true;
+        try {
+          expect(await streamEvents(await sendMessage(channel, chatId, body))).toContain("error");
+          const calls = modelContexts.length;
+          expect((await sendMessage(channel, chatId, body)).status).toBe(409);
+          expect(modelContexts.length).toBe(calls);
+        } finally {
+          failGeneration = false;
+        }
+      }
+      const events = await streamEvents(await sendMessage(channel, chatId, { ...body, retry: channel === "web" }));
       expect(events).toEqual(expect.arrayContaining(["tool_summary", "parrot", "done"]));
       expect(await (await createQuestion(channel, chatId, requestId)).json()).toEqual(first);
       expect((await sendMessage(channel, chatId, { ...body, retry: true })).status).toBe(409);
@@ -133,9 +185,25 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
         WHERE feature = 'chat' AND step = 'reply_visible' AND "flowId" = ${stored[0].operationId}`;
       expect(count).toBe(channel === "web" ? 1 : 0);
       expect((await webTranscript(new Request("http://localhost/chat"), { params: Promise.resolve({ chatId }) })).headers.has("x-parrot-reply-target")).toBe(false);
+      const expectedContext = { operationId: stored[0].operationId, isRetry: channel === "web" };
+      expect(modelContexts.at(-1)).toEqual(expectedContext);
+      expect(titleContexts.at(-1)).toEqual(expectedContext);
+      expect(memoryContexts.at(-1)).toEqual(expectedContext);
       expect(stored.every(row => row.channel === channel && row.actorKind === "guest" && row.accountId === null)).toBe(true);
     }
     expect(operations.size).toBe(chatChannels.length);
+    await db.chatAnalyticsEvent.updateMany({ where: { chatId: { in: ids } }, data: { occurredAt: costDay } });
+    const { byChannel, stages } = await getChatSpend({ start: costDay, end: costDayEnd });
+    const [combined, web, api, mcp] = byChannel;
+    // Two model invocations, title and background memory for each channel,
+    // plus the original paid failure on web. All four calls in its retried turn count as retry spend.
+    const perCall = .00015;
+    expect(combined).toMatchObject({ completions: 3, attempts: 13, measured: 13, priced: 13 });
+    expect(combined.costPerCompletionUsd).toBeCloseTo(13 * perCall / 3, 9);
+    expect(web.retrySpendUsd).toBeCloseTo(4 * perCall, 9);
+    expect(api.estimatedSpendUsd).toBeCloseTo(4 * perCall, 9);
+    expect(mcp.estimatedSpendUsd).toBeCloseTo(4 * perCall, 9);
+    expect(stages.find(row => row.stage === "memory")?.attempts).toBe(3);
     // Use a fixed, completed reporting period isolated from other database fixtures.
     const report = await db.$transaction(async tx => {
       await tx.chatAnalyticsEvent.updateMany({
@@ -220,6 +288,9 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
     }
     expect((await receipts(chatId)).map(row => row.kind)).toEqual(["created", "submission"]);
     expect(await streamEvents(await sendMessage("public_api", chatId, retry))).toContain("parrot");
+    const retryContext = { operationId: chatOperationId(chatId, requestId), isRetry: true };
+    expect(modelContexts.slice(-2)).toEqual([retryContext, retryContext]);
+    expect(memoryContexts.at(-1)).toEqual(retryContext);
     const initial = await receipts(chatId);
     expect(initial.map(row => row.kind)).toEqual(["created", "reply", "submission"]);
     expect(initial.every(row => row.actorKind === "guest" && row.channel === "web" && row.accountId === null)).toBe(true);
@@ -237,9 +308,12 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
     expect(branched.ok).toBe(true);
     const edit = await branched.json();
     chatIds.push(edit.chatId);
+    const branchOperation = chatOperationId(edit.chatId, edit.requestId);
+    expect(titleContexts.filter(turn => turn?.operationId === branchOperation)).toHaveLength(1);
     const repeatedBranch = await branch(post("/api/parrot-chat/branch", branchBody));
     const replay = await repeatedBranch.json();
     chatIds.push(replay.chatId);
+    expect(titleContexts.filter(turn => turn?.operationId === branchOperation)).toHaveLength(1);
     expect(replay).toMatchObject({ chatId: edit.chatId, editedMessageId: edit.editedMessageId, requestId: edit.requestId });
     expect(await db.chatMessage.count({ where: { chatId: edit.chatId } })).toBeGreaterThan(2);
     expect(await streamEvents(await sendMessage("web", edit.chatId, {

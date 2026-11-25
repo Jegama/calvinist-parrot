@@ -1,9 +1,12 @@
 import { JSDOM } from "jsdom";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { AnalyticsReport } from "@/lib/analytics/report";
 import AnalyticsDashboard from "./AnalyticsDashboard";
 import FeatureTable from "./FeatureTable";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("@/app/admin/analytics/actions", () => ({ refreshAnalytics: vi.fn() }));
 
 describe("admin analytics presentation", () => {
   it("keeps available counts, uncovered days, small costs and period changes distinguishable", () => {
@@ -34,6 +37,7 @@ describe("admin analytics presentation", () => {
         notes: ["Appwrite registrations unavailable."],
       },
       features: {
+        chatSpend: null,
         rows: [{ key: "personal_journal", name: "Personal Journal", pageviews: null, actions: [{ label: "Saved entries", count: 3 }], estimatedSpendUsd: 0.000032, costPerCompletionUsd: null, spendCoverage: "Partial pricing." }],
         pageviewCoverage: "Vercel pageviews unavailable.", actionCoverage: "Counts reflect retained records.",
       },
@@ -42,7 +46,14 @@ describe("admin analytics presentation", () => {
     const text = document.body.textContent ?? "";
     expect(document.querySelector('[aria-current="page"]')?.getAttribute("href")).toBe("/admin/analytics?days=7");
     expect(Array.from(document.querySelectorAll('nav[aria-label="Reporting period"] a'), link => link.getAttribute("href")))
-      .toEqual([7, 30, 90, 180, 365, 730].map(days => `/admin/analytics?days=${days}`));
+      .toEqual([7, 30, 90, 180, 365, 730, "all"].map(days => `/admin/analytics?days=${days}`));
+    expect(document.querySelector('button[type="submit"]')?.textContent).toBe("Refresh");
+    const lifetime = new JSDOM(renderToStaticMarkup(<AnalyticsDashboard report={{
+      ...report, period: { ...report.period, days: "all", startDay: null, previousStartDay: null, previousEndDay: null },
+    }} />)).window.document;
+    expect(lifetime.querySelector('[aria-current="page"]')?.textContent).toBe("All time");
+    expect(lifetime.querySelector("header")?.textContent).toContain("Through Nov 19, 2026");
+    expect(lifetime.body.textContent).not.toContain("vs. prior");
     expect(text).toContain("+2 vs. prior 7 days");
     expect(text).toContain("-1 vs. prior 7 days");
     const link = document.querySelector<HTMLAnchorElement>('header a[href="#data-coverage"]')!;
@@ -50,9 +61,8 @@ describe("admin analytics presentation", () => {
     expect(document.querySelector('section[aria-label="Period overview"]')?.textContent).toContain("Set APPWRITE_ANALYTICS_READ_KEY");
     expect(document.getElementById("pageview-coverage")?.textContent).toContain("Vercel pageviews unavailable.");
     expect(text).toContain("Partial pricing.");
-    const daily = document.querySelector<HTMLTableSectionElement>("details tbody")!;
-    expect(daily.rows[0].cells[2].textContent).toBe("—");
-    expect(daily.rows[daily.rows.length - 1].cells[2].textContent).toBe("7");
+    expect(document.querySelector("details summary")?.textContent).toBe("Daily cumulative totals");
+    expect(document.querySelector("details table")).toBeNull();
     const charts = document.querySelectorAll("figure");
     const line = charts[0].querySelector("svg path")?.getAttribute("d");
     expect(line?.match(/L/g)).toHaveLength(3);
@@ -99,10 +109,14 @@ describe("admin analytics presentation", () => {
           steps: [{ label: "Reflections ready", count: 4, denominator: null }], coverage: "Start count unavailable.",
         } },
       ],
-      pageviewCoverage: "Anonymous reach.", actionCoverage: "Saved actions available.",
+      chatSpend: null, pageviewCoverage: "Anonymous reach.", actionCoverage: "Saved actions available.",
     };
 
-    const doc = new JSDOM(renderToStaticMarkup(<FeatureTable features={features} period={period} />)).window.document;
+    const generatedAt = "2026-11-22T09:00:00Z";
+    const doc = new JSDOM(renderToStaticMarkup(<FeatureTable features={features} period={period} generatedAt={generatedAt} />)).window.document;
+    const allTime = { ...period, days: "all" as const, startDay: null, endDay: "2026-11-22", previousStartDay: null, previousEndDay: null };
+    const lifetime = new JSDOM(renderToStaticMarkup(<FeatureTable features={features} period={allTime} generatedAt={generatedAt} />)).window.document;
+    expect(lifetime.querySelector("#outcomes-chat")?.textContent).toContain("All time through Nov 22, 2026, 3:00 AM CST");
     const overview = doc.querySelector<HTMLTableElement>("table")!;
     const websiteCounts = overview.rows[1].cells[3].textContent;
     expect(websiteCounts).toBe("First messages sent2Visible replies received1Follow-ups sent0");

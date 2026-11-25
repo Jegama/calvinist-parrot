@@ -1,7 +1,10 @@
 // utils/memoryExtraction.ts
 // Background memory extraction from conversations
 
+import { randomUUID } from "node:crypto";
 import OpenAI from "openai";
+import { recordUsageAttempt, type UsageContext } from "@/lib/provider-usage";
+import { usageTransport } from "@/lib/provider-usage-transport";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import {
   updateUserProfile,
@@ -96,7 +99,8 @@ function buildProfileContextSystemMessage(
 
 async function extractMemoriesFromConversation(
   messages: ConversationMessage[],
-  profile?: ProfileContextForExtraction
+  profile: ProfileContextForExtraction | undefined,
+  turn: Pick<UsageContext, "operationId" | "isRetry">,
 ): Promise<ExtractedMemories> {
   const conversationText = messages
     .map((m) => `${m.sender === "user" ? "User" : "Parrot"}: ${m.content}`)
@@ -116,16 +120,27 @@ async function extractMemoriesFromConversation(
       { role: "user", content: conversationText },
     ];
 
-    const response = await openai.chat.completions.create({
+    const transport = usageTransport({ ...turn, feature: "chat", stage: "memory" }, { provider: "openai", model: EXTRACTION_MODEL });
+    const client = openai.withOptions({ fetch: transport.fetch });
+    const response = await client.chat.completions.create({
       model: EXTRACTION_MODEL,
       messages: messagesPayload,
       response_format: { type: "json_schema", json_schema: extractionSchema },
-      // Preserve the non-reasoning extraction workload when moving from GPT-4.1.
       reasoning_effort: "none",
-    });
-
-    const extracted = JSON.parse(response.choices[0].message.content || "{}");
-    return extracted;
+    }).catch(transport.onError);
+    const attempt = transport.attempt;
+    const duration = attempt ? Date.now() - attempt.startedAt.getTime() : 0;
+    const usage = { ...response.usage, service_tier: response.service_tier };
+    try {
+      const content = response.choices[0]?.message.content;
+      if (!content) throw new Error("Memory extraction returned no structured content");
+      const extracted = JSON.parse(content) as ExtractedMemories;
+      if (attempt) await recordUsageAttempt(attempt, "success", duration, response.model, usage);
+      return extracted;
+    } catch (error) {
+      if (attempt) await recordUsageAttempt(attempt, "invalid_output", duration, response.model, usage);
+      throw error;
+    }
   } catch (error) {
     console.error("Error extracting memories:", error);
     return {};
@@ -606,7 +621,8 @@ async function syncToPrisma(
  */
 export async function updateUserMemoriesFromConversation(
   userId: string,
-  messages: ConversationMessage[]
+  messages: ConversationMessage[],
+  turn: Pick<UsageContext, "operationId" | "isRetry"> = { operationId: randomUUID() },
 ): Promise<void> {
   try {
     // Validate userId
@@ -656,7 +672,8 @@ export async function updateUserMemoriesFromConversation(
     // Step 1: Extract new memories from conversation
     const extracted = await extractMemoriesFromConversation(
       messages,
-      profileContext
+      profileContext,
+      turn,
     );
 
     // Step 2: Sync structured data to Prisma (spiritual status, doctrinal questions, ministry context, learning preferences)

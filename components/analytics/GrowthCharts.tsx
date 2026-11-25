@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { AnalyticsReport } from "@/lib/analytics/report";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { dayLabel, numberLabel } from "./format";
@@ -19,10 +22,15 @@ function dailyLine(values: (number | null)[], maximum: number) {
   }).join("");
 }
 
-export default function GrowthCharts({ report }: { report: AnalyticsReport }) {
-  const { growth, coverage } = report.metrics;
-  const { startDay, endDay, timeZone } = report.period;
-  const chatStart = coverage.chat && new Date(coverage.chat).toLocaleDateString("en-US", { timeZone, dateStyle: "medium" });
+export default function GrowthCharts({ growth, chatCoverage, endDay, timeZone }: {
+  growth: AnalyticsReport["metrics"]["growth"];
+  chatCoverage: string | null;
+  endDay: string;
+  timeZone: string;
+}) {
+  const [showDays, setShowDays] = useState(false);
+  const startDay = growth[0]?.day ?? endDay;
+  const chatStart = chatCoverage && new Date(chatCoverage).toLocaleDateString("en-US", { timeZone, dateStyle: "medium" });
 
   return (
     <section aria-labelledby="growth-heading" className="space-y-4">
@@ -64,9 +72,9 @@ export default function GrowthCharts({ report }: { report: AnalyticsReport }) {
           );
         })}
       </div>
-      <details>
+      <details onToggle={event => setShowDays(event.currentTarget.open)}>
         <summary className="w-fit cursor-pointer rounded-sm text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-ring dark:text-foreground">Daily cumulative totals</summary>
-        <Table className="mt-2 tabular-nums">
+        {showDays && <Table className="mt-2 tabular-nums">
           <TableHeader>
             <TableRow>
               <TableHead scope="col">Reporting day</TableHead>
@@ -81,7 +89,7 @@ export default function GrowthCharts({ report }: { report: AnalyticsReport }) {
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+        </Table>}
       </details>
     </section>
   );

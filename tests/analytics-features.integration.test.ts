@@ -55,10 +55,49 @@ describe.skipIf(!databaseUrl)("feature report with provider attempts and a Verce
     await client.$disconnect();
   });
 
+  it("prices supported chat models by their returned version, billed cache class and full context length", async () => {
+    const usage = {
+      operationId: operation, environment: "test", feature: "chat", stage: "agent",
+      durationMs: 1, startedAt: start, outcome: "success", inputTokens: 1000, outputTokens: 100,
+    };
+    const cases = [
+      { provider: "anthropic", requestedModel: "claude-haiku-5-5", cacheReadTokens: 99500,
+        cacheWriteTokens: 200, cacheWrite5mTokens: 150, cacheWrite1hTokens: 50,
+        expected: (1000 * .5 + 99500 * .05 + 150 * .625 + 50 + 100 * 2.5) / 1e6 },
+      { provider: "openai", requestedModel: "gpt-6-luna", returnedModel: "gpt-6-luna-2026-09-10",
+        cacheReadTokens: 100, expected: (100 + 1 + 50) / 1e6 },
+      { provider: "openai", requestedModel: "gpt-6-luna", cacheReadTokens: 272000,
+        expected: (200 + 5440 + 75) / 1e6 },
+      { provider: "openai", requestedModel: "gpt-6-luna", cacheWriteTokens: 100, expected: (100 + 12.5 + 50) / 1e6 },
+      { provider: "openai", requestedModel: "gpt-6-luna", cacheReadTokens: 272000,
+        cacheWriteTokens: 500, cacheWrite30mTokens: 300, cacheWrite12hTokens: 200,
+        expected: (200 + 5440 + 75 + 100 + 75) / 1e6 },
+      { provider: "openai", requestedModel: "gpt-6-luna", cacheWriteTokens: 30, cacheWrite12hTokens: 50, expected: null },
+      { provider: "openai", requestedModel: "text-embedding-3-small", outputTokens: 0, expected: .00002 },
+      { provider: "gemini", requestedModel: "gemini-4-hydrogen", cacheReadTokens: 100,
+        expected: (1500 + 7.5 + 750) / 1e6 },
+      { provider: "openai", requestedModel: "gpt-6-luna", returnedModel: "different-model", expected: null },
+      { provider: "openai", requestedModel: "gpt-6-luna", serviceTier: "priority", expected: null },
+      { provider: "anthropic", requestedModel: "claude-haiku-5-5", cacheWriteTokens: 12, expected: null },
+    ];
+    for (const { expected, ...receipt } of cases) {
+      const attemptId = randomUUID();
+      await client.providerCallAttempt.create({ data: { ...usage, ...receipt, attemptId } });
+      const [row] = await client.$queryRaw<{ cost: number | null }[]>`
+        SELECT usd::float8 AS cost FROM analytics_priced_provider_attempt WHERE "attemptId" = ${attemptId}::uuid
+      `;
+      if (expected === null) expect(row.cost).toBeNull();
+      else expect(row.cost).toBeCloseTo(expected, 12);
+    }
+  });
+
   it("preserves actions and costs when Vercel fails, dates retries to the proper cohort and isolates partial coverage", async () => {
     const report = await getFeatureReport({ start, end });
     expect(report.pageviewCoverage).toContain("unavailable");
     expect(report.rows.every(row => row.pageviews === null)).toBe(true);
+    const chat = report.rows.find(row => row.key === "chat")!;
+    expect(chat.actions.map(action => action.label)).toContain("Completed turns");
+    expect(chat.engagement?.steps.map(step => step.label)).toEqual(["First genuine message sent", "Visible reply received", "Follow-up sent"]);
     const personal = report.rows.find(row => row.key === "personal_journal")!;
     // Four successful attempts in the window plus one billed, invalid-output attempt before it.
     expect(personal.actions).toContainEqual({ label: "AI reflections completed", count: 1 });

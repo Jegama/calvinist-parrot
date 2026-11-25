@@ -2,12 +2,13 @@ import { randomUUID } from "node:crypto";
 import type { ModelSpec } from "./parrot-ai";
 
 export interface UsageContext {
-  feature: "personal_journal" | "heritage_journal" | "daily_devotional";
+  feature: "chat" | "personal_journal" | "heritage_journal" | "daily_devotional";
   stage: string;
   operationId: string;
+  isRetry?: boolean;
 }
 
-type Outcome = "received" | "success" | "invalid_output" | "provider_error";
+type Outcome = "started" | "received" | "success" | "invalid_output" | "provider_error";
 
 function object(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? value as Record<string, unknown> : {};
@@ -55,18 +56,33 @@ export function normalizeUsage(provider: ModelSpec["provider"], usage: unknown) 
       serviceTier: typeof raw.service_tier === "string" ? raw.service_tier : null,
     };
   }
-  return {};
+  const promptTokens = tokens(raw.input_tokens ?? raw.prompt_tokens);
+  const inputDetails = object(raw.input_tokens_details ?? raw.prompt_tokens_details);
+  const cacheWrites = object(inputDetails.cache_write_tokens_details);
+  const cacheReadTokens = tokens(inputDetails.cached_tokens);
+  const cacheWriteTokens = tokens(inputDetails.cache_write_tokens);
+  const cached = (cacheReadTokens ?? 0) + (cacheWriteTokens ?? 0);
+  return {
+    promptTokens, cacheReadTokens, cacheWriteTokens,
+    cacheWrite30mTokens: tokens(cacheWrites.ttl_30m_tokens),
+    cacheWrite12hTokens: tokens(cacheWrites.ttl_12h_tokens),
+    inputTokens: promptTokens !== null && promptTokens >= cached ? promptTokens - cached : null,
+    outputTokens: tokens(raw.output_tokens ?? raw.completion_tokens),
+    thinkingTokens: tokens(object(raw.output_tokens_details ?? raw.completion_tokens_details).reasoning_tokens),
+    providerTotalTokens: tokens(raw.total_tokens),
+    serviceTier: typeof raw.service_tier === "string" ? raw.service_tier : null,
+  };
 }
 
-function environment() {
+export function providerUsageEnvironment() {
   return process.env.VERCEL_ENV || process.env.NODE_ENV || "development";
 }
 
 export function startUsageAttempt(context: UsageContext, spec: ModelSpec) {
   const { feature, stage, operationId } = context;
   return {
-    attemptId: randomUUID(), feature, stage, operationId,
-    startedAt: new Date(), environment: environment(), provider: spec.provider,
+    attemptId: randomUUID(), feature, stage, operationId, isRetry: context.isRetry ?? false,
+    startedAt: new Date(), environment: providerUsageEnvironment(), provider: spec.provider,
     requestedModel: spec.model,
   };
 }
@@ -101,7 +117,7 @@ export async function markUsageOperationComplete(feature: UsageContext["feature"
   try {
     const { default: prisma } = await import("./prisma");
     await prisma.providerCallAttempt.updateMany({
-      where: { feature, operationId, environment: environment(), completedAt: null },
+      where: { feature, operationId, environment: providerUsageEnvironment(), completedAt: null },
       data: { completedAt: new Date() },
     });
   } catch {

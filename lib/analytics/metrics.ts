@@ -118,7 +118,8 @@ export async function getAnalyticsMetrics(window: ReportingWindow, registrations
   const eligibleDays = eligible?.map(a => reportingDay(a.registeredAt)).sort();
   const current = volume(chat, "combined");
   const previous = volume(chat, "combined", false);
-  const comparison = (key: keyof typeof current) => ({ current: current[key], previous: previous[key] });
+  const allTime = window.days === "all";
+  const comparison = (key: keyof typeof current) => ({ current: current[key], previous: allTime ? null : previous[key] });
   let newChats = 0, userMessages = 0, newAccounts = 0;
   const accountsByDay = new Map<string, number>();
   for (const account of inCurrent ?? []) {
@@ -126,14 +127,20 @@ export async function getAnalyticsMetrics(window: ReportingWindow, registrations
     accountsByDay.set(day, (accountsByDay.get(day) ?? 0) + 1);
   }
   const chatByDay = new Map(chat?.filter(row => row.day !== null).map(row => [row.day, row]));
-  const growth = Array.from({ length: window.days }, (_, i) => {
-    const day = shiftDay(window.startDay, i);
+  let firstGrowthDay = window.startDay;
+  if (allTime) {
+    firstGrowthDay = window.endDay;
+    for (const day of accountsByDay.keys()) if (day < firstGrowthDay) firstGrowthDay = day;
+    for (const day of chatByDay.keys()) if (day && day < firstGrowthDay) firstGrowthDay = day;
+  }
+  const growth = [];
+  for (let day = firstGrowthDay; day <= window.endDay; day = shiftDay(day, 1)) {
     const row = chatByDay.get(day);
     newChats += row?.newChats ?? 0;
     userMessages += row?.userMessages ?? 0;
     newAccounts += accountsByDay.get(day) ?? 0;
-    return { day, newChats: chat ? newChats : null, userMessages: chat ? userMessages : null, newAccounts: inCurrent ? newAccounts : null };
-  });
+    growth.push({ day, newChats: chat ? newChats : null, userMessages: chat ? userMessages : null, newAccounts: inCurrent ? newAccounts : null });
+  }
   const notes: string[] = [];
   if (accounts) {
     notes.push("Registration counts use the registration time of accounts present in Appwrite when this report was generated. Deleted accounts are outside this source’s coverage.");
@@ -149,7 +156,7 @@ export async function getAnalyticsMetrics(window: ReportingWindow, registrations
   if (!coverageFrom) notes.push("The start of full action coverage is unconfirmed. Seven-day activation is unavailable.");
   return {
     hero: { newChats: comparison("newChats"), userMessages: comparison("userMessages"),
-      newAccounts: { current: inCurrent?.length ?? null, previous: inPrevious?.length ?? null }, averageMessages: comparison("averageMessages") },
+      newAccounts: { current: inCurrent?.length ?? null, previous: allTime ? null : inPrevious?.length ?? null }, averageMessages: comparison("averageMessages") },
     growth, channels: channels.map(channel => ({ channel, ...volume(chat, channel) })), guest: volume(chat, "web_guest"),
     integrations: volume(chat, "integration"),
     active: { daily: distinctSince(window.activeStarts.daily), weekly: distinctSince(window.activeStarts.weekly), monthly: distinctSince(window.activeStarts.monthly) },

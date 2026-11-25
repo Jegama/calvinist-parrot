@@ -3,7 +3,7 @@
 // export const maxDuration = 60;
 
 import type { Prisma } from "@prisma/client";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { sendError, sendProgress } from "@/lib/progressUtils";
@@ -496,6 +496,10 @@ export async function executeChatCommand(
       if (submission && submission.content !== message) {
         return NextResponse.json({ error: "Request ID is already associated with another message" }, { status: 409 });
       }
+      const terminal = getRequestTerminalState(rows);
+      if (!retry && (terminal === "failed" || terminal === "stopped")) {
+        return NextResponse.json({ error: "Set retry to true to restart this request" }, { status: 409 });
+      }
       if (retry) {
         await tx.chatMessage.deleteMany({
           where: { chatId, requestId: resolvedRequestId, sender: { in: ["tool_summary", "system_error", "system_stopped"] } },
@@ -591,6 +595,7 @@ export async function executeChatCommand(
     const capturedUserId = resolvedUserId;
     const capturedChatId = chatId;
     const capturedRequestId = resolvedRequestId;
+    const chatUsage = { operationId: chatOperationId(chatId, resolvedRequestId), isRetry: retry === true };
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -816,6 +821,7 @@ export async function executeChatCommand(
                 configurable: {
                   thread_id: capturedChatId,
                   userId: capturedUserId,
+                  chatUsage,
                 },
                 signal: request.signal,
               }
@@ -1041,7 +1047,7 @@ export async function executeChatCommand(
               currentChat.conversationName === "New Conversation"
             ) {
               const allMessagesStr = conversationMessages.map((m) => `${m.sender}: ${m.content}`).join("\n");
-              const conversationName = await generateConversationName(allMessagesStr);
+              const conversationName = await generateConversationName(allMessagesStr, chatUsage);
               const finalName = conversationName || "New Conversation";
 
               await prisma.chatHistory.update({
@@ -1065,6 +1071,26 @@ export async function executeChatCommand(
             // Non-fatal: continue to close stream even if naming fails
           }
 
+          // Keep the request alive for memory extraction and its usage receipt after streaming.
+          if (
+            persistedTerminalState === "completed" &&
+            capturedUserId &&
+            parrotReply.trim()
+          ) {
+            after(async () => {
+              try {
+                await updateUserMemoriesFromConversation(capturedUserId, conversationMessages, chatUsage);
+              } catch (error) {
+                console.error("Background memory extraction failed:", error);
+              }
+            });
+          } else if (
+            persistedTerminalState === "completed" &&
+            !capturedUserId
+          ) {
+            console.warn("⚠️ Memory extraction skipped: userId is undefined");
+          }
+
           // Send "done" and close stream
           if (!generationStopped && !request.signal.aborted) {
             sendProgress(
@@ -1079,31 +1105,6 @@ export async function executeChatCommand(
             controller.close();
           } catch {
             // The client may already have closed the stream after Stop.
-          }
-
-          // === Background tasks (fire-and-forget, don't block response) ===
-          // Memory extraction runs after stream closes since client doesn't need this data
-
-          // 2. Extract and update user memories asynchronously
-          if (
-            persistedTerminalState === "completed" &&
-            capturedUserId &&
-            parrotReply.trim()
-          ) {
-            updateUserMemoriesFromConversation(
-              capturedUserId,
-              conversationMessages.map((m) => ({
-                sender: m.sender,
-                content: m.content,
-              }))
-            ).catch((error) => {
-              console.error("Background memory extraction failed:", error);
-            });
-          } else if (
-            persistedTerminalState === "completed" &&
-            !capturedUserId
-          ) {
-            console.warn("⚠️ Memory extraction skipped: userId is undefined");
           }
         } catch (error) {
           if (!request.signal.aborted) {

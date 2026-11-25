@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getChatActorId, resolveChatActor } from "@/lib/guest";
 import prisma from "@/lib/prisma";
 import { acquireChatCreationLocks } from "@/lib/api/handlers/request-persistence-lock";
-import { derivedCreationRequestId, recordChatEvents } from "@/lib/chat-analytics";
+import { chatOperationId, derivedCreationRequestId, recordChatEvents } from "@/lib/chat-analytics";
 import { deterministicConversationTitle } from "@/lib/chat-title";
 import { selectBranchPrefix } from "@/lib/chat-turns";
 import { generateConversationName } from "@/utils/generateConversationName";
@@ -83,11 +83,9 @@ export async function POST(request: Request) {
       .map((message) => `${message.sender}: ${message.content}`),
     `user: ${parsed.data.editedText}`,
   ].join("\n");
-  const generatedTitle = await generateConversationName(namingContext);
-  const conversationName = ensureDistinctTitle(
-    generatedTitle,
-    sourceChat.conversationName,
-    parsed.data.editedText,
+  // Use a usable title while the provider work runs after the branch commits.
+  const fallbackTitle = ensureDistinctTitle(
+    deterministicConversationTitle(namingContext), sourceChat.conversationName, parsed.data.editedText,
   );
   const requestId = parsed.data.requestId
     ? derivedCreationRequestId("branch", sourceChat.id, parsed.data.sourceMessageId, parsed.data.requestId)
@@ -105,13 +103,13 @@ export async function POST(request: Request) {
     if (existing) {
       const editedMessage = existing.messages[0];
       if (existing.messages.length !== 1 || editedMessage.content !== parsed.data.editedText) return null;
-      return { branchedChat: existing, editedMessage };
+      return { branchedChat: existing, editedMessage, created: false };
     }
     const branchedChat = await transaction.chatHistory.create({
       data: {
         creationRequestId: requestId,
         userId: actorId,
-        conversationName,
+        conversationName: fallbackTitle,
         category: sourceChat.category,
         issue_type: sourceChat.issue_type,
         subcategory: sourceChat.subcategory,
@@ -148,15 +146,35 @@ export async function POST(request: Request) {
       },
     });
 
-    return { branchedChat, editedMessage };
+    return { branchedChat, editedMessage, created: true };
   });
 
   if (!result) {
     return NextResponse.json({ error: "Request ID conflicts with an existing branch" }, { status: 409 });
   }
+  let title = result.branchedChat.conversationName;
+  if (result.created) {
+    const generated = await generateConversationName(namingContext, {
+      operationId: chatOperationId(result.branchedChat.id, requestId),
+    });
+    const generatedTitle = ensureDistinctTitle(generated, sourceChat.conversationName, parsed.data.editedText);
+    if (generatedTitle !== fallbackTitle) {
+      const updated = await prisma.chatHistory.updateMany({
+        where: { id: result.branchedChat.id, conversationName: fallbackTitle },
+        data: { conversationName: generatedTitle },
+      });
+      if (updated.count) title = generatedTitle;
+      else {
+        const current = await prisma.chatHistory.findUnique({
+          where: { id: result.branchedChat.id }, select: { conversationName: true },
+        });
+        title = current?.conversationName ?? fallbackTitle;
+      }
+    }
+  }
   return NextResponse.json({
     chatId: result.branchedChat.id,
-    title: result.branchedChat.conversationName,
+    title,
     editedMessageId: result.editedMessage.id,
     requestId,
   });

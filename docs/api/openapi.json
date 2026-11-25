@@ -238,7 +238,7 @@
         ],
         "operationId": "sendChatMessage",
         "summary": "Stream a chat response",
-        "description": "Starts a LangGraph response. Reusing a request ID with a different message, or retrying a request that already completed, returns 409 before streaming begins.",
+        "description": "Starts a LangGraph response. Reusing a request ID with a different message, or retrying a request that already completed, returns 409 before streaming begins. To resume a failed or stopped request, set retry to true; otherwise the API returns 409 without a provider call.",
         "parameters": [
           {
             "name": "chatId",

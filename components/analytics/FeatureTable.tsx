@@ -1,7 +1,8 @@
 import type { AnalyticsReport } from "@/lib/analytics/report";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ExternalLink } from "lucide-react";
-import { dayLabel, moneyLabel, numberLabel, rateLabel } from "./format";
+import { dayLabel, instantLabel, moneyLabel, numberLabel, rateLabel } from "./format";
+import ChatCostDetails from "./ChatCostDetails";
 
 type FeatureRow = AnalyticsReport["features"]["rows"][number];
 type Engagement = NonNullable<FeatureRow["engagement"]>;
@@ -33,7 +34,10 @@ function StepRate({ step }: { step: Engagement["steps"][number] }) {
   );
 }
 
-export default function FeatureTable({ features, period }: Pick<AnalyticsReport, "features" | "period">) {
+export default function FeatureTable({ features, period, generatedAt }: Pick<AnalyticsReport, "features" | "period" | "generatedAt">) {
+  const observationWindow = period.startDay
+    ? `${dayLabel(period.startDay)} – ${dayLabel(period.endDay)} · ${period.timeZone}`
+    : `All time through ${instantLabel(generatedAt, period.timeZone)}`;
   return (
     <section aria-labelledby="features-heading" className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -75,6 +79,7 @@ export default function FeatureTable({ features, period }: Pick<AnalyticsReport,
           </TableBody>
         </Table>
       </div>
+      {features.chatSpend && <ChatCostDetails report={features.chatSpend} />}
       <p className="text-sm text-muted-foreground">{features.actionCoverage}</p>
       <div className="space-y-2 pt-2">
         <h3 className="text-xl font-semibold">Engagement by feature</h3>
@@ -83,7 +88,7 @@ export default function FeatureTable({ features, period }: Pick<AnalyticsReport,
             <summary className="cursor-pointer rounded-lg px-4 py-3 font-semibold focus-visible:outline-ring">{name}</summary>
             <div id={`outcomes-${key}`} tabIndex={-1} aria-label={`${name} engagement details`} role="region"
               className="scroll-mt-[calc(var(--app-header-height)+4rem)] space-y-3 border-t p-4">
-              <p className="text-sm font-medium">Observation window · {dayLabel(period.startDay)} – {dayLabel(period.endDay)} · {period.timeZone}</p>
+              <p className="text-sm font-medium">Observation window · {observationWindow}</p>
               <Table className="tabular-nums">
                 <TableHeader>
                   <TableRow>
