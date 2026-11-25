@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
+import type { ChatChannel } from "./chat-analytics";
 import type { ModelSpec } from "./parrot-ai";
 
 export interface UsageContext {
-  feature: "personal_journal" | "heritage_journal" | "daily_devotional";
+  feature: "personal_journal" | "heritage_journal" | "daily_devotional" | "church" | "sermon";
+  channel?: ChatChannel;
   stage: string;
   operationId: string;
 }
 
-type Outcome = "received" | "success" | "invalid_output" | "provider_error";
+type Outcome = "started" | "received" | "success" | "invalid_output" | "provider_error";
 
 function object(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? value as Record<string, unknown> : {};
@@ -58,17 +60,38 @@ export function normalizeUsage(provider: ModelSpec["provider"], usage: unknown) 
   return {};
 }
 
-function environment() {
+export function usageEnvironment() {
   return process.env.VERCEL_ENV || process.env.NODE_ENV || "development";
 }
 
-export function startUsageAttempt(context: UsageContext, spec: ModelSpec) {
-  const { feature, stage, operationId } = context;
+function startAttempt({ feature, stage, operationId, channel }: UsageContext) {
   return {
-    attemptId: randomUUID(), feature, stage, operationId,
-    startedAt: new Date(), environment: environment(), provider: spec.provider,
-    requestedModel: spec.model,
+    attemptId: randomUUID(), feature, stage, operationId, channel: channel ?? "unknown",
+    startedAt: new Date(), environment: usageEnvironment(),
   };
+}
+
+export function startUsageAttempt(context: UsageContext, spec: ModelSpec) {
+  return {
+    ...startAttempt(context), provider: spec.provider, requestedModel: spec.model,
+    modality: "text",
+  };
+}
+
+export function startExternalUsageAttempt(context: UsageContext, provider: "tavily" | "geoapify", billingUnit: "credit") {
+  return { ...startAttempt(context), provider, billingUnit };
+}
+
+export function recordExternalUsageAttempt(
+  attempt: ReturnType<typeof startExternalUsageAttempt>,
+  outcome: Outcome,
+  durationMs: number,
+  quantity: number | null,
+) {
+  return persistAttempt(attempt, {
+    outcome, durationMs,
+    quantity: quantity !== null && Number.isFinite(quantity) && quantity >= 0 ? quantity : null,
+  });
 }
 
 export type UsageAttempt = ReturnType<typeof startUsageAttempt>;
@@ -81,19 +104,36 @@ export async function recordUsageAttempt(
   usage?: unknown,
 ) {
   // Whitelist billing counters, never persist a provider response or error object.
-  const receipt = {
+  await persistAttempt(attempt, {
     outcome, durationMs, returnedModel,
     ...normalizeUsage(attempt.provider, usage),
-  };
+  });
+}
+
+async function persistAttempt<T extends { outcome: Outcome; durationMs: number }>(
+  attempt: UsageAttempt | ReturnType<typeof startExternalUsageAttempt>,
+  receipt: T,
+) {
   try {
     const { default: prisma } = await import("./prisma");
+    const where = { attemptId: attempt.attemptId };
+    const create = { ...attempt, ...receipt };
+    // A replayed initial receipt must never replace already-settled usage.
+    // Church calls write a marker before dispatch, so a killed process leaves
+    // an observable attempt even when the provider never returns counters.
+    if (attempt.feature === "church" && receipt.outcome === "received") {
+      await prisma.$transaction([
+        prisma.providerCallAttempt.createMany({ data: [create], skipDuplicates: true }),
+        prisma.providerCallAttempt.updateMany({ where: { ...where, outcome: "started" }, data: receipt }),
+      ]);
+      return;
+    }
     await prisma.providerCallAttempt.upsert({
-      where: { attemptId: attempt.attemptId },
-      create: { ...attempt, ...receipt },
-      update: receipt,
+      where, create,
+      update: receipt.outcome === "received" || receipt.outcome === "started" ? {} : receipt,
     });
   } catch {
-    console.warn("Provider usage write failed", attempt.attemptId, outcome);
+    console.warn("Provider usage write failed", attempt.attemptId, receipt.outcome);
   }
 }
 
@@ -101,7 +141,7 @@ export async function markUsageOperationComplete(feature: UsageContext["feature"
   try {
     const { default: prisma } = await import("./prisma");
     await prisma.providerCallAttempt.updateMany({
-      where: { feature, operationId, environment: environment(), completedAt: null },
+      where: { feature, operationId, environment: usageEnvironment(), completedAt: null },
       data: { completedAt: new Date() },
     });
   } catch {

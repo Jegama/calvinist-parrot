@@ -134,7 +134,7 @@ export async function createChurch(payload: {
   website: string;
   forceReEvaluate?: boolean;
 }): Promise<ChurchDetail> {
-  const response = await fetch(`/api/churches`, {
+  const response = await fetch(`/api/web/churches`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

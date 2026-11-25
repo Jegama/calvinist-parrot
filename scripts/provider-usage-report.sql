@@ -1,6 +1,5 @@
--- Standard paid USD per million tokens, for uncached requests up to 100k input
--- tokens on the two production aliases. Source and scope: GitHub issue #96.
--- The analytics_priced_provider_attempt view applies the rate on the call date.
+-- Estimated journal and devotional spend at standard paid rates. The shared
+-- analytics_priced_provider_attempt view applies the rate on the call date.
 --
 -- Run with a read-only database connection:
 --   psql "$DATABASE_URL" -f scripts/provider-usage-report.sql
@@ -9,7 +8,7 @@
 -- billable output. Token sums include available counters from all attempts.
 -- A NULL sum means no counter was reported. Thinking is already in output.
 -- Price coverage additionally requires a matching rate. The example omits
--- cache, tool-use and long-context prices until verified rates are supplied.
+-- unsupported cache, tool-use and long-context prices.
 -- Optional cache counters omitted on otherwise measured calls count as zero.
 -- Requests with no reported service tier assume standard paid on-demand rates.
 -- Estimated cost averages all attempts of each durably completed operation,
@@ -29,6 +28,7 @@ WITH operations AS (
            sum("thinkingTokens") AS thinking_detail, sum("toolUsePromptTokens") AS tool_input,
            sum(usd) AS known_usd
     FROM analytics_priced_provider_attempt
+    WHERE feature IN ('personal_journal', 'heritage_journal', 'daily_devotional')
     GROUP BY environment, feature, "operationId"
 )
 SELECT environment, feature, sum(attempts) AS attempts,

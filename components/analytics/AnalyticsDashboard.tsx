@@ -3,7 +3,7 @@ import type { AnalyticsReport } from "@/lib/analytics/report";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import FeatureTable from "./FeatureTable";
 import GrowthCharts from "./GrowthCharts";
-import { dayLabel, instantLabel, numberLabel, rateLabel } from "./format";
+import { channelLabels, dayLabel, instantLabel, numberLabel, rateLabel } from "./format";
 
 const heroMetrics = [
   ["newChats", "New chats"],
@@ -11,14 +11,6 @@ const heroMetrics = [
   ["newAccounts", "New accounts"],
   ["averageMessages", "Avg. messages per active chat"],
 ] as const;
-
-const channelLabels = {
-  combined: "All channels",
-  web: "Website",
-  public_api: "Public API (v1)",
-  mcp: "MCP",
-  unknown: "Unknown",
-};
 
 function PeriodOverview({ report }: { report: AnalyticsReport }) {
   const { period, metrics } = report;

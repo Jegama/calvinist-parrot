@@ -7,8 +7,9 @@ import os
 import random
 import threading
 import time
+import uuid
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional, TypeVar
 
 import httpx
@@ -17,6 +18,70 @@ import httpx2
 
 DEFAULT_MODEL = "gemini-4-hydrogen"
 T = TypeVar("T")
+UsageRecorder = Callable[[dict[str, Any]], None]
+
+
+def _usage_counters(usage: dict[str, Any]) -> dict[str, Any]:
+    """Mirror the shared Gemini billing buckets, retaining only operational fields."""
+
+    def count(key: str) -> Optional[int]:
+        value = usage.get(key)
+        return value if type(value) is int and value >= 0 else None
+
+    prompt = count("promptTokenCount")
+    cache = count("cachedContentTokenCount")
+    candidates = count("candidatesTokenCount")
+    thoughts = count("thoughtsTokenCount")
+    tool = count("toolUsePromptTokenCount")
+    total = count("totalTokenCount")
+    output = candidates + (thoughts or 0) if candidates is not None else None
+    if (prompt is not None and output is not None and total is not None
+            and prompt + output + (tool or 0) != total):
+        output = None
+
+    audio = None
+    details = usage.get("promptTokensDetails")
+    for detail in details if isinstance(details, list) else []:
+        if isinstance(detail, dict) and detail.get("modality") == "AUDIO":
+            value = detail.get("tokenCount")
+            if type(value) is int and value >= 0:
+                audio = (audio or 0) + value
+    tier = usage.get("serviceTier") or usage.get("trafficType")
+    return {
+        "promptTokens": prompt, "candidateTokens": candidates,
+        "cacheReadTokens": cache, "thinkingTokens": thoughts,
+        "inputTokens": prompt - (cache or 0) if prompt is not None and prompt >= (cache or 0) else None,
+        "outputTokens": output, "toolUsePromptTokens": tool, "providerTotalTokens": total,
+        "audioInputTokens": audio, "serviceTier": tier if isinstance(tier, str) else None,
+    }
+
+
+def _response_billing(response: Any) -> dict[str, Any]:
+    """A malformed usage envelope must never retry or reject a paid response."""
+    model = None
+    try:
+        if isinstance(response, Exception):
+            # Google APIError.details contains the decoded HTTP error envelope.
+            body = getattr(response, "details", None)
+            body = body if isinstance(body, dict) else {}
+            model = body.get("modelVersion")
+            usage = body.get("usageMetadata")
+        else:
+            model = getattr(response, "model_version", None)
+            metadata = getattr(response, "usage_metadata", None)
+            usage = metadata.model_dump(mode="json", by_alias=True) if metadata else None
+        counters = _usage_counters(usage if isinstance(usage, dict) else {})
+    except Exception:
+        counters = _usage_counters({})
+    return {**counters, "returnedModel": model if isinstance(model, str) else None}
+
+
+def _record(recorder: UsageRecorder, receipt: dict[str, Any], outcome: str) -> None:
+    try:
+        recorder({**receipt, "outcome": outcome})
+    except Exception:
+        # Metering errors must never replay a paid generation or expose its content.
+        print(f"Provider usage write failed {receipt['attemptId']} {outcome}", flush=True)
 
 
 @dataclass(frozen=True)
@@ -92,7 +157,9 @@ class GeminiProvider:
                 api_key=self._api_key,
                 # Use the stable API for both structured output and files.
                 http_options=self._types.HttpOptions(
-                    api_version="v1", timeout=seconds * 1000
+                    api_version="v1", timeout=seconds * 1000,
+                    # Each HTTP attempt belongs to the explicit retry loop below.
+                    retry_options=self._types.HttpRetryOptions(attempts=1),
                 ),
             )
         return self._clients[seconds]
@@ -200,6 +267,56 @@ class GeminiProvider:
             return parsed
         return json.loads(getattr(response, "text", "") or "{}")
 
+    def _generate(
+        self, contents: Any, response_schema: type, system: Optional[str],
+        model: Optional[str], seed: Optional[int], timeout_seconds: Optional[float],
+        modality: str, record_usage: Optional[UsageRecorder],
+    ) -> dict[str, Any]:
+        requested_model = model or self.model_name
+        config = self._config(response_schema, system, seed)
+
+        def call(remaining: float) -> tuple[Any, dict[str, Any]]:
+            models = self._client(remaining).models
+            started = time.monotonic()
+            receipt = {
+                "attemptId": uuid.uuid4(), "startedAt": datetime.now(timezone.utc),
+                "requestedModel": requested_model, "modality": modality,
+            }
+            if record_usage:
+                # If this process dies during generation, retain the unknown
+                # attempt alongside any fresh request made by a recovery worker.
+                _record(record_usage, {
+                    **receipt, **_usage_counters({}), "returnedModel": None, "durationMs": 0,
+                }, "started")
+            try:
+                response = models.generate_content(
+                    model=requested_model, contents=contents, config=config,
+                )
+            except Exception as error:
+                if record_usage:
+                    receipt.update(_response_billing(error), durationMs=int((time.monotonic() - started) * 1000))
+                    _record(record_usage, receipt, "provider_error")
+                raise
+            if record_usage:
+                receipt.update(_response_billing(response), durationMs=int((time.monotonic() - started) * 1000))
+                _record(record_usage, receipt, "received")
+            return response, receipt
+
+        response, receipt = self._with_transient_retry("generate_content", timeout_seconds, call)
+        try:
+            parsed = self._parse(response)
+            if record_usage:
+                # The job's structured schemas are Pydantic models. A billed
+                # response that cannot advance this stage still belongs in spend.
+                response_schema.model_validate(parsed)
+        except Exception:
+            if record_usage:
+                _record(record_usage, receipt, "invalid_output")
+            raise
+        if record_usage:
+            _record(record_usage, receipt, "success")
+        return parsed
+
     def generate_structured(
         self,
         prompt: str,
@@ -208,18 +325,10 @@ class GeminiProvider:
         model: Optional[str] = None,
         seed: Optional[int] = 1689,
         timeout_seconds: Optional[float] = None,
+        *,
+        record_usage: Optional[UsageRecorder] = None,
     ) -> dict[str, Any]:
-        config = self._config(response_schema, system, seed)
-        response = self._with_transient_retry(
-            "generate_structured",
-            timeout_seconds,
-            lambda remaining: self._client(remaining).models.generate_content(
-                model=model or self.model_name,
-                contents=prompt,
-                config=config,
-            ),
-        )
-        return self._parse(response)
+        return self._generate(prompt, response_schema, system, model, seed, timeout_seconds, "text", record_usage)
 
     def generate_structured_with_contents(
         self,
@@ -229,18 +338,10 @@ class GeminiProvider:
         model: Optional[str] = None,
         seed: Optional[int] = 1689,
         timeout_seconds: Optional[float] = None,
+        *,
+        record_usage: Optional[UsageRecorder] = None,
     ) -> dict[str, Any]:
-        config = self._config(response_schema, system, seed)
-        response = self._with_transient_retry(
-            "generate_structured_with_contents",
-            timeout_seconds,
-            lambda remaining: self._client(remaining).models.generate_content(
-                model=model or self.model_name,
-                contents=contents,
-                config=config,
-            ),
-        )
-        return self._parse(response)
+        return self._generate(contents, response_schema, system, model, seed, timeout_seconds, "audio", record_usage)
 
     def upload_file(
         self, file_path: str, *, timeout_seconds: Optional[float] = None

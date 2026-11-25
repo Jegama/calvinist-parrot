@@ -81,6 +81,9 @@ class EvaluationJob:
     original_filename: str
     result: Mapping[str, Any]
     provenance: Mapping[str, Any]
+    channel: str
+    preset: str
+    usage_environment: str
 
 
 @dataclass(frozen=True)
@@ -145,7 +148,7 @@ class PsycopgPersistence(ScoringPersistence):
                 """
                 SELECT e."id", e."ownerId", e."title", e."preachedOn",
                        preacher."displayName" AS "preacherName",
-                       e."status"::text, e."version",
+                       e."status"::text, e."version", e.channel, e.preset::text, e."usageEnvironment",
                        e."requestedRuns", e."completedRuns",
                        e."durationAdjustmentEnabled", e."attemptDeadlineAt",
                        e."cancelRequestedAt", e."fingerprintId",
@@ -187,7 +190,48 @@ class PsycopgPersistence(ScoringPersistence):
             original_filename=row["originalFilename"],
             result=row["result"] or {},
             provenance=row["provenance"] or {},
+            channel=row["channel"] or "unknown",
+            preset=row["preset"],
+            usage_environment=(
+                row["usageEnvironment"] or os.getenv("SERMON_USAGE_ENVIRONMENT")
+                or os.getenv("VERCEL_ENV") or os.getenv("NODE_ENV") or "unknown"
+            ),
         )
+
+    def record_provider_usage(self, job: EvaluationJob, stage: str, receipt: dict[str, Any]) -> None:
+        # Billing survives loss of the lease or cancellation after a paid response.
+        # A replay of an earlier "received" write must not downgrade its final outcome.
+        with self._connection() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO "ProviderCallAttempt" (
+                    "attemptId", "operationId", feature, stage, channel, preset, environment,
+                    provider, "requestedModel", "returnedModel", modality, "startedAt", "durationMs",
+                    outcome, "promptTokens", "inputTokens", "cacheReadTokens", "audioInputTokens",
+                    "candidateTokens", "thinkingTokens", "outputTokens", "toolUsePromptTokens",
+                    "providerTotalTokens", "serviceTier"
+                ) VALUES (
+                    %(attemptId)s, %(operationId)s, 'sermon', %(stage)s, %(channel)s, %(preset)s, %(environment)s,
+                    'gemini', %(requestedModel)s, %(returnedModel)s, %(modality)s, %(startedAt)s, %(durationMs)s,
+                    %(outcome)s, %(promptTokens)s, %(inputTokens)s, %(cacheReadTokens)s, %(audioInputTokens)s,
+                    %(candidateTokens)s, %(thinkingTokens)s, %(outputTokens)s, %(toolUsePromptTokens)s,
+                    %(providerTotalTokens)s, %(serviceTier)s
+                ) ON CONFLICT ("attemptId") DO UPDATE SET
+                    outcome = EXCLUDED.outcome, "returnedModel" = %(returnedModel)s,
+                    "durationMs" = %(durationMs)s, "serviceTier" = %(serviceTier)s,
+                    "promptTokens" = %(promptTokens)s, "inputTokens" = %(inputTokens)s,
+                    "cacheReadTokens" = %(cacheReadTokens)s, "audioInputTokens" = %(audioInputTokens)s,
+                    "candidateTokens" = %(candidateTokens)s, "thinkingTokens" = %(thinkingTokens)s,
+                    "outputTokens" = %(outputTokens)s, "toolUsePromptTokens" = %(toolUsePromptTokens)s,
+                    "providerTotalTokens" = %(providerTotalTokens)s
+                  WHERE EXCLUDED.outcome <> 'started' AND (
+                      "ProviderCallAttempt".outcome = 'started' OR
+                      ("ProviderCallAttempt".outcome = 'received' AND EXCLUDED.outcome <> 'received')
+                  )
+                """,
+                {**receipt, "operationId": job.id, "stage": stage, "channel": job.channel,
+                 "preset": job.preset, "environment": job.usage_environment},
+            )
 
     def create_evaluation_attempt(
         self,

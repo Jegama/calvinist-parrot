@@ -320,6 +320,9 @@ model churchServiceTime {
 model churchEvaluation {
   id                         String                 @id @default(cuid())
   churchId                   String
+  channel                    String                 @default("unknown")
+  usageEnvironment           String?
+  expectedUsageAttempts      Int?
   rawEvaluation              Json
   badges                     String[]
   secondary                  Json?
@@ -434,6 +437,8 @@ model sermonAudioAsset {
 
 model sermonEvaluation {
   id                        String                      @id @default(cuid())
+  channel                   String                      @default("unknown")
+  usageEnvironment          String?
   ownerId                   String
   preacherId                String
   fingerprintId             String
@@ -814,7 +819,13 @@ model ProviderCallAttempt {
   durationMs          Int
   environment         String
   provider            String
-  requestedModel      String
+  requestedModel      String?
+  channel             String    @default("unknown")
+  preset              String?
+  modality            String?
+  audioInputTokens    Int?
+  billingUnit         String?
+  quantity            Float?
   returnedModel       String?
   serviceTier         String?
   outcome             String

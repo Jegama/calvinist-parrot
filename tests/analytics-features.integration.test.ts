@@ -71,7 +71,7 @@ describe.skipIf(!databaseUrl)("feature report with provider attempts and a Verce
     const daily = report.rows.find(row => row.key === "daily_devotional")!;
     expect(daily.actions).toContainEqual({ label: "Devotionals published", count: 1 });
     expect(daily.costPerCompletionUsd).toBeCloseTo(0.00225, 8);
-    expect(report.rows.find(row => row.key === "church")?.estimatedSpendUsd).toBeNull();
+    expect(report.rows.find(row => row.key === "church")?.estimatedSpendUsd).toBe(0);
     expect(JSON.stringify(report)).not.toContain(operation);
   });
 

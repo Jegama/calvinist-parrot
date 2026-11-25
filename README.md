@@ -92,7 +92,9 @@ Accounts with the Appwrite label `analyticsadmin` can open **Analytics dashboard
 
 Registration counts use a server-only `APPWRITE_ANALYTICS_READ_KEY` with the `users.read` scope. Production pageviews use `VERCEL_PROJECT_ID` and a server-only token (`VERCEL_ANALYTICS_TOKEN` or `VERCEL_TOKEN`). Set `VERCEL_TEAM_ID` to explicitly scope the request to a team. The dashboard labels unavailable sources and shows the remaining metrics. See the [environment template](./.env.template) for configuration.
 
-Deleting an individual chat or journal entry leaves its content-free activity records in place. When fulfilling an account deletion request, include the account’s chat and action records and any journal completion and provider records linked to its entry or revision IDs.
+Church Finder and Sermon Evaluator report model spend, external-service fees, and cost per completed evaluation by entry channel. Period spend includes failed and retried calls. The completion average includes earlier attempts on evaluations that finished during the period and is available when their costs are fully covered. Saved church reads and resumed sermon stages that reuse saved results generate no new charges. The dedicated worker database role needs the grants in the [sermon worker setup](./services/sermon-evaluator/README.md).
+
+Deleting an individual chat or journal entry leaves its content-free activity records in place. When fulfilling an account deletion request, include the account’s chat and action records and any journal completion and provider records linked to its entry, revision, or sermon evaluation IDs.
 
 ### Chat model configuration
 

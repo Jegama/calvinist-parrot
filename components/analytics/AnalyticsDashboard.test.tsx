@@ -33,6 +33,12 @@ describe("admin analytics presentation", () => {
         notes: ["Appwrite registrations unavailable."],
       },
       features: {
+        evaluationChannels: [
+          { feature: "church", channel: "mcp", completions: 0, modelSpend: 0, externalFees: 0, estimatedSpendUsd: 0, costPerCompletionUsd: null, spendCoverage: "0/0 attempts measured." },
+        ],
+        evaluationStages: [
+          { feature: "sermon", preset: "HIGH_CONFIDENCE", stage: "extraction", provider: "gemini", service: "gemini-4-hydrogen", modality: "audio", billingUnit: null, quantity: null, attempts: 2, priced: 1, measured: 1, spend: 0.003 },
+        ],
         rows: [{ key: "personal_journal", name: "Personal Journal", pageviews: null, actions: [{ label: "Saved entries", count: 3 }], estimatedSpendUsd: 0.000032, costPerCompletionUsd: null, spendCoverage: "Partial pricing." }],
         pageviewCoverage: "Vercel pageviews unavailable.", actionCoverage: "Counts reflect retained records.",
       },
@@ -61,6 +67,8 @@ describe("admin analytics presentation", () => {
     expect(brokenLine?.match(/M/g)).toHaveLength(2);
     expect(brokenLine).not.toContain("L");
     expect(charts[2].querySelector("svg")).toBeNull();
+    expect(document.querySelector('table[aria-label="Church Finder costs by entry channel"] tbody')?.textContent).toContain("MCP0$0.00$0.00$0.00—");
+    expect(document.querySelector('table[aria-label="Sermon Evaluator costs by stage"] tbody')?.textContent).toContain("High ConfidenceExtractionGemini · gemini-4-hydrogenAudio$0.0031/2 measured, 1/2 priced");
     const feature = document.querySelector<HTMLTableRowElement>('section[aria-labelledby="features-heading"] tbody tr')!;
     expect(feature.textContent).toContain("Saved entries3");
     expect(feature.textContent).toContain("$0.000032");

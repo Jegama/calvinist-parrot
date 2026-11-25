@@ -4,6 +4,6 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, { params }: RouteContext) {
   const { id } = await params;
-  return handleReevaluateSermon(request, id);
+  return handleReevaluateSermon(request, id, "public_api");
 }
 
