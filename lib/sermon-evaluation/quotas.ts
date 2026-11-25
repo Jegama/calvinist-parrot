@@ -4,8 +4,10 @@ import {
   type sermonEvaluation,
 } from "@prisma/client";
 
+import type { ChatChannel } from "@/lib/chat-analytics";
 import prisma from "@/lib/prisma";
 import { recordEngagement } from "@/lib/analytics/engagement-store";
+import { providerUsageEnvironment } from "@/lib/provider-usage";
 
 import {
   SERMON_DAILY_RUN_LIMIT,
@@ -170,7 +172,7 @@ type SermonPreacherSelection =
   | { preacherId?: never; newPreacherName: string };
 
 type CreateReservedEvaluationInput = {
-  channel?: "web" | "public_api";
+  channel: ChatChannel;
   ownerId: string;
   actorId: string;
   isAdmin: boolean;
@@ -286,6 +288,9 @@ export async function createReservedSermonEvaluation(
             fingerprintId: input.fingerprintId,
             audioAssetId: input.audioAssetId,
             sourceEvaluationId: input.sourceEvaluationId,
+            channel: input.channel,
+            usageEnvironment: providerUsageEnvironment(),
+            expectedUsageAttempts: 0,
             title: input.title.trim(),
             preachedOn: input.preachedOn,
             preset: input.selection.preset,
@@ -295,9 +300,7 @@ export async function createReservedSermonEvaluation(
           include: { preacher: true },
         });
 
-        if (input.channel) {
-          await recordEngagement("sermon", "submitted", evaluation.id, input.channel, tx);
-        }
+        await recordEngagement("sermon", "submitted", evaluation.id, input.channel, tx);
         await tx.sermonRunCreditReservation.create({
           data: {
             fingerprintId: input.fingerprintId,

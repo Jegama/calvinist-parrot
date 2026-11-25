@@ -2,6 +2,7 @@ import type { AnalyticsReport } from "@/lib/analytics/report";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ExternalLink } from "lucide-react";
 import { dayLabel, instantLabel, moneyLabel, numberLabel, rateLabel } from "./format";
+import EvaluationCosts from "./EvaluationCosts";
 import ChatCostDetails from "./ChatCostDetails";
 
 type FeatureRow = AnalyticsReport["features"]["rows"][number];
@@ -41,7 +42,7 @@ export default function FeatureTable({ features, period, generatedAt }: Pick<Ana
   return (
     <section aria-labelledby="features-heading" className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 id="features-heading" className="text-2xl font-semibold">Feature usage and AI spend</h2>
+        <h2 id="features-heading" className="text-2xl font-semibold">Feature usage and spend</h2>
         <a href="https://vercel.com/jegamas-projects/calvinist-parrot/speed-insights" className="inline-flex items-center gap-1 text-sm font-medium text-primary underline underline-offset-4 dark:text-foreground">
           Vercel Speed Insights <ExternalLink aria-hidden="true" size={14} />
         </a>
@@ -55,7 +56,7 @@ export default function FeatureTable({ features, period, generatedAt }: Pick<Ana
               <TableHead scope="col" aria-describedby="pageview-coverage" className="text-right">Pageviews</TableHead>
               <TableHead scope="col">Completed action</TableHead>
               <TableHead scope="col">Website outcomes</TableHead>
-              <TableHead scope="col" className="text-right">Est. AI spend</TableHead>
+              <TableHead scope="col" className="text-right">Est. spend</TableHead>
               <TableHead scope="col" className="text-right">Cost per completion</TableHead>
               <TableHead scope="col">Spend coverage</TableHead>
             </TableRow>
@@ -81,6 +82,7 @@ export default function FeatureTable({ features, period, generatedAt }: Pick<Ana
       </div>
       {features.chatSpend && <ChatCostDetails report={features.chatSpend} />}
       <p className="text-sm text-muted-foreground">{features.actionCoverage}</p>
+      <EvaluationCosts features={features} />
       <div className="space-y-2 pt-2">
         <h3 className="text-xl font-semibold">Engagement by feature</h3>
         {features.rows.map(({ key, name, engagement }) => engagement && (

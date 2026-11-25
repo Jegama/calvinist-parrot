@@ -1,17 +1,26 @@
-export async function geocodeAddress(
-  address: {
-    street1?: string | null;
-    city?: string | null;
-    state?: string | null;
-    postCode?: string | null;
-  },
-  signal?: AbortSignal,
-): Promise<{ latitude: number | null; longitude: number | null }> {
-  const { street1, city, state, postCode } = address;
-  const query = [street1, city, state, postCode]
-    .filter((part) => Boolean(part && part.trim()))
-    .join(", ");
+import { recordExternalUsageAttempt, startExternalUsageAttempt, type UsageContext } from "@/lib/provider-usage";
 
+type GeocodingAddress = {
+  street1?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postCode?: string | null;
+};
+
+function addressQuery({ street1, city, state, postCode }: GeocodingAddress) {
+  return [street1, city, state, postCode].filter(part => part?.trim()).join(", ");
+}
+
+export function canGeocodeAddress(address: GeocodingAddress) {
+  return Boolean(process.env.GEOAPIFY_API_KEY && addressQuery(address));
+}
+
+export async function geocodeAddress(
+  address: GeocodingAddress,
+  signal?: AbortSignal,
+  usage?: UsageContext,
+): Promise<{ latitude: number | null; longitude: number | null }> {
+  const query = addressQuery(address);
   if (!query) {
     return { latitude: null, longitude: null };
   }
@@ -27,6 +36,10 @@ export async function geocodeAddress(
   url.searchParams.set("limit", "1");
   url.searchParams.set("type", "amenity");
 
+  const attempt = usage && startExternalUsageAttempt(usage, "geoapify", "credit");
+  if (attempt) await recordExternalUsageAttempt(attempt, "started", 0, null);
+  let credits: number | null = null;
+  let outcome: "success" | "provider_error" | "invalid_output" = "provider_error";
   try {
     const response = await fetch(url.toString(), { signal });
 
@@ -37,6 +50,10 @@ export async function geocodeAddress(
       return { latitude: null, longitude: null };
     }
 
+    // A successful single-address geocoding request consumes one credit,
+    // including an empty result (https://www.geoapify.com/geocoding-api/).
+    credits = 1;
+    outcome = "invalid_output";
     const data = await response.json() as {
       features?: Array<{
         geometry?: {
@@ -45,6 +62,7 @@ export async function geocodeAddress(
       }>;
     };
 
+    outcome = "success";
     const coordinates = data.features?.[0]?.geometry?.coordinates;
     if (!coordinates || coordinates.length !== 2) {
       console.warn("church_geocoding_no_results");
@@ -64,5 +82,9 @@ export async function geocodeAddress(
       error_name: error instanceof Error ? error.name : "UnknownError",
     });
     return { latitude: null, longitude: null };
+  } finally {
+    if (attempt) {
+      await recordExternalUsageAttempt(attempt, outcome, Date.now() - attempt.startedAt.getTime(), credits);
+    }
   }
 }

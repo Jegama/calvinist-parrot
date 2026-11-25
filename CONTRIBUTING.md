@@ -133,14 +133,16 @@ In the PR description, say who is affected, how you verified the change, and whi
 
 Judge model, prompt, and dependency updates by their effect on this app. A prompt fix that restores a documented rule is a patch. A new evaluation capability is minor. An upstream library's own major version can still mean no app bump. Call out any change to where personal data is sent, who can use a gated feature, or what an operator must configure.
 
-For major, minor, or patch impact, add a short entry under `Unreleased` in the [changelog](./CHANGELOG.md) in the same PR. Describe what the person can do, what was fixed, or what they must change. Link the PR once its number is available. For `none`, the reason in the PR description is sufficient.
+Merging to `master` deploys the app to production. Every PR with major, minor, or patch impact ships its version bump and release notes in that same PR. For `none`, explain the impact in the PR description.
 
 #### Cutting a release
 
-1. Open a release PR when the first change with major, minor, or patch impact merges. Group subsequent changes in that PR and review it at the next production rollout. An urgent fix can go out on its own.
-2. Choose the highest impact since the last numbered release and apply it once. From `1.0.0`, a batch containing a breaking change becomes `2.0.0`, compatible features become `1.1.0`, and fixes alone become `1.0.1`. Fold related entries together and give breaking changes a migration note.
-3. On the release branch, run `npm version <version> --no-git-tag-version` with the chosen number. Verify `package.json` and both root version entries in `package-lock.json` agree. Move the entries to a dated version heading and keep an empty `Unreleased` heading for the next change. The API route namespace, OpenAPI document, sermon worker package, and prompt identifiers have their own versions. For a public contract change, review its API version separately, regenerate the OpenAPI file with `npm run openapi:generate`, and include it in the contract PR.
-4. Verify the release PR against CI. Once the maintainer confirms the production rollout, tag the released commit `vX.Y.Z` and publish the matching changelog section as the GitHub Release. Identify any invitation or rollout limits in the release notes.
+1. Read the app version on the latest `master` and apply the PR's highest impact once. From `2.0.0`, a breaking change becomes `3.0.0`, a compatible feature becomes `2.1.0`, and a fix becomes `2.0.1`.
+2. On the feature or fix branch, run `npm version <version> --no-git-tag-version`. Verify that `package.json` and both root version entries in `package-lock.json` agree. Add a dated heading for that version to the [changelog](./CHANGELOG.md). Describe the changes users or operators will see, link the PR, and include migration instructions for breaking changes.
+3. Before merging, check the version and changelog against the latest `master`. If another release landed first, recalculate the bump, preserve its release notes, and recheck CI. Use the date of the planned production merge for the heading.
+4. After the maintainer confirms the production deployment, tag the deployed commit `vX.Y.Z` and publish its changelog section as the GitHub Release. Include any invitation or rollout limits in the release notes.
+
+The API route namespace, OpenAPI document, sermon worker package, and prompt identifiers have their own versions. For a public contract change, review its API version separately, regenerate the OpenAPI file with `npm run openapi:generate`, and include it in the contract PR.
 
 ### Updating Your Branch
 

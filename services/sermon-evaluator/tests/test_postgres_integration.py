@@ -13,14 +13,16 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
 
+import httpx
 import pytest
+from pydantic import ValidationError
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
 import sermon_evaluator.persistence as persistence_module
 
-from sermon_evaluator.gemini import GeminiProvider, ProviderResponseMetadata
+from sermon_evaluator.gemini import GeminiProvider
 from sermon_evaluator.persistence import (
     AudioHashMismatch,
     LeaseUnavailable,
@@ -900,7 +902,7 @@ def test_psycopg_persistence_against_prisma_schema() -> None:
 
 
 @pytest.fixture
-def queued_report_job(tmp_path, requested_runs, retry, saved_alias, extraction, raw_scoring):
+def queued_report_job(tmp_path, requested_runs, retry, saved_alias, legacy, extraction, raw_scoring):
     suffix = uuid.uuid4().hex[:24]
     evaluation_id = f"evaluation-{suffix}"
     owner_id = f"owner-{suffix}"
@@ -943,6 +945,11 @@ def queued_report_job(tmp_path, requested_runs, retry, saved_alias, extraction, 
                     """,
                     (audio.stat().st_size, asset_id),
                 )
+                if not legacy:
+                    cur.execute(
+                        'UPDATE "sermonEvaluation" SET channel = %s, "usageEnvironment" = %s, "expectedUsageAttempts" = 0 WHERE id = %s',
+                        ("public_api", "test", evaluation_id),
+                    )
                 if retry:
                     # The retry endpoint requeues the evaluation and preserves its outputs.
                     result = {
@@ -976,19 +983,22 @@ def queued_report_job(tmp_path, requested_runs, retry, saved_alias, extraction, 
 
             yield evaluation_id, pool, storage
         finally:
+            with pool.connection() as conn:
+                conn.execute('DELETE FROM "ProviderCallAttempt" WHERE "operationId" = %s', (evaluation_id,))
             _cleanup_owner(pool, owner_id)
 
 
 @pytest.mark.parametrize(
-    ("requested_runs", "retry", "expired_file", "saved_alias"),
+    ("requested_runs", "retry", "expired_file", "saved_alias", "legacy"),
     [
-        (1, False, False, None),
-        (3, False, False, None),
-        (3, True, False, None),
-        (3, True, True, None),
-        (3, True, False, "gemini-3.8-flash"),
+        (1, False, False, None, False),
+        (3, False, False, None, False),
+        (3, True, False, None, False),
+        (3, True, True, None, False),
+        (3, True, False, "gemini-3.8-flash", False),
+        (3, True, False, None, True),
     ],
-    ids=["standard", "high-confidence", "retry-active-file", "retry-expired-file", "retry-flash"],
+    ids=["standard", "high-confidence", "retry-active-file", "retry-expired-file", "retry-flash", "retry-legacy"],
 )
 def test_worker_publishes_reports_from_read_only_directory(
     queued_report_job,
@@ -1000,19 +1010,18 @@ def test_worker_publishes_reports_from_read_only_directory(
     retry,
     expired_file,
     saved_alias,
+    legacy,
 ) -> None:
+    monkeypatch.setenv("SERMON_USAGE_ENVIRONMENT", "preview")
     evaluation_id, pool, storage = queued_report_job
-    provider = Mock(spec=GeminiProvider)
-    provider.model_name = "gemini-4-hydrogen"
-    provider.last_response_metadata = ProviderResponseMetadata(
-        response_id="offline-response", model_version="hydrogen-version-from-response",
-    )
-    provider.upload_file.return_value = SimpleNamespace(name="files/uploaded")
-    provider.file_metadata.side_effect = GeminiProvider.file_metadata
-    provider.get_file.return_value = SimpleNamespace(name="files/saved")
+    from google.genai import types
+
+    provider = GeminiProvider(api_key="offline-test")
+    provider.upload_file = Mock(return_value=SimpleNamespace(name="files/uploaded"))
+    provider.get_file = Mock(return_value=SimpleNamespace(name="files/saved"))
     if expired_file:
         provider.get_file.side_effect = FileNotFoundError("Expired Gemini file")
-    provider.wait_until_active.side_effect = lambda file, **_: file
+    provider.wait_until_active = Mock(side_effect=lambda file, **_: file)
     responses = {
         SermonExtractionStep1: extraction.model_dump(),
         SermonScoringStep2Raw: raw_scoring.model_dump(),
@@ -1022,15 +1031,75 @@ def test_worker_publishes_reports_from_read_only_directory(
         AggregatedSummaryFeedback: {"Overall_Impact": "Summary feedback"},
     }
 
-    def generate(*, response_schema, model, **_):
-        assert model == (saved_alias or "gemini-4-hydrogen")
-        return responses[response_schema]
+    # In the Standard case, a provider timeout coincides with a receipt-store
+    # outage. The retry succeeds, leaving one fewer receipt than dispatches.
+    lose_first_response = requested_runs == 1
 
-    provider.generate_structured_with_contents.side_effect = generate
-    provider.generate_structured.side_effect = generate
-    service = SermonEvaluationService(
-        persistence=PsycopgPersistence(pool=pool), storage=storage, provider=provider
-    )
+    def generate(*, contents, config, model):
+        nonlocal lose_first_response
+        if lose_first_response:
+            lose_first_response = False
+            raise httpx.ReadTimeout("lost response")
+        assert model == (saved_alias or "gemini-4-hydrogen")
+        return SimpleNamespace(
+            parsed=responses[config], model_version="hydrogen-version-from-response",
+            response_id="offline-response",
+            usage_metadata=types.GenerateContentResponseUsageMetadata(
+                prompt_token_count=100, candidates_token_count=15, thoughts_token_count=5,
+                total_token_count=120, prompt_tokens_details=(
+                    [types.ModalityTokenCount(modality="AUDIO", token_count=60)]
+                    if isinstance(contents, list) else None
+                ),
+            ),
+        )
+
+    provider._config = lambda schema, *_: schema
+    provider._client = lambda _: SimpleNamespace(models=SimpleNamespace(generate_content=generate))
+    persistence = PsycopgPersistence(pool=pool)
+    if requested_runs == 1:
+        provider.retry_initial_delay_seconds = 0
+        write_receipt = persistence.record_provider_usage
+        missing_id = None
+
+        def miss_first_receipt(job, stage, receipt):
+            nonlocal missing_id
+            if missing_id is None:
+                missing_id = receipt["attemptId"]
+            if receipt["attemptId"] == missing_id:
+                raise RuntimeError("receipt store unavailable")
+            write_receipt(job, stage, receipt)
+
+        monkeypatch.setattr(persistence, "record_provider_usage", miss_first_receipt)
+    if retry:
+        # The prior worker paid for these outputs before their checkpoints
+        # were recovered. Re-deliver its received receipt after finalization.
+        job = persistence.fetch_evaluation(evaluation_id)
+        if legacy:
+            monkeypatch.setenv("SERMON_USAGE_ENVIRONMENT", "development")
+            assert persistence.fetch_evaluation(evaluation_id).usage_environment == "preview"
+        for schema in [SermonExtractionStep1] + [SermonScoringStep2Raw] * requested_runs:
+            stage = "extraction" if schema is SermonExtractionStep1 else "scoring"
+            receipts = []
+            provider.generate_structured_with_contents(
+                ["Offline", object()], schema, model=saved_alias, record_usage=receipts.append,
+                register_attempt=lambda receipt: persistence.register_provider_attempt(job.id, stage, receipt),
+            )
+            for receipt in [*receipts, *reversed(receipts)]:
+                persistence.record_provider_usage(job, stage, receipt)
+        # Harmonization failed after a billed response. Restart from the saved
+        # scores, paying only for the new harmonization and summary requests.
+        harmonized = responses[SermonHarmonizedFeedback]
+        responses[SermonHarmonizedFeedback] = {}
+        with pytest.raises(ValidationError):
+            provider.generate_structured(
+                "Offline", SermonHarmonizedFeedback, model=saved_alias,
+                record_usage=lambda receipt: persistence.record_provider_usage(job, "harmonization", receipt),
+                register_attempt=lambda receipt: persistence.register_provider_attempt(job.id, "harmonization", receipt),
+            )
+        responses[SermonHarmonizedFeedback] = harmonized
+
+    provider.generate_structured_with_contents = Mock(wraps=provider.generate_structured_with_contents)
+    service = SermonEvaluationService(persistence=persistence, storage=storage, provider=provider)
     scratch = tmp_path / "scratch"
     scratch.mkdir()
     monkeypatch.setattr(tempfile, "tempdir", str(scratch))
@@ -1045,10 +1114,48 @@ def test_worker_publishes_reports_from_read_only_directory(
         deployment.chmod(0o755)
 
     with pool.connection() as conn:
+        job = conn.execute(
+            'SELECT "expectedUsageAttempts", "usageEnvironment", channel FROM "sermonEvaluation" WHERE id = %s', (evaluation_id,),
+        ).fetchone()
+        pending = conn.execute(
+            'SELECT "attemptId", stage FROM "sermonPendingUsageAttempt" WHERE "evaluationId" = %s', (evaluation_id,),
+        ).fetchall()
         artifacts = conn.execute(
             'SELECT format, content FROM "sermonReportArtifact" WHERE "evaluationId" = %s',
             (evaluation_id,),
         ).fetchall()
+        usage = conn.execute(
+            """
+            SELECT stage, modality, preset, channel, environment, outcome, "requestedModel", "returnedModel",
+                   "audioInputTokens", "inputTokens", "outputTokens", count(*) AS attempts
+            FROM "ProviderCallAttempt" WHERE "operationId" = %s AND feature = 'sermon'
+            GROUP BY 1,2,3,4,5,6,7,8,9,10,11
+            """,
+            (evaluation_id,),
+        ).fetchall()
+    expected_stages = {("extraction", "success"): 1, ("scoring", "success"): requested_runs, ("summary", "success"): 1}
+    if requested_runs > 1:
+        expected_stages["harmonization", "success"] = 1
+    if retry:
+        expected_stages["harmonization", "invalid_output"] = 1
+    lost_attempts = 1 if requested_runs == 1 else 0
+    assert len(pending) == lost_attempts
+    if pending:
+        assert pending[0]["attemptId"] == missing_id and pending[0]["stage"] == "extraction"
+    assert job["usageEnvironment"] == ("preview" if legacy else "test")
+    assert job["channel"] == ("unknown" if legacy else "public_api")
+    assert job["expectedUsageAttempts"] == (None if legacy else sum(expected_stages.values()) + lost_attempts)
+    assert {(row["stage"], row["outcome"]): row["attempts"] for row in usage} == expected_stages
+    for row in usage:
+        audio = row["stage"] in {"extraction", "scoring"}
+        assert row["channel"] == ("unknown" if legacy else "public_api")
+        assert row["preset"] == ("STANDARD" if requested_runs == 1 else "HIGH_CONFIDENCE")
+        assert row["modality"] == ("audio" if audio else "text")
+        assert row["audioInputTokens"] == (60 if audio else None)
+        assert row["environment"] == ("preview" if legacy else "test")
+        assert (row["inputTokens"], row["outputTokens"]) == (100, 20)
+        assert row["requestedModel"] == (saved_alias or "gemini-4-hydrogen")
+        assert row["returnedModel"] == "hydrogen-version-from-response"
     reports = {row["format"]: bytes(row["content"]) for row in artifacts}
     assert set(reports) == {"JSON", "MARKDOWN", "CSV"}
     assert all(reports.values())

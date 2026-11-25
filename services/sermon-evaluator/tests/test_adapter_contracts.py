@@ -161,15 +161,27 @@ def test_gemini_sdk_serializes_schema_and_uses_stable_endpoint(
         monkeypatch.delenv(name, raising=False)
     requests = []
     clients = []
+    receipts = []
 
     def handle(request):
         requests.append(request)
+        if len(requests) == 1:
+            return httpx2.Response(503, json={
+                "error": {"status": "UNAVAILABLE", "message": "private error"},
+                "modelVersion": "offline-model",
+                "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 2},
+            })
         return httpx2.Response(200, json={
             "candidates": [{
                 "content": {"role": "model", "parts": [{"text": extraction.model_dump_json()}]},
                 "finishReason": "STOP",
             }],
             "responseId": "offline-response", "modelVersion": "offline-model",
+            "usageMetadata": {
+                "promptTokenCount": 36, "cachedContentTokenCount": 6,
+                "candidatesTokenCount": 5, "thoughtsTokenCount": 19, "totalTokenCount": 60,
+                "promptTokensDetails": [{"modality": "AUDIO", "tokenCount": 21}] if with_audio else [],
+            },
         })
 
     def make_client(**kwargs):
@@ -178,7 +190,7 @@ def test_gemini_sdk_serializes_schema_and_uses_stable_endpoint(
         clients.append(client)
         return client
 
-    provider = GeminiProvider(api_key="offline-test-key")
+    provider = GeminiProvider(api_key="offline-test-key", retry_initial_delay_seconds=0)
     provider._genai = SimpleNamespace(Client=make_client)
     try:
         if with_audio:
@@ -186,10 +198,10 @@ def test_gemini_sdk_serializes_schema_and_uses_stable_endpoint(
                 ["Extract", types.Part.from_uri(
                     file_uri="https://generativelanguage.googleapis.com/v1/files/offline-audio",
                     mime_type="audio/mpeg",
-                )], SermonExtractionStep1,
+                )], SermonExtractionStep1, record_usage=receipts.append,
             )
         else:
-            result = provider.generate_structured("Extract", SermonExtractionStep1)
+            result = provider.generate_structured("Extract", SermonExtractionStep1, record_usage=receipts.append)
     finally:
         for client in clients:
             client.close()
@@ -197,7 +209,17 @@ def test_gemini_sdk_serializes_schema_and_uses_stable_endpoint(
     assert SermonExtractionStep1.model_validate(result) == extraction
     assert provider.last_response_metadata.response_id == "offline-response"
     assert provider.last_response_metadata.model_version == "offline-model"
-    assert len(requests) == 1
+    assert len(requests) == 2
+    assert [r["outcome"] for r in receipts] == ["started", "provider_error", "started", "received", "success"]
+    first, error, second, received, success = receipts
+    assert first["attemptId"] == error["attemptId"] != second["attemptId"]
+    assert second["attemptId"] == received["attemptId"] == success["attemptId"]
+    assert (error["inputTokens"], error["outputTokens"]) == (10, 2)
+    assert (success["inputTokens"], success["cacheReadTokens"], success["outputTokens"]) == (30, 6, 24)
+    assert success["audioInputTokens"] == (21 if with_audio else None)
+    assert success["modality"] == ("audio" if with_audio else "text")
+    assert success["returnedModel"] == "offline-model"
+    assert "private error" not in str(receipts) and extraction.Proposition not in str(receipts)
     assert requests[0].url.path == "/v1/models/gemini-4-hydrogen:generateContent"
     body = json.loads(requests[0].content)
     config = body["generationConfig"]
@@ -207,6 +229,65 @@ def test_gemini_sdk_serializes_schema_and_uses_stable_endpoint(
     if with_audio:
         file_data = types.FileData.model_validate(body["contents"][0]["parts"][1]["fileData"])
         assert file_data.mime_type == "audio/mpeg"
+
+
+def test_invalid_response_is_metered_and_logging_failure_does_not_retry(monkeypatch) -> None:
+    from google.genai import types
+
+    provider = GeminiProvider(api_key="offline-test-key")
+    calls = []
+
+    def generate_content(**_):
+        calls.append(1)
+        return SimpleNamespace(
+            parsed=None, text="{}", model_version=None,
+            usage_metadata=types.GenerateContentResponseUsageMetadata(
+                prompt_token_count=9, candidates_token_count=2, total_token_count=30,
+            ),
+        )
+
+    monkeypatch.setattr(provider, "_client", lambda _: SimpleNamespace(
+        models=SimpleNamespace(generate_content=generate_content)
+    ))
+    receipts = []
+
+    def failing_recorder(receipt):
+        receipts.append(receipt)
+        raise RuntimeError("Storage unavailable")
+
+    with pytest.raises(ValidationError):
+        provider.generate_structured("private prompt", SermonExtractionStep1, record_usage=failing_recorder)
+    assert len(calls) == 1
+    assert [r["outcome"] for r in receipts] == ["started", "received", "invalid_output"]
+    assert receipts[-1]["inputTokens"] == 9 and receipts[-1]["outputTokens"] is None
+    assert "private prompt" not in str(receipts)
+
+
+def test_unreadable_usage_preserves_output_and_never_retries(monkeypatch, extraction) -> None:
+    provider = GeminiProvider(api_key="offline-test-key", retry_initial_delay_seconds=0)
+    calls = []
+
+    def unreadable(**_):
+        # This error class normally triggers a fresh provider request.
+        raise httpx2.ConnectError("Receipt conversion failed")
+
+    def generate_content(**_):
+        calls.append(1)
+        return SimpleNamespace(
+            parsed=extraction.model_dump(), model_version="offline-model",
+            usage_metadata=SimpleNamespace(model_dump=unreadable),
+        )
+
+    monkeypatch.setattr(provider, "_client", lambda _: SimpleNamespace(
+        models=SimpleNamespace(generate_content=generate_content)
+    ))
+    receipts = []
+    result = provider.generate_structured("Extract", SermonExtractionStep1, record_usage=receipts.append)
+    assert SermonExtractionStep1.model_validate(result) == extraction
+    assert calls == [1]
+    assert receipts[-1]["outcome"] == "success"
+    assert receipts[-1]["inputTokens"] is None and receipts[-1]["outputTokens"] is None
+    assert receipts[-1]["returnedModel"] == "offline-model"
 
 
 @pytest.mark.parametrize("transport", [httpx, httpx2])

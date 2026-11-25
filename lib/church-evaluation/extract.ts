@@ -4,6 +4,8 @@ import {
   type Schema,
 } from "@google/genai";
 
+import { generateGeminiStructured } from "@/lib/parrot-ai";
+import { churchUsageStage, newChurchEvaluationOperation, type ChurchEvaluationOperation } from "./usage";
 import { DEFAULT_GEMINI_MODEL } from "@/lib/gemini-model";
 import {
   BASIC_FIELDS_PROMPT,
@@ -77,6 +79,7 @@ function getGenaiClient(): GoogleGenAI {
 
 async function generateStructuredResponse<T>({
   client,
+  operation,
   prompt,
   contentBlocks,
   responseSchema,
@@ -85,6 +88,7 @@ async function generateStructuredResponse<T>({
   thinkingLevel = ThinkingLevel.LOW,
 }: {
   client: GoogleGenAI;
+  operation: ChurchEvaluationOperation;
   prompt: string;
   contentBlocks: string;
   responseSchema: unknown;
@@ -93,7 +97,7 @@ async function generateStructuredResponse<T>({
   thinkingLevel?: ThinkingLevel;
 }): Promise<T> {
   try {
-    const response = await client.models.generateContent({
+    const response = await generateGeminiStructured<T>(client, {
       model: EVALUATION_MODEL,
       contents: [{
         role: "user",
@@ -108,13 +112,9 @@ async function generateStructuredResponse<T>({
         seed: 1689,
         thinkingConfig: { thinkingLevel },
       },
-    });
-
-    if (!response.text) {
-      throw new Error(`Empty response from ${label}`);
-    }
-
-    return JSON.parse(response.text) as T;
+    }, churchUsageStage(operation, label));
+    operation.expectedUsageAttempts += 1;
+    return response.data;
   } catch (error) {
     if (
       signal.aborted &&
@@ -210,6 +210,7 @@ type ChurchEvaluationDependencies = {
   client?: GoogleGenAI;
   crawl?: typeof crawlChurchSite;
   extractPage?: typeof extractChurchPage;
+  operation?: ChurchEvaluationOperation;
 };
 
 function contentCharacterCount(pages: ChurchSourcePage[]): number {
@@ -225,13 +226,15 @@ export async function extractChurchEvaluation(
 ): Promise<ChurchEvaluationRaw> {
   const client = dependencies.client ?? getGenaiClient();
   const crawlSite = dependencies.crawl ?? crawlChurchSite;
-  const extractPage = dependencies.extractPage ?? extractChurchPage;
+  const operation = dependencies.operation ?? newChurchEvaluationOperation("unknown");
+  const extractPage = dependencies.extractPage ?? ((url: string) =>
+    extractChurchPage(url, undefined, undefined, operation));
   const deadlineAt = createEvaluationDeadline();
   const crawl = await runEvaluationStage({
     stage: "tavily_crawl",
     deadlineAt,
     maxDurationMs: TAVILY_CRAWL_STAGE_TIMEOUT_MS,
-    operation: () => crawlSite(website),
+    operation: () => crawlSite(website, undefined, { operation }),
     resultDimensions: (result) => ({
       sourcePageCount: result.results?.length ?? 0,
       inputCharacterCount: contentCharacterCount(result.results ?? []),
@@ -254,6 +257,7 @@ export async function extractChurchEvaluation(
     },
     operation: (signal) => generateStructuredResponse<BasicFieldsResponse>({
       client,
+      operation,
       prompt: BASIC_FIELDS_PROMPT,
       contentBlocks,
       responseSchema: BASIC_FIELDS_SCHEMA,
@@ -304,6 +308,7 @@ export async function extractChurchEvaluation(
       },
       operation: (signal) => generateStructuredResponse<CoreDoctrinesResponse>({
         client,
+        operation,
         prompt: CORE_DOCTRINES_PROMPT,
         contentBlocks,
         responseSchema: CORE_DOCTRINES_SCHEMA,
@@ -323,6 +328,7 @@ export async function extractChurchEvaluation(
       operation: (signal) =>
         generateStructuredResponse<SecondaryDoctrinesResponse>({
           client,
+          operation,
           prompt: SECONDARY_DOCTRINES_PROMPT,
           contentBlocks,
           responseSchema: SECONDARY_DOCTRINES_SCHEMA,
@@ -341,6 +347,7 @@ export async function extractChurchEvaluation(
       operation: (signal) =>
         generateStructuredResponse<TertiaryDoctrinesResponse>({
           client,
+          operation,
           prompt: TERTIARY_DOCTRINES_PROMPT,
           contentBlocks,
           responseSchema: TERTIARY_DOCTRINES_SCHEMA,
@@ -359,6 +366,7 @@ export async function extractChurchEvaluation(
       operation: (signal) =>
         generateStructuredResponse<DenominationConfessionResponse>({
           client,
+          operation,
           prompt: DENOMINATION_CONFESSION_PROMPT,
           contentBlocks,
           responseSchema: DENOMINATION_CONFESSION_SCHEMA,
@@ -376,6 +384,7 @@ export async function extractChurchEvaluation(
       },
       operation: (signal) => generateStructuredResponse<RedFlagsResponse>({
         client,
+        operation,
         prompt: RED_FLAGS_PROMPT,
         contentBlocks,
         responseSchema: RED_FLAGS_SCHEMA,

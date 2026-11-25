@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
+import type { ChatChannel } from "./chat-analytics";
 import type { ModelSpec } from "./parrot-ai";
 
 export interface UsageContext {
-  feature: "chat" | "personal_journal" | "heritage_journal" | "daily_devotional";
+  feature: "chat" | "personal_journal" | "heritage_journal" | "daily_devotional" | "church" | "sermon";
+  channel?: ChatChannel;
   stage: string;
   operationId: string;
   isRetry?: boolean;
@@ -78,13 +80,34 @@ export function providerUsageEnvironment() {
   return process.env.VERCEL_ENV || process.env.NODE_ENV || "development";
 }
 
-export function startUsageAttempt(context: UsageContext, spec: ModelSpec) {
-  const { feature, stage, operationId } = context;
+function startAttempt({ feature, stage, operationId, channel, isRetry }: UsageContext) {
   return {
-    attemptId: randomUUID(), feature, stage, operationId, isRetry: context.isRetry ?? false,
-    startedAt: new Date(), environment: providerUsageEnvironment(), provider: spec.provider,
-    requestedModel: spec.model,
+    attemptId: randomUUID(), feature, stage, operationId, channel: channel ?? "unknown", isRetry: isRetry ?? false,
+    startedAt: new Date(), environment: providerUsageEnvironment(),
   };
+}
+
+export function startUsageAttempt(context: UsageContext, spec: ModelSpec) {
+  return {
+    ...startAttempt(context), provider: spec.provider, requestedModel: spec.model,
+    modality: "text",
+  };
+}
+
+export function startExternalUsageAttempt(context: UsageContext, provider: "tavily" | "geoapify", billingUnit: "credit") {
+  return { ...startAttempt(context), provider, billingUnit };
+}
+
+export function recordExternalUsageAttempt(
+  attempt: ReturnType<typeof startExternalUsageAttempt>,
+  outcome: Outcome,
+  durationMs: number,
+  quantity: number | null,
+) {
+  return persistAttempt(attempt, {
+    outcome, durationMs,
+    quantity: quantity !== null && Number.isFinite(quantity) && quantity >= 0 ? quantity : null,
+  });
 }
 
 export type UsageAttempt = ReturnType<typeof startUsageAttempt>;
@@ -97,19 +120,39 @@ export async function recordUsageAttempt(
   usage?: unknown,
 ) {
   // Whitelist billing counters, never persist a provider response or error object.
-  const receipt = {
+  await persistAttempt(attempt, {
     outcome, durationMs, returnedModel,
     ...normalizeUsage(attempt.provider, usage),
-  };
+  });
+}
+
+async function persistAttempt<T extends { outcome: Outcome; durationMs: number }>(
+  attempt: UsageAttempt | ReturnType<typeof startExternalUsageAttempt>,
+  receipt: T,
+) {
   try {
     const { default: prisma } = await import("./prisma");
+    const where = { attemptId: attempt.attemptId };
+    const create = { ...attempt, ...receipt };
+    // A replayed initial receipt must never replace already-settled usage.
+    // Church and chat calls write a marker before dispatch, so a killed process leaves
+    // an observable attempt even when the provider never returns counters.
+    if ((attempt.feature === "church" || attempt.feature === "chat") && receipt.outcome === "received") {
+      await prisma.$transaction([
+        prisma.providerCallAttempt.createMany({ data: [create], skipDuplicates: true }),
+        prisma.providerCallAttempt.updateMany({ where: { ...where, outcome: "started" }, data: receipt }),
+      ]);
+      return;
+    }
     await prisma.providerCallAttempt.upsert({
-      where: { attemptId: attempt.attemptId },
-      create: { ...attempt, ...receipt },
-      update: receipt,
+      where, create,
+      update: receipt.outcome === "received" || receipt.outcome === "started" ? {} : receipt,
     });
   } catch {
-    console.warn("Provider usage write failed", attempt.attemptId, outcome);
+    console.warn("Provider usage write failed", attempt.attemptId, receipt.outcome);
+    if (attempt.feature === "church" && receipt.outcome === "started") {
+      throw new Error("Could not record Church Finder request before dispatch.");
+    }
   }
 }
 

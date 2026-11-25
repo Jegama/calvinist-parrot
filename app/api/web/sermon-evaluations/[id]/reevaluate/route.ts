@@ -1,6 +1,8 @@
 import { handleReevaluateSermon } from "@/lib/sermon-evaluation/handlers";
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+type RouteContext = { params: Promise<{ id: string }> };
+
+export async function POST(request: Request, { params }: RouteContext) {
   const { id } = await params;
   return handleReevaluateSermon(request, id, "web");
 }

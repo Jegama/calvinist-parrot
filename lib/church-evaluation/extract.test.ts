@@ -13,6 +13,12 @@ import {
   DENOMINATION_CONFESSION_SCHEMA, RED_FLAGS_SCHEMA,
 } from "../schemas/church-finder";
 import { postProcessEvaluation } from "./post-process";
+import { recordUsageAttempt } from "@/lib/provider-usage";
+
+vi.mock("@/lib/provider-usage", async (load) => ({
+  ...await load<typeof import("@/lib/provider-usage")>(),
+  recordUsageAttempt: vi.fn(),
+}));
 
 const unknownCore = {
   trinity: "unknown",
@@ -30,6 +36,7 @@ const unknownCore = {
 describe("extractChurchEvaluation", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   it.each([false, true])("uses multilingual pages and integrates assessed confession evidence (adopted=%s)", async (adopted) => {
@@ -117,7 +124,8 @@ describe("extractChurchEvaluation", () => {
     const generateContent = vi.fn();
     for (const response of responses) {
       generateContent.mockResolvedValueOnce({
-        text: JSON.stringify(response),
+        text: JSON.stringify(response), modelVersion: "gemini-4-hydrogen-20261125",
+        usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 5, thoughtsTokenCount: 7 },
       });
     }
     const client = {
@@ -139,10 +147,25 @@ describe("extractChurchEvaluation", () => {
       favicon: null,
     }));
 
+    const operation = { channel: "web", operationId: "one-paid-evaluation", expectedUsageAttempts: 0 } as const;
     const result = await extractChurchEvaluation(
       "https://ejemplo.iglesia/",
-      { client, crawl, extractPage },
+      { client, crawl, extractPage, operation },
     );
+    const modelAttempts = vi.mocked(recordUsageAttempt).mock.calls.filter(([, outcome]) => outcome === "success");
+    expect(operation.expectedUsageAttempts).toBe(6);
+    expect(new Set(modelAttempts.map(([attempt]) => attempt.attemptId)).size).toBe(6);
+    expect(modelAttempts.map(([attempt]) => attempt.stage).sort()).toEqual([
+      "basic_fields", "core_doctrines", "denomination_confession", "red_flags", "secondary_doctrines", "tertiary_doctrines",
+    ]);
+    for (const [attempt, , , model, counters] of modelAttempts) {
+      expect(attempt).toMatchObject({
+        feature: "church", channel: "web", operationId: operation.operationId, modality: "text",
+      });
+      expect(model).toBe("gemini-4-hydrogen-20261125");
+      expect(counters).toEqual({ promptTokenCount: 100, candidatesTokenCount: 5, thoughtsTokenCount: 7 });
+    }
+    expect(JSON.stringify(modelAttempts)).not.toContain("ejemplo.iglesia");
 
     expect(extractPage).toHaveBeenCalledTimes(2);
     expect(extractPage).toHaveBeenCalledWith(
@@ -180,6 +203,29 @@ describe("extractChurchEvaluation", () => {
     expect(result.church.confession.adopted).toBe(adopted);
     // Grounded red flags continue to override even fully supported doctrine.
     expect(postProcessEvaluation(result).status).toBe("not_endorsed");
+  });
+
+  it("records a billed malformed response on the failed evaluation before a fresh paid attempt", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const generateContent = vi.fn(async () => ({
+      text: "malformed private church text", modelVersion: EVALUATION_MODEL,
+      usageMetadata: { promptTokenCount: 31, candidatesTokenCount: 2 },
+    }));
+    const operation = { operationId: "failed-evaluation", channel: "web", expectedUsageAttempts: 0 } as const;
+    const options = {
+      client: { models: { generateContent } } as unknown as GoogleGenAI, operation,
+      crawl: async () => ({ results: [{ url: "https://example.church", rawContent: "A private church page." }] }),
+    };
+    for (let i = 0; i < 2; i += 1) {
+      await expect(extractChurchEvaluation("https://example.church", options)).rejects.toMatchObject({ stage: "basic_fields" });
+    }
+    const receipts = vi.mocked(recordUsageAttempt).mock.calls;
+    expect(receipts.map(([, outcome]) => outcome)).toEqual([
+      "started", "received", "invalid_output", "started", "received", "invalid_output",
+    ]);
+    expect(new Set(receipts.map(([attempt]) => attempt.attemptId)).size).toBe(2);
+    expect(receipts[2][4]).toMatchObject({ promptTokenCount: 31, candidatesTokenCount: 2 });
+    expect(JSON.stringify(receipts)).not.toMatch(/malformed private church text|private church page/);
   });
 
   it("exports the production model and medium core thinking level", () => {

@@ -23,3 +23,11 @@ export function instantLabel(iso: string, timeZone: string) {
 export const numberLabel = (value: number | null) => value === null ? "—" : countFormat.format(value);
 export const rateLabel = (value: number | null) => value === null ? "—" : percentFormat.format(value);
 export const moneyLabel = (value: number | null) => value === null ? "—" : moneyFormat.format(value);
+
+export const channelLabels = {
+  combined: "All channels",
+  web: "Website",
+  public_api: "Public API",
+  mcp: "MCP",
+  unknown: "Unknown",
+};

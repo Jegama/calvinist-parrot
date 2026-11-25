@@ -20,7 +20,7 @@ import { isSermonStatus } from "./types";
 import { normalizeSermonResult } from "./normalize";
 
 const API_ROOT = "/api/v1/sermon-evaluations";
-const WEB_ROOT = "/api/web/sermon-evaluations";
+const WEB_API_ROOT = "/api/web/sermon-evaluations";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -520,7 +520,7 @@ export async function createSermonEvaluation(input: {
         ...(input.requestedRuns === undefined ? {} : { requestedRuns: input.requestedRuns }),
         durationAdjustmentEnabled: input.durationAdjustmentEnabled,
       }),
-    }, WEB_ROOT),
+    }, WEB_API_ROOT),
   );
   const source = firstRecord(payload, "evaluation");
   const evaluationId = asString(source.id ?? source.evaluationId);
@@ -556,7 +556,7 @@ export async function reevaluateSermon(input: {
         preset,
         ...(input.requestedRuns === undefined ? {} : { requestedRuns: input.requestedRuns }),
       }),
-    }, WEB_ROOT),
+    }, WEB_API_ROOT),
   );
   const source = firstRecord(payload, "evaluation");
   const evaluationId = asString(source.id ?? source.evaluationId);

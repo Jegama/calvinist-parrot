@@ -8,6 +8,6 @@ export function GET(request: Request) {
 }
 
 export function POST(request: Request) {
-  return handleCreateSermonEvaluation(request);
+  return handleCreateSermonEvaluation(request, "public_api");
 }
 

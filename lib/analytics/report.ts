@@ -53,7 +53,7 @@ export function loadAnalyticsReport(days: ReportingDays) {
   // authorize the current session outside the cache on every request.
   return unstable_cache(
     () => buildAnalyticsReport(days, now),
-    [analyticsReportTag, providerUsageEnvironment(), process.env.VERCEL_DEPLOYMENT_ID ?? "local", reportingDay(now), String(days)],
+    ["feature-engagement-v1", analyticsReportTag, providerUsageEnvironment(), process.env.VERCEL_DEPLOYMENT_ID ?? "local", reportingDay(now), String(days)],
     { tags: [analyticsReportTag], revalidate: 25 * 3600 },
   )();
 }

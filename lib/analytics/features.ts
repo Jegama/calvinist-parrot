@@ -1,5 +1,7 @@
 import { getEngagementReport, type FeatureEngagement } from "./engagement";
 import prisma from "@/lib/prisma";
+import { providerUsageEnvironment } from "@/lib/provider-usage";
+import { getEvaluationStages, getEvaluationUsage, type EvaluationStage, type EvaluationUsage } from "./evaluation-spend";
 import { getChatSpend, type ChatSpendReport } from "./chat-spend";
 import { getUsageTotals, type UsageTotals } from "./feature-spend";
 import { chicagoTimestamp, featureNames, getPageviews, type Feature, type FeatureWindow } from "./web-analytics";
@@ -15,7 +17,16 @@ export interface FeatureRow {
   costPerCompletionUsd: number | null;
   spendCoverage: string;
 }
+interface EvaluationChannel extends Pick<FeatureRow, "estimatedSpendUsd" | "costPerCompletionUsd" | "spendCoverage"> {
+  channel: EvaluationUsage["channel"];
+  feature: EvaluationUsage["feature"];
+  completions: number;
+  modelSpend: number | null;
+  externalFees: number | null;
+}
 export interface FeatureReport {
+  evaluationChannels: EvaluationChannel[] | null;
+  evaluationStages: EvaluationStage[] | null;
   rows: FeatureRow[];
   chatSpend: ChatSpendReport | null;
   pageviewCoverage: string;
@@ -39,23 +50,23 @@ function getCollectionStarts() {
   `;
 }
 
-function spendFields(key: Feature, usage: UsageTotals | undefined, window: FeatureWindow) {
+function spendFields(key: Feature, usage: UsageTotals | undefined, window: FeatureWindow, collectionStart?: Date | null) {
   const fields = {
     estimatedSpendUsd: null as number | null,
     costPerCompletionUsd: null as number | null,
     spendCoverage: "No AI calls.",
   };
-  if (key !== "personal_journal" && key !== "heritage_journal" && key !== "daily_devotional") {
-    if (["sermon", "church"].includes(key)) fields.spendCoverage = "Awaiting AI usage instrumentation.";
+  if (!["personal_journal", "heritage_journal", "daily_devotional", "church", "sermon"].includes(key)) {
     return fields;
   }
   if (!usage) return { ...fields, spendCoverage: "Provider usage unavailable." };
   const completionsCovered = `${usage.coveredCompletions}/${usage.completions} completions fully priced.`;
-  if (!usage.firstAttempt) return { ...fields, spendCoverage: `No production attempts recorded yet. ${completionsCovered}` };
-  const first = `First observed attempt ${chicagoTimestamp(usage.firstAttempt)}.`;
-  if (usage.firstAttempt >= window.end) return { ...fields, spendCoverage: `Before observed coverage. ${first} ${completionsCovered}` };
+  const coverageStart = collectionStart ?? usage.firstAttempt;
+  if (!coverageStart) return { ...fields, spendCoverage: `No production attempts recorded yet. ${completionsCovered}` };
+  const first = `${collectionStart ? "Collection started" : "First observed attempt"} ${chicagoTimestamp(coverageStart)}.`;
+  if (coverageStart >= window.end) return { ...fields, spendCoverage: `Before observed coverage. ${first} ${completionsCovered}` };
 
-  const partial = window.start < usage.firstAttempt || usage.priced !== usage.attempts || usage.coveredCompletions !== usage.completions;
+  const partial = window.start < coverageStart || usage.priced !== usage.attempts || usage.coveredCompletions !== usage.completions;
   const notes = [
     first,
     `${usage.measured}/${usage.attempts} attempts measured, ${usage.priced}/${usage.attempts} priced.`,
@@ -71,8 +82,13 @@ function spendFields(key: Feature, usage: UsageTotals | undefined, window: Featu
 }
 
 export async function getFeatureReport(window: FeatureWindow): Promise<FeatureReport> {
+  const environment = providerUsageEnvironment();
+  // The production dashboard includes retained rows from before environment attribution.
+  const evaluationsInEnvironment = environment === "production"
+    ? { OR: [{ usageEnvironment: environment }, { usageEnvironment: null }] }
+    : { usageEnvironment: environment };
   const dateRange = { gte: window.start, lt: window.end };
-  const [views, usage, chatSpend, saves, since, publications, prayerFamilies, churches, sermons, engagement] = await Promise.all([
+  const [views, usage, chatSpend, saves, since, publications, prayerFamilies, churches, sermons, evaluationUsage, evaluationStages, engagement] = await Promise.all([
     getPageviews(window).catch(() => null),
     getUsageTotals(window).catch(() => null),
     getChatSpend(window).catch(() => null),
@@ -80,14 +96,25 @@ export async function getFeatureReport(window: FeatureWindow): Promise<FeatureRe
     getCollectionStarts().catch(() => null),
     prisma.parrotDevotionals.count({ where: { createdAt: dateRange } }).catch(() => null),
     prisma.prayerFamily.count({ where: { createdAt: dateRange } }).catch(() => null),
-    prisma.churchEvaluation.count({ where: { createdAt: dateRange } }).catch(() => null),
-    prisma.sermonEvaluation.count({ where: { completedAt: dateRange } }).catch(() => null),
+    prisma.churchEvaluation.count({ where: { ...evaluationsInEnvironment, createdAt: dateRange } }).catch(() => null),
+    prisma.sermonEvaluation.count({ where: { ...evaluationsInEnvironment, completedAt: dateRange, status: { in: ["COMPLETE", "COMPLETE_WITH_WARNINGS"] } } }).catch(() => null),
+    getEvaluationUsage(window, environment).catch(() => null),
+    getEvaluationStages(window, environment).catch(() => null),
     getEngagementReport(window),
   ]);
   const reflectionStart = since?.[0]?.reflections;
   const savedCount = (key: Feature) => saves ? (saves.find((row) => row.kind === key)?.total ?? 0) : null;
+  const evaluationChannels = evaluationUsage?.map((row): EvaluationChannel => {
+    const totals = spendFields(row.feature, row, window, row.collectionStart);
+    const zero = row.attempts === 0 && totals.estimatedSpendUsd === 0 ? 0 : null;
+    return {
+      feature: row.feature, channel: row.channel, completions: row.completions,
+      modelSpend: row.modelSpend ?? zero, externalFees: row.externalFees ?? zero, ...totals,
+    };
+  }) ?? null;
   const rows = (Object.keys(featureNames) as Feature[]).map((key): FeatureRow => {
-    const recorded = usage?.find((row) => row.feature === key);
+    const evaluation = evaluationUsage?.find(row => row.channel === "combined" && row.feature === key);
+    const recorded = evaluation ?? usage?.find(row => row.feature === key);
     const actions: Action[] = [];
     if (key === "chat") {
       const combined = chatSpend?.byChannel[0];
@@ -112,15 +139,15 @@ export async function getFeatureReport(window: FeatureWindow): Promise<FeatureRe
         break;
       case "daily_devotional": actions.push({ label: "Devotionals published", count: publications }); break;
       case "prayer": actions.push({ label: "Prayer families added", count: prayerFamilies }); break;
-      case "church": actions.push({ label: "Evaluations saved", count: churches }); break;
+      case "church": actions.push({ label: "Evaluations saved", count: evaluation?.completions ?? churches }); break;
       case "sermon":
-        actions.push({ label: "Evaluations submitted", count: savedCount(key) }, { label: "Evaluations completed", count: sermons });
+        actions.push({ label: "Evaluations submitted", count: savedCount(key) }, { label: "Evaluations completed", count: evaluation?.completions ?? sermons });
         break;
     }
     return {
       key, name: featureNames[key], actions, engagement: engagement[key],
       pageviews: views ? (views.counts.get(key) ?? 0) : null,
-      ...spendFields(key, recorded, window),
+      ...spendFields(key, recorded, window, evaluation?.collectionStart),
     };
   });
   const reflectionCoverage = reflectionStart
@@ -134,7 +161,7 @@ export async function getFeatureReport(window: FeatureWindow): Promise<FeatureRe
     ? " Some action counts are unavailable because their source could not be read."
     : "";
   return {
-    rows, chatSpend,
+    rows, chatSpend, evaluationChannels, evaluationStages,
     pageviewCoverage: views?.coverage ?? "Production Web Analytics unavailable.",
     actionCoverage: `Database snapshot queried ${chicagoTimestamp(new Date())}. ${durableCoverage} Publication, prayer, church and sermon completion counts use retained records. ${reflectionCoverage} Journal and devotional cost per completion includes all recorded attempts for the operations that completed in the period.${unavailableActions}`,
   };

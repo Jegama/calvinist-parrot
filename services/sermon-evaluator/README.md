@@ -5,7 +5,7 @@ This directory is the canonical, platform-neutral Python sermon evaluator origin
 ## Runtime boundaries
 
 - Next.js authenticates and authorizes users, reserves lifetime run credits, creates durable Postgres jobs, and dispatches them to the selected runtime with only an opaque `evaluationId`.
-- This Function reads the private Appwrite audio file with Appwrite's injected dynamic API key, verifies its bytes and duration, calls Gemini, and writes only sermon tables through a dedicated pooled Neon URL.
+- This Function reads the private Appwrite audio file with Appwrite's injected dynamic API key, verifies its bytes and duration, calls Gemini, and writes sermon records and Gemini billing receipts through a dedicated pooled Neon URL.
 - The local runtime reads ignored filesystem audio, polls the same lease-backed queue, and evaluates with Gemini. It requires neither Appwrite Storage, an Appwrite Function, nor Neon, but it does require `GEMINI_API_KEY`.
 - Prisma is the sole schema and migration owner. Python has no migration framework.
 - The worker defaults to `gemini-4-hydrogen`, medium thinking, structured output, and Gemini Files. The CLI model override is developer-only.
@@ -17,6 +17,7 @@ This directory is the canonical, platform-neutral Python sermon evaluator origin
 Appwrite supplies `APPWRITE_FUNCTION_API_ENDPOINT`, `APPWRITE_FUNCTION_PROJECT_ID`, and `APPWRITE_FUNCTION_ID` as injected variables and supplies the execution's dynamic API key in the `x-appwrite-key` request header. `services/sermon-evaluator/.env.template` is the authoritative list of variables to configure separately in each development and production Function:
 
 - `SERMON_RUNTIME`: `appwrite`.
+- `SERMON_USAGE_ENVIRONMENT`: set to `production` on the production worker, `preview` on preview deployments, and `development` locally. The first worker to resume a legacy job saves this value for subsequent attempts and completion reporting. A newer job carries its own environment and channel across restarts. Legacy jobs retain an unknown channel.
 - `SERMON_DATABASE_URL`: dedicated least-privileged pooled Neon URL with `sslmode=require`.
 - `GEMINI_API_KEY`: worker-only Gemini key.
 - `SERMON_AUDIO_BUCKET_ID`: private sermon bucket for the same environment.
@@ -24,7 +25,7 @@ Appwrite supplies `APPWRITE_FUNCTION_API_ENDPOINT`, `APPWRITE_FUNCTION_PROJECT_I
 - `SERMON_SOFT_DEADLINE_SECONDS`: `840`.
 - `SERMON_MAX_PARALLEL_SCORING_RUNS`: `9`.
 
-The direct database role needs only the required DML privileges on sermon tables and their sequences. It must not receive DDL or unrelated application-table access.
+The direct database role needs the required DML privileges on sermon tables and their sequences. To record Gemini calls, grant it `INSERT` on `"ProviderCallAttempt"`, `SELECT ("attemptId", outcome)`, and `UPDATE` on the receipt columns (`outcome`, `"durationMs"`, `"returnedModel"`, `"serviceTier"`, `"promptTokens"`, `"inputTokens"`, `"cacheReadTokens"`, `"audioInputTokens"`, `"candidateTokens"`, `"thinkingTokens"`, `"outputTokens"`, `"toolUsePromptTokens"`, `"providerTotalTokens"`). Grant the worker `INSERT`, `DELETE`, and `SELECT ("attemptId")` on `"sermonPendingUsageAttempt"`. Apply the usage migrations and grants before rolling out the worker. Receipts include the job’s original channel, environment, and preset, plus the stage, model, modality, and reported token counts. Before each Gemini dispatch, the worker increments the job’s expected attempt count and records the time and stage. The first saved receipt replaces the pending dispatch in the same transaction. Each paid retry has its own receipt. If the receipt never arrives, that reporting window shows partial spend even when the job fails or is still running. Jobs created before attempt counting also retain unknown completion costs. A worker interrupted while a request is in flight leaves that attempt’s usage unknown. Resuming from a saved stage requires no new receipt for that stage.
 
 ## Local development
 
