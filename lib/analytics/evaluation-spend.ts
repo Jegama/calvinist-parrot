@@ -38,8 +38,8 @@ export function getEvaluationStages({ start, end }: FeatureWindow, environment: 
       modality, "billingUnit", sum(quantity)::float8 AS quantity, count(*)::int AS attempts,
       count(*) FILTER (WHERE ${measuredAttempt})::int AS measured, count(usd)::int AS priced,
       sum(usd)::float8 AS spend
-    FROM analytics_priced_provider_attempt
-    WHERE environment = ${environment} AND feature IN ('church', 'sermon')
+    FROM analytics_evaluation_attempt
+    WHERE environment = ${environment}
       AND "startedAt" >= ${start} AND "startedAt" < ${end}
     GROUP BY feature, stage, preset, provider, service, modality, "billingUnit"
     ORDER BY feature, preset, stage, provider, service, modality, "billingUnit"
@@ -60,8 +60,8 @@ export function getEvaluationUsage({ start, end, days }: FeatureWindow, environm
         sum(usd) FILTER (WHERE "billingUnit" IS NULL)::float8 AS models,
         count(*) FILTER (WHERE "billingUnit" IS NOT NULL) AS fee_attempts,
         sum(usd) FILTER (WHERE "billingUnit" IS NOT NULL)::float8 AS fees
-      FROM analytics_priced_provider_attempt
-      WHERE environment = ${environment} AND feature IN ('church', 'sermon')
+      FROM analytics_evaluation_attempt
+      WHERE environment = ${environment}
         AND "startedAt" >= ${start} AND "startedAt" < ${end}
       GROUP BY GROUPING SETS ((feature, channel), (feature))
     ), completed AS (
@@ -84,7 +84,7 @@ export function getEvaluationUsage({ start, end, days }: FeatureWindow, environm
           AND count(*) FILTER (WHERE a.stage = 'scoring' AND a.outcome = 'success') >= c.runs
           AND (c.runs = 1 OR bool_or(a.stage = 'harmonization'))))
         THEN sum(a.usd) END AS cost
-      FROM completed c LEFT JOIN analytics_priced_provider_attempt a ON a.feature = c.feature
+      FROM completed c LEFT JOIN analytics_evaluation_attempt a ON a.feature = c.feature
         AND a."operationId" = c.id AND a.environment = ${environment} AND a."startedAt" < ${cutoff}::timestamptz
       GROUP BY c.feature, c.channel, c.id, c.runs, c."expectedUsageAttempts"
     ), cohort AS (
@@ -106,7 +106,7 @@ export function getEvaluationUsage({ start, end, days }: FeatureWindow, environm
       WHERE migration_name = '20261125010000_evaluation_costs' AND rolled_back_at IS NULL
     ) rollout
     LEFT JOIN LATERAL (
-      SELECT min("startedAt") AS "firstAttempt" FROM "ProviderCallAttempt" WHERE feature = f.feature AND environment = ${environment} AND "startedAt" < ${cutoff}::timestamptz
+      SELECT min("startedAt") AS "firstAttempt" FROM analytics_evaluation_attempt WHERE feature = f.feature AND environment = ${environment} AND "startedAt" < ${cutoff}::timestamptz
     ) first_receipt ON true
     ORDER BY f.feature, CASE ch.channel WHEN 'combined' THEN 0 WHEN 'web' THEN 1 WHEN 'public_api' THEN 2 WHEN 'mcp' THEN 3 ELSE 4 END
   `;

@@ -481,6 +481,7 @@ model sermonEvaluation {
   scoringRuns               sermonScoringRun[]
   scoringAttempts           sermonScoringAttempt[]
   evaluationAttempts        sermonEvaluationAttempt[]
+  pendingUsageAttempts      sermonPendingUsageAttempt[]
   creditReservation         sermonRunCreditReservation?
   adminAuditEvents          sermonAdminAuditEvent[]
   workerLeases              sermonWorkerLease[]
@@ -540,6 +541,18 @@ model sermonScoringAttempt {
   @@unique([evaluationId, seed])
   @@index([evaluationId, status])
   @@index([evaluationAttemptId])
+}
+
+model sermonPendingUsageAttempt {
+  attemptId      String           @id @db.Uuid
+  evaluationId   String
+  startedAt      DateTime         @db.Timestamptz(3)
+  stage          String
+  requestedModel String
+  modality       String
+  evaluation     sermonEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  @@index([evaluationId])
 }
 
 model sermonEvaluationAttempt {

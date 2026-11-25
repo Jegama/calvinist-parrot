@@ -168,6 +168,31 @@ describe.skipIf(!databaseUrl)("evaluation costs in the admin feature report", ()
     }
   });
 
+  it("attributes missing receipts to their dispatch window even when the job never completes", async () => {
+    const during = randomUUID();
+    const after = randomUUID();
+    const pending = { evaluationId: failed, stage: "scoring", modality: "audio", requestedModel: "gemini-4-hydrogen" };
+    await client.sermonPendingUsageAttempt.createMany({ data: [
+      { ...pending, attemptId: during, startedAt: window.start },
+      { ...pending, attemptId: after, startedAt: window.end },
+    ] });
+    try {
+      const report = await getFeatureReport(window);
+      const mcp = report.evaluationChannels!.find(item => item.feature === "sermon" && item.channel === "mcp")!;
+      expect(mcp).toMatchObject({ completions: 0, estimatedSpendUsd: geminiUsd, costPerCompletionUsd: null });
+      expect(mcp.spendCoverage).toMatch(/Partial coverage.*1\/2 attempts measured, 1\/2 priced/);
+      const next = await getFeatureReport({ start: window.end, end: new Date(+window.end + 1000) });
+      const missing = next.evaluationChannels!.find(item => item.feature === "sermon" && item.channel === "mcp")!;
+      expect(missing).toMatchObject({ completions: 0, estimatedSpendUsd: null, costPerCompletionUsd: null });
+      expect(missing.spendCoverage).toMatch(/Partial coverage.*0\/1 attempts measured, 0\/1 priced/);
+      expect(next.evaluationStages).toContainEqual(expect.objectContaining({
+        feature: "sermon", stage: "scoring", attempts: 1, measured: 0, priced: 0, spend: null,
+      }));
+    } finally {
+      await client.sermonPendingUsageAttempt.deleteMany({ where: { attemptId: { in: [during, after] } } });
+    }
+  });
+
   it("withholds the sermon average when a successful retry masks a missing receipt", async () => {
     await client.sermonEvaluation.update({ where: { id: standard }, data: { expectedUsageAttempts: 4 } });
     try {

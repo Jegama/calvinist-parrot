@@ -1012,7 +1012,7 @@ def test_worker_publishes_reports_from_read_only_directory(
     saved_alias,
     legacy,
 ) -> None:
-    monkeypatch.setenv("SERMON_USAGE_ENVIRONMENT", "production")
+    monkeypatch.setenv("SERMON_USAGE_ENVIRONMENT", "preview")
     evaluation_id, pool, storage = queued_report_job
     from google.genai import types
 
@@ -1074,12 +1074,15 @@ def test_worker_publishes_reports_from_read_only_directory(
         # The prior worker paid for these outputs before their checkpoints
         # were recovered. Re-deliver its received receipt after finalization.
         job = persistence.fetch_evaluation(evaluation_id)
+        if legacy:
+            monkeypatch.setenv("SERMON_USAGE_ENVIRONMENT", "development")
+            assert persistence.fetch_evaluation(evaluation_id).usage_environment == "preview"
         for schema in [SermonExtractionStep1] + [SermonScoringStep2Raw] * requested_runs:
             stage = "extraction" if schema is SermonExtractionStep1 else "scoring"
             receipts = []
             provider.generate_structured_with_contents(
                 ["Offline", object()], schema, model=saved_alias, record_usage=receipts.append,
-                count_attempt=lambda: persistence.count_provider_attempt(job.id),
+                register_attempt=lambda receipt: persistence.register_provider_attempt(job.id, stage, receipt),
             )
             for receipt in [*receipts, *reversed(receipts)]:
                 persistence.record_provider_usage(job, stage, receipt)
@@ -1091,7 +1094,7 @@ def test_worker_publishes_reports_from_read_only_directory(
             provider.generate_structured(
                 "Offline", SermonHarmonizedFeedback, model=saved_alias,
                 record_usage=lambda receipt: persistence.record_provider_usage(job, "harmonization", receipt),
-                count_attempt=lambda: persistence.count_provider_attempt(job.id),
+                register_attempt=lambda receipt: persistence.register_provider_attempt(job.id, "harmonization", receipt),
             )
         responses[SermonHarmonizedFeedback] = harmonized
 
@@ -1111,9 +1114,12 @@ def test_worker_publishes_reports_from_read_only_directory(
         deployment.chmod(0o755)
 
     with pool.connection() as conn:
-        expected_attempts = conn.execute(
-            'SELECT "expectedUsageAttempts" FROM "sermonEvaluation" WHERE id = %s', (evaluation_id,),
-        ).fetchone()["expectedUsageAttempts"]
+        job = conn.execute(
+            'SELECT "expectedUsageAttempts", "usageEnvironment", channel FROM "sermonEvaluation" WHERE id = %s', (evaluation_id,),
+        ).fetchone()
+        pending = conn.execute(
+            'SELECT "attemptId", stage FROM "sermonPendingUsageAttempt" WHERE "evaluationId" = %s', (evaluation_id,),
+        ).fetchall()
         artifacts = conn.execute(
             'SELECT format, content FROM "sermonReportArtifact" WHERE "evaluationId" = %s',
             (evaluation_id,),
@@ -1133,7 +1139,12 @@ def test_worker_publishes_reports_from_read_only_directory(
     if retry:
         expected_stages["harmonization", "invalid_output"] = 1
     lost_attempts = 1 if requested_runs == 1 else 0
-    assert expected_attempts == (None if legacy else sum(expected_stages.values()) + lost_attempts)
+    assert len(pending) == lost_attempts
+    if pending:
+        assert pending[0]["attemptId"] == missing_id and pending[0]["stage"] == "extraction"
+    assert job["usageEnvironment"] == ("preview" if legacy else "test")
+    assert job["channel"] == ("unknown" if legacy else "public_api")
+    assert job["expectedUsageAttempts"] == (None if legacy else sum(expected_stages.values()) + lost_attempts)
     assert {(row["stage"], row["outcome"]): row["attempts"] for row in usage} == expected_stages
     for row in usage:
         audio = row["stage"] in {"extraction", "scoring"}
@@ -1141,7 +1152,7 @@ def test_worker_publishes_reports_from_read_only_directory(
         assert row["preset"] == ("STANDARD" if requested_runs == 1 else "HIGH_CONFIDENCE")
         assert row["modality"] == ("audio" if audio else "text")
         assert row["audioInputTokens"] == (60 if audio else None)
-        assert row["environment"] == ("production" if legacy else "test")
+        assert row["environment"] == ("preview" if legacy else "test")
         assert (row["inputTokens"], row["outputTokens"]) == (100, 20)
         assert row["requestedModel"] == (saved_alias or "gemini-4-hydrogen")
         assert row["returnedModel"] == "hydrogen-version-from-response"

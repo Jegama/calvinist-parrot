@@ -144,6 +144,16 @@ class PsycopgPersistence(ScoringPersistence):
 
     def fetch_evaluation(self, evaluation_id: str) -> EvaluationJob:
         with self._connection() as connection, connection.cursor() as cursor:
+            # Pin the fallback once, so resumed legacy work and its receipts are
+            # counted in the same deployment even if another worker picks it up.
+            environment = (os.getenv("SERMON_USAGE_ENVIRONMENT") or os.getenv("VERCEL_ENV")
+                           or os.getenv("NODE_ENV") or "unknown")
+            cursor.execute(
+                '''UPDATE "sermonEvaluation" SET "usageEnvironment" = %s
+                   WHERE id = %s AND "usageEnvironment" IS NULL AND "deletedAt" IS NULL
+                     AND status NOT IN ('COMPLETE', 'COMPLETE_WITH_WARNINGS', 'FAILED', 'TIMED_OUT', 'CANCELED')''',
+                (environment, evaluation_id),
+            )
             cursor.execute(
                 """
                 SELECT e."id", e."ownerId", e."title", e."preachedOn",
@@ -192,20 +202,21 @@ class PsycopgPersistence(ScoringPersistence):
             provenance=row["provenance"] or {},
             channel=row["channel"] or "unknown",
             preset=row["preset"],
-            usage_environment=(
-                row["usageEnvironment"] or os.getenv("SERMON_USAGE_ENVIRONMENT")
-                or os.getenv("VERCEL_ENV") or os.getenv("NODE_ENV") or "unknown"
-            ),
+            usage_environment=row["usageEnvironment"] or environment,
         )
 
-    def count_provider_attempt(self, evaluation_id: str) -> None:
+    def register_provider_attempt(self, evaluation_id: str, stage: str, receipt: dict[str, Any]) -> None:
         with self._connection() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                '''INSERT INTO "sermonPendingUsageAttempt"
+                   ("attemptId", "evaluationId", stage, "startedAt", "requestedModel", modality)
+                   VALUES (%(attemptId)s, %(evaluationId)s, %(stage)s, %(startedAt)s, %(requestedModel)s, %(modality)s)''',
+                {**receipt, "evaluationId": evaluation_id, "stage": stage},
+            )
             cursor.execute(
                 'UPDATE "sermonEvaluation" SET "expectedUsageAttempts" = "expectedUsageAttempts" + 1 WHERE id = %s',
                 (evaluation_id,),
             )
-            if cursor.rowcount != 1:
-                raise PersistenceError("Sermon evaluation missing before provider dispatch")
 
     def record_provider_usage(self, job: EvaluationJob, stage: str, receipt: dict[str, Any]) -> None:
         # Billing survives loss of the lease or cancellation after a paid response.
@@ -241,6 +252,8 @@ class PsycopgPersistence(ScoringPersistence):
                 {**receipt, "operationId": job.id, "stage": stage, "channel": job.channel,
                  "preset": job.preset, "environment": job.usage_environment},
             )
+            # Replacing the pending dispatch and storing its receipt must be atomic.
+            cursor.execute('DELETE FROM "sermonPendingUsageAttempt" WHERE "attemptId" = %s', (receipt["attemptId"],))
 
     def create_evaluation_attempt(
         self,
