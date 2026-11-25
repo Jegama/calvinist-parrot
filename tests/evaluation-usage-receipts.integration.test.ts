@@ -22,6 +22,22 @@ describe.skipIf(!databaseUrl)("evaluation receipt delivery and dated pricing", (
     await client.$disconnect();
   });
 
+  it("keeps the chat pricing columns in place and appends the evaluation fields", async () => {
+    const columns = await client.$queryRaw<{ column_name: string }[]>`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = current_schema() AND table_name = 'analytics_priced_provider_attempt'
+      ORDER BY ordinal_position
+    `;
+    expect(columns.map(row => row.column_name)).toEqual([
+      "attemptId", "operationId", "feature", "stage", "startedAt", "durationMs", "environment",
+      "provider", "requestedModel", "returnedModel", "serviceTier", "outcome", "completedAt",
+      "inputTokens", "cacheReadTokens", "cacheWriteTokens", "cacheWrite5mTokens", "cacheWrite1hTokens",
+      "outputTokens", "thinkingTokens", "toolUsePromptTokens", "providerTotalTokens", "promptTokens",
+      "candidateTokens", "usd", "isRetry", "cacheWrite30mTokens", "cacheWrite12hTokens",
+      "channel", "preset", "modality", "audioInputTokens", "billingUnit", "quantity",
+    ]);
+  });
+
   it("preserves the final receipt after replays and applies the verified cache and context rate on its effective day", async () => {
     const prior = { ...startUsageAttempt(context, spec), startedAt: new Date("2026-11-20T23:59:59Z") };
     const current = { ...startUsageAttempt(context, spec), startedAt: new Date("2026-11-21T00:00:00Z") };
