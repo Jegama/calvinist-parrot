@@ -150,6 +150,9 @@ async function persistAttempt<T extends { outcome: Outcome; durationMs: number }
     });
   } catch {
     console.warn("Provider usage write failed", attempt.attemptId, receipt.outcome);
+    if (attempt.feature === "church" && receipt.outcome === "started") {
+      throw new Error("Could not record Church Finder request before dispatch.");
+    }
   }
 }
 
