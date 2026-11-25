@@ -10,7 +10,7 @@ Follow the [code quality standards](./CONTRIBUTING.md#code-quality-standards) wh
 
 ## Pull requests and releases
 
-For work intended for `master`, follow the [PR and versioning guidelines](./CONTRIBUTING.md#pull-requests-and-versioning). Give each PR a release impact (`major`, `minor`, `patch`, or `none`) and a one-sentence reason. Add user or operator changes to `Unreleased` in the [changelog](./CHANGELOG.md). The release PR updates the app version once for the whole batch.
+For work intended for `master`, follow the [PR and versioning guidelines](./CONTRIBUTING.md#pull-requests-and-versioning). Give each PR a release impact (`major`, `minor`, `patch`, or `none`) and a one-sentence reason. Merging to `master` deploys to production. Include the app version bump and dated [changelog](./CHANGELOG.md) entry in each PR with release impact. Recheck the version against the latest `master` before merge.
 
 ## GitHub CLI Authentication in Codex
 

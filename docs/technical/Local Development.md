@@ -111,9 +111,9 @@ The safest release flow is:
 
 1. CI validates the branch against a disposable Postgres service.
 2. The migration workflow runs against Preview from the same branch before the preview worker or application is exercised.
-3. The migration workflow runs against Production with GitHub Environment approval before the production application is promoted.
+3. The migration workflow runs against Production with GitHub Environment approval before merging the dependent application change into `master`.
 
-If Vercel is currently auto-deploying on push, either move production deploys into GitHub Actions or use a release branch/manual promotion so schema changes do not race app deploys.
+Merges to `master` deploy to production automatically. Production migrations applied before merge must work with the currently deployed app during the rollout.
 
 ## External Services
 
