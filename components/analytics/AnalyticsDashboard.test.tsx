@@ -96,6 +96,8 @@ describe("admin analytics presentation", () => {
     };
     const defaults = { pageviews: 15, actions: [], estimatedSpendUsd: null, costPerCompletionUsd: null, spendCoverage: "Unavailable." };
     const features: AnalyticsReport["features"] = {
+      evaluationChannels: null,
+      evaluationStages: null,
       rows: [
         { ...defaults, name: "Parrot Chat", key: "chat", engagement: {
           steps: [
