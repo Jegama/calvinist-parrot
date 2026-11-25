@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { providerUsageEnvironment } from "@/lib/provider-usage";
 import type { ChatChannel } from "@/lib/chat-analytics";
 import { chicagoTimestamp, type FeatureWindow } from "./web-analytics";
 
@@ -27,7 +28,7 @@ interface Aggregate {
 
 // Date every linked receipt and reply to its genuine submission. A delayed job
 // can update an earlier cohort. Only costs without a submission use attempt time.
-function getAggregates({ start, end }: FeatureWindow) {
+function getAggregates({ start, end }: FeatureWindow, environment: string) {
   return prisma.$queryRaw<Aggregate[]>`
     WITH submissions AS (
       SELECT s.channel, s."operationId", r.kind IS NOT NULL AS completed
@@ -39,11 +40,11 @@ function getAggregates({ start, end }: FeatureWindow) {
     ), ledger AS (
       SELECT true AS linked, s.channel, s."operationId" AS turn, s.completed, a AS receipt
       FROM submissions s LEFT JOIN analytics_priced_provider_attempt a ON a."operationId" = s."operationId"
-        AND a.environment = 'production' AND a.feature = 'chat'
+        AND a.environment = ${environment} AND a.feature = 'chat'
       UNION ALL
       SELECT false, 'unattributed', NULL, false, a
       FROM analytics_priced_provider_attempt a
-      WHERE a.environment = 'production' AND a.feature = 'chat' AND a."startedAt" >= ${start} AND a."startedAt" < ${end}
+      WHERE a.environment = ${environment} AND a.feature = 'chat' AND a."startedAt" >= ${start} AND a."startedAt" < ${end}
         AND NOT EXISTS (SELECT 1 FROM "ChatAnalyticsEvent" s WHERE s.kind = 'submission' AND s."operationId" = a."operationId")
     ), attempts AS (
       SELECT linked, channel, turn, completed, (receipt).*,
@@ -69,19 +70,20 @@ function getAggregates({ start, end }: FeatureWindow) {
 }
 
 export async function getChatSpend(window: FeatureWindow) {
+  const environment = providerUsageEnvironment();
   const [aggregates, [coverage]] = await Promise.all([
-    getAggregates(window),
+    getAggregates(window, environment),
     prisma.$queryRaw<{ migrated: Date | null; first: Date | null }[]>`
       SELECT (SELECT min(finished_at) FROM "_prisma_migrations"
               WHERE migration_name = '20261125000000_chat_provider_usage' AND rolled_back_at IS NULL) AS migrated,
-             (SELECT min("startedAt") FROM "ProviderCallAttempt" WHERE environment = 'production' AND feature = 'chat') AS first
+             (SELECT min("startedAt") FROM "ProviderCallAttempt" WHERE environment = ${environment} AND feature = 'chat') AS first
     `,
   ]);
   const observed = (coverage.first && coverage.first < window.end) || aggregates.some(row => row.attempts > 0);
   const fullPeriod = Boolean(coverage.migrated && coverage.migrated <= window.start && observed);
   const coverageNote = coverage.first
-    ? `First production attempt observed ${chicagoTimestamp(coverage.first)}.`
-    : "No production chat attempts observed yet.";
+    ? `First ${environment} chat attempt observed ${chicagoTimestamp(coverage.first)}.`
+    : `No ${environment} chat attempts observed yet.`;
 
   function summary(channel: Channel) {
     const row = aggregates.find(item => item.channel === channel && item.stage === null);

@@ -46,7 +46,6 @@ const operationsToPrice = new Set<string>();
 async function recordFixtureCall(turn: TurnContext | undefined, stage: string, failed = false) {
   if (!turn || !operationsToPrice.has(turn.operationId)) return;
   const attempt = startUsageAttempt({ feature: "chat", stage, ...turn }, { provider: "anthropic", model: "claude-haiku-5-5" });
-  attempt.environment = "production";
   attempt.startedAt = stage === "memory" ? costDayEnd : costDay;
   const usage = { input_tokens: 1000, output_tokens: 100 };
   await recordUsageAttempt(attempt, failed ? "provider_error" : "success", 50, attempt.requestedModel, usage);

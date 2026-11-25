@@ -74,7 +74,7 @@ export function normalizeUsage(provider: ModelSpec["provider"], usage: unknown) 
   };
 }
 
-function environment() {
+export function providerUsageEnvironment() {
   return process.env.VERCEL_ENV || process.env.NODE_ENV || "development";
 }
 
@@ -82,7 +82,7 @@ export function startUsageAttempt(context: UsageContext, spec: ModelSpec) {
   const { feature, stage, operationId } = context;
   return {
     attemptId: randomUUID(), feature, stage, operationId, isRetry: context.isRetry ?? false,
-    startedAt: new Date(), environment: environment(), provider: spec.provider,
+    startedAt: new Date(), environment: providerUsageEnvironment(), provider: spec.provider,
     requestedModel: spec.model,
   };
 }
@@ -117,7 +117,7 @@ export async function markUsageOperationComplete(feature: UsageContext["feature"
   try {
     const { default: prisma } = await import("./prisma");
     await prisma.providerCallAttempt.updateMany({
-      where: { feature, operationId, environment: environment(), completedAt: null },
+      where: { feature, operationId, environment: providerUsageEnvironment(), completedAt: null },
       data: { completedAt: new Date() },
     });
   } catch {

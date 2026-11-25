@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache";
+import { providerUsageEnvironment } from "@/lib/provider-usage";
 import { getFeatureReport } from "./features";
 import { getAnalyticsMetrics } from "./metrics";
 import { getReportingWindow, reportingDay, reportingTimeZone, type ReportingDays, type ReportingWindow } from "./period";
@@ -52,7 +53,7 @@ export function loadAnalyticsReport(days: ReportingDays) {
   // authorize the current session outside the cache on every request.
   return unstable_cache(
     () => buildAnalyticsReport(days, now),
-    [analyticsReportTag, process.env.VERCEL_DEPLOYMENT_ID ?? "local", reportingDay(now), String(days)],
+    [analyticsReportTag, providerUsageEnvironment(), process.env.VERCEL_DEPLOYMENT_ID ?? "local", reportingDay(now), String(days)],
     { tags: [analyticsReportTag], revalidate: 25 * 3600 },
   )();
 }

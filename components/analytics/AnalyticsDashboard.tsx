@@ -191,6 +191,7 @@ export default function AnalyticsDashboard({ report }: { report: AnalyticsReport
             {period.previousStartDay && period.previousEndDay
               ? `Compared with ${dayLabel(period.previousStartDay)} – ${dayLabel(period.previousEndDay)} · ${period.timeZone}`
               : `Through ${instantLabel(report.generatedAt, period.timeZone)}`}
+            {period.days !== "all" && " · Select All time to include today."}
           </p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">

@@ -43,6 +43,7 @@ describe.skipIf(!databaseUrl)("Chat cost by submission cohort", () => {
 
   beforeAll(async () => {
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+    vi.stubEnv("VERCEL_ENV", "production");
     vi.stubEnv("VERCEL_ANALYTICS_TOKEN", "");
     vi.stubEnv("VERCEL_TOKEN", "");
     await db.chatAnalyticsEvent.createMany({ data: events });
@@ -81,6 +82,19 @@ describe.skipIf(!databaseUrl)("Chat cost by submission cohort", () => {
     await db.chatAnalyticsEvent.createMany({ data: events, skipDuplicates: true });
     await db.providerCallAttempt.createMany({ data: attempts, skipDuplicates: true });
     expect((await getFeatureReport({ start, end })).chatSpend).toEqual(details);
+  });
+
+  it("shows preview receipts for linked and unattributed work and excludes production spend", async () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    try {
+      const details = (await getFeatureReport({ start, end })).chatSpend!;
+      expect(details.byChannel[0]).toMatchObject({ attempts: 1, priced: 1, estimatedSpendUsd: unit });
+      expect(details.byChannel.find(row => row.channel === "web")?.estimatedSpendUsd).toBeCloseTo(unit, 9);
+      expect(details.unattributed.attempts).toBe(0);
+      expect(details.coverageNote).toContain("First preview chat attempt");
+    } finally {
+      vi.stubEnv("VERCEL_ENV", "production");
+    }
   });
 
   it("keeps costs separate from completions when attempts lack counters or receipts", async () => {
