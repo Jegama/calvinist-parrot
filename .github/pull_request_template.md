@@ -16,4 +16,4 @@
 
 ## Release impact
 
-<!-- Choose major, minor, patch, or none and give a one-sentence reason. For a bump, add an Unreleased entry to CHANGELOG.md. See CONTRIBUTING.md, “Pull requests and versioning.” -->
+<!-- Choose major, minor, patch, or none and give a one-sentence reason. For a bump, give the new version, update package.json and package-lock.json, and add a dated entry to CHANGELOG.md in this PR. Check the version against the latest master before merge. See CONTRIBUTING.md, “Pull requests and versioning.” -->
