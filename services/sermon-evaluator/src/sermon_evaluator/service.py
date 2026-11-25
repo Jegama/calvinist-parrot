@@ -106,11 +106,13 @@ class DeadlineBoundProvider:
         deadline: SoftDeadline,
         is_canceled: Callable[[], bool],
         record_usage: UsageRecorder,
+        count_attempt: Callable[[], None],
     ) -> None:
         self.provider = provider
         self.deadline = deadline
         self.is_canceled = is_canceled
         self.record_usage = record_usage
+        self.count_attempt = count_attempt
 
     def set_model(self, model_name: str) -> None:
         self.provider.set_model(model_name)
@@ -129,6 +131,7 @@ class DeadlineBoundProvider:
 
     def generate_structured(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         kwargs["record_usage"] = self.record_usage
+        kwargs["count_attempt"] = self.count_attempt
         kwargs["timeout_seconds"] = min(
             kwargs.get("timeout_seconds", float("inf")), self._before()
         )
@@ -138,6 +141,7 @@ class DeadlineBoundProvider:
         self, *args: Any, **kwargs: Any
     ) -> dict[str, Any]:
         kwargs["record_usage"] = self.record_usage
+        kwargs["count_attempt"] = self.count_attempt
         kwargs["timeout_seconds"] = min(
             kwargs.get("timeout_seconds", float("inf")), self._before()
         )
@@ -439,6 +443,7 @@ class SermonEvaluationService:
             return DeadlineBoundProvider(
                 self.provider, deadline, canceled,
                 lambda receipt: self.persistence.record_provider_usage(job, stage, receipt),
+                lambda: self.persistence.count_provider_attempt(job.id),
             )
 
         def transition(target: EvaluationStatus, patch: Optional[dict] = None) -> None:

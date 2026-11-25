@@ -736,7 +736,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
     });
     await expect(prisma.sermonEvaluation.findUniqueOrThrow({
       where: { id: evaluation.id },
-    })).resolves.toMatchObject({ channel: "mcp" });
+    })).resolves.toMatchObject({ channel: "mcp", expectedUsageAttempts: 0 });
     const restoredReservation =
       await prisma.sermonRunCreditReservation.findUniqueOrThrow({
         where: { evaluationId: evaluation.id },

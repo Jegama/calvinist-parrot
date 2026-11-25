@@ -270,7 +270,7 @@ class GeminiProvider:
     def _generate(
         self, contents: Any, response_schema: type, system: Optional[str],
         model: Optional[str], seed: Optional[int], timeout_seconds: Optional[float],
-        modality: str, record_usage: Optional[UsageRecorder],
+        modality: str, record_usage: Optional[UsageRecorder], count_attempt: Optional[Callable[[], None]],
     ) -> dict[str, Any]:
         requested_model = model or self.model_name
         config = self._config(response_schema, system, seed)
@@ -282,6 +282,10 @@ class GeminiProvider:
                 "attemptId": uuid.uuid4(), "startedAt": datetime.now(timezone.utc),
                 "requestedModel": requested_model, "modality": modality,
             }
+            # Count each dispatch before contacting Gemini, independently of receipt
+            # delivery. A lost receipt then leaves the completion partially priced.
+            if count_attempt:
+                count_attempt()
             if record_usage:
                 # If this process dies during generation, retain the unknown
                 # attempt alongside any fresh request made by a recovery worker.
@@ -327,8 +331,9 @@ class GeminiProvider:
         timeout_seconds: Optional[float] = None,
         *,
         record_usage: Optional[UsageRecorder] = None,
+        count_attempt: Optional[Callable[[], None]] = None,
     ) -> dict[str, Any]:
-        return self._generate(prompt, response_schema, system, model, seed, timeout_seconds, "text", record_usage)
+        return self._generate(prompt, response_schema, system, model, seed, timeout_seconds, "text", record_usage, count_attempt)
 
     def generate_structured_with_contents(
         self,
@@ -340,8 +345,9 @@ class GeminiProvider:
         timeout_seconds: Optional[float] = None,
         *,
         record_usage: Optional[UsageRecorder] = None,
+        count_attempt: Optional[Callable[[], None]] = None,
     ) -> dict[str, Any]:
-        return self._generate(contents, response_schema, system, model, seed, timeout_seconds, "audio", record_usage)
+        return self._generate(contents, response_schema, system, model, seed, timeout_seconds, "audio", record_usage, count_attempt)
 
     def upload_file(
         self, file_path: str, *, timeout_seconds: Optional[float] = None

@@ -62,8 +62,8 @@ describe.skipIf(!databaseUrl)("evaluation costs in the admin feature report", ()
       preset: "STANDARD" as const, requestedRuns: 1, completedRuns: 1, completedAt: window.start, status: "COMPLETE" as const, usageEnvironment: "production",
     };
     await client.sermonEvaluation.createMany({ data: [
-      { ...sermonJob, id: standard, channel: "web" },
-      { ...sermonJob, id: high, preset: "HIGH_CONFIDENCE", requestedRuns: 3, completedRuns: 3, channel: "public_api" },
+      { ...sermonJob, id: standard, channel: "web", expectedUsageAttempts: 3 },
+      { ...sermonJob, id: high, preset: "HIGH_CONFIDENCE", requestedRuns: 3, completedRuns: 3, channel: "public_api", expectedUsageAttempts: 7 },
       { ...sermonJob, id: failed, status: "FAILED", completedRuns: 0, channel: "mcp" },
       { ...sermonJob, id: preview, usageEnvironment: "preview", channel: "web" },
       { ...sermonJob, id: old, status: "COMPLETE_WITH_WARNINGS", usageEnvironment: null, completedAt: window.end },
@@ -165,6 +165,19 @@ describe.skipIf(!databaseUrl)("evaluation costs in the admin feature report", ()
     } finally {
       await client.providerCallAttempt.deleteMany({ where: { attemptId: lateAttempt } });
       await client.churchEvaluation.update({ where: { id: church }, data: { expectedUsageAttempts: 9 } });
+    }
+  });
+
+  it("withholds the sermon average when a successful retry masks a missing receipt", async () => {
+    await client.sermonEvaluation.update({ where: { id: standard }, data: { expectedUsageAttempts: 4 } });
+    try {
+      const report = await getFeatureReport(window);
+      const web = report.evaluationChannels!.find(item => item.feature === "sermon" && item.channel === "web")!;
+      expect(web.estimatedSpendUsd).toBeCloseTo(2 * geminiUsd, 8);
+      expect(web.costPerCompletionUsd).toBeNull();
+      expect(web.spendCoverage).toContain("0/1 completions fully priced");
+    } finally {
+      await client.sermonEvaluation.update({ where: { id: standard }, data: { expectedUsageAttempts: 3 } });
     }
   });
 

@@ -69,7 +69,7 @@ export function getEvaluationUsage({ start, end, days }: FeatureWindow, environm
       WHERE ("usageEnvironment" = ${environment} OR ("usageEnvironment" IS NULL AND ${environment}::text = 'production'))
         AND "createdAt" >= (${start}::timestamptz AT TIME ZONE 'UTC') AND "createdAt" < (${end}::timestamptz AT TIME ZONE 'UTC')
       UNION ALL
-      SELECT 'sermon', id, channel, NULL::int, "completedRuns" FROM "sermonEvaluation"
+      SELECT 'sermon', id, channel, "expectedUsageAttempts", "completedRuns" FROM "sermonEvaluation"
       WHERE ("usageEnvironment" = ${environment} OR ("usageEnvironment" IS NULL AND ${environment}::text = 'production'))
         AND status IN ('COMPLETE', 'COMPLETE_WITH_WARNINGS')
         AND "completedAt" >= (${start}::timestamptz AT TIME ZONE 'UTC') AND "completedAt" < (${end}::timestamptz AT TIME ZONE 'UTC')
@@ -77,12 +77,12 @@ export function getEvaluationUsage({ start, end, days }: FeatureWindow, environm
       -- The completion denominator is independent of receipts. Reused worker checkpoints
       -- keep their original operation ID. Include all recorded work for each completion,
       -- including scheduled church geocoding that ran after the reporting window.
-      SELECT c.feature, c.channel, c.id, CASE WHEN count(a.usd) = count(a."attemptId") AND
-        CASE WHEN c.feature = 'church' THEN
-          c."expectedUsageAttempts" > 0 AND count(a."attemptId") = c."expectedUsageAttempts"
-        ELSE c.runs > 0 AND array_agg(a.stage) FILTER (WHERE a.outcome = 'success') @> ARRAY['extraction', 'summary']
+      SELECT c.feature, c.channel, c.id, CASE WHEN c."expectedUsageAttempts" > 0
+        AND count(a."attemptId") = c."expectedUsageAttempts" AND count(a.usd) = c."expectedUsageAttempts"
+        AND (c.feature = 'church' OR (c.runs > 0
+          AND array_agg(a.stage) FILTER (WHERE a.outcome = 'success') @> ARRAY['extraction', 'summary']
           AND count(*) FILTER (WHERE a.stage = 'scoring' AND a.outcome = 'success') >= c.runs
-          AND (c.runs = 1 OR bool_or(a.stage = 'harmonization')) END
+          AND (c.runs = 1 OR bool_or(a.stage = 'harmonization'))))
         THEN sum(a.usd) END AS cost
       FROM completed c LEFT JOIN analytics_priced_provider_attempt a ON a.feature = c.feature
         AND a."operationId" = c.id AND a.environment = ${environment} AND a."startedAt" < ${cutoff}::timestamptz

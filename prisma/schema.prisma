@@ -439,6 +439,7 @@ model sermonEvaluation {
   id                        String                      @id @default(cuid())
   channel                   String                      @default("unknown")
   usageEnvironment          String?
+  expectedUsageAttempts     Int?
   ownerId                   String
   preacherId                String
   fingerprintId             String

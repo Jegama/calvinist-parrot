@@ -198,6 +198,15 @@ class PsycopgPersistence(ScoringPersistence):
             ),
         )
 
+    def count_provider_attempt(self, evaluation_id: str) -> None:
+        with self._connection() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                'UPDATE "sermonEvaluation" SET "expectedUsageAttempts" = "expectedUsageAttempts" + 1 WHERE id = %s',
+                (evaluation_id,),
+            )
+            if cursor.rowcount != 1:
+                raise PersistenceError("Sermon evaluation missing before provider dispatch")
+
     def record_provider_usage(self, job: EvaluationJob, stage: str, receipt: dict[str, Any]) -> None:
         # Billing survives loss of the lease or cancellation after a paid response.
         # A replay of an earlier "received" write must not downgrade its final outcome.

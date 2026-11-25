@@ -13,6 +13,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
 
+import httpx
 import pytest
 from pydantic import ValidationError
 from psycopg.rows import dict_row
@@ -946,7 +947,7 @@ def queued_report_job(tmp_path, requested_runs, retry, saved_alias, legacy, extr
                 )
                 if not legacy:
                     cur.execute(
-                        'UPDATE "sermonEvaluation" SET channel = %s, "usageEnvironment" = %s WHERE id = %s',
+                        'UPDATE "sermonEvaluation" SET channel = %s, "usageEnvironment" = %s, "expectedUsageAttempts" = 0 WHERE id = %s',
                         ("public_api", "test", evaluation_id),
                     )
                 if retry:
@@ -1030,7 +1031,15 @@ def test_worker_publishes_reports_from_read_only_directory(
         AggregatedSummaryFeedback: {"Overall_Impact": "Summary feedback"},
     }
 
+    # In the Standard case, a provider timeout coincides with a receipt-store
+    # outage. The retry succeeds, leaving one fewer receipt than dispatches.
+    lose_first_response = requested_runs == 1
+
     def generate(*, contents, config, model):
+        nonlocal lose_first_response
+        if lose_first_response:
+            lose_first_response = False
+            raise httpx.ReadTimeout("lost response")
         assert model == (saved_alias or "gemini-4-hydrogen")
         return SimpleNamespace(
             parsed=responses[config], model_version="hydrogen-version-from-response",
@@ -1047,6 +1056,20 @@ def test_worker_publishes_reports_from_read_only_directory(
     provider._config = lambda schema, *_: schema
     provider._client = lambda _: SimpleNamespace(models=SimpleNamespace(generate_content=generate))
     persistence = PsycopgPersistence(pool=pool)
+    if requested_runs == 1:
+        provider.retry_initial_delay_seconds = 0
+        write_receipt = persistence.record_provider_usage
+        missing_id = None
+
+        def miss_first_receipt(job, stage, receipt):
+            nonlocal missing_id
+            if missing_id is None:
+                missing_id = receipt["attemptId"]
+            if receipt["attemptId"] == missing_id:
+                raise RuntimeError("receipt store unavailable")
+            write_receipt(job, stage, receipt)
+
+        monkeypatch.setattr(persistence, "record_provider_usage", miss_first_receipt)
     if retry:
         # The prior worker paid for these outputs before their checkpoints
         # were recovered. Re-deliver its received receipt after finalization.
@@ -1056,6 +1079,7 @@ def test_worker_publishes_reports_from_read_only_directory(
             receipts = []
             provider.generate_structured_with_contents(
                 ["Offline", object()], schema, model=saved_alias, record_usage=receipts.append,
+                count_attempt=lambda: persistence.count_provider_attempt(job.id),
             )
             for receipt in [*receipts, *reversed(receipts)]:
                 persistence.record_provider_usage(job, stage, receipt)
@@ -1067,6 +1091,7 @@ def test_worker_publishes_reports_from_read_only_directory(
             provider.generate_structured(
                 "Offline", SermonHarmonizedFeedback, model=saved_alias,
                 record_usage=lambda receipt: persistence.record_provider_usage(job, "harmonization", receipt),
+                count_attempt=lambda: persistence.count_provider_attempt(job.id),
             )
         responses[SermonHarmonizedFeedback] = harmonized
 
@@ -1086,6 +1111,9 @@ def test_worker_publishes_reports_from_read_only_directory(
         deployment.chmod(0o755)
 
     with pool.connection() as conn:
+        expected_attempts = conn.execute(
+            'SELECT "expectedUsageAttempts" FROM "sermonEvaluation" WHERE id = %s', (evaluation_id,),
+        ).fetchone()["expectedUsageAttempts"]
         artifacts = conn.execute(
             'SELECT format, content FROM "sermonReportArtifact" WHERE "evaluationId" = %s',
             (evaluation_id,),
@@ -1104,6 +1132,8 @@ def test_worker_publishes_reports_from_read_only_directory(
         expected_stages["harmonization", "success"] = 1
     if retry:
         expected_stages["harmonization", "invalid_output"] = 1
+    lost_attempts = 1 if requested_runs == 1 else 0
+    assert expected_attempts == (None if legacy else sum(expected_stages.values()) + lost_attempts)
     assert {(row["stage"], row["outcome"]): row["attempts"] for row in usage} == expected_stages
     for row in usage:
         audio = row["stage"] in {"extraction", "scoring"}

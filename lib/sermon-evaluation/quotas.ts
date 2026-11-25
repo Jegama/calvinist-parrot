@@ -289,6 +289,7 @@ export async function createReservedSermonEvaluation(
             sourceEvaluationId: input.sourceEvaluationId,
             channel: input.channel,
             usageEnvironment: providerUsageEnvironment(),
+            expectedUsageAttempts: 0,
             title: input.title.trim(),
             preachedOn: input.preachedOn,
             preset: input.selection.preset,
