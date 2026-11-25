@@ -33,7 +33,7 @@ When you use our features, we store the content you provide:
 
 - **Cookies:** We use essential cookies for authentication (session token), anonymous guest identity, and OAuth flow state. We do not use advertising or third-party tracking cookies. See Section 5 for details.
 - **Performance data:** We use Vercel Analytics and Speed Insights to collect anonymized page views, Core Web Vitals, and general performance metrics. This data is not tied to your identity.
-- **AI usage records:** For journal reflections and daily devotionals, we record the feature, generation step, operation and attempt identifiers, time, environment, provider, model, outcome, and available token counts to measure reliability and cost. These records exclude prompts, generated text, and family details.
+- **AI usage records:** For chat replies and related work (conversation titles, memory extraction, and retrieval embeddings), journal reflections, and daily devotionals, we record the feature, generation step, operation and attempt identifiers, time, environment, provider, model, outcome, and available token counts to measure reliability and cost. These records exclude prompts, generated text, and family details.
 - **Feature activity.** We record when a conversation starts, a message is sent or answered, a journal entry is saved, or a sermon is submitted. Chat events record the entry channel and whether the actor was a guest, an account, or an integration. Signed-in activity includes an account identifier so we can count distinct active accounts and measure how soon new accounts use these features. Authorized administrators see aggregate counts.
 - **User agent:** Your browser's user-agent string is forwarded to our authentication provider for session security purposes.
 

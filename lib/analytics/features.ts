@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { getChatSpend, type ChatSpendReport } from "./chat-spend";
 import { getUsageTotals, type UsageTotals } from "./feature-spend";
 import { chicagoTimestamp, featureNames, getPageviews, type Feature, type FeatureWindow } from "./web-analytics";
 
@@ -14,6 +15,7 @@ export interface FeatureRow {
 }
 export interface FeatureReport {
   rows: FeatureRow[];
+  chatSpend: ChatSpendReport | null;
   pageviewCoverage: string;
   actionCoverage: string;
 }
@@ -42,7 +44,7 @@ function spendFields(key: Feature, usage: UsageTotals | undefined, window: Featu
     spendCoverage: "No AI calls.",
   };
   if (key !== "personal_journal" && key !== "heritage_journal" && key !== "daily_devotional") {
-    if (["chat", "sermon", "church"].includes(key)) fields.spendCoverage = "Awaiting AI usage instrumentation.";
+    if (["sermon", "church"].includes(key)) fields.spendCoverage = "Awaiting AI usage instrumentation.";
     return fields;
   }
   if (!usage) return { ...fields, spendCoverage: "Provider usage unavailable." };
@@ -68,9 +70,10 @@ function spendFields(key: Feature, usage: UsageTotals | undefined, window: Featu
 
 export async function getFeatureReport(window: FeatureWindow): Promise<FeatureReport> {
   const dateRange = { gte: window.start, lt: window.end };
-  const [views, usage, saves, since, publications, prayerFamilies, churches, sermons] = await Promise.all([
+  const [views, usage, chatSpend, saves, since, publications, prayerFamilies, churches, sermons] = await Promise.all([
     getPageviews(window).catch(() => null),
     getUsageTotals(window).catch(() => null),
+    getChatSpend(window).catch(() => null),
     getSavedActions(window).catch(() => null),
     getCollectionStarts().catch(() => null),
     prisma.parrotDevotionals.count({ where: { createdAt: dateRange } }).catch(() => null),
@@ -83,6 +86,18 @@ export async function getFeatureReport(window: FeatureWindow): Promise<FeatureRe
   const rows = (Object.keys(featureNames) as Feature[]).map((key): FeatureRow => {
     const recorded = usage?.find((row) => row.feature === key);
     const actions: Action[] = [];
+    if (key === "chat") {
+      const combined = chatSpend?.byChannel[0];
+      return {
+        key, name: featureNames[key], pageviews: views ? (views.counts.get(key) ?? 0) : null,
+        actions: [{ label: "Completed turns", count: combined?.completions ?? null }],
+        estimatedSpendUsd: combined?.estimatedSpendUsd ?? null,
+        costPerCompletionUsd: combined?.costPerCompletionUsd ?? null,
+        spendCoverage: chatSpend && combined
+          ? `${combined.partial ? "Partial coverage. " : ""}${combined.measured}/${combined.attempts} attempts measured, ${combined.priced}/${combined.attempts} priced. ${combined.recordedCompletions}/${combined.completions} completed turns with a successful model receipt. ${chatSpend.coverageNote}`
+          : "Chat accounting unavailable.",
+      };
+    }
     switch (key) {
       case "personal_journal":
       case "heritage_journal":
@@ -116,8 +131,8 @@ export async function getFeatureReport(window: FeatureWindow): Promise<FeatureRe
     ? " Some action counts are unavailable because their source could not be read."
     : "";
   return {
-    rows,
+    rows, chatSpend,
     pageviewCoverage: views?.coverage ?? "Production Web Analytics unavailable.",
-    actionCoverage: `Database snapshot queried ${chicagoTimestamp(new Date())}. ${durableCoverage} Publication, prayer, church and sermon completion counts use retained records. ${reflectionCoverage} Cost per completion includes all recorded attempts for the operations that completed in the period.${unavailableActions}`,
+    actionCoverage: `Database snapshot queried ${chicagoTimestamp(new Date())}. ${durableCoverage} Publication, prayer, church and sermon completion counts use retained records. ${reflectionCoverage} Journal and devotional cost per completion includes all recorded attempts for the operations that completed in the period.${unavailableActions}`,
   };
 }

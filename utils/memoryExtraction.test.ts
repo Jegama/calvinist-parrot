@@ -1,20 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.hoisted(() => vi.stubEnv("OPENAI_API_KEY", "fixture-key"));
+
 const mocks = vi.hoisted(() => ({
-  createCompletion: vi.fn(),
+  transport: vi.fn<typeof fetch>(),
+  upsertAttempt: vi.fn(),
   findProfile: vi.fn(),
   upsertProfile: vi.fn(),
   getMemory: vi.fn(),
   updateMemory: vi.fn(),
 }));
 
-vi.mock("openai", () => ({
-  default: class {
-    chat = { completions: { create: mocks.createCompletion } };
-  },
-}));
 vi.mock("@/lib/prisma", () => ({
   default: {
+    providerCallAttempt: { upsert: mocks.upsertAttempt },
     userProfile: {
       findUnique: mocks.findProfile,
       upsert: mocks.upsertProfile,
@@ -32,6 +31,7 @@ import { updateUserMemoriesFromConversation } from "./memoryExtraction";
 describe("GPT-6 Luna memory extraction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal("fetch", mocks.transport);
     mocks.findProfile.mockResolvedValue(null);
     mocks.getMemory.mockResolvedValue(null);
     mocks.upsertProfile.mockResolvedValue({});
@@ -40,10 +40,16 @@ describe("GPT-6 Luna memory extraction", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("keeps structured extraction and persists the parsed memories without sampling overrides", async () => {
-    mocks.createCompletion.mockResolvedValueOnce({
+    mocks.transport.mockResolvedValueOnce(Response.json({ error: { message: "Try again", model: "gpt-6-luna", usage: { prompt_tokens: 2, completion_tokens: 0 } } }, {
+      status: 429, headers: { "retry-after-ms": "1" },
+    }));
+    mocks.transport.mockResolvedValueOnce(Response.json({
+      model: "gpt-6-luna-2026-11-25",
+      usage: { prompt_tokens: 14, completion_tokens: 7 },
       choices: [
         {
           message: {
@@ -54,7 +60,7 @@ describe("GPT-6 Luna memory extraction", () => {
           },
         },
       ],
-    });
+    }));
 
     await updateUserMemoriesFromConversation("owner-1", [
       {
@@ -65,10 +71,18 @@ describe("GPT-6 Luna memory extraction", () => {
         sender: "parrot",
         content: "Bring your concerns to the Lord in prayer.",
       },
-    ]);
+    ], { operationId: "opaque-turn" });
 
-    expect(mocks.createCompletion).toHaveBeenCalledOnce();
-    const request = mocks.createCompletion.mock.calls[0][0];
+    expect(mocks.transport).toHaveBeenCalledTimes(2);
+    const receipts = mocks.upsertAttempt.mock.calls.map(([write]) => write.create).filter(receipt => receipt.outcome !== "started");
+    expect(receipts).toMatchObject([
+      { operationId: "opaque-turn", stage: "memory", outcome: "provider_error", isRetry: false, inputTokens: 2 },
+      { operationId: "opaque-turn", stage: "memory", outcome: "success", isRetry: true,
+        returnedModel: "gpt-6-luna-2026-11-25", inputTokens: 14, outputTokens: 7 },
+    ]);
+    expect(receipts[0].attemptId).not.toBe(receipts[1].attemptId);
+    expect(JSON.stringify(receipts)).not.toContain("parent");
+    const request = JSON.parse(String(mocks.transport.mock.calls[0][1]?.body));
     expect(request).toMatchObject({
       model: "gpt-6-luna",
       reasoning_effort: "none",
@@ -99,7 +113,8 @@ describe("GPT-6 Luna memory extraction", () => {
   it("does not invoke extraction for an empty conversation", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     await updateUserMemoriesFromConversation("owner-1", []);
-    expect(mocks.createCompletion).not.toHaveBeenCalled();
+    expect(mocks.transport).not.toHaveBeenCalled();
+    expect(mocks.upsertAttempt).not.toHaveBeenCalled();
     expect(mocks.updateMemory).not.toHaveBeenCalled();
   });
 });

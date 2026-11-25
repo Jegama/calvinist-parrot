@@ -1,5 +1,7 @@
 // utils/generateConversationName.ts
 
+import { randomUUID } from 'node:crypto';
+import type { UsageContext } from '@/lib/provider-usage';
 import { parrotAI } from '@/lib/parrot-ai';
 import {
     CATEGORIZING_SYS_PROMPT,
@@ -22,7 +24,10 @@ function normalizeGeneratedTitle(value: string) {
 }
 
 // Helper: generate a conversation name with bounded retries and a deterministic fallback.
-export async function generateConversationName(currentConversation: string): Promise<string> {
+export async function generateConversationName(
+  currentConversation: string,
+  turn: Pick<UsageContext, "operationId" | "isRetry"> = { operationId: randomUUID() },
+): Promise<string> {
   const promptCreateName = `I have this conversation:
 
 ---------------------
@@ -53,6 +58,9 @@ What would you like to name this conversation? It can be a short name to remembe
           { role: "user", content: promptCreateName },
         ],
         schema: conversationNameSchema,
+        usage: { feature: "chat", stage: "title", operationId: turn.operationId, isRetry: Boolean(turn.isRetry || attempt > 0) },
+        validate: data => typeof (data as { name?: unknown })?.name === "string" &&
+          normalizeGeneratedTitle((data as { name: string }).name).length > 0,
       });
       const title = normalizeGeneratedTitle(result.data.name);
       if (title) return title;

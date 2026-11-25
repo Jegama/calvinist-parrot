@@ -1,3 +1,5 @@
+import Link from "next/link";
+import RefreshReport from "./RefreshReport";
 import { reportingPeriods } from "@/lib/analytics/period";
 import type { AnalyticsReport } from "@/lib/analytics/report";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -30,6 +32,7 @@ function PeriodOverview({ report }: { report: AnalyticsReport }) {
           const delta = current !== null && previous !== null ? current - previous : null;
           const change = delta === null ? "Change unavailable" : delta === 0 ? "No change" : `${delta > 0 ? "+" : ""}${numberLabel(delta)}`;
           let detail = delta === null ? change : `${change} vs. prior ${period.days} days`;
+          if (period.days === "all") detail = "";
           if (current === null) {
             if (key === "newAccounts") detail = metrics.registrationIssue ?? "Registration data unavailable";
             else if (metrics.hero.userMessages.current === null) detail = "Chat data unavailable";
@@ -39,14 +42,14 @@ function PeriodOverview({ report }: { report: AnalyticsReport }) {
             <div key={key} className="flex flex-col rounded-lg border bg-card p-5 text-card-foreground">
               <dt className="text-sm font-medium">{label}</dt>
               <dd className="mt-auto pt-2 text-4xl font-semibold tracking-tight tabular-nums">{numberLabel(current)}</dd>
-              <dd className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{detail}</dd>
+              {detail && <dd className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{detail}</dd>}
             </div>
           );
         })}
       </dl>
       <p className="mt-3 text-sm text-muted-foreground">
         Chat totals include all channels. The average counts user submissions and visible Parrot replies in chats with a submission during the period.
-        {metrics.hero.newChats.current !== null && metrics.coverage.partialChatComparison && " Historical chat totals in this comparison have partial coverage."}
+        {metrics.hero.newChats.current !== null && metrics.coverage.partialChatComparison && " Historical chat totals have partial coverage."}
       </p>
     </section>
   );
@@ -88,7 +91,7 @@ function AccountActivity({ report }: { report: AnalyticsReport }) {
         </div>
         <div className="rounded-lg border bg-card p-5">
           <h3 className="text-xl font-semibold">Seven-day activation</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Signups from {dayLabel(period.startDay)} to {dayLabel(period.endDay)}.</p>
+          <p className="mt-1 text-sm text-muted-foreground">{period.startDay ? `Signups from ${dayLabel(period.startDay)} to ` : "All registrations through "}{dayLabel(period.endDay)}.</p>
           <p className="mt-4 flex flex-wrap items-baseline gap-x-3">
             <strong className="text-3xl font-semibold tabular-nums">{rateLabel(activation.rate)}</strong>
             <span className="text-sm">{activation.eligible === null ? "Activation data unavailable" : `${numberLabel(activation.activated)} of ${numberLabel(activation.eligible)} eligible accounts activated`}</span>
@@ -181,24 +184,30 @@ export default function AnalyticsDashboard({ report }: { report: AnalyticsReport
         <div>
           <h1 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">Admin analytics</h1>
           <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <p className="text-lg font-medium">{dayLabel(period.startDay)} – {dayLabel(period.endDay)}</p>
+            <p className="text-lg font-medium">{period.startDay ? `${dayLabel(period.startDay)} – ${dayLabel(period.endDay)}` : "All time"}</p>
             <a href="#data-coverage" className="rounded-sm text-sm text-accent underline underline-offset-4 focus-visible:outline-ring dark:text-foreground">Data coverage</a>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Compared with {dayLabel(period.previousStartDay)} – {dayLabel(period.previousEndDay)} · {period.timeZone}
+            {period.previousStartDay && period.previousEndDay
+              ? `Compared with ${dayLabel(period.previousStartDay)} – ${dayLabel(period.previousEndDay)} · ${period.timeZone}`
+              : `Through ${instantLabel(report.generatedAt, period.timeZone)}`}
+            {period.days !== "all" && " · Select All time to include today."}
           </p>
         </div>
-        <nav aria-label="Reporting period" className="grid w-full grid-cols-3 gap-1 rounded-md border bg-card p-1 sm:w-auto sm:grid-cols-6">
-          {reportingPeriods.map(({ days, label }) => (
-            <a key={days} href={`/admin/analytics?days=${days}`} aria-current={days === period.days ? "page" : undefined}
-              className={`rounded-sm px-3 py-2 text-center text-sm font-medium focus-visible:outline-ring ${days === period.days ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
-              {label}
-            </a>
-          ))}
-        </nav>
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <nav aria-label="Reporting period" className="flex flex-wrap gap-1 rounded-md border bg-card p-1">
+            {reportingPeriods.map(({ days, label }) => (
+              <Link prefetch={false} key={days} href={`/admin/analytics?days=${days}`} aria-current={days === period.days ? "page" : undefined}
+                className={`rounded-sm px-3 py-2 text-center text-sm font-medium focus-visible:outline-ring ${days === period.days ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+                {label}
+              </Link>
+            ))}
+          </nav>
+          <RefreshReport generatedAt={report.generatedAt} />
+        </div>
       </header>
       <PeriodOverview report={report} />
-      <GrowthCharts report={report} />
+      <GrowthCharts growth={metrics.growth} chatCoverage={metrics.coverage.chat} endDay={period.endDay} timeZone={period.timeZone} />
       <AccountActivity report={report} />
       <ChatBreakdown metrics={metrics} />
       <FeatureTable features={report.features} />

@@ -6,6 +6,9 @@ import { z } from "zod";
 
 import { createParrotChatModel } from "./chatModel";
 
+const { upsert } = vi.hoisted(() => ({ upsert: vi.fn() }));
+vi.mock("@/lib/prisma", () => ({ default: { providerCallAttempt: { upsert } } }));
+
 afterEach(() => vi.unstubAllGlobals());
 
 function responsesStream(
@@ -124,7 +127,7 @@ it("streams Responses answer deltas and completes a tool round trip through the 
       new AIMessage("Grace is God's undeserved favor."),
       new HumanMessage("Show me Ephesians 2:8."),
     ],
-  }, { streamMode: ["updates", "messages", "custom"] });
+  }, { streamMode: ["updates", "messages", "custom"], configurable: { chatUsage: { operationId: "fixture-turn", isRetry: true } } });
 
   const visibleChunks: string[] = [];
   for await (const [mode, chunk] of stream) {
@@ -142,6 +145,12 @@ it("streams Responses answer deltas and completes a tool round trip through the 
   expect(lookup).toHaveBeenCalledOnce();
   expect(lookup.mock.calls[0]?.[0]).toEqual({ reference: "Ephesians 2:8" });
   expect(fetchMock).toHaveBeenCalledTimes(2);
+  const receipts = upsert.mock.calls.map(([write]) => write.create).filter(receipt => receipt.outcome !== "started");
+  expect(receipts).toHaveLength(2);
+  for (const receipt of receipts) expect(receipt).toMatchObject({
+    operationId: "fixture-turn", inputTokens: 20, outputTokens: 20, thinkingTokens: 10, isRetry: true,
+    returnedModel: "gpt-6-luna", outcome: "success",
+  });
   const requests = fetchMock.mock.calls.map(([url, init]) => {
     expect(String(url)).toBe("https://api.openai.com/v1/responses");
     const request = JSON.parse(String(init?.body));

@@ -27,7 +27,8 @@ export function getUsageTotals({ start, end }: FeatureWindow) {
              count(*) FILTER (WHERE "inputTokens" IS NOT NULL AND "outputTokens" IS NOT NULL)::int AS measured,
              sum(usd)::float8 AS spend
       FROM analytics_priced_provider_attempt
-      WHERE environment = 'production' AND "startedAt" >= ${start} AND "startedAt" < ${end}
+      WHERE environment = 'production' AND feature IN (SELECT feature FROM features)
+        AND "startedAt" >= ${start} AND "startedAt" < ${end}
       GROUP BY feature
     ), journal_candidates AS (
       SELECT feature, "operationId" FROM "AnalyticsJournalCompletion"

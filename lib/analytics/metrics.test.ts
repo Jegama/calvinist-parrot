@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { getAnalyticsMetrics } from "./metrics";
-import { getReportingWindow, reportDays, reportingPeriods, shiftDay } from "./period";
+import { getReportingWindow, nextReportingMidnight, reportDays, reportingPeriods, shiftDay } from "./period";
 
 const now = new Date("2026-11-24T05:59:59Z");
 
@@ -12,12 +12,22 @@ describe("Chicago reporting windows", () => {
     expect(window.previousEnd).toEqual(window.start);
     expect(window.end.toISOString()).toBe("2026-11-23T06:00:00.000Z");
   });
-  it.each(reportingPeriods)("compares two full $days-day windows", ({ days }) => {
+  it.each(reportingPeriods.filter(p => p.days !== "all"))("compares two full $days-day windows", ({ days }) => {
     expect(reportDays(String(days))).toBe(days);
     const window = getReportingWindow(days, "2024-03-01", now);
     expect(shiftDay(window.startDay, days - 1)).toBe(window.endDay);
     expect(shiftDay(window.previousStartDay, days)).toBe(window.startDay);
     expect(window.previousEnd).toEqual(window.start);
+  });
+  it("ends the all-time window at the current instant, including the partial reporting day", () => {
+    expect(reportDays("all")).toBe("all");
+    const window = getReportingWindow("all", undefined, now);
+    expect(window.end).toEqual(now);
+    expect(window.endDay).toBe("2026-11-23");
+    expect(window.previousStart).toEqual(window.start);
+    expect(nextReportingMidnight(now).toISOString()).toBe("2026-11-24T06:00:00.000Z");
+    expect(nextReportingMidnight(new Date("2026-03-08T06:01:00Z")).toISOString()).toBe("2026-03-09T05:00:00.000Z");
+    expect(nextReportingMidnight(new Date("2026-11-01T05:01:00Z")).toISOString()).toBe("2026-11-02T06:00:00.000Z");
   });
   it("keeps the default for unsupported inputs", () => {
     for (const input of [undefined, ["90"], "99999", "0", "30days"]) expect(reportDays(input)).toBe(7);
@@ -42,6 +52,19 @@ describe("independent metric availability", () => {
     expect(result.active.monthly).toBeNull();
     expect(result.activation.rate).toBeNull();
     expect(result.notes.join(" ")).toContain("unavailable");
+  });
+  it("includes older-than-two-year and same-day records in all-time totals and the cumulative series", async () => {
+    const window = getReportingWindow("all", undefined, now);
+    const db = { $queryRaw: vi.fn().mockResolvedValue([]) };
+    const result = await getAnalyticsMetrics(window, [
+      { id: "earliest", registeredAt: new Date("2023-01-01T18:00:00Z") },
+      { id: "today", registeredAt: new Date(+now - 1) },
+      { id: "after-cutoff", registeredAt: new Date(+now + 1) },
+    ], db);
+    expect(result.hero.newAccounts).toEqual({ current: 2, previous: null });
+    expect(result.growth[0]).toMatchObject({ day: "2023-01-01", newAccounts: 1 });
+    expect(result.growth.at(-1)).toMatchObject({ day: "2026-11-23", newAccounts: 2 });
+    expect(result.hero.newChats.previous).toBeNull();
   });
   it("distinguishes empty, unavailable and zero-denominator metrics", async () => {
     const db = { $queryRaw: vi.fn().mockResolvedValue([]) };
