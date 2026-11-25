@@ -7,6 +7,7 @@ import { fromJSONSchema, type ZodType } from "zod";
 import {
   startUsageAttempt, recordUsageAttempt, type UsageAttempt, type UsageContext,
 } from "./provider-usage";
+import { usageTransport } from "./provider-usage-transport";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { ApiError, GoogleGenAI, ThinkingLevel, type GenerateContentParameters } from "@google/genai";
@@ -151,7 +152,7 @@ export async function generateGeminiStructured<T>(
 ): Promise<StructuredOutputResult<T>> {
   const spec: ModelSpec = { provider: "gemini", model: request.model };
   const attempt = usage && startUsageAttempt(usage, spec);
-  if (attempt?.feature === "church") await recordUsageAttempt(attempt, "started", 0);
+  if (attempt?.feature === "church" || attempt?.feature === "chat") await recordUsageAttempt(attempt, "started", 0);
   const response = await client.models.generateContent(request).catch(async error => {
     if (attempt) {
       // This SDK exposes the HTTP error envelope as JSON in ApiError.message.
@@ -350,31 +351,8 @@ class ParrotAI {
       content: m.content,
     }));
 
-    const context = params.usage;
-    let attempt: UsageAttempt | undefined;
-    if (context) {
-      // The SDK retries at the HTTP layer. Keep its retry/backoff policy and
-      // give each request its own receipt, even when the SDK hides a failure.
-      anthropic = anthropic.withOptions({ fetch: async (input, init) => {
-        attempt = startUsageAttempt(context, spec);
-        const started = attempt.startedAt.getTime();
-        let response: Response;
-        try {
-          response = await fetch(input, init);
-        } catch (error) {
-          await recordUsageAttempt(attempt, "provider_error", Date.now() - started);
-          attempt = undefined;
-          throw error;
-        }
-        if (!response.ok) {
-          const body = await response.clone().json().catch(() => null);
-          await recordUsageAttempt(attempt, "provider_error", Date.now() - started,
-            typeof body?.model === "string" ? body.model : undefined, body?.usage);
-          attempt = undefined;
-        }
-        return response;
-      } });
-    }
+    const transport = params.usage && usageTransport(params.usage, spec);
+    if (transport) anthropic = anthropic.withOptions({ fetch: transport.fetch });
     const haiku55 = /^claude-haiku-5-5(?:$|-\d{8}$)/.test(spec.model);
     const response = await anthropic.messages.create({
       model: spec.model,
@@ -390,18 +368,12 @@ class ParrotAI {
       },
       thinking: !params.thinking ? { type: "disabled" }
         : haiku55 ? { type: "adaptive" } : { type: "enabled", budget_tokens: 4096 },
-    }).catch(async error => {
-      // A successful HTTP status can still have an unreadable response envelope.
-      if (attempt) {
-        await recordUsageAttempt(attempt, "provider_error", Date.now() - attempt.startedAt.getTime());
-      }
-      throw error;
-    });
+    }).catch(transport?.onError);
 
     return readStructured<T>(spec, {
       model: response.model, usage: response.usage,
       text: () => response.content.find(block => block.type === "text")?.text,
-    }, attempt, params);
+    }, transport?.attempt, params);
   }
 }
 

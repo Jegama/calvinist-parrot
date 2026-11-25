@@ -4,7 +4,7 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import { isServerAdminUser } from "@/lib/admin";
 import { mapChurchToDetail } from "@/lib/churchMapper";
 import type { ChatChannel } from "@/lib/chat-analytics";
-import { usageEnvironment, type UsageContext } from "@/lib/provider-usage";
+import { providerUsageEnvironment, type UsageContext } from "@/lib/provider-usage";
 import prisma from "@/lib/prisma";
 import { CORE_DOCTRINE_KEYS } from "@/lib/schemas/church-finder";
 import type { ChurchEvaluationRaw } from "@/types/church";
@@ -292,7 +292,7 @@ export async function evaluateChurch(request: Request, channel: ChatChannel) {
               churchId: persistedChurchId,
               id: operation.operationId,
               channel,
-              usageEnvironment: usageEnvironment(),
+              usageEnvironment: providerUsageEnvironment(),
               expectedUsageAttempts: operation.expectedUsageAttempts,
               ...evaluationData,
             },

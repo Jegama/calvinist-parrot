@@ -1,5 +1,6 @@
--- Estimated journal and devotional spend at standard paid rates. The shared
--- analytics_priced_provider_attempt view applies the rate on the call date.
+-- Example report for journal and devotional operations from issue #96.
+-- Chat completions use submission/reply events and are reported in Admin analytics.
+-- The pricing view applies standard paid token rates effective on the call date.
 --
 -- Run with a read-only database connection:
 --   psql "$DATABASE_URL" -f scripts/provider-usage-report.sql
@@ -7,8 +8,8 @@
 -- Usage coverage is the share of recorded attempts with known base input and
 -- billable output. Token sums include available counters from all attempts.
 -- A NULL sum means no counter was reported. Thinking is already in output.
--- Price coverage additionally requires a matching rate. The example omits
--- unsupported cache, tool-use and long-context prices.
+-- Price coverage requires a matching rate for the model, service tier and
+-- reported billing components. Unsupported charges have no estimate.
 -- Optional cache counters omitted on otherwise measured calls count as zero.
 -- Requests with no reported service tier assume standard paid on-demand rates.
 -- Estimated cost averages all attempts of each durably completed operation,

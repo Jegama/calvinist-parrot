@@ -6,7 +6,7 @@ import {
 
 import type { ChatChannel } from "@/lib/chat-analytics";
 import prisma from "@/lib/prisma";
-import { usageEnvironment } from "@/lib/provider-usage";
+import { providerUsageEnvironment } from "@/lib/provider-usage";
 
 import {
   SERMON_DAILY_RUN_LIMIT,
@@ -288,7 +288,7 @@ export async function createReservedSermonEvaluation(
             audioAssetId: input.audioAssetId,
             sourceEvaluationId: input.sourceEvaluationId,
             channel: input.channel,
-            usageEnvironment: usageEnvironment(),
+            usageEnvironment: providerUsageEnvironment(),
             title: input.title.trim(),
             preachedOn: input.preachedOn,
             preset: input.selection.preset,

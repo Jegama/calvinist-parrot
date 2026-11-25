@@ -29,6 +29,7 @@ describe.skipIf(!databaseUrl)("evaluation costs in the admin feature report", ()
   };
 
   beforeAll(async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
     client = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
     await client.church.create({ data: {
@@ -85,6 +86,7 @@ describe.skipIf(!databaseUrl)("evaluation costs in the admin feature report", ()
     ] });
   });
   afterAll(async () => {
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     await client.providerCallAttempt.deleteMany({ where: { operationId: { in: [church, partial, standard, high, failed, preview] } } });
     await client.church.deleteMany({ where: { id: churchId } });
@@ -92,6 +94,19 @@ describe.skipIf(!databaseUrl)("evaluation costs in the admin feature report", ()
     await client.sermonAudioFingerprint.deleteMany({ where: { id: fingerprintId } });
     await client.sermonPreacher.deleteMany({ where: { id: preacherId } });
     await client.$disconnect();
+  });
+
+  it("uses only preview evaluation receipts and completions in a preview snapshot", async () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    try {
+      const report = await getFeatureReport(window);
+      const combined = report.evaluationChannels!.find(row => row.feature === "sermon" && row.channel === "combined");
+      expect(combined).toMatchObject({ completions: 1, estimatedSpendUsd: geminiUsd, costPerCompletionUsd: null });
+      expect(report.evaluationStages).toHaveLength(1);
+      expect(report.evaluationStages![0]).toMatchObject({ feature: "sermon", stage: "extraction", attempts: 1 });
+    } finally {
+      vi.stubEnv("VERCEL_ENV", "production");
+    }
   });
 
   it("reconciles the model and fee breakdown and keeps a saved MCP detail read free", async () => {

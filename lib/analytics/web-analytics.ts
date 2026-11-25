@@ -93,6 +93,7 @@ export async function getPageviews({ start, end }: FeatureWindow) {
     else unmapped += pageviews;
   }
   const notes = [`Production Web Analytics queried ${chicagoTimestamp(new Date())}.`];
+  if (start.getTime() === 0) notes.push("All-time pageviews include only the history retained by Vercel. Earlier traffic may be missing.");
   if (overflow) notes.push(`Partial coverage. Vercel grouped ${overflow.toLocaleString("en-US")} ${overflow === 1 ? "view" : "views"} outside the named paths. Feature counts are lower bounds.`);
   if (unmapped) notes.push(`${unmapped.toLocaleString("en-US")} ${unmapped === 1 ? "view" : "views"} fell outside recognized features.`);
   if ((query?.since && Date.parse(query.since) > +start) || (query?.until && Date.parse(query.until) < +until)) {

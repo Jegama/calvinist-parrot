@@ -30,7 +30,6 @@ export async function getRegistrations(start: Date, end: Date): Promise<AccountR
   const registrations = new Map<string, AccountRegistration>();
   let cursor: string | undefined;
   const seenCursors = new Set<string>();
-  const signal = AbortSignal.timeout(10000);
   do {
     const url = new URL(endpoint.replace(/\/$/, "") + "/users");
     url.searchParams.set("total", "false");
@@ -40,7 +39,7 @@ export async function getRegistrations(start: Date, end: Date): Promise<AccountR
       headers: { "X-Appwrite-Project": APPWRITE_PROJECT_ID, "X-Appwrite-Key": key },
       cache: "no-store",
       redirect: "error",
-      signal,
+      signal: AbortSignal.timeout(10000),
     });
     if (response.status === 401 || response.status === 403) {
       throw new RegistrationSourceError("Appwrite denied the registration lookup. Check that the analytics key has users.read for this project.");

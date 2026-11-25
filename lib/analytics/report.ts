@@ -1,6 +1,8 @@
+import { unstable_cache } from "next/cache";
+import { providerUsageEnvironment } from "@/lib/provider-usage";
 import { getFeatureReport } from "./features";
 import { getAnalyticsMetrics } from "./metrics";
-import { getReportingWindow, reportingTimeZone, type ReportingDays, type ReportingWindow } from "./period";
+import { getReportingWindow, reportingDay, reportingTimeZone, type ReportingDays, type ReportingWindow } from "./period";
 import { getRegistrations, RegistrationSourceError, type AccountRegistration } from "./registrations";
 
 async function loadMetrics(window: ReportingWindow) {
@@ -15,8 +17,7 @@ async function loadMetrics(window: ReportingWindow) {
   return { ...metrics, registrationIssue };
 }
 
-export async function loadAnalyticsReport(days: ReportingDays) {
-  const now = new Date();
+async function buildAnalyticsReport(days: ReportingDays, now: Date) {
   const window = getReportingWindow(days, undefined, now);
   const [metrics, features] = await Promise.all([
     loadMetrics(window),
@@ -33,14 +34,28 @@ export async function loadAnalyticsReport(days: ReportingDays) {
   }
   return {
     period: {
-      days, startDay: window.startDay, endDay: window.endDay,
-      previousStartDay: window.previousStartDay, previousEndDay: window.previousEndDay,
+      days, startDay: days === "all" ? null : window.startDay, endDay: window.endDay,
+      previousStartDay: days === "all" ? null : window.previousStartDay,
+      previousEndDay: days === "all" ? null : window.previousEndDay,
       timeZone: reportingTimeZone,
     },
     generatedAt: now.toISOString(),
     metrics,
     features,
   };
+}
+
+export const analyticsReportTag = "admin-analytics-snapshots";
+
+export function loadAnalyticsReport(days: ReportingDays) {
+  const now = new Date();
+  // Only aggregate results are shared. The page, API, and refresh action each
+  // authorize the current session outside the cache on every request.
+  return unstable_cache(
+    () => buildAnalyticsReport(days, now),
+    ["evaluation-costs-v2", analyticsReportTag, providerUsageEnvironment(), process.env.VERCEL_DEPLOYMENT_ID ?? "local", reportingDay(now), String(days)],
+    { tags: [analyticsReportTag], revalidate: 25 * 3600 },
+  )();
 }
 
 export type AnalyticsReport = Awaited<ReturnType<typeof loadAnalyticsReport>>;

@@ -23,8 +23,8 @@ describe.skipIf(!databaseUrl)("evaluation receipt delivery and dated pricing", (
   });
 
   it("preserves the final receipt after replays and applies the verified cache and context rate on its effective day", async () => {
-    const prior = { ...startUsageAttempt(context, spec), startedAt: new Date("2026-11-24T23:59:59Z") };
-    const current = { ...startUsageAttempt(context, spec), startedAt: new Date("2026-11-25T00:00:00Z") };
+    const prior = { ...startUsageAttempt(context, spec), startedAt: new Date("2026-11-20T23:59:59Z") };
+    const current = { ...startUsageAttempt(context, spec), startedAt: new Date("2026-11-21T00:00:00Z") };
     await recordUsageAttempt(prior, "success", 100, spec.model, counters);
     await Promise.all([
       recordUsageAttempt(current, "started", 0),

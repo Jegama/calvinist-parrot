@@ -32,21 +32,21 @@ export interface EvaluationStage {
 const measuredAttempt = Prisma.sql`CASE WHEN "billingUnit" IS NOT NULL THEN quantity IS NOT NULL
   ELSE "inputTokens" IS NOT NULL AND "outputTokens" IS NOT NULL END`;
 
-export function getEvaluationStages({ start, end }: FeatureWindow) {
+export function getEvaluationStages({ start, end }: FeatureWindow, environment: string) {
   return prisma.$queryRaw<EvaluationStage[]>`
     SELECT feature, stage, preset, provider, coalesce("returnedModel", "requestedModel", provider) AS service,
       modality, "billingUnit", sum(quantity)::float8 AS quantity, count(*)::int AS attempts,
       count(*) FILTER (WHERE ${measuredAttempt})::int AS measured, count(usd)::int AS priced,
       sum(usd)::float8 AS spend
     FROM analytics_priced_provider_attempt
-    WHERE environment = 'production' AND feature IN ('church', 'sermon')
+    WHERE environment = ${environment} AND feature IN ('church', 'sermon')
       AND "startedAt" >= ${start} AND "startedAt" < ${end}
     GROUP BY feature, stage, preset, provider, service, modality, "billingUnit"
     ORDER BY feature, preset, stage, provider, service, modality, "billingUnit"
   `;
 }
 
-export function getEvaluationUsage({ start, end }: FeatureWindow) {
+export function getEvaluationUsage({ start, end }: FeatureWindow, environment: string) {
   return prisma.$queryRaw<EvaluationUsage[]>`
     WITH features(feature) AS (VALUES ('church'), ('sermon')),
     channels(channel) AS (VALUES ('combined'), ('web'), ('public_api'), ('mcp'), ('unknown')),
@@ -60,16 +60,16 @@ export function getEvaluationUsage({ start, end }: FeatureWindow) {
         count(*) FILTER (WHERE "billingUnit" IS NOT NULL) AS fee_attempts,
         sum(usd) FILTER (WHERE "billingUnit" IS NOT NULL)::float8 AS fees
       FROM analytics_priced_provider_attempt
-      WHERE environment = 'production' AND feature IN ('church', 'sermon')
+      WHERE environment = ${environment} AND feature IN ('church', 'sermon')
         AND "startedAt" >= ${start} AND "startedAt" < ${end}
       GROUP BY GROUPING SETS ((feature, channel), (feature))
     ), completed AS (
       SELECT 'church' AS feature, id, channel, "expectedUsageAttempts", 0 AS runs FROM "churchEvaluation"
-      WHERE ("usageEnvironment" IS NULL OR "usageEnvironment" = 'production')
+      WHERE ("usageEnvironment" = ${environment} OR ("usageEnvironment" IS NULL AND ${environment}::text = 'production'))
         AND "createdAt" >= (${start}::timestamptz AT TIME ZONE 'UTC') AND "createdAt" < (${end}::timestamptz AT TIME ZONE 'UTC')
       UNION ALL
       SELECT 'sermon', id, channel, NULL::int, "completedRuns" FROM "sermonEvaluation"
-      WHERE ("usageEnvironment" IS NULL OR "usageEnvironment" = 'production')
+      WHERE ("usageEnvironment" = ${environment} OR ("usageEnvironment" IS NULL AND ${environment}::text = 'production'))
         AND status IN ('COMPLETE', 'COMPLETE_WITH_WARNINGS')
         AND "completedAt" >= (${start}::timestamptz AT TIME ZONE 'UTC') AND "completedAt" < (${end}::timestamptz AT TIME ZONE 'UTC')
     ), operation_cost AS (
@@ -84,7 +84,7 @@ export function getEvaluationUsage({ start, end }: FeatureWindow) {
           AND (c.runs = 1 OR bool_or(a.stage = 'harmonization')) END
         THEN sum(a.usd) END AS cost
       FROM completed c LEFT JOIN analytics_priced_provider_attempt a ON a.feature = c.feature
-        AND a."operationId" = c.id AND a.environment = 'production'
+        AND a."operationId" = c.id AND a.environment = ${environment}
       GROUP BY c.feature, c.channel, c.id, c.runs, c."expectedUsageAttempts"
     ), cohort AS (
       SELECT feature, CASE WHEN grouping(channel) = 1 THEN 'combined' ELSE coalesce(channel, 'unknown') END AS channel, count(*)::int AS completions,
@@ -105,7 +105,7 @@ export function getEvaluationUsage({ start, end }: FeatureWindow) {
       WHERE migration_name = '20261125010000_evaluation_costs' AND rolled_back_at IS NULL
     ) rollout
     LEFT JOIN LATERAL (
-      SELECT min("startedAt") AS "firstAttempt" FROM "ProviderCallAttempt" WHERE feature = f.feature AND environment = 'production'
+      SELECT min("startedAt") AS "firstAttempt" FROM "ProviderCallAttempt" WHERE feature = f.feature AND environment = ${environment}
     ) first_receipt ON true
     ORDER BY f.feature, CASE ch.channel WHEN 'combined' THEN 0 WHEN 'web' THEN 1 WHEN 'public_api' THEN 2 WHEN 'mcp' THEN 3 ELSE 4 END
   `;

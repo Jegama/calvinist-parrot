@@ -3,10 +3,11 @@ import type { ChatChannel } from "./chat-analytics";
 import type { ModelSpec } from "./parrot-ai";
 
 export interface UsageContext {
-  feature: "personal_journal" | "heritage_journal" | "daily_devotional" | "church" | "sermon";
+  feature: "chat" | "personal_journal" | "heritage_journal" | "daily_devotional" | "church" | "sermon";
   channel?: ChatChannel;
   stage: string;
   operationId: string;
+  isRetry?: boolean;
 }
 
 type Outcome = "started" | "received" | "success" | "invalid_output" | "provider_error";
@@ -57,17 +58,32 @@ export function normalizeUsage(provider: ModelSpec["provider"], usage: unknown) 
       serviceTier: typeof raw.service_tier === "string" ? raw.service_tier : null,
     };
   }
-  return {};
+  const promptTokens = tokens(raw.input_tokens ?? raw.prompt_tokens);
+  const inputDetails = object(raw.input_tokens_details ?? raw.prompt_tokens_details);
+  const cacheWrites = object(inputDetails.cache_write_tokens_details);
+  const cacheReadTokens = tokens(inputDetails.cached_tokens);
+  const cacheWriteTokens = tokens(inputDetails.cache_write_tokens);
+  const cached = (cacheReadTokens ?? 0) + (cacheWriteTokens ?? 0);
+  return {
+    promptTokens, cacheReadTokens, cacheWriteTokens,
+    cacheWrite30mTokens: tokens(cacheWrites.ttl_30m_tokens),
+    cacheWrite12hTokens: tokens(cacheWrites.ttl_12h_tokens),
+    inputTokens: promptTokens !== null && promptTokens >= cached ? promptTokens - cached : null,
+    outputTokens: tokens(raw.output_tokens ?? raw.completion_tokens),
+    thinkingTokens: tokens(object(raw.output_tokens_details ?? raw.completion_tokens_details).reasoning_tokens),
+    providerTotalTokens: tokens(raw.total_tokens),
+    serviceTier: typeof raw.service_tier === "string" ? raw.service_tier : null,
+  };
 }
 
-export function usageEnvironment() {
+export function providerUsageEnvironment() {
   return process.env.VERCEL_ENV || process.env.NODE_ENV || "development";
 }
 
-function startAttempt({ feature, stage, operationId, channel }: UsageContext) {
+function startAttempt({ feature, stage, operationId, channel, isRetry }: UsageContext) {
   return {
-    attemptId: randomUUID(), feature, stage, operationId, channel: channel ?? "unknown",
-    startedAt: new Date(), environment: usageEnvironment(),
+    attemptId: randomUUID(), feature, stage, operationId, channel: channel ?? "unknown", isRetry: isRetry ?? false,
+    startedAt: new Date(), environment: providerUsageEnvironment(),
   };
 }
 
@@ -119,9 +135,9 @@ async function persistAttempt<T extends { outcome: Outcome; durationMs: number }
     const where = { attemptId: attempt.attemptId };
     const create = { ...attempt, ...receipt };
     // A replayed initial receipt must never replace already-settled usage.
-    // Church calls write a marker before dispatch, so a killed process leaves
+    // Church and chat calls write a marker before dispatch, so a killed process leaves
     // an observable attempt even when the provider never returns counters.
-    if (attempt.feature === "church" && receipt.outcome === "received") {
+    if ((attempt.feature === "church" || attempt.feature === "chat") && receipt.outcome === "received") {
       await prisma.$transaction([
         prisma.providerCallAttempt.createMany({ data: [create], skipDuplicates: true }),
         prisma.providerCallAttempt.updateMany({ where: { ...where, outcome: "started" }, data: receipt }),
@@ -141,7 +157,7 @@ export async function markUsageOperationComplete(feature: UsageContext["feature"
   try {
     const { default: prisma } = await import("./prisma");
     await prisma.providerCallAttempt.updateMany({
-      where: { feature, operationId, environment: usageEnvironment(), completedAt: null },
+      where: { feature, operationId, environment: providerUsageEnvironment(), completedAt: null },
       data: { completedAt: new Date() },
     });
   } catch {
