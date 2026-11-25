@@ -112,6 +112,8 @@ describe.skipIf(!databaseUrl)("structured generation through the HTTP handlers a
     vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+    await db.$executeRaw`DELETE FROM "AnalyticsJournalCompletion" WHERE "operationId" = ANY(${operationIds}::text[])`;
+    await db.$executeRaw`DELETE FROM "AnalyticsAccountAction" WHERE "accountId" = ${userId}`;
     await db.providerCallAttempt.deleteMany({ where: { operationId: { in: operationIds } } });
     if (savedDevotionalId) await db.parrotDevotionals.deleteMany({ where: { devotional_id: savedDevotionalId } });
     await db.journalEntry.deleteMany({ where: { authorProfileId: profileId } });

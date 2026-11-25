@@ -20,6 +20,7 @@ import { updateUserMemoriesFromConversation } from "@/utils/memoryExtraction";
 import { buildParrotSystemPrompt } from "@/utils/buildParrotSystemPrompt";
 import { getChatActorId, resolveChatActor } from "@/lib/guest";
 import { evaluateRetry } from "@/lib/chat-requests";
+import { chatOperationId, recordChatEvents, recordChatReply, type ChatChannel } from "@/lib/chat-analytics";
 import { resolveEffectiveDenomination } from "@/lib/chat-context";
 import {
   getRequestTerminalState,
@@ -117,7 +118,7 @@ async function withRequestPersistenceLock<T>(
   });
 }
 
-type ChatCreationStore = Pick<Prisma.TransactionClient, "chatHistory">;
+type ChatCreationStore = Pick<Prisma.TransactionClient, "chatHistory" | "chatAnalyticsEvent">;
 
 type ChatCreationInput = {
   initialQuestion: string;
@@ -134,7 +135,7 @@ async function findExistingChatCreation(
   userId: string,
   requestId: string,
 ) {
-  return store.chatHistory.findFirst({
+  const existing = await store.chatHistory.findFirst({
     where: {
       userId,
       creationRequestId: requestId,
@@ -156,6 +157,20 @@ async function findExistingChatCreation(
       },
     },
   });
+  if (!existing || existing.messages.every(row => row.sender === "user")) return existing;
+
+  // A later streamed reply/tool/error belongs to the turn, not the create
+  // payload. Keep the original comparison for old rows with unknown origin.
+  const submission = await store.chatAnalyticsEvent.findFirst({
+    where: {
+      chatId: existing.id, operationId: chatOperationId(existing.id, requestId),
+      kind: "submission", actorKind: { not: "unknown" },
+    },
+    select: { kind: true },
+  });
+  return submission
+    ? { ...existing, messages: existing.messages.filter(row => row.sender === "user") }
+    : existing;
 }
 
 type ExistingChatCreation = NonNullable<
@@ -203,6 +218,7 @@ function getIdempotentChatCreationResult(
 export async function executeChatCommand(
   request: Request,
   command: ChatCommand,
+  channel: ChatChannel = "unknown",
 ) {
   const TOOL_NODE_NAMES = new Set(["tools", ...toolsArray.map((tool) => tool.name)]);
 
@@ -395,12 +411,17 @@ export async function executeChatCommand(
         },
       });
 
+      // An initial answer imports an existing Q&A exchange into a new chat.
+      await recordChatEvents(tx, createdChat.id, resolvedRequestId, channel, actor,
+        initialAnswer ? ["created"] : ["created", "submission"]);
+
       const createdMessage = await tx.chatMessage.create({
         data: {
           chatId: createdChat.id,
           requestId: resolvedRequestId,
           sender: "user",
           content: initialQuestion,
+          analyticsExcluded: !!initialAnswer,
         },
       });
 
@@ -411,6 +432,7 @@ export async function executeChatCommand(
             requestId: resolvedRequestId,
             sender: "parrot",
             content: initialAnswer,
+            analyticsExcluded: true,
           },
         });
       }
@@ -449,63 +471,35 @@ export async function executeChatCommand(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const requestMessages = await prisma.chatMessage.findMany({
-      where: { chatId, requestId: resolvedRequestId },
-      select: { sender: true, content: true, requestId: true },
-    });
-
-    if (retry) {
-      const retryDecision = evaluateRetry(requestMessages, resolvedRequestId);
-      if (retryDecision === "already_succeeded") {
-        return NextResponse.json(
-          { error: "This request already has a successful response" },
-          { status: 409 },
-        );
-      }
-      if (retryDecision === "missing_user") {
-        return NextResponse.json(
-          { error: "The original request could not be found" },
-          { status: 404 },
-        );
-      }
-      await prisma.chatMessage.deleteMany({
-        where: {
-          chatId,
-          requestId: resolvedRequestId,
-          sender: { in: ["tool_summary", "system_error", "system_stopped"] },
-        },
+    const conflict = await withRequestPersistenceLock(chatId, resolvedRequestId, async (tx) => {
+      const rows = await tx.chatMessage.findMany({
+        where: { chatId, requestId: resolvedRequestId },
+        select: { sender: true, content: true, requestId: true },
       });
-    } else {
-      const existingUserMessage = requestMessages.find(
-        (requestMessage) => requestMessage.sender === "user",
-      );
-      const alreadySucceeded = requestMessages.some(
-        (requestMessage) => requestMessage.sender === "parrot",
-      );
-      if (alreadySucceeded) {
-        return NextResponse.json(
-          { error: "This request already has a successful response" },
-          { status: 409 },
-        );
+      const decision = evaluateRetry(rows, resolvedRequestId);
+      const submission = rows.find(row => row.sender === "user");
+      if (decision === "already_succeeded") {
+        return NextResponse.json({ error: "This request already has a successful response" }, { status: 409 });
       }
-      if (existingUserMessage && existingUserMessage.content !== message) {
-        return NextResponse.json(
-          { error: "Request ID is already associated with another message" },
-          { status: 409 },
-        );
+      if (retry && decision === "missing_user") {
+        return NextResponse.json({ error: "The original request could not be found" }, { status: 404 });
       }
-      if (!existingUserMessage) {
-        await prisma.chatMessage.create({
-          data: {
-            id: messageId?.trim() || undefined,
-            chatId,
-            requestId: resolvedRequestId,
-            sender: "user",
-            content: message,
-          },
+      if (submission && submission.content !== message) {
+        return NextResponse.json({ error: "Request ID is already associated with another message" }, { status: 409 });
+      }
+      if (retry) {
+        await tx.chatMessage.deleteMany({
+          where: { chatId, requestId: resolvedRequestId, sender: { in: ["tool_summary", "system_error", "system_stopped"] } },
         });
       }
-    }
+      if (!submission) {
+        await tx.chatMessage.create({
+          data: { id: messageId?.trim() || undefined, chatId, requestId: resolvedRequestId, sender: "user", content: message },
+        });
+        await recordChatEvents(tx, chatId, resolvedRequestId, channel, actor, ["submission"]);
+      }
+    });
+    if (conflict) return conflict;
 
     const resolvedUserId = chatRecord.userId;
     const resolvedDenomination = chatRecord.denomination || denomination;
@@ -780,6 +774,9 @@ export async function executeChatCommand(
                 await tx.chatMessage.createMany({
                   data: messagesToPersist,
                 });
+                if (messagesToPersist.some(row => row.sender === "parrot")) {
+                  await recordChatReply(tx, capturedChatId, capturedRequestId);
+                }
                 await tx.chatHistory.update({
                   where: { id: capturedChatId },
                   data: { modifiedAt: new Date() },
@@ -1158,6 +1155,7 @@ export async function executeGetChat(
     }),
     prisma.chatMessage.findMany({
       where: { chatId },
+      select: { id: true, chatId: true, requestId: true, sender: true, content: true, timestamp: true },
       orderBy: [{ timestamp: "asc" }, { id: "asc" }],
     }),
   ]);
@@ -1313,7 +1311,7 @@ export async function handleLegacyChatGet(
 
 export async function handleCreateChat(
   request: Request,
-  execute: ChatExecutor = executeChatCommand,
+  execute: ChatExecutor = (req, command) => executeChatCommand(req, command, "public_api"),
 ) {
   const parsed = await parseJsonRequest(request, createChatRequestSchema);
   if (!parsed.success) {
@@ -1349,7 +1347,7 @@ export async function handleGetChat(
 export async function handleSendChatMessage(
   request: Request,
   chatId: string,
-  execute: ChatExecutor = executeChatCommand,
+  execute: ChatExecutor = (req, command) => executeChatCommand(req, command, "public_api"),
 ) {
   const parsedParams = getChatParamsSchema.safeParse({ chatId });
   if (!parsedParams.success) {

@@ -1,4 +1,7 @@
 # Calvinist Parrot – AI Agent Guide
+
+Follow the [code quality standards](../CONTRIBUTING.md#code-quality-standards) when planning, implementing, and reviewing changes.
+
 ## Overview & Entry Points
 - Next.js 16 App Router with TypeScript and Turbopack; route handlers under `app/api/**`, router pages/layouts under `app/**`.
 - Global providers live in `components/providers/app-providers.tsx`, wrapping `ReactQueryProvider` → `AuthProvider` → theme provider (React Query must wrap Auth so the logout hook can call `queryClient.clear()`).
@@ -14,7 +17,7 @@
 - Profile UI state is centralized in the Zustand store `app/profile/ui-store.ts`; extend it instead of scattering `useState` when touching profile dialogs or alerts.
 
 ## Conversational Pipelines
-- `/api/parrot-chat` streams JSONL events via `lib/progressUtils.sendProgress`; the chat UI keys on `{type}` values (`progress`, `parrot`, `gotQuestions`, etc.).
+- The chat UI streams NDJSON through `/api/web/chats`; public clients use `/api/v1/chats`. Both entry points share handlers in `lib/api/handlers/chat.ts` and the stream event types.
 - `utils/langChainAgents/mainAgent.ts` defines the LangGraph agent; new tools register in `utils/langChainAgents/tools/index.ts` and follow the Tavily whitelist in `supplementalArticleSearchTool.ts`.
 - `/api/parrot-qa` orchestrates the "Counsel of Three" workflow, Calvin review, and stores results in Prisma `questionHistory`.
 - Conversation titles and categories reuse mini OpenAI models through `utils/generateConversationName.ts` and prompt constants in `lib/prompts.ts`.

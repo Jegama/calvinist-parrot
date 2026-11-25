@@ -1,0 +1,60 @@
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+
+const session = vi.hoisted(() => ({ secret: "", labels: [] as string[] }));
+const report = vi.hoisted(() => vi.fn(async (days: number) => ({ period: { days } })));
+vi.mock("@/lib/analytics/report", () => ({
+  loadAnalyticsReport: report,
+}));
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers(),
+  cookies: async () => new Map(session.secret ? [["a_session_test-admin", { value: session.secret }]] : []),
+}));
+vi.mock("@/components/analytics/AnalyticsDashboard", () => ({ default: () => null }));
+
+const request = new Request("http://local.test/api/admin/analytics?days=730");
+const props = { searchParams: Promise.resolve({ days: "730" }) };
+
+beforeEach(() => {
+  session.secret = "";
+  session.labels = [];
+  report.mockClear();
+  vi.stubEnv("APPWRITE_PROJECT_ID", "test-admin");
+  vi.stubEnv("APPWRITE_ENDPOINT", "http://local.test/v1");
+  vi.stubGlobal("fetch", vi.fn(async (url, init) => {
+    const req = new Request(url, init);
+    expect(req.url).toBe("http://local.test/v1/account");
+    expect(req.headers.get("x-appwrite-session")).toBe("session");
+    expect(req.headers.has("x-appwrite-key")).toBe(false);
+    return Response.json({ $id: "private-account-id", labels: session.labels });
+  }));
+});
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+
+it("checks the current session and label on every page and API request, including after revocation", async () => {
+  const { default: Page } = await import("@/app/admin/analytics/page");
+  const { GET } = await import("@/app/api/admin/analytics/route");
+  async function expectApi(status: number) {
+    const res = await GET(request);
+    expect(res.status).toBe(status);
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+    return res.json();
+  }
+
+  await expect(Page(props)).rejects.toMatchObject({ digest: expect.stringContaining("NEXT_REDIRECT") });
+  await expectApi(401);
+  session.secret = "session";
+  session.labels = ["sermonevaluatoradmin"];
+  await expect(Page(props)).rejects.toMatchObject({ digest: expect.stringContaining("404") });
+  await expectApi(403);
+  expect(report).not.toHaveBeenCalled();
+
+  session.labels = ["analyticsadmin"];
+  expect((await Page(props)).props.report).toEqual({ period: { days: 730 } });
+  expect(await expectApi(200)).toEqual({ period: { days: 730 } });
+
+  session.labels = [];
+  await expect(Page(props)).rejects.toMatchObject({ digest: expect.stringContaining("404") });
+  await expectApi(403);
+  expect(report).toHaveBeenCalledTimes(2);
+  expect(fetch).toHaveBeenCalledTimes(6);
+});

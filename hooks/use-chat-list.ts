@@ -75,7 +75,7 @@ export function useChatList(actorKey: string) {
     mutationFn: async (
       variables: CreateChatRequest,
     ) => {
-      const response = await fetch("/api/v1/chats", {
+      const response = await fetch("/api/web/chats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(variables),

@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Effective Date:** April 6, 2026  
-**Last Updated:** November 21, 2026
+**Last Updated:** November 24, 2026
 
 Calvinist Parrot ("we," "us," or "our") is a ministry project of [Calvinist Parrot Ministries](https://www.calvinistparrotministries.org/). We are committed to protecting your privacy and handling your data with transparency and care. This Privacy Policy explains what information we collect, how we use it, and what choices you have.
 
@@ -34,6 +34,7 @@ When you use our features, we store the content you provide:
 - **Cookies:** We use essential cookies for authentication (session token), anonymous guest identity, and OAuth flow state. We do not use advertising or third-party tracking cookies. See Section 5 for details.
 - **Performance data:** We use Vercel Analytics and Speed Insights to collect anonymized page views, Core Web Vitals, and general performance metrics. This data is not tied to your identity.
 - **AI usage records:** For journal reflections and daily devotionals, we record the feature, generation step, operation and attempt identifiers, time, environment, provider, model, outcome, and available token counts to measure reliability and cost. These records exclude prompts, generated text, and family details.
+- **Feature activity.** We record when a conversation starts, a message is sent or answered, a journal entry is saved, or a sermon is submitted. Chat events record the entry channel and whether the actor was a guest, an account, or an integration. Signed-in activity includes an account identifier so we can count distinct active accounts and measure how soon new accounts use these features. Authorized administrators see aggregate counts.
 - **User agent:** Your browser's user-agent string is forwarded to our authentication provider for session security purposes.
 
 ### AI Memory
@@ -89,6 +90,7 @@ Anthropic processes API content under its [Commercial Terms](https://www.anthrop
 - **AI memory:** Retained alongside your profile and updated as you have new conversations.
 - **Guest data:** Anonymous chat sessions are identified by a guest cookie that expires after one year.
 - **Performance analytics:** Retained according to Vercel's data retention policies.
+- **Feature activity records.** Deleting an individual conversation or journal entry leaves a record of the activity for usage reporting. These records contain identifiers, event types, and times. You can request deletion of data associated with your account as described below.
 
 If you wish to delete your account and all associated data, please contact us at [contact@calvinistparrotministries.org](mailto:contact@calvinistparrotministries.org).
 

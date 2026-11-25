@@ -109,7 +109,7 @@ async function fetchEntries(page: number, search?: string, tags?: string[]): Pro
 async function continueInChat(entryId: string): Promise<{ chatId: string }> {
   const res = await fetch(`/api/journal/entries/${entryId}/continue-chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
     body: JSON.stringify({}),
   });
   if (!res.ok) throw new Error("Failed to create chat");

@@ -233,13 +233,14 @@ model chatHistory {
 }
 
 model chatMessage {
-  id        String      @id @default(cuid())
-  chatId    String
-  requestId String?
-  sender    String
-  content   String
-  timestamp DateTime    @default(now())
-  chat      chatHistory @relation("ChatMessages", fields: [chatId], references: [id])
+  id                String      @id @default(cuid())
+  chatId            String
+  requestId         String?
+  sender            String
+  content           String
+  timestamp         DateTime    @default(now())
+  analyticsExcluded Boolean     @default(false)
+  chat              chatHistory @relation("ChatMessages", fields: [chatId], references: [id])
 
   @@index([chatId, requestId])
 }
@@ -832,4 +833,37 @@ model ProviderCallAttempt {
 
   @@index([environment, feature, operationId])
   @@index([startedAt])
+}
+
+// Event-time attribution. Analytics survives a chat deletion or ownership transfer.
+model ChatAnalyticsEvent {
+  chatId      String
+  operationId String
+  kind        String
+  channel     String
+  actorKind   String
+  accountId   String?
+  occurredAt  DateTime @default(now())
+
+  @@id([chatId, operationId, kind])
+  @@index([occurredAt, kind])
+}
+
+model AnalyticsAccountAction {
+  kind       String
+  sourceId   String
+  accountId  String
+  occurredAt DateTime
+
+  @@id([kind, sourceId])
+  @@index([occurredAt])
+}
+
+model AnalyticsJournalCompletion {
+  feature     String
+  operationId String
+  completedAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([feature, operationId])
+  @@index([completedAt])
 }

@@ -2,6 +2,8 @@
 
 This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
+Follow the [code quality standards](./CONTRIBUTING.md#code-quality-standards) when planning, implementing, and reviewing changes.
+
 ## Documentation Style
 
 - Do not hard-wrap Markdown prose to a fixed maximum column width. Keep each paragraph and list item on one logical line unless Markdown structure, a code block, or readability genuinely requires a line break.
@@ -57,7 +59,7 @@ Copy `.env.template` to `.env` and fill in:
 
 ### Conversational Pipelines
 
-**`/api/v1/chats`** (recommended) - Resource-oriented LangGraph API for creating chats, reading transcripts, streaming messages, and stopping requests. Main agent defined in `utils/langChainAgents/mainAgent.ts` with tools in `utils/langChainAgents/tools/`. Conversation state persisted to PostgreSQL via LangGraph checkpointing.
+**`/api/v1/chats`** (public API) and **`/api/web/chats`** (website) - Shared resource-oriented LangGraph handlers for creating chats, reading transcripts, streaming messages, and stopping requests. Main agent defined in `utils/langChainAgents/mainAgent.ts` with tools in `utils/langChainAgents/tools/`. Conversation state persisted to PostgreSQL via LangGraph checkpointing.
 
 **`/api/v1/qa`** - Retired Counsel of Three endpoint. This route, `/api/parrot-qa`, and `/api/elaborate` return HTTP 410 without invoking models; direct integrations to `/api/v1/chats`. Saved question history remains intact. `/api/parrot-chat` remains a deprecated compatibility route.
 
@@ -65,7 +67,7 @@ Copy `.env.template` to `.env` and fill in:
 
 | Feature | UI Path | API Path | Instructions |
 |---------|---------|----------|--------------|
-| Chat | `app/[chatId]/` | `app/api/v1/chats/` | `.github/instructions/api-contracts.instructions.md` |
+| Chat | `app/[chatId]/` | `app/api/web/chats/`, `app/api/v1/chats/` | `.github/instructions/api-contracts.instructions.md` |
 | Journal | `app/journal/` | `app/api/journal/` | `.github/instructions/journal-*.md` |
 | Kids Discipleship | `app/kids-discipleship/` | `app/api/kids-discipleship/` | `.github/instructions/kids-discipleship-*.md` |
 | Prayer Tracker | `app/prayer-tracker/` | `app/api/prayer-tracker/` | `.github/instructions/prayer-tracker.instructions.md` |

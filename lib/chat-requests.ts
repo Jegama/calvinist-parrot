@@ -11,7 +11,7 @@ export function evaluateRetry(
 ): RetryDecision {
   const requestMessages = messages.filter((message) => message.requestId === requestId);
 
-  if (requestMessages.some((message) => message.sender === "parrot")) {
+  if (requestMessages.some((message) => message.sender === "parrot" || message.sender === "calvin")) {
     return "already_succeeded";
   }
 
