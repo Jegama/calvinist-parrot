@@ -40,7 +40,7 @@ function getAggregates({ start, end }: FeatureWindow, environment: string, cutof
       WHERE s.kind = 'submission' AND s."occurredAt" >= (${start}::timestamptz AT TIME ZONE 'UTC')
         AND s."occurredAt" < (${end}::timestamptz AT TIME ZONE 'UTC')
     ), ledger AS (
-      SELECT true AS linked, s.channel, s."operationId" AS turn, s.submitted, s.completed, a AS receipt
+      SELECT true AS linked, s.channel AS submission_channel, s."operationId" AS turn, s.submitted, s.completed, a AS receipt
       FROM submissions s LEFT JOIN analytics_priced_provider_attempt a ON a."operationId" = s."operationId"
         AND a.environment = ${environment} AND a.feature = 'chat' AND a."startedAt" < ${cutoff}::timestamptz
       UNION ALL
@@ -50,11 +50,11 @@ function getAggregates({ start, end }: FeatureWindow, environment: string, cutof
         AND NOT EXISTS (SELECT 1 FROM "ChatAnalyticsEvent" s WHERE s.kind = 'submission' AND s."operationId" = a."operationId"
                         AND s."occurredAt" < (${cutoff}::timestamptz AT TIME ZONE 'UTC'))
     ), attempts AS (
-      SELECT linked, channel, turn, submitted, completed, (receipt).*,
+      SELECT linked, submission_channel, turn, submitted, completed, (receipt).*,
              coalesce((receipt)."returnedModel", (receipt)."requestedModel") AS model
       FROM ledger
     )
-    SELECT CASE WHEN NOT linked THEN 'unattributed' WHEN grouping(channel) = 1 THEN 'combined' ELSE channel END AS channel,
+    SELECT CASE WHEN NOT linked THEN 'unattributed' WHEN grouping(submission_channel) = 1 THEN 'combined' ELSE submission_channel END AS channel,
       stage, model, count("attemptId")::int AS attempts,
       count(*) FILTER (WHERE "inputTokens" IS NOT NULL AND "outputTokens" IS NOT NULL)::int AS measured,
       count(usd)::int AS priced, sum(usd)::float8 AS spend,
@@ -66,8 +66,8 @@ function getAggregates({ start, end }: FeatureWindow, environment: string, cutof
       sum("inputTokens")::float8 AS "inputTokens", sum("cacheReadTokens")::float8 AS "cacheReadTokens",
       sum("cacheWriteTokens")::float8 AS "cacheWriteTokens", sum("outputTokens")::float8 AS "outputTokens"
     FROM attempts
-    GROUP BY GROUPING SETS ((linked), (linked, channel), (linked, stage, model))
-    HAVING (linked OR grouping(channel) = 1) AND (grouping(stage) = 1 OR stage IS NOT NULL)
+    GROUP BY GROUPING SETS ((linked), (linked, submission_channel), (linked, stage, model))
+    HAVING (linked OR grouping(submission_channel) = 1) AND (grouping(stage) = 1 OR stage IS NOT NULL)
     ORDER BY channel, stage, model
   `;
 }

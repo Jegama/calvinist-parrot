@@ -16,7 +16,7 @@ from typing import Any, Callable, Mapping, Optional
 from . import __version__, prompts
 from .aggregation import SermonAggregator
 from .audio import InvalidAudioError
-from .gemini import DEFAULT_MODEL, GeminiProvider, ProviderResponseMetadata
+from .gemini import DEFAULT_MODEL, GeminiProvider, ProviderResponseMetadata, UsageRecorder
 from .harmonization import SermonHarmonizer
 from .persistence import (
     AudioHashMismatch,
@@ -105,10 +105,14 @@ class DeadlineBoundProvider:
         provider: GeminiProvider,
         deadline: SoftDeadline,
         is_canceled: Callable[[], bool],
+        record_usage: UsageRecorder,
+        register_attempt: UsageRecorder,
     ) -> None:
         self.provider = provider
         self.deadline = deadline
         self.is_canceled = is_canceled
+        self.record_usage = record_usage
+        self.register_attempt = register_attempt
 
     def set_model(self, model_name: str) -> None:
         self.provider.set_model(model_name)
@@ -126,6 +130,8 @@ class DeadlineBoundProvider:
         return value
 
     def generate_structured(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        kwargs["record_usage"] = self.record_usage
+        kwargs["register_attempt"] = self.register_attempt
         kwargs["timeout_seconds"] = min(
             kwargs.get("timeout_seconds", float("inf")), self._before()
         )
@@ -134,6 +140,8 @@ class DeadlineBoundProvider:
     def generate_structured_with_contents(
         self, *args: Any, **kwargs: Any
     ) -> dict[str, Any]:
+        kwargs["record_usage"] = self.record_usage
+        kwargs["register_attempt"] = self.register_attempt
         kwargs["timeout_seconds"] = min(
             kwargs.get("timeout_seconds", float("inf")), self._before()
         )
@@ -431,7 +439,12 @@ class SermonEvaluationService:
                     "The evaluation deadline expired during an external call"
                 )
 
-        bound_provider = DeadlineBoundProvider(self.provider, deadline, canceled)
+        def provider_for(stage: str) -> DeadlineBoundProvider:
+            return DeadlineBoundProvider(
+                self.provider, deadline, canceled,
+                lambda receipt: self.persistence.record_provider_usage(job, stage, receipt),
+                lambda receipt: self.persistence.register_provider_attempt(job.id, stage, receipt),
+            )
 
         def transition(target: EvaluationStatus, patch: Optional[dict] = None) -> None:
             nonlocal status, version
@@ -600,7 +613,7 @@ class SermonEvaluationService:
             if status == EvaluationStatus.EXTRACTING:
                 transition(EvaluationStatus.SCORING)
         elif status == EvaluationStatus.EXTRACTING:
-            extraction_payload = bound_provider.generate_structured_with_contents(
+            extraction_payload = provider_for("extraction").generate_structured_with_contents(
                 contents=[prompts.EXTRACTION_INSTRUCTIONS_AUDIO, gemini_file_object],
                 response_schema=SermonExtractionStep1,
                 system=prompts.EXTRACTION_SYSTEM_PROMPT,
@@ -641,13 +654,15 @@ class SermonEvaluationService:
             )
             scoring_prompt = _build_scoring_prompt(extraction)
 
+            scoring_provider = provider_for("scoring")
+
             def score(
                 ordinal: int, seed: int, attempt_number: int, timeout: float
             ) -> StructuredScoringValue:
                 del ordinal, attempt_number
                 if canceled():
                     raise EvaluationCanceled("Evaluation cancellation was requested")
-                payload = bound_provider.generate_structured_with_contents(
+                payload = scoring_provider.generate_structured_with_contents(
                     contents=[scoring_prompt, gemini_file_object],
                     response_schema=SermonScoringStep2Raw,
                     system=prompts.SCORING_SYSTEM_PROMPT,
@@ -711,7 +726,7 @@ class SermonEvaluationService:
                 scoring = _to_full_scoring(raw_runs[0])
             else:
                 harmonizer = SermonHarmonizer(
-                    bound_provider,
+                    provider_for("harmonization"),
                     model,
                     prompts,
                     apply_duration_adjustment=job.duration_adjustment_enabled,
@@ -751,7 +766,7 @@ class SermonEvaluationService:
             raise RuntimeError(f"Cannot publish reports from status {status}")
         if scoring.Aggregated_Summary_Feedback is None:
             harmonizer = SermonHarmonizer(
-                bound_provider,
+                provider_for("summary"),
                 model,
                 prompts,
                 apply_duration_adjustment=job.duration_adjustment_enabled,

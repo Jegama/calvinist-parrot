@@ -1,12 +1,23 @@
+import { createServer } from "node:http";
+import { once } from "node:events";
+import type { AddressInfo } from "node:net";
+import { tavily } from "@tavily/core";
 import { describe, expect, it, vi } from "vitest";
+import { recordExternalUsageAttempt } from "@/lib/provider-usage";
 
 import {
   CHURCH_CRAWL_INSTRUCTIONS,
   crawlChurchSite,
   dropAnchorDupes,
+  extractChurchPage,
   mergeExtractedPage,
   toChurchContentBlocks,
 } from "./crawl";
+
+vi.mock("@/lib/provider-usage", async (original) => ({
+  ...await original<typeof import("@/lib/provider-usage")>(),
+  recordExternalUsageAttempt: vi.fn(),
+}));
 
 describe("church source preparation", () => {
   it("respects Tavily's 400-character instructions limit", () => {
@@ -54,6 +65,73 @@ describe("church source preparation", () => {
 
     expect(result.results).toHaveLength(1);
     expect(result.results?.[0].url).toBe("https://example.church/beliefs");
+  });
+
+  it("reads billed credits from the Tavily wire response once per call, including an empty or failed enrichment", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const server = createServer(async (request, response) => {
+      let body = "";
+      for await (const chunk of request) body += chunk;
+      const payload = JSON.parse(body);
+      bodies.push(payload);
+      const url = payload.url ?? payload.urls[0];
+      const failed = url.endsWith("/failed") || url.endsWith("/billed-failure");
+      response.writeHead(failed ? 502 : 200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify(failed ? { detail: "failed", usage: url.endsWith("/billed-failure") ? { credits: 3 } : undefined } : {
+        base_url: url, results: [], failed_results: [], usage: { credits: request.url === "/crawl" ? 4 : 2 },
+      }));
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    try {
+      const apiBaseURL = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      const client = tavily({ apiKey: "fixture", apiBaseURL });
+      const operation = { operationId: "one-paid-evaluation", channel: "public_api", expectedUsageAttempts: 0 } as const;
+      await crawlChurchSite("https://example.church", client, { operation });
+      await extractChurchPage("https://example.church/beliefs", client, undefined, operation);
+      await expect(extractChurchPage("https://example.church/failed", client, undefined, operation)).rejects.toThrow();
+      await expect(extractChurchPage("https://example.church/billed-failure", client, undefined, operation)).rejects.toThrow();
+      expect(operation.expectedUsageAttempts).toBe(5);
+      expect(bodies).toHaveLength(5);
+      expect(bodies.every(body => body.include_usage)).toBe(true);
+      const attempts = vi.mocked(recordExternalUsageAttempt).mock.calls
+        .map(([attempt, outcome, , quantity]) => ({ ...attempt, outcome, quantity }))
+        .filter(receipt => receipt.outcome !== "started");
+      expect(new Set(attempts.map(receipt => receipt.attemptId)).size).toBe(5);
+      for (const attempt of attempts) {
+        expect(attempt).toMatchObject({ feature: "church", operationId: operation.operationId, channel: "public_api", provider: "tavily", billingUnit: "credit" });
+      }
+      expect(attempts.map(attempt => [attempt.stage, attempt.outcome, attempt.quantity])).toEqual(expect.arrayContaining([
+        ["crawl", "success", 4], ["root_extract", "success", 2],
+        ["enrichment", "success", 2], ["enrichment", "provider_error", null], ["enrichment", "provider_error", 3],
+      ]));
+      expect(JSON.stringify(attempts)).not.toContain("example.church");
+    } finally {
+      server.close();
+      await once(server, "close");
+    }
+  });
+
+  it("counts only dispatched Tavily calls when optional extraction cannot save its marker", async () => {
+    const website = "https://example.church";
+    const client = {
+      ...tavily({ apiKey: "fixture" }),
+      crawl: vi.fn().mockResolvedValue({ baseUrl: website, results: [{ url: website, rawContent: "Page" }], usage: { credits: 3 } }),
+      extract: vi.fn(),
+    };
+    const operation = { operationId: "optional-extraction", channel: "web", expectedUsageAttempts: 0 } as const;
+    vi.mocked(recordExternalUsageAttempt).mockImplementation(async (attempt, outcome) => {
+      if (attempt.stage !== "crawl" && outcome === "started") throw new Error("Could not record request before dispatch");
+    });
+    try {
+      await expect(crawlChurchSite(website, client, { operation })).resolves.toMatchObject({ base_url: website });
+      await expect(extractChurchPage(website, client, undefined, operation)).rejects.toThrow("before dispatch");
+      expect(client.crawl).toHaveBeenCalledTimes(1);
+      expect(client.extract).not.toHaveBeenCalled();
+      expect(operation.expectedUsageAttempts).toBe(1);
+    } finally {
+      vi.mocked(recordExternalUsageAttempt).mockReset();
+    }
   });
 
   it("passes explicit language-neutral instructions and upstream timeouts", async () => {

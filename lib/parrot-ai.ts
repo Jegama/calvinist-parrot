@@ -10,7 +10,7 @@ import {
 import { usageTransport } from "./provider-usage-transport";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
-import { ApiError, GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { ApiError, GoogleGenAI, ThinkingLevel, type GenerateContentParameters } from "@google/genai";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -115,7 +115,7 @@ interface ProviderReceipt {
 }
 
 async function readStructured<T>(
-  params: StructuredOutputParams, spec: ModelSpec, receipt: ProviderReceipt, attempt?: UsageAttempt,
+  spec: ModelSpec, receipt: ProviderReceipt, attempt?: UsageAttempt, params?: StructuredOutputParams,
 ): Promise<StructuredOutputResult<T>> {
   const durationMs = attempt ? Date.now() - attempt.startedAt.getTime() : 0;
   const record = (outcome: "received" | "invalid_output" | "success") =>
@@ -125,7 +125,7 @@ async function readStructured<T>(
     const text = receipt.text();
     if (!text) throw new Error(`Empty response from ${spec.provider} (${spec.model})`);
     const data = JSON.parse(text);
-    if (attempt) {
+    if (attempt && params) {
       let validator = validators.get(params.schema);
       if (!validator) {
         validator = fromJSONSchema(params.schema.schema);
@@ -135,7 +135,7 @@ async function readStructured<T>(
         throw new Error(`Invalid ${params.schema.name} response structure`);
       }
     }
-    if (params.validate && !params.validate(data)) {
+    if (params?.validate && !params.validate(data)) {
       throw new Error(`Invalid ${params.schema.name} response structure`);
     }
     await record("success");
@@ -144,6 +144,31 @@ async function readStructured<T>(
     await record("invalid_output");
     throw error;
   }
+}
+
+// Church extraction uses the native Google schema and a stage-specific abort signal.
+export async function generateGeminiStructured<T>(
+  client: GoogleGenAI, request: GenerateContentParameters, usage?: UsageContext, params?: StructuredOutputParams,
+): Promise<StructuredOutputResult<T>> {
+  const spec: ModelSpec = { provider: "gemini", model: request.model };
+  const attempt = usage && startUsageAttempt(usage, spec);
+  if (attempt?.feature === "church" || attempt?.feature === "chat") await recordUsageAttempt(attempt, "started", 0);
+  const response = await client.models.generateContent(request).catch(async error => {
+    if (attempt) {
+      // This SDK exposes the HTTP error envelope as JSON in ApiError.message.
+      let body;
+      if (error instanceof ApiError) {
+        try { body = JSON.parse(error.message); } catch { /* no reported counters */ }
+      }
+      await recordUsageAttempt(attempt, "provider_error", Date.now() - attempt.startedAt.getTime(),
+        typeof body?.modelVersion === "string" ? body.modelVersion : undefined, body?.usageMetadata);
+    }
+    throw error;
+  });
+
+  return readStructured<T>(spec, {
+    model: response.modelVersion, usage: response.usageMetadata, text: () => response.text,
+  }, attempt, params);
 }
 
 // ---------------------------------------------------------------------------
@@ -239,26 +264,9 @@ class ParrotAI {
       };
     }
 
-    const attempt = params.usage && startUsageAttempt(params.usage, spec);
-    if (attempt?.feature === "chat") await recordUsageAttempt(attempt, "started", 0);
-    const response = await genai.models.generateContent({
+    return generateGeminiStructured<T>(genai, {
       model: spec.model, contents, config,
-    }).catch(async error => {
-      if (attempt) {
-        // This SDK exposes the HTTP error envelope as JSON in ApiError.message.
-        let body;
-        if (error instanceof ApiError) {
-          try { body = JSON.parse(error.message); } catch { /* no reported counters */ }
-        }
-        await recordUsageAttempt(attempt, "provider_error", Date.now() - attempt.startedAt.getTime(),
-          typeof body?.modelVersion === "string" ? body.modelVersion : undefined, body?.usageMetadata);
-      }
-      throw error;
-    });
-
-    return readStructured<T>(params, spec, {
-      model: response.modelVersion, usage: response.usageMetadata, text: () => response.text,
-    }, attempt);
+    }, params.usage, params);
   }
 
   private async callOpenAI<T>(
@@ -362,10 +370,10 @@ class ParrotAI {
         : haiku55 ? { type: "adaptive" } : { type: "enabled", budget_tokens: 4096 },
     }).catch(transport?.onError);
 
-    return readStructured<T>(params, spec, {
+    return readStructured<T>(spec, {
       model: response.model, usage: response.usage,
       text: () => response.content.find(block => block.type === "text")?.text,
-    }, transport?.attempt);
+    }, transport?.attempt, params);
   }
 }
 

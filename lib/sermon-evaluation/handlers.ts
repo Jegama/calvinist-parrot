@@ -16,6 +16,7 @@ import {
   updateSermonDurationPolicyRequestSchema,
 } from "@/lib/api/contracts";
 import { parseJsonRequest } from "@/lib/api/handlers/http";
+import type { ChatChannel } from "@/lib/chat-analytics";
 import prisma from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { SERMON_AGGREGATES } from "@/lib/sermon-evaluation/rubric.generated";
@@ -964,7 +965,7 @@ export async function handleFinalizeSermonUpload(request: Request) {
   }
 }
 
-export async function handleCreateSermonEvaluation(request: Request) {
+export async function handleCreateSermonEvaluation(request: Request, channel: ChatChannel) {
   try {
     const { user, userId, errorResponse: authError } =
       await requireSermonEvaluationAccess();
@@ -1002,6 +1003,7 @@ export async function handleCreateSermonEvaluation(request: Request) {
     }
 
     const evaluation = await createReservedSermonEvaluation({
+      channel,
       ownerId: userId,
       actorId: userId,
       isAdmin: isSermonEvaluationAdmin(user),
@@ -1517,6 +1519,7 @@ export async function handleRetrySermonEvaluation(id: string) {
 export async function handleReevaluateSermon(
   request: Request,
   id: string,
+  channel: ChatChannel,
 ) {
   try {
     const { user, userId, errorResponse: authError } =
@@ -1553,6 +1556,7 @@ export async function handleReevaluateSermon(
       isSermonEvaluationAdmin(user),
     );
     const evaluation = await createReservedSermonEvaluation({
+      channel,
       ownerId: userId,
       actorId: userId,
       isAdmin: isSermonEvaluationAdmin(user),

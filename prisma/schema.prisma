@@ -320,6 +320,9 @@ model churchServiceTime {
 model churchEvaluation {
   id                         String                 @id @default(cuid())
   churchId                   String
+  channel                    String                 @default("unknown")
+  usageEnvironment           String?
+  expectedUsageAttempts      Int?
   rawEvaluation              Json
   badges                     String[]
   secondary                  Json?
@@ -434,6 +437,9 @@ model sermonAudioAsset {
 
 model sermonEvaluation {
   id                        String                      @id @default(cuid())
+  channel                   String                      @default("unknown")
+  usageEnvironment          String?
+  expectedUsageAttempts     Int?
   ownerId                   String
   preacherId                String
   fingerprintId             String
@@ -475,6 +481,7 @@ model sermonEvaluation {
   scoringRuns               sermonScoringRun[]
   scoringAttempts           sermonScoringAttempt[]
   evaluationAttempts        sermonEvaluationAttempt[]
+  pendingUsageAttempts      sermonPendingUsageAttempt[]
   creditReservation         sermonRunCreditReservation?
   adminAuditEvents          sermonAdminAuditEvent[]
   workerLeases              sermonWorkerLease[]
@@ -534,6 +541,18 @@ model sermonScoringAttempt {
   @@unique([evaluationId, seed])
   @@index([evaluationId, status])
   @@index([evaluationAttemptId])
+}
+
+model sermonPendingUsageAttempt {
+  attemptId      String           @id @db.Uuid
+  evaluationId   String
+  startedAt      DateTime         @db.Timestamptz(3)
+  stage          String
+  requestedModel String
+  modality       String
+  evaluation     sermonEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  @@index([evaluationId])
 }
 
 model sermonEvaluationAttempt {
@@ -815,7 +834,13 @@ model ProviderCallAttempt {
   isRetry             Boolean   @default(false)
   environment         String
   provider            String
-  requestedModel      String
+  requestedModel      String?
+  channel             String    @default("unknown")
+  preset              String?
+  modality            String?
+  audioInputTokens    Int?
+  billingUnit         String?
+  quantity            Float?
   returnedModel       String?
   serviceTier         String?
   outcome             String

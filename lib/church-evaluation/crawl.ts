@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 
 import { tavily } from "@tavily/core";
 
+import { recordExternalUsageAttempt, startExternalUsageAttempt } from "@/lib/provider-usage";
+import { churchUsageStage, type ChurchEvaluationOperation } from "./usage";
 import { ChurchEvaluationUpstreamError } from "./runtime";
 
 export const TAVILY_CRAWL_TIMEOUT_SECONDS = 75;
@@ -25,14 +27,6 @@ export type TavilyCrawlResult = {
 };
 
 type TavilyClient = ReturnType<typeof tavily>;
-
-type TavilyExtractResponse = {
-  results?: Array<{
-    url?: string;
-    rawContent?: string;
-    favicon?: string | null;
-  }>;
-};
 
 let tavilyClient: TavilyClient | null = null;
 
@@ -120,16 +114,51 @@ export function dropAnchorDupes(data: TavilyCrawlResult): TavilyCrawlResult {
   return { base_url: baseUrl, results: normalizedResults };
 }
 
+// The SDK exposes some HTTP error envelopes as "<status> Error: <JSON>".
+// Extract only the billed counter. Other error shapes leave the fee unknown.
+function tavilyErrorCredits(error: unknown): number | null {
+  const envelope = error instanceof Error && /^\d{3} Error: (\{[\s\S]*\})$/.exec(error.message)?.[1];
+  if (!envelope) return null;
+  try {
+    const quantity = JSON.parse(envelope)?.usage?.credits;
+    return typeof quantity === "number" ? quantity : null;
+  } catch {
+    return null;
+  }
+}
+
+async function meteredTavilyCall<T extends { usage?: { credits: number } }>(
+  operation: ChurchEvaluationOperation | undefined,
+  stage: "crawl" | "root_extract" | "enrichment",
+  call: () => Promise<T>,
+): Promise<T> {
+  if (!operation) return call();
+  const attempt = startExternalUsageAttempt(churchUsageStage(operation, stage), "tavily", "credit");
+  await recordExternalUsageAttempt(attempt, "started", 0, null);
+  operation.expectedUsageAttempts += 1;
+  try {
+    const response = await call();
+    await recordExternalUsageAttempt(attempt, "success", Date.now() - attempt.startedAt.getTime(), response.usage?.credits ?? null);
+    return response;
+  } catch (error) {
+    await recordExternalUsageAttempt(attempt, "provider_error", Date.now() - attempt.startedAt.getTime(), tavilyErrorCredits(error));
+    throw error;
+  }
+}
+
 export async function extractChurchPage(
   requestedUrl: string,
   client: TavilyClient = getTavilyClient(),
   timeoutSeconds = TAVILY_EXTRACT_TIMEOUT_SECONDS,
+  operation?: ChurchEvaluationOperation,
+  stage: "root_extract" | "enrichment" = "enrichment",
 ): Promise<ChurchSourcePage | null> {
-  const response = await client.extract([requestedUrl], {
+  const response = await meteredTavilyCall(operation, stage, () => client.extract([requestedUrl], {
     extractDepth: "advanced",
     format: "markdown",
     timeout: timeoutSeconds,
-  }) as TavilyExtractResponse;
+    includeUsage: true,
+  }));
 
   const result = response.results?.[0];
   if (!result?.url || !result.rawContent) return null;
@@ -207,21 +236,24 @@ export async function crawlChurchSite(
   {
     crawlTimeoutSeconds = TAVILY_CRAWL_TIMEOUT_SECONDS,
     extractTimeoutSeconds = TAVILY_EXTRACT_TIMEOUT_SECONDS,
+    operation,
   }: {
     crawlTimeoutSeconds?: number;
     extractTimeoutSeconds?: number;
+    operation?: ChurchEvaluationOperation;
   } = {},
 ): Promise<TavilyCrawlResult> {
   try {
     const [crawlResponse, rootPage] = await Promise.all([
-      client.crawl(website, {
+      meteredTavilyCall(operation, "crawl", () => client.crawl(website, {
         instructions: CHURCH_CRAWL_INSTRUCTIONS,
         maxDepth: 2,
         extractDepth: "advanced",
         allowExternal: false,
         timeout: crawlTimeoutSeconds,
-      }),
-      extractChurchPage(website, client, extractTimeoutSeconds).catch(
+        includeUsage: true,
+      })),
+      extractChurchPage(website, client, extractTimeoutSeconds, operation, "root_extract").catch(
         () => null,
       ),
     ]);

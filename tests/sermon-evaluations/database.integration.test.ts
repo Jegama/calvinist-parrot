@@ -280,6 +280,70 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
     ]);
   }
 
+  it.each(["web", "public_api"] as const)(
+    "persists the %s evaluation entry and attributes a reevaluation to its new caller",
+    async (channel) => {
+      const fixture = await createFixture(`entry-${channel}`);
+      handlerMocks.userId = fixture.ownerId;
+      const reservation = await prisma.sermonUploadReservation.create({
+        data: {
+          ownerId: fixture.ownerId,
+          fingerprintId: fixture.fingerprint.id,
+          claimedSha256: fixture.fingerprint.sha256,
+          appwriteBucketId: "sermon-audio",
+          appwriteFileId: fixture.audioAsset.appwriteFileId!,
+          originalFilename: fixture.audioAsset.originalFilename,
+          mimeType: fixture.audioAsset.mimeType,
+          byteSize: fixture.audioAsset.byteSize,
+          requestedPreset: "STANDARD",
+          requestedRuns: 1,
+          state: "FINALIZED",
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+      });
+      const create = channel === "web"
+        ? await import("@/app/api/web/sermon-evaluations/route")
+        : await import("@/app/api/v1/sermon-evaluations/route");
+      const reevaluate = channel === "web"
+        ? await import("@/app/api/v1/sermon-evaluations/[id]/reevaluate/route")
+        : await import("@/app/api/web/sermon-evaluations/[id]/reevaluate/route");
+      const post = (body: object) => new Request("https://example.test", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-channel": "mcp" },
+        body: JSON.stringify(body),
+      });
+      const response = await create.POST(post({
+        uploadReservationId: reservation.id,
+        title: "Synthetic sermon",
+        preacherId: fixture.preacher.id,
+        preachedOn: "2026-07-27",
+        preset: "standard",
+        durationAdjustmentEnabled: false,
+      }));
+      expect(response.status).toBe(201);
+      const { evaluation: { id } } = await response.json();
+      const original = await prisma.sermonEvaluation.findUniqueOrThrow({ where: { id } });
+      expect(original).toMatchObject({
+        channel,
+        usageEnvironment: process.env.VERCEL_ENV || process.env.NODE_ENV || "development",
+      });
+      await consumeReservedCredits(id, fixture.fingerprint.id, 1);
+
+      const result = await reevaluate.POST(post({ preset: "high_confidence" }), {
+        params: Promise.resolve({ id }),
+      });
+      expect(result.status).toBe(201);
+      const { evaluation: next } = await result.json();
+      await expect(prisma.sermonEvaluation.findUniqueOrThrow({ where: { id: next.id } }))
+        .resolves.toMatchObject({
+          channel: channel === "web" ? "public_api" : "web",
+          usageEnvironment: original.usageEnvironment,
+          sourceEvaluationId: id,
+          preset: "HIGH_CONFIDENCE",
+        });
+    },
+  );
+
   it("enforces one active evaluation per owner while retaining terminal history", async () => {
     const fixture = await createFixture("active-owner");
     const active = await createEvaluation(
@@ -369,6 +433,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
     for (const [index, selection] of selections.entries()) {
       const evaluation =
         await createReservedSermonEvaluation({
+          channel: "unknown",
           ownerId: fixture.ownerId,
           actorId: fixture.ownerId,
           isAdmin: true,
@@ -389,6 +454,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
 
     await expect(
       createReservedSermonEvaluation({
+        channel: "unknown",
         ownerId: fixture.ownerId,
         actorId: fixture.ownerId,
         isAdmin: true,
@@ -437,6 +503,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
 
     await expect(
       createReservedSermonEvaluation({
+        channel: "unknown",
         ownerId: second.ownerId,
         actorId: second.ownerId,
         isAdmin: true,
@@ -457,6 +524,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
     ).resolves.toBe(0);
 
     const evaluation = await createReservedSermonEvaluation({
+      channel: "unknown",
       ownerId: second.ownerId,
       actorId: second.ownerId,
       isAdmin: true,
@@ -494,6 +562,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
     for (const [index, fixture] of [first, second].entries()) {
       const evaluation =
         await createReservedSermonEvaluation({
+          channel: "unknown",
           ownerId: first.ownerId,
           actorId: first.ownerId,
           isAdmin: false,
@@ -517,6 +586,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
 
     await expect(
       createReservedSermonEvaluation({
+        channel: "unknown",
         ownerId: first.ownerId,
         actorId: first.ownerId,
         isAdmin: false,
@@ -534,6 +604,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
 
     const adminEvaluation =
       await createReservedSermonEvaluation({
+        channel: "unknown",
         ownerId: first.ownerId,
         actorId: first.ownerId,
         isAdmin: true,
@@ -621,6 +692,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
     handlerMocks.userId = fixture.ownerId;
     const evaluation =
       await createReservedSermonEvaluation({
+        channel: "mcp",
         ownerId: fixture.ownerId,
         actorId: fixture.ownerId,
         isAdmin: false,
@@ -662,6 +734,9 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
       evaluationId: evaluation.id,
       status: "QUEUED",
     });
+    await expect(prisma.sermonEvaluation.findUniqueOrThrow({
+      where: { id: evaluation.id },
+    })).resolves.toMatchObject({ channel: "mcp", expectedUsageAttempts: 0 });
     const restoredReservation =
       await prisma.sermonRunCreditReservation.findUniqueOrThrow({
         where: { evaluationId: evaluation.id },
@@ -745,6 +820,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
       handlerMocks.userId = fixture.ownerId;
       const evaluation =
         await createReservedSermonEvaluation({
+          channel: "unknown",
           ownerId: fixture.ownerId,
           actorId: fixture.ownerId,
           isAdmin: false,

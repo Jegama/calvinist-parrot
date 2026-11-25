@@ -5,7 +5,7 @@ import type { AnalyticsReport } from "@/lib/analytics/report";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import FeatureTable from "./FeatureTable";
 import GrowthCharts from "./GrowthCharts";
-import { dayLabel, instantLabel, numberLabel, rateLabel } from "./format";
+import { channelLabels, dayLabel, instantLabel, numberLabel, rateLabel } from "./format";
 
 const heroMetrics = [
   ["newChats", "New chats"],
@@ -13,14 +13,6 @@ const heroMetrics = [
   ["newAccounts", "New accounts"],
   ["averageMessages", "Avg. messages per active chat"],
 ] as const;
-
-const channelLabels = {
-  combined: "All channels",
-  web: "Website",
-  public_api: "Public API (v1)",
-  mcp: "MCP",
-  unknown: "Unknown",
-};
 
 function PeriodOverview({ report }: { report: AnalyticsReport }) {
   const { period, metrics } = report;
@@ -196,7 +188,7 @@ export default function AnalyticsDashboard({ report }: { report: AnalyticsReport
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <nav aria-label="Reporting period" className="flex flex-wrap gap-1 rounded-md border bg-card p-1">
-            {reportingPeriods.map(({ days, label }) => (
+            {reportingPeriods.filter(period => period.days !== 730).map(({ days, label }) => (
               <Link prefetch={false} key={days} href={`/admin/analytics?days=${days}`} aria-current={days === period.days ? "page" : undefined}
                 className={`rounded-sm px-3 py-2 text-center text-sm font-medium focus-visible:outline-ring ${days === period.days ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
                 {label}

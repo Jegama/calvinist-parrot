@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateConversationName } from "./generateConversationName";
 
 const upsert = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/prisma", () => ({ default: { providerCallAttempt: { upsert } } }));
+vi.mock("@/lib/prisma", () => ({ default: { $transaction: vi.fn(), providerCallAttempt: { upsert, createMany: vi.fn(), updateMany: vi.fn() } } }));
 import { deterministicConversationTitle } from "../lib/chat-title";
 
 describe("deterministic conversation title fallback", () => {

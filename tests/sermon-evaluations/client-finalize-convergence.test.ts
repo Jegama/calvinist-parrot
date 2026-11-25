@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createSermonEvaluation,
   finalizeSermonUpload,
+  reevaluateSermon,
 } from "@/components/sermon-evaluation/api";
 
 function jsonResponse(body: unknown) {
@@ -58,6 +59,7 @@ describe("sermon upload client finalization", () => {
       durationAdjustmentEnabled: false,
     });
 
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/web/sermon-evaluations");
     const createRequest = fetchMock.mock.calls[1]?.[1] as
       | RequestInit
       | undefined;
@@ -65,6 +67,18 @@ describe("sermon upload client finalization", () => {
       uploadReservationId: "reservation-winner",
       preacherId: "preacher-1",
     });
+  });
+
+  it("requests a new evaluation through the website entry point", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ evaluation: { id: "next" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await reevaluateSermon({ id: "previous", preset: "HIGH_CONFIDENCE" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/web/sermon-evaluations/previous/reevaluate",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("rejects audio-ready responses without a canonical reservation", async () => {

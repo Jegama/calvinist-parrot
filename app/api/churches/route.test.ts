@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ChurchEvaluationRaw, CoreDoctrineMap } from "@/types/church";
 import { ChurchEvaluationTimeoutError } from "@/lib/church-evaluation/runtime";
@@ -75,6 +75,8 @@ vi.mock("@/lib/admin", () => ({
 }));
 
 import { maxDuration, POST } from "./route";
+import { POST as webPost } from "@/app/api/web/churches/route";
+import { GET as readSavedChurch } from "./[id]/route";
 
 const normalizedCore = {
   trinity: "true",
@@ -170,8 +172,10 @@ const persistedChurch = {
 };
 
 describe("POST /api/churches", () => {
+  afterEach(() => vi.unstubAllEnvs());
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("GEOAPIFY_API_KEY", "fixture");
     mocks.afterCallbacks.length = 0;
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -182,11 +186,12 @@ describe("POST /api/churches", () => {
       async (callback: (tx: typeof mocks.transactionClient) => unknown) =>
         callback(mocks.transactionClient),
     );
-    mocks.prisma.church.findUnique
+    mocks.prisma.church.findUnique.mockReset()
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(persistedChurch);
     mocks.transactionClient.church.findUnique.mockResolvedValue(null);
     mocks.transactionClient.church.create.mockResolvedValue({ id: "church-1" });
+    mocks.transactionClient.churchAddress.create.mockResolvedValue(persistedChurch.addresses[0]);
     mocks.extractChurchEvaluation.mockResolvedValue(rawEvaluation);
     mocks.postProcessEvaluation.mockReturnValue({
       normalizedCore,
@@ -205,10 +210,12 @@ describe("POST /api/churches", () => {
     });
   });
 
-  it("persists and returns ChurchDetail before after() geocoding runs", async () => {
-    const response = await POST(new Request("http://localhost/api/churches", {
+  it.each([
+    ["public_api", POST], ["web", webPost],
+  ] as const)("retains the %s evaluation origin through a saved detail read and background geocoding", async (channel, submit) => {
+    const response = await submit(new Request("http://localhost/api/churches", {
       method: "POST",
-      body: JSON.stringify({ website: "https://example.church" }),
+      body: JSON.stringify({ website: "https://example.church", channel: "mcp" }),
       headers: { "content-type": "application/json" },
     }));
 
@@ -217,9 +224,11 @@ describe("POST /api/churches", () => {
       id: "church-1",
       name: "Example Church",
     });
+    const { operation } = mocks.extractChurchEvaluation.mock.calls[0][1];
+    expect(operation).toMatchObject({ operationId: expect.any(String), channel });
     expect(mocks.transactionClient.churchEvaluation.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        churchId: "church-1",
+        churchId: "church-1", id: operation.operationId, channel, usageEnvironment: expect.any(String), expectedUsageAttempts: 1,
         rawEvaluation: expect.objectContaining({
           metadata: expect.objectContaining({
             model: "gemini-3.6-flash",
@@ -231,9 +240,21 @@ describe("POST /api/churches", () => {
     expect(mocks.after).toHaveBeenCalledTimes(1);
     expect(mocks.geocodeAddress).not.toHaveBeenCalled();
 
+    // A saved detail read through an MCP fixture executes the same read-only
+    // handler, while the paid job keeps the original server entry channel.
+    mocks.prisma.church.findUnique.mockResolvedValueOnce(persistedChurch);
+    const saved = await readSavedChurch(new Request("http://localhost/mcp/churches/church-1"),
+      { params: Promise.resolve({ id: "church-1" }) });
+    expect(saved.status).toBe(200);
+    expect(mocks.extractChurchEvaluation).toHaveBeenCalledTimes(1);
+    expect(mocks.transactionClient.churchEvaluation.create).toHaveBeenCalledTimes(1);
+
     await mocks.afterCallbacks[0]();
 
-    expect(mocks.geocodeAddress).toHaveBeenCalledTimes(1);
+    expect(mocks.geocodeAddress).toHaveBeenCalledExactlyOnceWith(
+      persistedChurch.addresses[0], expect.any(AbortSignal),
+      { operationId: operation.operationId, feature: "church", stage: "geocode", channel },
+    );
     expect(mocks.transactionClient.churchAddress.update).toHaveBeenCalledWith({
       where: { id: "address-1" },
       data: {
@@ -241,6 +262,18 @@ describe("POST /api/churches", () => {
         longitude: -97.7431,
       },
     });
+  });
+
+  it("returns an existing church without starting another evaluation", async () => {
+    mocks.prisma.church.findUnique.mockReset().mockResolvedValueOnce({ id: "church-1" });
+    const response = await webPost(new Request("http://localhost/api/web/churches", {
+      method: "POST",
+      body: JSON.stringify({ website: "https://example.church" }),
+    }));
+    expect(response.status).toBe(409);
+    expect(mocks.extractChurchEvaluation).not.toHaveBeenCalled();
+    expect(mocks.transactionClient.churchEvaluation.create).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
   });
 
   it("returns a controlled timeout before the platform ceiling", async () => {
