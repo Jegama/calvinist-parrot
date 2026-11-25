@@ -2,7 +2,7 @@
 
 ## 2.2.0 — November 25, 2026
 
-- **Evaluation costs.** Admin analytics shows Church Finder and Sermon Evaluator costs by entry channel, including billed retries, external-service fees and coverage for completed evaluations. [#123](https://github.com/Jegama/calvinist-parrot/pull/123)
+- **Evaluation costs.** Admin analytics shows Church Finder and Sermon Evaluator costs by entry channel, including billed retries, external-service fees and coverage for completed evaluations. The dashboard’s time picker now goes from one year to All time. [#123](https://github.com/Jegama/calvinist-parrot/pull/123)
 
 ## 2.1.0 — November 25, 2026
 

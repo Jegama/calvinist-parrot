@@ -188,7 +188,7 @@ export default function AnalyticsDashboard({ report }: { report: AnalyticsReport
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <nav aria-label="Reporting period" className="flex flex-wrap gap-1 rounded-md border bg-card p-1">
-            {reportingPeriods.map(({ days, label }) => (
+            {reportingPeriods.filter(period => period.days !== 730).map(({ days, label }) => (
               <Link prefetch={false} key={days} href={`/admin/analytics?days=${days}`} aria-current={days === period.days ? "page" : undefined}
                 className={`rounded-sm px-3 py-2 text-center text-sm font-medium focus-visible:outline-ring ${days === period.days ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
                 {label}

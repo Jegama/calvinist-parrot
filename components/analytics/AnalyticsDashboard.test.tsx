@@ -51,7 +51,7 @@ describe("admin analytics presentation", () => {
     const text = document.body.textContent ?? "";
     expect(document.querySelector('[aria-current="page"]')?.getAttribute("href")).toBe("/admin/analytics?days=7");
     expect(Array.from(document.querySelectorAll('nav[aria-label="Reporting period"] a'), link => link.getAttribute("href")))
-      .toEqual([7, 30, 90, 180, 365, 730, "all"].map(days => `/admin/analytics?days=${days}`));
+      .toEqual([7, 30, 90, 180, 365, "all"].map(days => `/admin/analytics?days=${days}`));
     expect(document.querySelector('button[type="submit"]')?.textContent).toBe("Refresh");
     const lifetime = new JSDOM(renderToStaticMarkup(<AnalyticsDashboard report={{
       ...report, period: { ...report.period, days: "all", startDay: null, previousStartDay: null, previousEndDay: null },
