@@ -97,7 +97,7 @@ export async function getFeatureReport(window: FeatureWindow): Promise<FeatureRe
         estimatedSpendUsd: combined?.estimatedSpendUsd ?? null,
         costPerCompletionUsd: combined?.costPerCompletionUsd ?? null,
         spendCoverage: chatSpend && combined
-          ? `${combined.partial ? "Partial coverage. " : ""}${combined.measured}/${combined.attempts} attempts measured, ${combined.priced}/${combined.attempts} priced. ${chatSpend.coverageNote}`
+          ? `${combined.partial ? "Partial coverage. " : ""}${combined.measured}/${combined.attempts} attempts measured, ${combined.priced}/${combined.attempts} priced. ${combined.recordedCompletions}/${combined.completions} completed turns with a successful model receipt. ${chatSpend.coverageNote}`
           : "Chat accounting unavailable.",
       };
     }
