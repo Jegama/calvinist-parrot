@@ -1,6 +1,14 @@
+## Plain-language summary
+
+<!-- In at most three sentences, explain what changes and why it matters to someone outside engineering. Omit file paths, code identifiers, and ticket numbers. -->
+
+## Simpler alternative rejected
+
+<!-- What smaller change did you consider, and which acceptance criterion would it miss? If it meets them all, use it. -->
+
 ## Change
 
-<!-- Who is affected, and what changes for them? Include any migration, configuration, access, or privacy implications. -->
+<!-- Include implementation details reviewers need and any migration, configuration, access, or privacy implications. -->
 
 ## Verification
 

@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Follow the [code quality standards](./CONTRIBUTING.md#code-quality-standards) when planning, implementing, and reviewing changes.
+
 ## Project Overview
 
 Calvinist Parrot is an AI-powered theological assistant built with Next.js 16, React 19, and TypeScript. It combines Reformed theology with modern AI to provide biblical guidance through chat, journaling, prayer tracking, kids discipleship, and church discovery features.

@@ -68,6 +68,33 @@ git fetch upstream
 git checkout -b mychange upstream/master
 ```
 
+### Code quality standards
+
+These standards apply to human and AI contributors.
+
+#### Check for duplication during planning
+
+Before implementing a change, search for overlapping functions, types, modules, and utilities. In the plan, list each relevant match and say how you will reuse or extend it. If the search finds no overlap, say where you looked. Start with the feature you are changing. Shared application logic lives in `lib/`, shared UI and hooks in `components/` and `hooks/`, and existing utilities in `utils/`. For Python worker changes, search `services/sermon-evaluator/`.
+
+#### Simplicity is a requirement
+
+> “Any fool can make something complicated. It takes a genius to make it simple.” — attributed to Woody Guthrie
+>
+> “If you can't explain it simply, you don't understand it well enough.” — attributed to Albert Einstein
+
+The simplest design that meets the issue’s acceptance criteria is the correct one. Start every plan and PR description with these two sections, before technical details.
+
+1. **Plain-language summary.** In at most three sentences, explain what changes and why it matters in terms a non-engineer could repeat. Leave out file paths, code identifiers, and ticket numbers.
+2. **Simpler alternative rejected.** Name the smaller change you considered and the specific acceptance criterion it would miss. If it meets every criterion, use it.
+
+Added complexity must serve a current acceptance criterion. For any of the following, the plan must also name a second consumer that already exists or link the GitHub issue that needs it. Without one, choose the smaller design.
+
+- An abstraction, interface, or base class with one implementation.
+- A setting, flag, or option nobody asked to control.
+- A registry, plugin system, or event bus serving one case.
+- A new dependency for a task an existing module or the standard library already handles.
+- A generalization intended only for future use.
+
 ### Making Changes
 
 1. Make your changes to the code.

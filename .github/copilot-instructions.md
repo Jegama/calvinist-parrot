@@ -1,4 +1,7 @@
 # Calvinist Parrot – AI Agent Guide
+
+Follow the [code quality standards](../CONTRIBUTING.md#code-quality-standards) when planning, implementing, and reviewing changes.
+
 ## Overview & Entry Points
 - Next.js 16 App Router with TypeScript and Turbopack; route handlers under `app/api/**`, router pages/layouts under `app/**`.
 - Global providers live in `components/providers/app-providers.tsx`, wrapping `ReactQueryProvider` → `AuthProvider` → theme provider (React Query must wrap Auth so the logout hook can call `queryClient.clear()`).

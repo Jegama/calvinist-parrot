@@ -2,6 +2,8 @@
 
 This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
+Follow the [code quality standards](./CONTRIBUTING.md#code-quality-standards) when planning, implementing, and reviewing changes.
+
 ## Documentation Style
 
 - Do not hard-wrap Markdown prose to a fixed maximum column width. Keep each paragraph and list item on one logical line unless Markdown structure, a code block, or readability genuinely requires a line break.
