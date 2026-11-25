@@ -20,7 +20,7 @@ import { updateUserMemoriesFromConversation } from "@/utils/memoryExtraction";
 import { buildParrotSystemPrompt } from "@/utils/buildParrotSystemPrompt";
 import { getChatActorId, resolveChatActor } from "@/lib/guest";
 import { evaluateRetry } from "@/lib/chat-requests";
-import { chatOperationId, publicChatChannel, recordChatEvents, recordChatReply, type ChatChannel } from "@/lib/chat-analytics";
+import { chatOperationId, recordChatEvents, recordChatReply, type ChatChannel } from "@/lib/chat-analytics";
 import { resolveEffectiveDenomination } from "@/lib/chat-context";
 import {
   getRequestTerminalState,
@@ -1311,7 +1311,7 @@ export async function handleLegacyChatGet(
 
 export async function handleCreateChat(
   request: Request,
-  execute: ChatExecutor = (req, command) => executeChatCommand(req, command, publicChatChannel()),
+  execute: ChatExecutor = (req, command) => executeChatCommand(req, command, "public_api"),
 ) {
   const parsed = await parseJsonRequest(request, createChatRequestSchema);
   if (!parsed.success) {
@@ -1347,7 +1347,7 @@ export async function handleGetChat(
 export async function handleSendChatMessage(
   request: Request,
   chatId: string,
-  execute: ChatExecutor = (req, command) => executeChatCommand(req, command, publicChatChannel()),
+  execute: ChatExecutor = (req, command) => executeChatCommand(req, command, "public_api"),
 ) {
   const parsedParams = getChatParamsSchema.safeParse({ chatId });
   if (!parsedParams.success) {

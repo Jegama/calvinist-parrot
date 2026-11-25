@@ -15,7 +15,7 @@ const heroMetrics = [
 const channelLabels = {
   combined: "All channels",
   web: "Website",
-  public_api: "Direct API",
+  public_api: "Public API (v1)",
   mcp: "MCP",
   unknown: "Unknown",
 };
@@ -68,7 +68,7 @@ function AccountActivity({ report }: { report: AnalyticsReport }) {
     <section aria-labelledby="activity-heading" className="space-y-4">
       <div>
         <h2 id="activity-heading" className="text-2xl font-semibold">Account activity</h2>
-        <p className="text-sm text-muted-foreground">Each signed-in account counts once across qualifying actions. Website, direct API, MCP, and unknown-channel submissions qualify when the account was identified at send time.</p>
+        <p className="text-sm text-muted-foreground">Each signed-in account counts once across qualifying actions. Website, public API, MCP, and unknown-channel submissions qualify when the account was identified at send time.</p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-lg border bg-card p-5">
@@ -124,7 +124,7 @@ function ChatBreakdown({ metrics }: { metrics: AnalyticsReport["metrics"] }) {
       <div>
         <h2 id="channels-heading" className="text-2xl font-semibold">Chat by channel</h2>
         <p className="text-sm text-muted-foreground">Each creation and submission uses its entry channel. A chat active on multiple channels counts once in the combined total.
-          {metrics.coverage.partialChannels && " Website, guest, and direct API counts have partial attribution for this period."}
+          {metrics.coverage.partialChannels && " Website, guest, and public API counts have partial attribution for this period."}
         </p>
       </div>
       <div className="rounded-lg border bg-card p-2 sm:p-4">

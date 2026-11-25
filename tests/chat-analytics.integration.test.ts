@@ -79,11 +79,9 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
   beforeAll(() => {
     pool = new Pool({ connectionString: databaseUrl });
     db = new PrismaClient({ adapter: new PrismaPg(pool) });
-    vi.stubEnv("ANALYTICS_PUBLIC_API_CUTOVER_AT", "2020-01-01T00:00:00Z");
   });
 
   afterAll(async () => {
-    vi.unstubAllEnvs();
     await db.chatAnalyticsEvent.deleteMany({ where: { chatId: { in: chatIds } } });
     await db.chatMessage.deleteMany({ where: { chatId: { in: chatIds } } });
     await db.chatHistory.deleteMany({ where: { id: { in: chatIds } } });
@@ -188,19 +186,18 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
     ]);
   });
 
-  it("leaves the legacy endpoint and pre-cutover public traffic attributed to unknown", async () => {
+  it("attributes new writes by route and ignores a caller-supplied channel", async () => {
     signedInId = null;
-    for (const [route, path, cutoff] of [
-      [createPublicChat, "/api/v1/chats", "2099-01-01T00:00:00Z"],
-      [legacyChat, "/api/parrot-chat", "2020-01-01T00:00:00Z"],
+    for (const [route, path, channel] of [
+      [createPublicChat, "/api/v1/chats", "public_api"],
+      [legacyChat, "/api/parrot-chat", "unknown"],
     ] as const) {
-      vi.stubEnv("ANALYTICS_PUBLIC_API_CUTOVER_AT", cutoff);
       const chatId = newChatId();
       const request = post(path, { clientChatId: chatId, initialQuestion: fixtureQuestion });
       request.headers.set("x-channel", "web");
       expect((await route(request)).ok).toBe(true);
       expect((await receipts(chatId)).map(row => [row.kind, row.channel])).toEqual([
-        ["created", "unknown"], ["submission", "unknown"],
+        ["created", channel], ["submission", channel],
       ]);
     }
   });

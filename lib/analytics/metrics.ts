@@ -144,13 +144,6 @@ export async function getAnalyticsMetrics(window: ReportingWindow, registrations
   if (!chatFrom || chatFrom > window.previousStart || chatFrom > window.activeStarts.monthly) {
     notes.push("Before reliable chat coverage, combined counts include only events recoverable from retained transcripts. Unknown actors also make website guest and active-account counts partial for those dates.");
   }
-  const publicApiFrom = configuredCoverage(process.env.ANALYTICS_PUBLIC_API_CUTOVER_AT);
-  if (!publicApiFrom) {
-    notes.push("Direct API attribution has no confirmed start. Shared v1 traffic is counted under Unknown, so website and direct API counts are partial.");
-  } else if (publicApiFrom > window.start) {
-    const cutover = publicApiFrom.toLocaleString("en-US", { timeZone: reportingTimeZone, dateStyle: "medium", timeStyle: "short" });
-    notes.push(`Direct API attribution begins ${cutover} (${reportingTimeZone}). Earlier shared v1 traffic is counted under Unknown, so website and direct API counts are partial for those dates.`);
-  }
   if (!receiptsFrom || receiptsFrom > window.activeStarts.monthly) notes.push("Journal and sermon activity before durable collection includes only retained records with a known account.");
   if (!chatActivity || !otherActivity) notes.push("Some signed-in action data is unavailable. Active counts reflect available sources and activation is unavailable.");
   if (!coverageFrom) notes.push("The start of full action coverage is unconfirmed. Seven-day activation is unavailable.");
@@ -166,7 +159,7 @@ export async function getAnalyticsMetrics(window: ReportingWindow, registrations
     coverage: {
       chat: chatFrom?.toISOString() ?? null, journal: receiptsFrom?.toISOString() ?? null, sermon: receiptsFrom?.toISOString() ?? null,
       partialChatComparison: !chatFrom || chatFrom > window.previousStart,
-      partialChannels: !chatFrom || chatFrom > window.start || !publicApiFrom || publicApiFrom > window.start,
+      partialChannels: !chat || !chatFrom || chatFrom > window.start || chat.some(row => row.selected && row.scope === "unknown"),
       partialActive: !chatActivity || !otherActivity || !coverageFrom || coverageFrom > window.activeStarts.monthly,
     }, notes,
   };

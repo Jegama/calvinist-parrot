@@ -4,12 +4,6 @@ import type { ChatActor } from "@/lib/guest";
 
 export type ChatChannel = "web" | "public_api" | "mcp" | "unknown";
 
-export function publicChatChannel(): ChatChannel {
-  const cutover = process.env.ANALYTICS_PUBLIC_API_CUTOVER_AT;
-  if (!cutover || !/(Z|[+-]\d\d:\d\d)$/i.test(cutover)) return "unknown";
-  return Date.now() >= Date.parse(cutover) ? "public_api" : "unknown";
-}
-
 // Keep a single opaque turn ID across the creation, auto-trigger, retries and
 // persisted reply, even when the caller supplied its own request ID.
 export function chatOperationId(chatId: string, requestId: string) {
