@@ -113,6 +113,7 @@ async function generateStructuredResponse<T>({
         thinkingConfig: { thinkingLevel },
       },
     }, churchUsageStage(operation, label));
+    operation.expectedUsageAttempts += 1;
     return response.data;
   } catch (error) {
     if (

@@ -135,6 +135,7 @@ async function meteredTavilyCall<T extends { usage?: { credits: number } }>(
   if (!operation) return call();
   const attempt = startExternalUsageAttempt(churchUsageStage(operation, stage), "tavily", "credit");
   await recordExternalUsageAttempt(attempt, "started", 0, null);
+  operation.expectedUsageAttempts += 1;
   try {
     const response = await call();
     await recordExternalUsageAttempt(attempt, "success", Date.now() - attempt.startedAt.getTime(), response.usage?.credits ?? null);

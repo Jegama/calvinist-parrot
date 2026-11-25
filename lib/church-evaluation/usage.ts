@@ -12,9 +12,6 @@ export function newChurchEvaluationOperation(channel: ChatChannel): ChurchEvalua
   return { operationId: randomUUID(), channel, expectedUsageAttempts: 0 };
 }
 
-// Count each initiated call, including optional enrichment. This independent
-// completion count makes a missing usage write visible in the dashboard.
 export function churchUsageStage(operation: ChurchEvaluationOperation, stage: string): UsageContext {
-  operation.expectedUsageAttempts += 1;
   return { feature: "church", operationId: operation.operationId, channel: operation.channel, stage };
 }

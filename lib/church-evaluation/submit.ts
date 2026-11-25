@@ -293,7 +293,7 @@ export async function evaluateChurch(request: Request, channel: ChatChannel) {
               id: operation.operationId,
               channel,
               usageEnvironment: providerUsageEnvironment(),
-              expectedUsageAttempts: operation.expectedUsageAttempts,
+              expectedUsageAttempts: operation.expectedUsageAttempts + geocodingTasks.length,
               ...evaluationData,
             },
           });

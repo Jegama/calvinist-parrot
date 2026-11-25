@@ -3,6 +3,7 @@ import { once } from "node:events";
 import type { AddressInfo } from "node:net";
 import { tavily } from "@tavily/core";
 import { describe, expect, it, vi } from "vitest";
+import { recordExternalUsageAttempt } from "@/lib/provider-usage";
 
 import {
   CHURCH_CRAWL_INSTRUCTIONS,
@@ -13,8 +14,10 @@ import {
   toChurchContentBlocks,
 } from "./crawl";
 
-const db = vi.hoisted(() => ({ upsert: vi.fn() }));
-vi.mock("@/lib/prisma", () => ({ default: { providerCallAttempt: db } }));
+vi.mock("@/lib/provider-usage", async (original) => ({
+  ...await original<typeof import("@/lib/provider-usage")>(),
+  recordExternalUsageAttempt: vi.fn(),
+}));
 
 describe("church source preparation", () => {
   it("respects Tavily's 400-character instructions limit", () => {
@@ -91,7 +94,9 @@ describe("church source preparation", () => {
       expect(operation.expectedUsageAttempts).toBe(5);
       expect(bodies).toHaveLength(5);
       expect(bodies.every(body => body.include_usage)).toBe(true);
-      const attempts = db.upsert.mock.calls.map(([{ create }]) => create).filter(receipt => receipt.outcome !== "started");
+      const attempts = vi.mocked(recordExternalUsageAttempt).mock.calls
+        .map(([attempt, outcome, , quantity]) => ({ ...attempt, outcome, quantity }))
+        .filter(receipt => receipt.outcome !== "started");
       expect(new Set(attempts.map(receipt => receipt.attemptId)).size).toBe(5);
       for (const attempt of attempts) {
         expect(attempt).toMatchObject({ feature: "church", operationId: operation.operationId, channel: "public_api", provider: "tavily", billingUnit: "credit" });
@@ -104,6 +109,28 @@ describe("church source preparation", () => {
     } finally {
       server.close();
       await once(server, "close");
+    }
+  });
+
+  it("counts only dispatched Tavily calls when optional extraction cannot save its marker", async () => {
+    const website = "https://example.church";
+    const client = {
+      ...tavily({ apiKey: "fixture" }),
+      crawl: vi.fn().mockResolvedValue({ baseUrl: website, results: [{ url: website, rawContent: "Page" }], usage: { credits: 3 } }),
+      extract: vi.fn(),
+    };
+    const operation = { operationId: "optional-extraction", channel: "web", expectedUsageAttempts: 0 } as const;
+    vi.mocked(recordExternalUsageAttempt).mockImplementation(async (attempt, outcome) => {
+      if (attempt.stage !== "crawl" && outcome === "started") throw new Error("Could not record request before dispatch");
+    });
+    try {
+      await expect(crawlChurchSite(website, client, { operation })).resolves.toMatchObject({ base_url: website });
+      await expect(extractChurchPage(website, client, undefined, operation)).rejects.toThrow("before dispatch");
+      expect(client.crawl).toHaveBeenCalledTimes(1);
+      expect(client.extract).not.toHaveBeenCalled();
+      expect(operation.expectedUsageAttempts).toBe(1);
+    } finally {
+      vi.mocked(recordExternalUsageAttempt).mockReset();
     }
   });
 
