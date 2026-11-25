@@ -121,6 +121,22 @@ export async function GET() {
   return NextResponse.json(unifiedRequests);
 }
 
+async function findLinkableJournalEntry(id: string, userId: string, spaceId: string) {
+  const entry = await prisma.journalEntry.findUnique({
+    where: { id },
+    select: { id: true, entryType: true, spaceId: true, authorProfileId: true },
+  });
+  if (!entry) return null;
+  if (entry.entryType === "DISCIPLESHIP") return entry.spaceId === spaceId ? entry : null;
+
+  // A personal entry can predate household membership and belongs to its author.
+  const author = await prisma.userProfile.findUnique({
+    where: { id: entry.authorProfileId, appwriteUserId: userId },
+    select: { id: true },
+  });
+  return author ? entry : null;
+}
+
 /**
  * POST /api/prayer-tracker/requests
  * Creates a request - routes to either prayerPersonalRequest or prayerFamilyRequest
@@ -169,23 +185,9 @@ export async function POST(request: Request) {
   const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId } });
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
 
-  // Phase 4: Validate linkedJournalEntryId belongs to the same household
-  let validatedEntryId: string | null = null;
-  let linkedEntryType: string | null = null;
-  if (linkedJournalEntryId) {
-    const entry = await prisma.journalEntry.findFirst({
-      where: {
-        id: linkedJournalEntryId,
-        spaceId: membership.spaceId, // Must belong to same household
-      },
-      select: { id: true, entryType: true },
-    });
-    if (entry) {
-      validatedEntryId = entry.id;
-      linkedEntryType = entry.entryType;
-    }
-    // If entry doesn't exist or belongs to different household, silently ignore (don't block creation)
-  }
+  const linkedEntry = linkedJournalEntryId
+    ? await findLinkableJournalEntry(linkedJournalEntryId, authenticatedUserId, membership.spaceId)
+    : null;
 
   // Route to appropriate table based on linkedToFamily
   if (linkedToFamily === "household" || !linkedToFamily) {
@@ -198,14 +200,14 @@ export async function POST(request: Request) {
           notes: notes || null,
           linkedScripture: linkedScripture || null,
           requesterMemberId: membership.id,
-          linkedJournalEntryId: validatedEntryId,
+          linkedJournalEntryId: linkedEntry?.id ?? null,
           subjectMemberId: subjectMemberId || null,
         },
       });
       // Both journal suggestion panels save household requests with a validated source entry.
-      if (validatedEntryId && linkedEntryType) {
-        const feature = linkedEntryType === "PERSONAL" ? "personal_journal" : "heritage_journal";
-        await recordJournalFollowOn(tx, feature, "prayer_saved", validatedEntryId);
+      if (linkedEntry) {
+        const feature = linkedEntry.entryType === "PERSONAL" ? "personal_journal" : "heritage_journal";
+        await recordJournalFollowOn(tx, feature, "prayer_saved", linkedEntry.id);
       }
       return saved;
     });
@@ -222,7 +224,7 @@ export async function POST(request: Request) {
       familyId: null,
       familyName: null,
       linkedJournalEntryId: created.linkedJournalEntryId,
-      linkedEntryType,
+      linkedEntryType: linkedEntry?.entryType ?? null,
       subjectMemberId: created.subjectMemberId,
     });
   } else {
@@ -243,7 +245,7 @@ export async function POST(request: Request) {
         requestText,
         notes: notes || null,
         linkedScripture: linkedScripture || null,
-        linkedJournalEntryId: validatedEntryId,
+        linkedJournalEntryId: linkedEntry?.id ?? null,
       },
     });
 
@@ -259,7 +261,7 @@ export async function POST(request: Request) {
       familyId: created.familyId,
       familyName: family.familyName,
       linkedJournalEntryId: created.linkedJournalEntryId,
-      linkedEntryType,
+      linkedEntryType: linkedEntry?.entryType ?? null,
     });
   }
 }

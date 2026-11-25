@@ -164,7 +164,49 @@ describe.skipIf(!databaseUrl)("structured generation through the HTTP handlers a
       method: "POST", body: JSON.stringify({ requestText: "Grow in patience", linkedToFamily: "household", linkedJournalEntryId: entryId }),
     }));
     expect(response.ok).toBe(true);
+    return response.json();
   }
+
+  it("links a ready Personal Journal reflection after its author joins a household", async () => {
+    invalidStage = undefined;
+    const member = await db.prayerMember.findFirstOrThrow({ where: { appwriteUserId: userId } });
+    await db.prayerMember.update({ where: { id: member.id }, data: { appwriteUserId: null } });
+    let entryId: string;
+    try {
+      const events = await readEvents(await createPersonal(request()));
+      entryId = events[0].entry.id;
+      operationIds.push(entryId);
+      expect(events.at(-1)?.type).toBe("done");
+      await expect(db.journalEntry.findUniqueOrThrow({ where: { id: entryId } })).resolves.toMatchObject({ spaceId: null });
+    } finally {
+      await db.prayerMember.update({ where: { id: member.id }, data: { appwriteUserId: userId } });
+    }
+
+    await expect(saveSuggestedPrayer(entryId)).resolves.toMatchObject({ linkedJournalEntryId: entryId, linkedEntryType: "PERSONAL" });
+    expect(await engagement("personal_journal", entryId)).toEqual(["prayer_saved", "reflection_ready", "saved"]);
+  });
+
+  it("omits links to another member's private entry and another household's Heritage entry", async () => {
+    const otherSpace = await db.prayerFamilySpace.create({
+      data: { spaceName: "Other household", shareCode: randomUUID(), createdByUserId: userId },
+    });
+    const otherAuthor = await db.userProfile.create({ data: { appwriteUserId: randomUUID(), displayName: "Other author" } });
+    try {
+      const privateEntry = await db.journalEntry.create({
+        data: { authorProfileId: otherAuthor.id, spaceId, entryType: "PERSONAL", entryText: text, tags: [] },
+      });
+      const heritage = await db.journalEntry.create({
+        data: { authorProfileId: profileId, spaceId: otherSpace.id, entryType: "DISCIPLESHIP", entryText: text, tags: [] },
+      });
+      for (const id of [privateEntry.id, heritage.id]) {
+        await expect(saveSuggestedPrayer(id)).resolves.toMatchObject({ linkedJournalEntryId: null, linkedEntryType: null });
+      }
+    } finally {
+      await db.journalEntry.deleteMany({ where: { OR: [{ authorProfileId: otherAuthor.id }, { spaceId: otherSpace.id }] } });
+      await db.userProfile.delete({ where: { id: otherAuthor.id } });
+      await db.prayerFamilySpace.delete({ where: { id: otherSpace.id } });
+    }
+  });
 
   it.each(features)("recovers $feature and counts both attempts at the failed stage", async ({ feature, create, retry, failing, stage, stages }) => {
     invalidStage = failing;
