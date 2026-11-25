@@ -47,3 +47,16 @@ it("withholds an estimate if the Gemini total proves a missing billable componen
   expect(normalizeUsage("gemini", { promptTokenCount: 36, candidatesTokenCount: 5, totalTokenCount: 60 }))
     .toMatchObject({ inputTokens: 36, candidateTokens: 5, outputTokens: null, providerTotalTokens: 60 });
 });
+
+it("normalizes OpenAI Responses and Chat Completions without double charging cached input or reasoning", () => {
+  expect(normalizeUsage("openai", {
+    input_tokens: 100, output_tokens: 30, total_tokens: 130, service_tier: "default",
+    input_tokens_details: { cached_tokens: 20, cache_write_tokens: 10, cache_write_tokens_details: { ttl_30m_tokens: 6, ttl_12h_tokens: 4 } },
+    output_tokens_details: { reasoning_tokens: 14 },
+  })).toMatchObject({ inputTokens: 70, cacheReadTokens: 20, cacheWriteTokens: 10, cacheWrite30mTokens: 6, cacheWrite12hTokens: 4, outputTokens: 30, thinkingTokens: 14, serviceTier: "default" });
+  expect(normalizeUsage("openai", {
+    prompt_tokens: 50, completion_tokens: 5, total_tokens: 55,
+    prompt_tokens_details: { cached_tokens: 8, cache_write_tokens: 5, cache_write_tokens_details: { ttl_30m_tokens: 2, ttl_12h_tokens: 3 } },
+  })).toMatchObject({ inputTokens: 37, cacheReadTokens: 8, cacheWriteTokens: 5, cacheWrite30mTokens: 2, cacheWrite12hTokens: 3, outputTokens: 5 });
+  expect(normalizeUsage("openai", { prompt_tokens: 50 })).toMatchObject({ inputTokens: 50, outputTokens: null, cacheWrite30mTokens: null, cacheWrite12hTokens: null });
+});

@@ -4,12 +4,16 @@ const session = vi.hoisted(() => ({ secret: "", labels: [] as string[] }));
 const report = vi.hoisted(() => vi.fn(async (days: number) => ({ period: { days } })));
 vi.mock("@/lib/analytics/report", () => ({
   loadAnalyticsReport: report,
+  analyticsReportTag: "admin-analytics-snapshots",
 }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => new Map(session.secret ? [["a_session_test-admin", { value: session.secret }]] : []),
 }));
 vi.mock("@/components/analytics/AnalyticsDashboard", () => ({ default: () => null }));
+
+const cache = vi.hoisted(() => ({ updateTag: vi.fn(), refresh: vi.fn() }));
+vi.mock("next/cache", () => cache);
 
 const request = new Request("http://local.test/api/admin/analytics?days=730");
 const props = { searchParams: Promise.resolve({ days: "730" }) };
@@ -57,4 +61,21 @@ it("checks the current session and label on every page and API request, includin
   await expectApi(403);
   expect(report).toHaveBeenCalledTimes(2);
   expect(fetch).toHaveBeenCalledTimes(6);
+});
+
+it("allows only a current analytics admin to invalidate and refresh snapshots", async () => {
+  const { refreshAnalytics } = await import("@/app/admin/analytics/actions");
+  await expect(refreshAnalytics()).rejects.toMatchObject({ digest: expect.stringContaining("NEXT_REDIRECT") });
+  session.secret = "session";
+  await expect(refreshAnalytics()).rejects.toMatchObject({ digest: expect.stringContaining("404") });
+  expect(cache.updateTag).not.toHaveBeenCalled();
+
+  session.labels = ["analyticsadmin"];
+  await refreshAnalytics();
+  expect(cache.updateTag).toHaveBeenCalledExactlyOnceWith("admin-analytics-snapshots");
+  expect(cache.refresh).toHaveBeenCalledOnce();
+
+  session.labels = [];
+  await expect(refreshAnalytics()).rejects.toMatchObject({ digest: expect.stringContaining("404") });
+  expect(cache.updateTag).toHaveBeenCalledOnce();
 });

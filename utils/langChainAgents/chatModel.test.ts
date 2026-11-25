@@ -12,6 +12,9 @@ import { z } from "zod";
 
 import { createParrotChatModel } from "./chatModel";
 
+const { upsert } = vi.hoisted(() => ({ upsert: vi.fn() }));
+vi.mock("@/lib/prisma", () => ({ default: { providerCallAttempt: { upsert } } }));
+
 const credentials = {
   ANTHROPIC_API_KEY: "test-anthropic-key",
   GEMINI_API_KEY: "test-gemini-key",
@@ -155,6 +158,7 @@ describe("Parrot chat model", () => {
     if (!(model instanceof ChatAnthropic))
       throw new Error("Expected Anthropic");
 
+    upsert.mockClear();
     const fetchMock = vi.fn<typeof fetch>();
     // Exercise the real SDK and LangChain adapters against local SSE fixtures.
     model.clientOptions = { fetch: fetchMock };
@@ -232,7 +236,7 @@ describe("Parrot chat model", () => {
           new HumanMessage("Show me Ephesians 2:8."),
         ],
       },
-      { streamMode: ["updates", "messages", "custom"] },
+      { streamMode: ["updates", "messages", "custom"], configurable: { chatUsage: { operationId: "fixture-turn" } } },
     );
     let visibleText = "";
     for await (const [mode, chunk] of stream) {
@@ -253,6 +257,13 @@ describe("Parrot chat model", () => {
     expect(lookup).toHaveBeenCalledOnce();
     expect(lookup.mock.calls[0]?.[0]).toEqual({ reference: "Ephesians 2:8" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    const receipts = upsert.mock.calls.map(([write]) => write.create).filter(receipt => receipt.outcome !== "started");
+    expect(receipts).toHaveLength(2);
+    expect(new Set(receipts.map(r => r.attemptId)).size).toBe(2);
+    for (const receipt of receipts) expect(receipt).toMatchObject({
+      operationId: "fixture-turn", stage: "agent", provider: "anthropic", returnedModel: modelName,
+      inputTokens: 20, outputTokens: 20, isRetry: false, outcome: "success",
+    });
     const requests = fetchMock.mock.calls.map(([, init]) =>
       JSON.parse(String(init?.body)),
     );
@@ -298,5 +309,53 @@ describe("Parrot chat model", () => {
         },
       ],
     });
+  });
+});
+
+it("records each HTTP retry inside a single Haiku invocation and keeps the reported failure cost", async () => {
+  upsert.mockClear();
+  const model = createParrotChatModel(credentials);
+  if (!(model instanceof ChatAnthropic)) throw new Error("Expected Anthropic");
+  const failed = new Response(JSON.stringify({
+    type: "error", error: { type: "overloaded_error", message: "retry" },
+    usage: { input_tokens: 19, output_tokens: 2 }, model: "claude-haiku-5-5",
+  }), { status: 500, headers: { "Content-Type": "application/json" } });
+  const success = streamedResponse([{ start: { type: "text", text: "" }, deltas: [{ type: "text_delta", text: "Answer" }] }], "end_turn");
+  model.clientOptions = { fetch: vi.fn<typeof fetch>().mockResolvedValueOnce(failed).mockResolvedValueOnce(success) };
+  const agent = createAgent({ model, tools: [] });
+  await agent.invoke({ messages: [new HumanMessage("Show me Psalm 23.")] }, {
+    configurable: { chatUsage: { operationId: "fixture-retry" } },
+  });
+  const receipts = upsert.mock.calls.map(([write]) => write.create).filter(receipt => receipt.outcome !== "started");
+  expect(receipts).toMatchObject([
+    { isRetry: false, inputTokens: 19, outputTokens: 2, outcome: "provider_error" },
+    { isRetry: true, inputTokens: 20, outputTokens: 20, outcome: "success" },
+  ]);
+  expect(new Set(receipts.map(r => r.attemptId)).size).toBe(2);
+});
+
+it("keeps received input and unknown final output when Haiku disconnects during generation", async () => {
+  upsert.mockClear();
+  const model = createParrotChatModel(credentials);
+  if (!(model instanceof ChatAnthropic)) throw new Error("Expected Anthropic");
+  const start = { type: "message_start", message: {
+    type: "message", role: "assistant", content: [], model: "claude-haiku-5-5",
+    usage: { input_tokens: 13, output_tokens: 0 },
+  } };
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(`event: message_start\ndata: ${JSON.stringify(start)}\n\n`));
+    },
+    pull(controller) { controller.error(new Error("synthetic disconnect")); },
+  });
+  model.clientOptions = { fetch: vi.fn<typeof fetch>().mockResolvedValue(
+    new Response(body, { headers: { "Content-Type": "text/event-stream" } }),
+  ) };
+  const agent = createAgent({ model, tools: [] });
+  await expect(agent.invoke({ messages: [new HumanMessage("Show me Psalm 23.")] }, {
+    configurable: { chatUsage: { operationId: "fixture-aborted" } },
+  })).rejects.toThrow();
+  expect(upsert.mock.lastCall?.[0].create).toMatchObject({
+    operationId: "fixture-aborted", inputTokens: 13, outputTokens: null, outcome: "provider_error",
   });
 });

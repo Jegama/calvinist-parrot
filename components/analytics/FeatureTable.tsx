@@ -2,6 +2,7 @@ import type { AnalyticsReport } from "@/lib/analytics/report";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ExternalLink } from "lucide-react";
 import { moneyLabel, numberLabel } from "./format";
+import ChatCostDetails from "./ChatCostDetails";
 
 export default function FeatureTable({ features }: { features: AnalyticsReport["features"] }) {
   return (
@@ -49,6 +50,7 @@ export default function FeatureTable({ features }: { features: AnalyticsReport["
           </TableBody>
         </Table>
       </div>
+      {features.chatSpend && <ChatCostDetails report={features.chatSpend} />}
       <p className="text-sm text-muted-foreground">{features.actionCoverage}</p>
     </section>
   );

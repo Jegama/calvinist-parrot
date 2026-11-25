@@ -5,6 +5,7 @@ import type { Document } from "@langchain/core/documents";
 import { PGVectorStore } from "@langchain/pgvector";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { getToolProgressWriter } from "@/utils/langChainAgents/tools/toolProgress";
+import { ChatUsageCaller } from "../chatUsage";
 
 const TABLE_NAME = "data_ccel_vector_store";
 const TOOL_NAME = "CCEL Retrieval";
@@ -59,9 +60,11 @@ async function getVectorStore() {
   }
 
   if (!vectorStorePromise) {
-    const embeddings = new OpenAIEmbeddings({
-      model: "text-embedding-3-small",
-    });
+    const embeddings = new OpenAIEmbeddings({ model: "text-embedding-3-small" });
+    // The caller wraps each provider request inside the SDK's batching and
+    // preserves OpenAIEmbeddings' default limit of two concurrent requests.
+    embeddings.caller = new ChatUsageCaller({ provider: "openai", model: embeddings.model },
+      "ccel_embedding", { maxConcurrency: 2 });
 
     vectorStorePromise = PGVectorStore.initialize(embeddings, {
       postgresConnectionOptions: {

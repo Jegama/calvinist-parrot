@@ -812,6 +812,7 @@ model ProviderCallAttempt {
   stage               String
   startedAt           DateTime  @db.Timestamptz(3)
   durationMs          Int
+  isRetry             Boolean   @default(false)
   environment         String
   provider            String
   requestedModel      String
@@ -822,6 +823,8 @@ model ProviderCallAttempt {
   inputTokens         Int?
   cacheReadTokens     Int?
   cacheWriteTokens    Int?
+  cacheWrite30mTokens Int?
+  cacheWrite12hTokens Int?
   cacheWrite5mTokens  Int?
   cacheWrite1hTokens  Int?
   outputTokens        Int?

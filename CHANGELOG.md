@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Chat costs and dashboard history.** Admins can see estimated chat spend per completed turn by channel, inspect retry and stage costs, and view all-time totals and cumulative growth. Dashboard reports refresh at Chicago midnight or on demand. [Issue #98](https://github.com/Jegama/calvinist-parrot/issues/98)
+
 - **Admin analytics.** Accounts with the `analyticsadmin` label can open the dashboard from their profile to track chat and account growth on daily line charts and view guest activity, activation, feature usage, and estimated AI spend over periods from seven days to two years. [#121](https://github.com/Jegama/calvinist-parrot/pull/121)
 - **Form visibility.** Light-mode fields have clearer outlines and keyboard focus. Prayer Tracker’s family directory has a larger mobile search field with a search icon. [#121](https://github.com/Jegama/calvinist-parrot/pull/121)
 

@@ -88,11 +88,13 @@ For the database workflow, CI/CD notes, and testing recommendations, see [Local 
 
 ### Admin analytics
 
-Accounts with the Appwrite label `analyticsadmin` can open **Analytics dashboard** from their profile or read aggregate JSON at `/api/admin/analytics`. Both `/admin/analytics` and the API accept `?days=` with 7 (default), 30, 90, 180, 365, or 730 days. Each period ends on the last completed day in America/Chicago and is compared with the preceding period of equal length.
+Accounts with the Appwrite label `analyticsadmin` can open **Analytics dashboard** from their profile or read aggregate JSON at `/api/admin/analytics`. Both `/admin/analytics` and the API accept `?days=` with 7 (default), 30, 90, 180, 365, 730, or `all`. Fixed periods compare completed America/Chicago days with the preceding period of equal length. **All time** includes available history through the displayed snapshot time, including today. Each reporting window reuses its aggregate snapshot until the next Chicago midnight. **Refresh** obtains a fresh snapshot and expires cached snapshots for the other windows. Access is checked on every request.
+
+Chat cost follows the Chicago date of the original submission. A visible reply completes that turn once, and later provider attempts, including retries and background memory extraction, accrue to it. Open **Chat cost details** for channel totals, retry spend, token counts and stage/model costs. Work with no matching submission is reported separately by attempt date. Estimates use standard published token prices. Coverage identifies missing usage or unsupported pricing, including history before collection.
 
 Registration counts use a server-only `APPWRITE_ANALYTICS_READ_KEY` with the `users.read` scope. Production pageviews use `VERCEL_PROJECT_ID` and a server-only token (`VERCEL_ANALYTICS_TOKEN` or `VERCEL_TOKEN`). Set `VERCEL_TEAM_ID` to explicitly scope the request to a team. The dashboard labels unavailable sources and shows the remaining metrics. See the [environment template](./.env.template) for configuration.
 
-Deleting an individual chat or journal entry leaves its content-free activity records in place. When fulfilling an account deletion request, include the account’s chat and action records and any journal completion and provider records linked to its entry or revision IDs.
+Deleting an individual chat or journal entry leaves its content-free activity records in place. When fulfilling an account deletion request, include the account’s chat and action records and any journal completion and provider records linked to its entry or revision IDs. Delete chat provider receipts linked by operation ID to the account’s chat events before removing those events.
 
 ### Chat model configuration
 
