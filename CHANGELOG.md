@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.0 — November 25, 2026
+
+- **Account usernames.** New password accounts choose a username and enter first and last names. Existing members can keep signing in by email or Google, then claim or change their username and names from Profile. [#126](https://github.com/Jegama/calvinist-parrot/pull/126)
+
 ## 2.3.0 — November 25, 2026
 
 - **Feature engagement.** Analytics administrators can see how often a chat reaches a follow-up, a devotional holds a reader’s attention, or a generated report is opened. The feature table includes matched website steps, coverage dates, and separate API and MCP outcomes. [#124](https://github.com/Jegama/calvinist-parrot/pull/124)

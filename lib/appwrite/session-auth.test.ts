@@ -1,3 +1,5 @@
+import { createServer, type IncomingHttpHeaders } from "node:http";
+import type { AddressInfo } from "node:net";
 import { afterEach, expect, it, vi } from "vitest";
 
 vi.mock("next/headers", () => ({
@@ -5,32 +7,42 @@ vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "user-agent": "test-browser" }),
 }));
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.unstubAllEnvs();
-});
+afterEach(() => vi.unstubAllEnvs());
 
-it("authenticates the request through Appwrite using its project session cookie", async () => {
-  vi.stubEnv("APPWRITE_ENDPOINT", "http://localhost/v1");
-  vi.stubEnv("APPWRITE_PROJECT_ID", "test-project");
-  vi.stubEnv("APPWRITE_API_KEY", "test-admin-key");
-  const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ $id: "reader" }));
-  vi.stubGlobal("fetch", transport);
+it("authenticates through the Node SDK using only the project session cookie", async () => {
+  const requests: Array<{ method?: string; url?: string; headers: IncomingHttpHeaders }> = [];
+  let status = 200;
+  const server = createServer((req, res) => {
+    requests.push({ method: req.method, url: req.url, headers: req.headers });
+    res.writeHead(status, { "content-type": "application/json" });
+    res.end(JSON.stringify(status === 200 ? { $id: "reader" } : { message: "Expired session" }));
+  });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const { port } = server.address() as AddressInfo;
+    vi.stubEnv("APPWRITE_ENDPOINT", `http://127.0.0.1:${port}/v1`);
+    vi.stubEnv("APPWRITE_PROJECT_ID", "test-project");
+    vi.stubEnv("APPWRITE_API_KEY", "test-admin-key");
 
-  const { requireAuthenticatedUser } = await import("@/lib/auth");
-  expect(await requireAuthenticatedUser()).toMatchObject({ userId: "reader", errorResponse: null });
+    const { requireAuthenticatedUser } = await import("@/lib/auth");
+    expect(await requireAuthenticatedUser()).toMatchObject({ userId: "reader", errorResponse: null });
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      method: "GET", url: "/v1/account",
+      headers: {
+        "x-appwrite-session": "test-session",
+        "x-appwrite-project": "test-project",
+        "x-forwarded-user-agent": "test-browser",
+      },
+    });
+    expect(requests[0].headers["x-appwrite-key"]).toBeUndefined();
 
-  expect(transport).toHaveBeenCalledTimes(1);
-  const request = new Request(...transport.mock.calls[0]);
-  expect(request.method).toBe("GET");
-  expect(request.url).toBe("http://localhost/v1/account");
-  expect(request.headers.get("x-appwrite-session")).toBe("test-session");
-  expect(request.headers.get("x-appwrite-project")).toBe("test-project");
-  expect(request.headers.get("x-forwarded-user-agent")).toBe("test-browser");
-  expect(request.headers.has("x-appwrite-key")).toBe(false);
-
-  transport.mockResolvedValue(Response.json({ message: "Expired session" }, { status: 401 }));
-  const denied = await requireAuthenticatedUser();
-  expect(denied.userId).toBe("");
-  expect(denied.errorResponse?.status).toBe(401);
+    status = 401;
+    const denied = await requireAuthenticatedUser();
+    expect(denied.userId).toBe("");
+    expect(denied.errorResponse?.status).toBe(401);
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
 });

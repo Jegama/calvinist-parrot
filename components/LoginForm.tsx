@@ -5,19 +5,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/hooks/use-auth";
-
-type LoginResponse = {
-  error?: string;
-  user?: Parameters<ReturnType<typeof useAuth>["setUser"]>[0];
-};
+import { useAuth, type AuthResponse } from "@/hooks/use-auth";
 
 export function LoginForm() {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
@@ -43,16 +38,16 @@ export function LoginForm() {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ identifier, password }),
       });
 
-      const payload = (await response.json()) as LoginResponse;
+      const payload = (await response.json()) as AuthResponse;
 
       if (!response.ok || !payload.user) {
         throw new Error(payload.error || "Login failed.");
       }
 
-      setUser(payload.user);
+      setUser(payload.user, payload.profile?.displayName);
       router.push("/");
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -60,7 +55,7 @@ export function LoginForm() {
       } else {
         setErrorMessage("An unknown error occurred.");
       }
-    }    
+    }
   };
 
   const handleGoogleLogin = () => {
@@ -72,22 +67,22 @@ export function LoginForm() {
       <Card className="mx-auto max-w-sm mt-10">
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
-            Enter your email and password to login to your account.
-          </CardDescription>
         </CardHeader>
         <CardContent>
-          {errorMessage && <p className="text-destructive mb-4">{errorMessage}</p>}
+          {errorMessage && <p role="alert" className="text-destructive mb-4">{errorMessage}</p>}
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="identifier">Email or username</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
+                id="identifier"
+                name="identifier"
+                type="text"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
@@ -99,7 +94,9 @@ export function LoginForm() {
               </div>
               <Input
                 id="password"
+                name="password"
                 type="password"
+                autoComplete="current-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

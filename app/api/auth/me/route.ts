@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { clearAppwriteSessionCookie, toSerializableUser } from "@/lib/appwrite/server";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { getUserProfileByAppwriteId } from "@/lib/user-profile";
+import { getUserProfileForAppwriteUser } from "@/lib/user-profile";
 
 export async function GET() {
   const user = await getAuthenticatedUser();
@@ -13,7 +13,7 @@ export async function GET() {
     return response;
   }
 
-  const profile = await getUserProfileByAppwriteId(user.$id);
+  const profile = await getUserProfileForAppwriteUser(user);
 
   return NextResponse.json({
     authenticated: true,

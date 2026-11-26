@@ -1,11 +1,12 @@
-import { Account } from "appwrite";
+import { Account } from "node-appwrite";
 import { NextResponse } from "next/server";
 
 import {
   applyAppwriteSessionCookie,
   AUTH_INTENT_COOKIE,
   createAdminAppwriteClient,
-  createSessionAppwriteClient,
+  discardAppwriteSession,
+  getVerifiedSessionUser,
   GUEST_ID_COOKIE,
   getAppUrl,
   getForwardedUserAgent,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/appwrite/server";
 import { transferGuestChatsToUser } from "@/lib/chat-transfer";
 import { getGuestId } from "@/lib/guest";
-import { getUserProfileByAppwriteId, upsertUserProfileFromAppwriteUser } from "@/lib/user-profile";
+import { getUserProfileForAppwriteUser, upsertUserProfileFromAppwriteUser } from "@/lib/user-profile";
 
 function buildFailureRedirect(request: Request, destination: "login" | "register", reason: string) {
   const url = new URL(`${getAppUrl(request)}/${destination}`);
@@ -33,22 +34,19 @@ export async function GET(request: Request) {
     return NextResponse.redirect(buildFailureRedirect(request, authIntent === "signup" ? "register" : "login", "missing_credentials"));
   }
 
+  let unissuedSession: string | undefined;
   try {
     const guestId = await getGuestId();
     const forwardedUserAgent = await getForwardedUserAgent();
     const adminAccount = new Account(createAdminAppwriteClient(forwardedUserAgent));
-    const existingProfile = await getUserProfileByAppwriteId(userId);
-    const session = await adminAccount.createSession(userId, secret);
+    const session = await adminAccount.createSession({ userId, secret });
 
-    if (!session.secret) {
-      throw new Error("Appwrite did not return a session secret.");
-    }
-
-    const sessionAccount = new Account(createSessionAppwriteClient(session.secret, forwardedUserAgent));
-    const user = await sessionAccount.get();
+    const user = await getVerifiedSessionUser(session, forwardedUserAgent, userId);
+    unissuedSession = session.secret;
+    const transferGuest = authIntent === "signup" && guestId && !(await getUserProfileForAppwriteUser(user));
     await upsertUserProfileFromAppwriteUser(user);
 
-    if (authIntent === "signup" && guestId && !existingProfile) {
+    if (transferGuest) {
       await transferGuestChatsToUser(guestId, user.$id);
     }
 
@@ -56,12 +54,13 @@ export async function GET(request: Request) {
     applyAppwriteSessionCookie(response, session);
     response.cookies.delete(AUTH_INTENT_COOKIE);
 
-    if (authIntent === "signup" && guestId && !existingProfile) {
+    if (transferGuest) {
       response.cookies.delete(GUEST_ID_COOKIE);
     }
 
     return response;
   } catch {
+    if (unissuedSession) await discardAppwriteSession(unissuedSession);
     const response = NextResponse.redirect(
       buildFailureRedirect(request, authIntent === "signup" ? "register" : "login", "failed"),
     );

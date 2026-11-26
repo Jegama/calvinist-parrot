@@ -1,91 +1,57 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { requireAuthenticatedUser } from "@/lib/auth";
+import { z } from "zod";
+
+import { denominationSchema } from "@/lib/api/contracts/common";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { normalizeProfileName, normalizeUsername, PROFILE_NAME_MAX_LENGTH, USERNAME_HINT } from "@/lib/profile-identity";
+import {
+  editUserProfile,
+  getUserProfileForAppwriteUser,
+  isUniqueConstraintError,
+  upsertUserProfileFromAppwriteUser,
+} from "@/lib/user-profile";
 
-export async function GET(request: Request) {
-  void request;
-  const { userId, errorResponse } = await requireAuthenticatedUser();
-  if (errorResponse || !userId) {
-    return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+const nameField = z.string().transform(normalizeProfileName).pipe(
+  z.string({ error: `Names must be 1–${PROFILE_NAME_MAX_LENGTH} characters.` }),
+);
 
-  const profile = await prisma.userProfile.findUnique({ where: { appwriteUserId: userId } });
-  return NextResponse.json(profile);
+const profileEdits = z.object({
+  username: z.string().transform(normalizeUsername).pipe(z.string({ error: USERNAME_HINT })).optional(),
+  firstName: nameField.optional(),
+  lastName: nameField.optional(),
+  denomination: denominationSchema.optional(),
+}).refine((edits) => Object.keys(edits).length > 0, "Choose a profile field to update.");
+
+export async function GET() {
+  const user = await getAuthenticatedUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  return NextResponse.json(await getUserProfileForAppwriteUser(user));
 }
 
-export async function POST(request: Request) {
-  const body = await request.json().catch(() => ({}));
-  const { name, email } = body as {
-    name?: string;
-    email?: string;
-  };
+export async function POST() {
+  const user = await getAuthenticatedUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const authenticatedUser = await getAuthenticatedUser();
-  if (!authenticatedUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const displayName = (name || email || "Family Member").toString();
-
-  const profile = await prisma.userProfile.upsert({
-    where: { appwriteUserId: authenticatedUser.$id },
-    update: {
-      displayName,
-      email: email || null,
-      lastSeenAt: new Date(),
-    },
-    create: {
-      appwriteUserId: authenticatedUser.$id,
-      displayName,
-      email: email || null,
-    },
-  });
-
-  return NextResponse.json(profile);
+  return NextResponse.json(await upsertUserProfileFromAppwriteUser(user));
 }
 
 export async function PATCH(request: Request) {
+  const user = await getAuthenticatedUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const parsed = profileEdits.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+  }
+
   try {
-    const body = await request.json();
-    const { denomination } = body as { denomination?: string };
-
-    const { userId: authenticatedUserId, errorResponse } = await requireAuthenticatedUser();
-    if (errorResponse || !authenticatedUserId)
-      return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    if (!denomination) {
-      return NextResponse.json({ error: "Missing denomination" }, { status: 400 });
-    }
-
-    // Valid denominations
-    const validDenominations = [
-      "reformed-baptist",
-      "presbyterian",
-      "wesleyan",
-      "lutheran",
-      "anglican",
-      "pentecostal",
-      "non-denom",
-    ];
-
-    if (!validDenominations.includes(denomination)) {
-      return NextResponse.json({ error: "Invalid denomination" }, { status: 400 });
-    }
-
-    // Update or create userProfile
-    await prisma.userProfile.upsert({
-      where: { appwriteUserId: authenticatedUserId },
-      update: { denomination },
-      create: {
-        appwriteUserId: authenticatedUserId,
-        displayName: "User", // Will be updated by auth flow
-        denomination,
-      },
-    });
-
+    await editUserProfile(user, parsed.data);
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (parsed.data.username && isUniqueConstraintError(error)) {
+      return NextResponse.json({ error: "That username is already in use." }, { status: 409 });
+    }
     console.error("Error updating user profile:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
