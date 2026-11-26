@@ -1,0 +1,5 @@
+CREATE TABLE "McpChatLease" (
+    "chatId" TEXT PRIMARY KEY REFERENCES "chatHistory"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    "holder" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL
+);

@@ -20,8 +20,10 @@ import { recordUsageAttempt, startUsageAttempt } from "@/lib/provider-usage";
 import { getAnalyticsMetrics } from "@/lib/analytics/metrics";
 import { getReportingWindow } from "@/lib/analytics/period";
 import { chatOperationId } from "@/lib/chat-analytics";
+import { MCP_CHAT_TIMEOUT_MS } from "@/lib/mcp/chat";
 import { transferGuestChatsToUser } from "@/lib/chat-transfer";
-import { chatChannels, createQuestion, fixtureQuestion, post, sendMessage } from "./fixtures/chat-channels";
+import { citedAnswer, createQuestion, fixtureQuestion, guestModelResponse, httpChatChannels, post, sendMessage } from "./fixtures/chat-channels";
+import { connectMcpClient, mcpTestUrl } from "./fixtures/mcp-client";
 
 if (process.env.RUN_DATABASE_INTEGRATION_TESTS === "1") config();
 const databaseUrl = process.env.CI ? process.env.DATABASE_URL
@@ -57,6 +59,9 @@ async function recordFixtureCall(turn: TurnContext | undefined, stage: string, f
   await recordUsageAttempt(attempt, failed ? "provider_error" : "success", 50, attempt.requestedModel, usage);
 }
 
+vi.mock("@/lib/mcp/limits", async original => ({
+  ...await original<typeof import("@/lib/mcp/limits")>(), consumeMcpCallerLimit: vi.fn(),
+}));
 vi.mock("@/lib/prisma", () => ({ get default() { return db; } }));
 vi.mock("next/server", async importOriginal => ({
   ...await importOriginal<typeof import("next/server")>(),
@@ -84,6 +89,7 @@ vi.mock("@/utils/memoryExtraction", () => ({ updateUserMemoriesFromConversation:
 } }));
 vi.mock("@/utils/langChainAgents/tools", () => ({ toolsArray: [] }));
 vi.mock("@/utils/langChainAgents/mainAgent", () => ({
+  getMcpGuestWorkflow: async () => (await vi.importActual<typeof import("@/utils/langChainAgents/mainAgent")>("@/utils/langChainAgents/mainAgent")).getMcpGuestWorkflow(),
   getParrotWorkflow: async () => ({
     async *stream(_input: unknown, { configurable }: { configurable: { chatUsage: TurnContext } }) {
       modelContexts.push(configurable.chatUsage);
@@ -138,12 +144,12 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
     await pool.end();
   });
 
-  it("records one genuine turn per channel and three combined when the same question is replayed", async () => {
+  it("records one genuine turn per channel and three combined when the same question is replayed", { timeout: 30_000 }, async () => {
     signedInId = null;
     const ids: string[] = [];
     const operations = new Set<string>();
     const requestId = randomUUID();
-    for (const channel of chatChannels) {
+    for (const channel of httpChatChannels) {
       guestCookies.clear();
       const chatId = newChatId();
       ids.push(chatId);
@@ -191,19 +197,80 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
       expect(memoryContexts.at(-1)).toEqual(expectedContext);
       expect(stored.every(row => row.channel === channel && row.actorKind === "guest" && row.accountId === null)).toBe(true);
     }
-    expect(operations.size).toBe(chatChannels.length);
+    // The MCP client submits and streams a new question in one tool call. Its
+    // opaque chat ID is server-generated, and its guest owns no browser cookie.
+    vi.stubEnv("APP_URL", new URL(mcpTestUrl).origin);
+    vi.stubEnv("MCP_SECRET", randomUUID());
+    vi.stubEnv("ANTHROPIC_API_KEY", "test-anthropic-key");
+    vi.stubEnv("PARROT_AGENT_PROVIDER", "anthropic");
+    vi.stubEnv("PARROT_ANTHROPIC_MODEL", "claude-haiku-5-5");
+    const deadline = new AbortController();
+    const realTimeout = AbortSignal.timeout.bind(AbortSignal);
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation(ms =>
+      ms === MCP_CHAT_TIMEOUT_MS ? deadline.signal : realTimeout(ms));
+    const provider = vi.fn<typeof fetch>()
+      .mockImplementationOnce(async () => guestModelResponse(() => deadline.abort()))
+      .mockImplementationOnce(async () => guestModelResponse());
+    vi.stubGlobal("fetch", provider);
+    const client = await connectMcpClient();
+    try {
+      const question = { name: "ask_parrot", arguments: { question: fixtureQuestion, requestId } };
+      const interrupted = await client.callTool(question);
+      expect(timeout).toHaveBeenCalledWith(MCP_CHAT_TIMEOUT_MS);
+      expect(interrupted.isError).toBe(true);
+      for (const work of afterResponse.splice(0)) await work();
+      const chat = await db.chatHistory.findFirstOrThrow({
+        where: { creationRequestId: requestId, userId: { startsWith: "mcp-guest:" } },
+      });
+      ids.push(chat.id);
+      chatIds.push(chat.id);
+      const operation = chatOperationId(chat.id, requestId);
+      operations.add(operation);
+      operationsToPrice.add(operation);
+      expect(await receipts(chat.id)).toHaveLength(2);
+      expect(await db.chatMessage.count({ where: { chatId: chat.id, requestId, sender: "system_stopped" } })).toBe(1);
+      timeout.mockRestore();
+      for (let replay = 0; replay < 2; replay++) {
+        const result = await client.callTool(question);
+        expect(result.structuredContent).toEqual({ answer: citedAnswer, requestId });
+      }
+      expect(await receipts(chat.id)).toEqual(["created", "reply", "submission"].map(kind =>
+        ({ kind, actorKind: "guest", channel: "mcp", accountId: null, operationId: operation })));
+      expect(await db.chatMessage.count({ where: { chatId: chat.id, requestId, sender: "user" } })).toBe(1);
+      expect(await db.chatMessage.count({ where: { chatId: chat.id, requestId, sender: "parrot", content: citedAnswer } })).toBe(1);
+      expect(provider).toHaveBeenCalledTimes(2);
+      const attempts = await db.providerCallAttempt.findMany({
+        where: { feature: "chat", operationId: operation }, orderBy: { startedAt: "asc" },
+        select: { stage: true, outcome: true, isRetry: true },
+      });
+      expect(attempts).toEqual([
+        { stage: "agent", outcome: "provider_error", isRetry: false },
+        { stage: "agent", outcome: "success", isRetry: true },
+      ]);
+    } finally {
+      timeout.mockRestore();
+      await client.close();
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+    expect(operations.size).toBe(3);
     await db.chatAnalyticsEvent.updateMany({ where: { chatId: { in: ids } }, data: { occurredAt: costDay } });
     const { byChannel, stages } = await getChatSpend({ start: costDay, end: costDayEnd });
     const [combined, web, api, mcp] = byChannel;
-    // Two model invocations, title and background memory for each channel,
-    // plus the original paid failure on web. All four calls in its retried turn count as retry spend.
+    // Web has a failed attempt and four retry calls, the API has four calls,
+    // and the guest MCP stream has an interrupted attempt and one paid retry.
     const perCall = .00015;
-    expect(combined).toMatchObject({ completions: 3, attempts: 13, measured: 13, priced: 13 });
-    expect(combined.costPerCompletionUsd).toBeCloseTo(13 * perCall / 3, 9);
+    expect(combined).toMatchObject({ completions: 3, attempts: 11, measured: 10, priced: 10, partial: true });
+    expect(combined.costPerCompletionUsd).toBeNull();
+    expect(combined.estimatedSpendUsd).toBeCloseTo(10 * perCall, 9);
+    expect(web.costPerCompletionUsd).toBeCloseTo(5 * perCall, 9);
     expect(web.retrySpendUsd).toBeCloseTo(4 * perCall, 9);
     expect(api.estimatedSpendUsd).toBeCloseTo(4 * perCall, 9);
-    expect(mcp.estimatedSpendUsd).toBeCloseTo(4 * perCall, 9);
-    expect(stages.find(row => row.stage === "memory")?.attempts).toBe(3);
+    expect(mcp).toMatchObject({ submissions: 1, completions: 1, attempts: 2 });
+    expect(mcp.estimatedSpendUsd).toBeCloseTo(perCall, 9);
+    expect(mcp.costPerCompletionUsd).toBeNull();
+    expect(mcp.retrySpendUsd).toBeCloseTo(perCall, 9);
+    expect(stages.find(row => row.stage === "memory")?.attempts).toBe(2);
     // Use a fixed, completed reporting period isolated from other database fixtures.
     const report = await db.$transaction(async tx => {
       await tx.chatAnalyticsEvent.updateMany({

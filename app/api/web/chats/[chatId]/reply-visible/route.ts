@@ -4,6 +4,7 @@ import { parseJsonRequest } from "@/lib/api/handlers/http";
 import { recordEngagement } from "@/lib/analytics/engagement-store";
 import { pendingVisibleReply } from "@/lib/chat-analytics";
 import { getChatActorId, resolveChatActor } from "@/lib/guest";
+import { browserGuestCannotAccess } from "@/lib/mcp/ownership";
 import prisma from "@/lib/prisma";
 
 const receipt = z.strictObject({ operation: z.string().regex(/^[a-f0-9]{64}$/) });
@@ -15,7 +16,9 @@ export async function POST(request: Request, context: { params: Promise<{ chatId
   if (!body.success) return body.response;
 
   const { chatId } = params.data;
-  const actorId = getChatActorId(await resolveChatActor());
+  const actor = await resolveChatActor();
+  if (browserGuestCannotAccess(actor, chatId)) return new Response(null, { status: 404 });
+  const actorId = getChatActorId(actor);
   const owner = await prisma.chatHistory.findFirst({
     where: { id: chatId, userId: actorId }, select: { id: true },
   });

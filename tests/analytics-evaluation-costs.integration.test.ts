@@ -1,21 +1,26 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getFeatureReport } from "@/lib/analytics/features";
-import { GET as readSavedChurch } from "@/app/api/churches/[id]/route";
+import { connectMcpClient } from "./fixtures/mcp-client";
 
 if (process.env.RUN_DATABASE_INTEGRATION_TESTS === "1") config();
 const databaseUrl = process.env.CI ? process.env.DATABASE_URL
   : process.env.RUN_DATABASE_INTEGRATION_TESTS === "1" ? process.env.TEST_DATABASE_URL : undefined;
 let client: PrismaClient;
 vi.mock("@/lib/auth", () => ({ getAuthenticatedUser: vi.fn() }));
+vi.mock("@/lib/mcp/limits", async (original) => ({
+  ...await original<typeof import("@/lib/mcp/limits")>(), consumeMcpCallerLimit: vi.fn(),
+}));
 vi.mock("@/lib/prisma", () => ({ get default() { return client; } }));
 
 describe.skipIf(!databaseUrl)("evaluation costs in the admin feature report", () => {
   const window = { start: new Date("2043-01-01T06:00:00Z"), end: new Date("2043-01-08T06:00:00Z") };
   const churchId = randomUUID();
+  const retrievalId = randomUUID();
+  const retrievalFlow = createHash("sha256").update(JSON.stringify([churchId, retrievalId])).digest("hex");
   const preacherId = randomUUID();
   const fingerprintId = randomUUID();
   const [church, partial, standard, high, failed, old, preview] = Array.from({ length: 7 }, () => randomUUID());
@@ -89,6 +94,7 @@ describe.skipIf(!databaseUrl)("evaluation costs in the admin feature report", ()
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     await client.providerCallAttempt.deleteMany({ where: { operationId: { in: [church, partial, standard, high, failed, preview] } } });
+    await client.analyticsEngagementEvent.deleteMany({ where: { flowId: retrievalFlow } });
     await client.church.deleteMany({ where: { id: churchId } });
     await client.sermonEvaluation.deleteMany({ where: { preacherId } });
     await client.sermonAudioFingerprint.deleteMany({ where: { id: fingerprintId } });
@@ -111,10 +117,16 @@ describe.skipIf(!databaseUrl)("evaluation costs in the admin feature report", ()
 
   it("reconciles the model and fee breakdown and keeps a saved MCP detail read free", async () => {
     const before = await getFeatureReport(window);
-    // Simulate a future MCP adapter reading the same saved detail as the website.
-    const response = await readSavedChurch(new Request("http://local.test/church-detail"), { params: Promise.resolve({ id: churchId }) });
-    expect(response.status).toBe(200);
-    expect((await response.json()).evaluation.id).toBe(church);
+    const mcp = await connectMcpClient();
+    try {
+      const lookup = { name: "get_church", arguments: { id: churchId, operationId: retrievalId } };
+      const result = await mcp.callTool(lookup);
+      expect(result.structuredContent).toMatchObject({ id: churchId, evaluation: { createdAt: window.start.toISOString() } });
+      expect((await mcp.callTool(lookup)).structuredContent).toEqual(result.structuredContent);
+    } finally { await mcp.close(); }
+    expect(await client.analyticsEngagementEvent.count({ where: { channel: "mcp", step: "record_retrieved", flowId: retrievalFlow } })).toBe(1);
+    expect(await client.churchEvaluation.count({ where: { churchId } })).toBe(1);
+    expect(await client.providerCallAttempt.count({ where: { operationId: church } })).toBe(9);
     const report = await getFeatureReport(window);
     expect(report.evaluationChannels).toEqual(before.evaluationChannels);
     const channels = report.evaluationChannels!.filter(row => row.feature === "church");

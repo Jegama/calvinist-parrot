@@ -11,7 +11,11 @@ function fields(value: unknown): Record<string, unknown> {
 // LangChain's network caller retries request setup before exposing the provider
 // stream. Observe each invocation inside its existing retry/backoff boundary.
 export class ChatUsageCaller extends AsyncCaller {
-  constructor(private spec: ModelSpec, private stage: "agent" | "ccel_embedding" = "agent", options: AsyncCallerParams = {}) {
+  constructor(
+    private spec: ModelSpec,
+    private stage: "agent" | "ccel_embedding" = "agent",
+    options: AsyncCallerParams = {},
+  ) {
     super(options);
   }
 
@@ -29,7 +33,7 @@ export class ChatUsageCaller extends AsyncCaller {
       operationId: typeof origin.operationId === "string" ? origin.operationId : randomUUID(),
     };
     let retry = origin.isRetry === true;
-    return super.callWithOptions(options, () => {
+    return super.callWithOptions(options, async () => {
       const attempt = startUsageAttempt({ ...context, isRetry: retry }, this.spec);
       retry = true;
       return observeProviderCall(attempt, () => callable(...args));
@@ -96,7 +100,10 @@ async function observeProviderCall<Result>(attempt: ReturnType<typeof startUsage
           observe(event);
           yield event;
         }
-        finished = completed;
+        // An upstream disconnect can look like ordinary EOF to the SDK.
+        // Propagate it before the chat handler saves any partial tokens as a reply.
+        if (!completed) throw new Error("The provider stream ended before its final event.");
+        finished = true;
       } catch (error) {
         observeError(error);
         throw error;

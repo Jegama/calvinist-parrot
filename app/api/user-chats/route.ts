@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getChatActorId, resolveChatActor } from '@/lib/guest';
 import { z } from 'zod';
+import { browserGuestCannotAccess, browserGuestChatFilter } from '@/lib/mcp/ownership';
 
 const renameSchema = z.object({
   chatId: z.string().trim().min(1),
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
   const authenticatedUserId = getChatActorId(actor);
 
   const chats = await prisma.chatHistory.findMany({
-    where: { userId: authenticatedUserId },
+    where: { userId: authenticatedUserId, ...browserGuestChatFilter(actor) },
     select: { id: true, conversationName: true, modifiedAt: true },
     orderBy: { modifiedAt: 'desc' },
   });
@@ -34,6 +35,9 @@ export async function PATCH(request: Request) {
 
   const actor = await resolveChatActor();
   const effectiveUserId = getChatActorId(actor);
+  if (browserGuestCannotAccess(actor, parsed.data.chatId)) {
+    return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+  }
   const existing = await prisma.chatHistory.findUnique({
     where: { id: parsed.data.chatId },
     select: { userId: true },
@@ -63,6 +67,10 @@ export async function DELETE(request: Request) {
 
   if (!chatId) {
     return NextResponse.json({ error: 'Missing chatId' }, { status: 400 });
+  }
+
+  if (browserGuestCannotAccess(actor, chatId)) {
+    return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
   }
 
   try {

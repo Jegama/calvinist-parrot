@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { AppwriteException, Client } from "node-appwrite";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -8,7 +9,13 @@ const db = vi.hoisted(() => ({
 const transfer = vi.hoisted(() => vi.fn());
 const cookieStore = vi.hoisted(() => new Map<string, { value: string }>());
 
-vi.mock("@/lib/prisma", () => ({ default: { userProfile: db, $transaction: (run: (tx: { userProfile: typeof db }) => unknown) => run({ userProfile: db }) } }));
+vi.mock("@/lib/prisma", () => ({
+  default: {
+    userProfile: db,
+    mcpAccountIdentity: { findUnique: async () => null },
+    $transaction: (run: (tx: { userProfile: typeof db }) => unknown) => run({ userProfile: db }),
+  },
+}));
 vi.mock("@/lib/chat-transfer", () => ({ transferGuestChatsToUser: transfer }));
 vi.mock("next/headers", () => ({
   cookies: async () => cookieStore,
@@ -16,6 +23,7 @@ vi.mock("next/headers", () => ({
 }));
 
 const account = { $id: "reader", name: "Existing Display", email: "current@example.test" };
+const guestId = randomUUID();
 const session = { userId: account.$id, secret: "synthetic-session" };
 const profile = { appwriteUserId: account.$id, username: "reader_name", displayName: account.name, email: account.email };
 const providerCall = () => vi.spyOn(Client.prototype, "call");
@@ -29,7 +37,7 @@ beforeEach(() => {
   vi.stubEnv("APPWRITE_API_KEY", "session-key");
   providerCall().mockRejectedValue(new Error("Unexpected Appwrite API call"));
   cookieStore.clear();
-  cookieStore.set("guestId", { value: "guest-chat-owner" });
+  cookieStore.set("guestId", { value: guestId });
   db.upsert.mockResolvedValue(profile);
 });
 
@@ -59,7 +67,7 @@ it("resolves the current handle and Appwrite email, authenticates with separate 
   expect((await result.json()).profile).toEqual(profile);
   expect(result.cookies.get("a_session_synthetic-project")?.value).toBe(session.secret);
   expect(result.cookies.get("guestId")?.value).toBe("");
-  expect(transfer).toHaveBeenCalledWith("guest-chat-owner", "reader");
+  expect(transfer).toHaveBeenCalledWith(guestId, "reader");
   expect(db.findUnique).toHaveBeenCalledWith({
     where: { username: "reader_name" }, select: { appwriteUserId: true },
   });

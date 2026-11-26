@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { useAuth } from "@/hooks/use-auth";
+import { afterLoginPath } from "@/lib/mcp/auth-return";
 
 export default function AuthCompletePage() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function AuthCompletePage() {
     const completeSignIn = async () => {
       await refresh();
       if (!cancelled) {
-        router.replace("/");
+        router.replace(afterLoginPath());
       }
     };
 

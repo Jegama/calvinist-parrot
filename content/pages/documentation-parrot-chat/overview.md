@@ -22,6 +22,24 @@ The generated contract is the source of truth for paths, request and response sc
 
 The interactive reference also describes the required `application/x-ndjson` stream handling and request identifiers used for retries, conflict detection, and cancellation.
 
+## Using an MCP client
+
+Connect a remote Streamable HTTP client to `/api/mcp` on the Parrot deployment. On the public site the endpoint is `https://www.calvinistparrot.com/api/mcp`. Run `tools/list` to see the current input schemas and tool annotations. `find_churches` and `get_church` work without an account. `ask_parrot` sends the question through the Parrot chat service and returns the final answer with its inline citations. If the research tools supplied separate source summaries, the response includes them in `sources`. The service persists the chat transcript. An anonymous question is isolated and has no follow-up reference. Guests can send up to 10 chat requests per hour per network.
+
+For saved follow-ups, connect your Parrot account and grant the `chat.write` scope. A connected account can send up to 20 chat requests per minute. Authorized questions appear in that account’s chat history. Ask the first question with `saveConversation` set to `true`. Keep the returned `conversationRef` and request IDs private and use it for subsequent turns on the same account. Generate a fresh random UUIDv4 `requestId` for each new question. If a call times out, retry with the original inputs and UUID. Reusing that UUID for a different question produces a conflict.
+
+### Checking a client connection
+
+Use two test accounts and a deployment with OAuth and guest chat enabled. These checks can incur model usage. Repeat them in each target client and record the client version, deployment, and observed result. ChatGPT and Claude require access to custom remote connectors in the chosen workspace. Codex needs a configured HTTP MCP server. A client that can browse the anonymous directory still needs a successful OAuth consent and follow-up check before private chat can be marked as working. Client-specific setup and live verification are tracked in [issue #107](https://github.com/Jegama/calvinist-parrot/issues/107).
+
+| Check | Action and expected result |
+| --- | --- |
+| Guest question | With no account connected, ask “What does it mean to show patience?” Save the answer and confirm the original Scripture citations are present. Repeat the identical call with its original `requestId`. Expect the same answer and no `conversationRef`. |
+| Saved follow-up | Connect account A, consent to `chat.write`, and ask the same question with a new `requestId` and `saveConversation` set to `true`. Ask “How could I practice it?” using the returned `conversationRef` and another new UUID. Expect a response in the original conversation. |
+| Isolation and expiry | Connect account B and try account A's reference. Expect an error without any of A's transcript. Revoke account A's grant and retry with its former token. Expect an authorization error and a new sign-in flow before private chat resumes. |
+| Saved directory reads | Call `find_churches` with a city or denomination and `pageSize` set to `2`. Expect at most two saved evaluated churches. If `hasMore` is true, increment `page`. Open one returned `id` with `get_church` and a fresh UUID `operationId`. Check its latest evaluation and supporting links. Reuse the same `operationId` for a retry. |
+| Empty and missing results | Search for a city absent from the saved directory. Expect an empty `items` list and `hasMore` set to `false`. A missing church ID returns a tool error. |
+
 ## How It Works
 
 ### Chat initialization

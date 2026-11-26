@@ -10,7 +10,7 @@ applyTo: "app/church-finder/**"
 
 ## Data Normalization
 - Normalize doctrine data via `lib/churchMapper.ts`: core doctrines in columns, secondary/tertiary in JSON.
-- Enforce badge allowlist via `utils/badges.ts`; sort list with `sortChurchesByPriority` in `app/api/churches/route.ts`.
+- Enforce badge allowlist via `utils/badges.ts`; use the shared priority order in `lib/church-directory.ts` before paginating.
 - Badge metadata in `lib/references/badges.json`; endorsement and secondary-difference policy in `lib/church-evaluation/policy.ts`.
 
 ## UI Patterns

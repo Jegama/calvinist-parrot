@@ -27,6 +27,7 @@ function normalizeGeneratedTitle(value: string) {
 export async function generateConversationName(
   currentConversation: string,
   turn: Pick<UsageContext, "operationId" | "isRetry"> = { operationId: randomUUID() },
+  signal?: AbortSignal,
 ): Promise<string> {
   const promptCreateName = `I have this conversation:
 
@@ -51,12 +52,14 @@ What would you like to name this conversation? It can be a short name to remembe
   };
 
   for (let attempt = 0; attempt < MAX_NAME_ATTEMPTS; attempt += 1) {
+    if (signal?.aborted) break;
     try {
       const result = await parrotAI.generateStructured<{ name: string }>({
         messages: [
           { role: "system", content: 'You are a helpful assistant that can create short names for conversations.' },
           { role: "user", content: promptCreateName },
         ],
+        signal,
         schema: conversationNameSchema,
         usage: { feature: "chat", stage: "title", operationId: turn.operationId, isRetry: Boolean(turn.isRetry || attempt > 0) },
         validate: data => typeof (data as { name?: unknown })?.name === "string" &&

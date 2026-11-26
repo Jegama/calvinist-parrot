@@ -99,6 +99,9 @@ export async function getEngagementReport(window: FeatureWindow, db: Database = 
   ]);
   const viewStart = starts?.[0]?.views;
   const channelStart = configuredCoverage(process.env.ANALYTICS_CHAT_COVERAGE_FROM);
+  const mcpStart = configuredCoverage(process.env.ANALYTICS_MCP_COVERAGE_FROM);
+  const mcpCovered = Boolean(mcpStart && mcpStart <= window.start);
+  const mcpNote = mcpStart ? `MCP collection since ${chicagoTimestamp(mcpStart)}.` : "The start of MCP collection is unconfirmed.";
   const chatStart = viewStart && channelStart && channelStart > viewStart ? channelStart : viewStart;
   const eligibleStart = chatStart && chatStart > window.start ? chatStart : window.start;
   const chat = await getChatEngagement(window, db, eligibleStart).catch(() => null);
@@ -120,10 +123,10 @@ export async function getEngagementReport(window: FeatureWindow, db: Database = 
     if (!counts) engagement.coverage += " Engagement data unavailable.";
     if (feature === "daily_devotional") engagement.coverage += " Engaged reading estimates at least 30 seconds with the devotional visible in the foreground.";
     if (feature === "church") {
-      engagement.coverage += " Website detail opens require a selection from results. Each successful versioned API retrieval counts once per operation and church. The legacy shared route has unknown origin. MCP coverage is unconfirmed until its client ships.";
+      engagement.coverage += " Website detail opens require a selection from results. Each successful versioned API retrieval counts once per operation and church. The legacy shared route has unknown origin. " + mcpNote;
       engagement.external = [
         { label: "Direct API · records retrieved", count: count("record_retrieved", "public_api") },
-        { label: "MCP · records retrieved", count: count("record_retrieved", "mcp") || null },
+        { label: "MCP · records retrieved", count: mcpCovered ? count("record_retrieved", "mcp") : count("record_retrieved", "mcp") || null },
       ];
     }
     if (feature === "sermon") engagement.external = [{ label: "Direct API · reports ready", count: count("report_ready", "public_api") }];
@@ -136,7 +139,7 @@ export async function getEngagementReport(window: FeatureWindow, db: Database = 
   function answers(channel: "public_api" | "mcp" | "unknown") {
     const total = chat?.[channel];
     if (total === undefined) return null;
-    if (total > 0 || (channel !== "mcp" && hasChannelCoverage)) return total;
+    if (total > 0 || (channel === "mcp" ? mcpCovered : hasChannelCoverage)) return total;
     return null;
   }
   report.chat = {
@@ -145,7 +148,7 @@ export async function getEngagementReport(window: FeatureWindow, db: Database = 
       { label: "Visible reply received", count: observed?.visible ?? null, denominator: observed?.started ?? null, denominatorLabel: "First messages during visibility coverage" },
       { label: "Follow-up sent", count: observed?.followup ?? null, denominator: observed?.visible ?? null, denominatorLabel: "Visible reply received" },
     ],
-    coverage: `${coverageNote(window, chatStart)} First messages span the selected period. Reply rates include only conversations started during visibility coverage. Server answers use the original channel. MCP coverage is unconfirmed until its client ships. ${channelStart ? `Chat attribution since ${chicagoTimestamp(channelStart)}.` : "Historical channel coverage is partial."}${chat ? "" : " Chat engagement data unavailable."}`,
+    coverage: `${coverageNote(window, chatStart)} First messages span the selected period. Reply rates include only conversations started during visibility coverage. Server answers use the original channel. ${mcpNote} ${channelStart ? `Chat attribution since ${chicagoTimestamp(channelStart)}.` : "Historical channel coverage is partial."}${chat ? "" : " Chat engagement data unavailable."}`,
     external: [
       { label: "Direct API · answers returned", count: answers("public_api") },
       { label: "MCP · answers returned", count: answers("mcp") },

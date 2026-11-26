@@ -13,13 +13,16 @@ import { getToolProgressWriter } from "@/utils/langChainAgents/tools/toolProgres
 
 async function recallUserMemory(
   input: {
-    userId: string;
     query?: string;
     full?: boolean;
   },
   config?: LangGraphRunnableConfig
 ): Promise<string> {
-  const { userId, query, full } = input;
+  const { query, full } = input;
+  const userId = config?.configurable?.userId;
+  if (typeof userId !== "string" || !userId) {
+    return JSON.stringify({ error: "No conversation identity available." });
+  }
   const writer = getToolProgressWriter(config);
   
   const store = getMemoryStore();
@@ -106,7 +109,6 @@ async function recallUserMemory(
       : preferredTopicsRaw.slice(0, 10);
 
     const payload = {
-      userId,
       interests,
       preferredTopics,
       concerns: full
@@ -152,9 +154,6 @@ export const userMemoryRecallTool = tool(recallUserMemory, {
   description:
     "Recall unstructured user memories: theological interests (with limited recent contexts), preferredTopics, personal concerns, spiritual journey notes, life stage. Provide a precise 'query' to semantically search prior memory documents when you need a specific detail; avoid broad queries. Default response is truncated (top interests with up to 3 contexts each, first concerns, recent journey notes, up to 10 preferredTopics). Use full=true only for genuine holistic summaries (e.g., crafting an extended pastoral plan). Structured data (denomination, ministry context, learning preferences) is already in your system prompt.",
   schema: z.object({
-    userId: z
-      .string()
-      .describe("The Appwrite/DB user id for namespacing memory."),
     query: z
       .string()
       .optional()

@@ -25,8 +25,27 @@ describe("deterministic conversation title fallback", () => {
 
 describe("conversation title billing", () => {
   afterEach(() => {
+    upsert.mockClear();
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
+  });
+
+  it("aborts an in-flight naming request and falls back without a second attempt", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "fixture-key");
+    const started = Promise.withResolvers<void>();
+    const deadline = new AbortController();
+    const transport = vi.fn<typeof fetch>((_url, options) => new Promise((_resolve, reject) => {
+      options!.signal!.addEventListener("abort", () => reject(options!.signal!.reason), { once: true });
+      started.resolve();
+    }));
+    vi.stubGlobal("fetch", transport);
+    const text = "user: What is patience?";
+    const title = generateConversationName(text, { operationId: "cancel-title" }, deadline.signal);
+    await started.promise;
+    deadline.abort();
+    await expect(title).resolves.toBe(deterministicConversationTitle(text));
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(upsert.mock.calls.at(-1)?.[0].create).toMatchObject({ operationId: "cancel-title", outcome: "provider_error" });
   });
 
   it("includes an invalid billed response and a distinct successful retry under the same turn", async () => {

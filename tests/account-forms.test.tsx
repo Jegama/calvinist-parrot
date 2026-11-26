@@ -2,6 +2,7 @@
 
 import { act, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { renderToStaticMarkup } from "react-dom/server";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { LoginForm } from "@/components/LoginForm";
@@ -9,11 +10,15 @@ import { RegisterForm } from "@/components/RegisterForm";
 import { ProfileCard } from "@/app/profile/components/profile-card";
 
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import ConsentPage from "@/app/auth/mcp/consent/page";
+import { afterLoginPath, consentPath } from "@/lib/mcp/auth-return";
+
+vi.mock("@/lib/mcp/auth-consent", () => ({ loadConsent: async () => ({ state: "signedOut" }) }));
 
 const push = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
 let container: HTMLDivElement;
@@ -23,7 +28,7 @@ const transport = vi.fn<typeof fetch>();
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("fetch", transport);
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -32,6 +37,8 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
+  sessionStorage.clear();
+  history.replaceState(null, "", "/");
   vi.unstubAllGlobals();
 });
 
@@ -57,6 +64,23 @@ function expectSignedInName() {
     .toEqual({ user: providerUser, displayName: "Lee Rivera" });
 }
 
+const consentParams = {
+  client_id: "preview-client",
+  redirect_uri: "https://client.example/callback?a=1&b=2",
+  state: "abc+123/=",
+  resource: "https://parrot.example/api/mcp",
+};
+const consentRequest = `${consentPath}?${new URLSearchParams(consentParams)}`;
+
+async function followColdConsentLink(params: Record<string, string | string[]> = consentParams) {
+  const page = await ConsentPage({ searchParams: Promise.resolve(params) });
+  const html = new DOMParser().parseFromString(renderToStaticMarkup(page), "text/html");
+  const href = html.querySelector("a")!.getAttribute("href")!;
+  expect(new URL(href, location.origin).pathname).toBe("/login");
+  // A browser can follow the server-rendered href before React attaches any handlers.
+  history.replaceState(null, "", href);
+}
+
 function setField(name: string, value: string) {
   const field = container.querySelector<HTMLInputElement>(`input[name="${name}"]`)!;
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, value);
@@ -73,6 +97,12 @@ async function submit(values: Record<string, string>) {
 }
 
 it("registers with exactly the five labeled identity and credential fields", async () => {
+  await followColdConsentLink({ grant_id: "fixture" });
+  await renderWithSession(<LoginForm />);
+  const signUp = container.querySelector('a[href^="/register"]')!;
+  expect(new URL(signUp.getAttribute("href")!, location.origin).searchParams.get("mcpConsent")).toBe("grant_id=fixture");
+  history.replaceState(null, "", signUp.getAttribute("href")!);
+  await act(async () => root.render(null));
   await renderWithSession(<RegisterForm />);
   const inputs = Array.from(container.querySelectorAll("input"));
   expect(inputs.map((input) => input.labels?.[0].textContent)).toEqual([
@@ -90,10 +120,12 @@ it("registers with exactly the five labeled identity and credential fields", asy
   expect(transport).toHaveBeenCalledWith("/api/auth/register", expect.objectContaining({
     method: "POST", body: JSON.stringify(fields),
   }));
+  expect(push).toHaveBeenCalledWith(consentPath + "?grant_id=fixture");
   expectSignedInName();
 });
 
-it.each(["New_Reader", "reader@example.test"])("accepts %s in the same login field", async (identifier) => {
+it.each([["New_Reader", consentRequest], ["reader@example.test", "/"]])("signs in %s and returns to %s", async (identifier, destination) => {
+  if (destination === consentRequest) await followColdConsentLink();
   await renderWithSession(<LoginForm />);
   expect(Array.from(container.querySelectorAll("label"), (label) => label.textContent))
     .toEqual(["Email or username", "Password"]);
@@ -104,8 +136,16 @@ it.each(["New_Reader", "reader@example.test"])("accepts %s in the same login fie
   expect(transport).toHaveBeenCalledWith("/api/auth/login", expect.objectContaining({
     method: "POST", body: JSON.stringify(credentials),
   }));
-  expect(push).toHaveBeenCalledWith("/");
+  expect(push).toHaveBeenCalledWith(destination);
   expectSignedInName();
+});
+
+it("remembers the cold consent request across the Google round trip and consumes it once", async () => {
+  await followColdConsentLink();
+  await renderWithSession(<LoginForm />);
+  history.replaceState(null, "", "/auth/complete");
+  expect(afterLoginPath()).toBe(consentRequest);
+  expect(afterLoginPath()).toBe("/");
 });
 
 it("restores the saved display name and provider identity from /api/auth/me", async () => {

@@ -14,6 +14,13 @@ const nextConfig = {
     return [{
       source: '/admin/analytics',
       headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
+    }, {
+      source: '/auth/mcp/consent/:path*',
+      headers: [
+        { key: 'Cache-Control', value: 'private, no-store' },
+        { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+        { key: 'Referrer-Policy', value: 'same-origin' },
+      ],
     }];
   },
   async rewrites() {

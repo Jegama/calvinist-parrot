@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.5.0 — November 26, 2026
+
+- MCP clients can browse evaluated churches and read saved evaluations at `/api/mcp`. Guests can ask questions and receive cited answers. Connecting a Parrot account also enables saved conversations and follow-ups. [#125](https://github.com/Jegama/calvinist-parrot/pull/125)
+
 ## 2.4.0 — November 25, 2026
 
 - **Account usernames.** New password accounts choose a username and enter first and last names. Existing members can keep signing in by email or Google, then claim or change their username and names from Profile. [#126](https://github.com/Jegama/calvinist-parrot/pull/126)

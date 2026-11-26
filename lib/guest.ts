@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 
 import { GUEST_ID_COOKIE } from "@/lib/appwrite/server";
 import { getAuthenticatedUserId } from "@/lib/auth";
+import { browserGuestIdSchema } from "@/lib/mcp/ownership";
 
 const GUEST_ID_MAX_AGE = 60 * 60 * 24 * 365;
 const EXTERNAL_USER_ID_PREFIX = "external:";
@@ -30,9 +31,15 @@ function normalizeExternalUserId(rawValue?: string | null) {
 export async function getGuestId() {
   const cookieStore = await cookies();
   const rawValue = cookieStore.get(GUEST_ID_COOKIE)?.value;
-  const trimmed = rawValue?.trim();
-
-  return trimmed ? trimmed : null;
+  const parsed = browserGuestIdSchema.safeParse(rawValue);
+  if (!parsed.success) return null;
+  // Legacy browser cookies contain a bare random UUIDv4. Appwrite can also
+  // issue custom UUID account subjects, so syntax alone cannot establish ownership.
+  const prisma = (await import("@/lib/prisma")).default;
+  const account = await prisma.mcpAccountIdentity.findUnique({
+    where: { userId: parsed.data }, select: { userId: true },
+  });
+  return account ? null : parsed.data;
 }
 
 export async function ensureGuestId() {

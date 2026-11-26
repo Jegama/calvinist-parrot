@@ -43,6 +43,7 @@ export interface StructuredOutputParams {
   thinking?: ThinkingEffort;
   seed?: number;
   usage?: UsageContext;
+  signal?: AbortSignal;
   validate?: (data: unknown) => boolean;
 }
 
@@ -246,6 +247,7 @@ class ParrotAI {
     }));
 
     const config: Record<string, unknown> = {
+      abortSignal: params.signal,
       responseMimeType: "application/json",
       responseJsonSchema: params.schema.schema,
     };
@@ -298,7 +300,7 @@ class ParrotAI {
           },
         },
         reasoning: { effort: params.thinking },
-      });
+      }, { signal: params.signal });
 
       if (!response.output_parsed) {
         throw new Error(`No parsed output from OpenAI (${spec.model})`);
@@ -323,7 +325,7 @@ class ParrotAI {
           schema: params.schema.schema,
         },
       },
-    });
+    }, { signal: params.signal });
 
     const content = response.choices[0]?.message?.content;
     if (!content) {
@@ -368,7 +370,7 @@ class ParrotAI {
       },
       thinking: !params.thinking ? { type: "disabled" }
         : haiku55 ? { type: "adaptive" } : { type: "enabled", budget_tokens: 4096 },
-    }).catch(transport?.onError);
+    }, { signal: params.signal }).catch(transport?.onError);
 
     return readStructured<T>(spec, {
       model: response.model, usage: response.usage,

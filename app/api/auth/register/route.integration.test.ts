@@ -18,7 +18,7 @@ vi.mock("next/headers", () => ({
 }));
 
 const suffix = randomUUID().slice(0, 8);
-const guestId = `guest-${suffix}`;
+const guestId = randomUUID();
 const accounts = new Map<string, { $id: string; email: string; name: string; password: string }>();
 const sessions = new Map<string, string>();
 const guestChatId = randomUUID();
