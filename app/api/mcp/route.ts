@@ -7,7 +7,7 @@ import {
 import { findChurches, retrievePublicChurch } from "@/lib/api/handlers/church";
 import { authenticateMcpRequest, getMcpResourceUrl, MCP_CHAT_SCOPE, requireMcpAccount } from "@/lib/mcp/auth";
 import { askParrot, askParrotInput, MCP_CHAT_TIMEOUT_MS, McpChatError } from "@/lib/mcp/chat";
-import { consumeMcpCallerLimit, McpLimitError } from "@/lib/mcp/limits";
+import { consumeMcpCallerLimit, mcpChatAccess, McpLimitError } from "@/lib/mcp/limits";
 import { version } from "@/package.json";
 
 export const runtime = "nodejs";
@@ -66,7 +66,7 @@ function createServer(request: Request, userId: string | null) {
     return getChurchResultSchema.parse(await record.json());
   }));
   server.registerTool("ask_parrot", {
-    description: "Ask Parrot and receive its final answer with citations. Questions and answers are persisted. Guests get one isolated turn per conversation. Authorized questions appear in account history and return a conversation reference for follow-ups. Use a fresh random request UUID for each new question and reuse it on retry.",
+    description: `Ask Parrot and receive its final answer with citations. Questions and answers are persisted. Guests get one isolated turn per conversation. ${mcpChatAccess} Authorized questions appear in account history and return a conversation reference for follow-ups. Use a fresh random request UUID for each new question and reuse it on retry.`,
     inputSchema: askParrotInput,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     _meta: { securitySchemes: [{ type: "noauth" }, { type: "oauth2", scopes: [MCP_CHAT_SCOPE] }] },

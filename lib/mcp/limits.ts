@@ -6,6 +6,9 @@ const callerLimits = {
   account_chat: { seconds: 60, maximum: 20 },
 };
 
+const accountChatAccess = `Connect a Parrot account for up to ${callerLimits.account_chat.maximum} chat requests per minute outside the shared guest budget.`;
+export const mcpChatAccess = `Guests can send up to ${callerLimits.guest_chat.maximum} chat requests per hour per network while the daily guest budget has funds. ${accountChatAccess}`;
+
 export class McpLimitError extends Error {
   constructor(message: string, readonly status: 429 | 503) {
     super(message);
@@ -48,6 +51,9 @@ export async function consumeMcpCallerLimit(
   // Do not retain account identifiers or network addresses in quota records.
   const digest = createHash("sha256").update(callerKey).digest("hex");
   if (!await debit(`caller:${kind}:${digest}`, seconds, 1, maximum)) {
+    if (kind === "guest_chat") {
+      throw new McpLimitError(`This network reached its hourly guest chat limit. Try again next hour. ${accountChatAccess}`, 429);
+    }
     throw new McpLimitError("Caller rate limit reached. Try again later.", 429);
   }
 }
@@ -69,6 +75,9 @@ export async function reserveGuestModelAttempt() {
   // Never refund an uncertain provider attempt, including timeouts and crashes.
   // This is a conservative allowance distinct from the actual #98 usage receipts.
   if (!await debit("guest:provider-cents", 86_400, guestAttemptCents, maximum)) {
-    throw new McpLimitError("Guest model quota exhausted. Try again after the UTC day resets.", 429);
+    const reason = maximum < guestAttemptCents
+      ? "This deployment's daily guest budget is too small to run a model request."
+      : "Guest model quota exhausted. The shared budget resets at midnight UTC.";
+    throw new McpLimitError(`${reason} ${accountChatAccess}`, 429);
   }
 }

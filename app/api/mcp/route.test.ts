@@ -54,7 +54,10 @@ describe("Streamable HTTP client", () => {
       const { tools } = await client.listTools();
       expect(tools.map(tool => tool.name).sort()).toEqual(["ask_parrot", "find_churches", "get_church"]);
       for (const tool of tools) expect(tool.annotations?.readOnlyHint).toBe(tool.name !== "ask_parrot");
-      expect(tools.find(tool => tool.name === "ask_parrot")?.description).toMatch(/persist|stor|sav/i);
+      const description = tools.find(tool => tool.name === "ask_parrot")?.description;
+      expect(description).toMatch(/persist|stor|sav/i);
+      expect(description).toContain("10 chat requests per hour per network");
+      expect(description).toContain("20 chat requests per minute outside the shared guest budget");
     } finally { await client.close(); }
   });
 
