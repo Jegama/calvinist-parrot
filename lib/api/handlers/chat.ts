@@ -19,7 +19,7 @@ import { generateConversationName } from "@/utils/generateConversationName";
 import { updateUserMemoriesFromConversation } from "@/utils/memoryExtraction";
 import { buildParrotSystemPrompt } from "@/utils/buildParrotSystemPrompt";
 import { getChatActorId, resolveChatActor, type ChatActor } from "@/lib/guest";
-import { browserGuestCannotAccess, browserGuestChatFilter } from "@/lib/mcp/ownership";
+import { browserGuestCannotAccess, browserGuestChatFilter, MCP_CHAT_PREFIX } from "@/lib/mcp/ownership";
 import { evaluateRetry } from "@/lib/chat-requests";
 import { chatOperationId, pendingVisibleReply, recordChatEvents, recordChatReply, type ChatChannel } from "@/lib/chat-analytics";
 import { recordEngagement } from "@/lib/analytics/engagement-store";
@@ -217,6 +217,39 @@ function getIdempotentChatCreationResult(
     messageId: userMessages[0].id,
     requestId,
   };
+}
+
+async function loadChatContext(chatId: string, userId: string, denomination: string) {
+  const [userProfile, previousMessages] = await Promise.all([
+    prisma.userProfile.findUnique({
+      where: { appwriteUserId: userId },
+      select: {
+        denomination: true,
+        preferredDepth: true,
+        followUpTendency: true,
+        spiritualStatus: true,
+        gospelPresentationCount: true,
+        coreDoctrineQuestions: true,
+        secondaryDoctrineQuestions: true,
+        tertiaryDoctrineQuestions: true,
+        ministryContext: true,
+        churchInvolvement: true,
+      },
+    }),
+    prisma.chatMessage.findMany({
+      where: { chatId },
+      orderBy: [{ timestamp: "asc" }, { id: "asc" }],
+      select: { sender: true, content: true },
+    }),
+  ]);
+
+  // Build system prompt with pastoral context & denomination mapping
+  const systemPrompt = buildParrotSystemPrompt({
+    userProfile,
+    denominationFallback: denomination,
+    effectiveUserId: userId,
+  });
+  return { previousMessages, systemPrompt };
 }
 
 export async function executeChatCommand(
@@ -491,6 +524,15 @@ export async function executeChatCommand(
       if (pending === visible) await recordEngagement("chat", "reply_visible", visible);
     }
 
+    // All channels can continue an account's saved MCP conversation. Hold the
+    // same lease from submission until the stream has persisted its last event.
+    const holder = chatId.startsWith(MCP_CHAT_PREFIX) ? crypto.randomUUID() : undefined;
+    // Finish generation before a crashed worker's five-minute lease can expire.
+    const signal = holder ? AbortSignal.any([request.signal, AbortSignal.timeout(240_000)]) : request.signal;
+    let leaseReleased = false;
+    const releaseLease = async () => {
+      if (holder && !leaseReleased) await prisma.mcpChatLease.deleteMany({ where: { chatId, holder } });
+    };
     const conflict = await withRequestPersistenceLock(chatId, resolvedRequestId, async (tx) => {
       const rows = await tx.chatMessage.findMany({
         where: { chatId, requestId: resolvedRequestId },
@@ -510,6 +552,17 @@ export async function executeChatCommand(
       const terminal = getRequestTerminalState(rows);
       if (!retry && (terminal === "failed" || terminal === "stopped")) {
         return NextResponse.json({ error: "Set retry to true to restart this request" }, { status: 409 });
+      }
+      if (holder) {
+        const acquired = await tx.$executeRaw`
+          INSERT INTO "McpChatLease" ("chatId", holder, "expiresAt")
+          VALUES (${chatId}, ${holder}, now() + interval '5 minutes')
+          ON CONFLICT ("chatId") DO UPDATE SET holder = EXCLUDED.holder, "expiresAt" = EXCLUDED."expiresAt"
+          WHERE "McpChatLease"."expiresAt" <= now()
+        `;
+        if (!acquired) return NextResponse.json({
+          error: "Another turn is running in this conversation. Retry shortly with the same requestId.",
+        }, { status: 409 });
       }
       if (retry) {
         await tx.chatMessage.deleteMany({
@@ -569,38 +622,11 @@ export async function executeChatCommand(
       return history;
     };
 
-    // TTFT Optimization: Fetch user profile and chat messages in parallel
-    // This eliminates one sequential DB round-trip (~100-300ms savings)
-    type ChatMessageSummary = { sender: string; content: string };
-    const [userProfile, previousMessages] = await Promise.all([
-      prisma.userProfile.findUnique({
-        where: { appwriteUserId: resolvedUserId },
-        select: {
-          denomination: true,
-          preferredDepth: true,
-          followUpTendency: true,
-          spiritualStatus: true,
-          gospelPresentationCount: true,
-          coreDoctrineQuestions: true,
-          secondaryDoctrineQuestions: true,
-          tertiaryDoctrineQuestions: true,
-          ministryContext: true,
-          churchInvolvement: true,
-        },
-      }),
-      prisma.chatMessage.findMany({
-        where: { chatId },
-        orderBy: [{ timestamp: "asc" }, { id: "asc" }],
-        select: { sender: true, content: true },
-      }) as Promise<ChatMessageSummary[]>,
-    ]);
-
-    // Build system prompt with pastoral context & denomination mapping
-    const newParrotSysPrompt = buildParrotSystemPrompt({
-      userProfile,
-      denominationFallback: resolvedDenomination,
-      effectiveUserId: resolvedUserId,
-    });
+    const { previousMessages, systemPrompt: newParrotSysPrompt } =
+      await loadChatContext(chatId, resolvedUserId, resolvedDenomination).catch(async error => {
+        await releaseLease();
+        throw error;
+      });
 
     // Capture variables for stream closure
     const capturedUserId = resolvedUserId;
@@ -610,20 +636,8 @@ export async function executeChatCommand(
 
     const stream = new ReadableStream({
       async start(controller) {
-        // TTFT Optimization: Send immediate progress event before any async work
-        // This gives the user instant visual feedback while we prepare the LLM call
-        sendProgress(
-          {
-            type: "progress",
-            title: "Processing",
-            content: "Preparing your response...",
-            requestId: capturedRequestId,
-          },
-          controller
-        );
-
         // Message accumulator - initialized from pre-fetched data
-        const conversationMessages: { sender: string; content: string }[] = previousMessages.map((msg: ChatMessageSummary) => ({
+        const conversationMessages: { sender: string; content: string }[] = previousMessages.map((msg) => ({
           sender: msg.sender,
           content: msg.content,
         }));
@@ -759,11 +773,17 @@ export async function executeChatCommand(
 
         let parrotReply = "";
         let generationStopped = false;
-        const persistPendingMessages = () =>
-          withRequestPersistenceLock(
+        const persistPendingMessages = async () => {
+          const state = await withRequestPersistenceLock(
             capturedChatId,
             capturedRequestId,
             async (tx) => {
+              // Atomically commit the final transcript and free the conversation.
+              // A worker replaced after expiry must never overwrite its successor.
+              if (holder) {
+                const owned = await tx.mcpChatLease.deleteMany({ where: { chatId: capturedChatId, holder } });
+                if (!owned.count) throw new Error("The chat generation lease has expired.");
+              }
               const existingMessages = await tx.chatMessage.findMany({
                 where: {
                   chatId: capturedChatId,
@@ -774,7 +794,7 @@ export async function executeChatCommand(
               const existingTerminalState =
                 getRequestTerminalState(existingMessages);
               const stopRequested =
-                generationStopped || request.signal.aborted;
+                generationStopped || signal.aborted;
 
               if (
                 stopRequested &&
@@ -814,8 +834,20 @@ export async function executeChatCommand(
               ]);
             },
           );
+          leaseReleased = true;
+          return state;
+        };
 
         try {
+          sendProgress(
+            {
+              type: "progress",
+              title: "Processing",
+              content: "Preparing your response...",
+              requestId: capturedRequestId,
+            },
+            controller
+          );
           void isAutoTrigger;
 
           // Parrot's answer
@@ -834,7 +866,7 @@ export async function executeChatCommand(
                   userId: capturedUserId,
                   chatUsage,
                 },
-                signal: request.signal,
+                signal,
               }
             );
 
@@ -1004,7 +1036,7 @@ export async function executeChatCommand(
             }
           } catch (error) {
             generationStopped =
-              request.signal.aborted ||
+              signal.aborted ||
               (error instanceof Error && error.name === "AbortError");
             if (generationStopped) {
               enqueueMessage("system_stopped", "Response stopped by the user.");
@@ -1105,7 +1137,7 @@ export async function executeChatCommand(
           }
 
           // Send "done" and close stream
-          if (!generationStopped && !request.signal.aborted) {
+          if (!generationStopped && !signal.aborted) {
             sendProgress(
               {
                 type: "done",
@@ -1114,13 +1146,8 @@ export async function executeChatCommand(
               controller,
             );
           }
-          try {
-            controller.close();
-          } catch {
-            // The client may already have closed the stream after Stop.
-          }
         } catch (error) {
-          if (!request.signal.aborted) {
+          if (!signal.aborted) {
             enqueueMessage("system_error", "We couldn't finish this response.");
             if (pendingMessages.length > 0) {
               await persistPendingMessages().catch((persistError) => {
@@ -1132,6 +1159,8 @@ export async function executeChatCommand(
             }
             sendError(error, "general", controller, capturedRequestId);
           }
+        } finally {
+          await releaseLease();
           try {
             controller.close();
           } catch {

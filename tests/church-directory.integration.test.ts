@@ -58,7 +58,7 @@ describe.skipIf(!databaseUrl)("public evaluated directory", () => {
         const first = await listChurches(request);
         expect(first.status).toBe(200);
         const page = await first.json();
-        expect(page).toMatchObject({ items: [{ id: historic.id, status: "limited_information" }], page: 1, pageSize: 1, hasMore: true });
+        expect(page).toMatchObject({ items: [{ id: historic.id, city: "Austin", state: "TX", status: "limited_information" }], page: 1, pageSize: 1, hasMore: true });
         expect(page.items).toHaveLength(1);
         expect(await findChurches({ ...filters, page: 2 })).toMatchObject({ items: [{ id: alphabetic.id }], hasMore: false });
         expect(await findChurches({ ...filters, page: 3 })).toMatchObject({ items: [], hasMore: false });

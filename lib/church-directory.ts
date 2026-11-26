@@ -66,10 +66,11 @@ export function directoryPage(filters: DirectoryFilters, offset: number, limit: 
       ORDER BY priority, lower(c.name), c.id LIMIT ${limit} OFFSET ${offset}
     )
     SELECT p.id, p.name, p.website, p.denomination, p."confessionAdopted", p.status, a.city, a.state
-    FROM page p LEFT JOIN LATERAL (
-      SELECT city, state FROM "churchAddress" WHERE "churchId" = p.id
-      ORDER BY "isPrimary" DESC, "createdAt", id LIMIT 1
-    ) a ON true ORDER BY p.priority, lower(p.name), p.id
+    FROM page p LEFT JOIN (
+      SELECT DISTINCT ON (a."churchId") a."churchId", a.city, a.state
+      FROM "churchAddress" a JOIN page ON page.id = a."churchId"
+      ORDER BY a."churchId", a."isPrimary" DESC, a."createdAt", a.id
+    ) a ON a."churchId" = p.id ORDER BY p.priority, lower(p.name), p.id
   `;
 }
 

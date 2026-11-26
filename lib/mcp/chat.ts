@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { z } from "zod";
 import { createChatRequestSchema, createChatResponseSchema } from "@/lib/api/contracts/chat";
 import { executeChatCommand } from "@/lib/api/handlers/chat";
@@ -98,6 +98,16 @@ async function answerTurn(
       select: { attemptId: true },
     }));
   const response = await executeChatCommand(request, { chatId, requestId, message: question, retry }, "mcp", actor);
+  if (response.status === 409) {
+    // A concurrent delivery may have finished between our read and submission.
+    const latest = await readTurn(chatId, requestId, userId);
+    if (latest.some(row => row.sender === "user" && row.content !== question)) {
+      throw new McpChatError("This requestId already belongs to a different question.");
+    }
+    const replay = completedAnswer(latest);
+    if (replay) return replay;
+    throw new McpChatError((await response.json()).error);
+  }
   if (!response.ok || !response.body) throw interrupted();
   const reader = response.body.getReader();
   try {
@@ -149,20 +159,6 @@ export async function askParrot(rawInput: AskInput, caller: Caller): Promise<Ask
     if (created.chatId !== chatId || created.requestId !== requestId) throw interrupted();
   }
 
-  // Serialize MCP turns (including concurrent redelivery) across serverless
-  // instances. Expiry outlives the hosted request and recovers crashed workers.
-  const holder = randomUUID();
-  const acquired = await prisma.$executeRaw`
-    INSERT INTO "McpChatLease" ("chatId", holder, "expiresAt")
-    VALUES (${chatId}, ${holder}, now() + interval '5 minutes')
-    ON CONFLICT ("chatId") DO UPDATE SET holder = EXCLUDED.holder, "expiresAt" = EXCLUDED."expiresAt"
-    WHERE "McpChatLease"."expiresAt" <= now()
-  `;
-  if (!acquired) throw new McpChatError("Another turn is running in this conversation. Retry shortly with the same requestId.");
-  try {
-    const answer = await answerTurn(input, request, actor, chatId);
-    return caller.userId ? { ...answer, requestId, conversationRef: chatId } : { ...answer, requestId };
-  } finally {
-    await prisma.$executeRaw`DELETE FROM "McpChatLease" WHERE "chatId" = ${chatId} AND holder = ${holder}`;
-  }
+  const answer = await answerTurn(input, request, actor, chatId);
+  return caller.userId ? { ...answer, requestId, conversationRef: chatId } : { ...answer, requestId };
 }

@@ -9,6 +9,7 @@ import { transferGuestChatsToUser } from "@/lib/chat-transfer";
 import { GET as listChats } from "@/app/api/user-chats/route";
 import { GET as publicTranscript } from "@/app/api/v1/chats/[chatId]/route";
 import { GET as websiteTranscript } from "@/app/api/web/chats/[chatId]/route";
+import { POST as publicFollowup } from "@/app/api/v1/chats/[chatId]/messages/route";
 import { POST as websiteFollowup } from "@/app/api/web/chats/[chatId]/messages/route";
 
 if (process.env.RUN_DATABASE_INTEGRATION_TESTS === "1") config();
@@ -170,6 +171,53 @@ describe.skipIf(!databaseUrl)("MCP chat adapter through the streamed chat servic
     }
     const result = await first;
     expect(await askParrot(turn, caller(alice))).toEqual(result);
+  });
+
+  it.each([
+    ["website", websiteFollowup],
+    ["v1", publicFollowup],
+  ] as const)("serializes MCP and %s turns in both directions", async (_channel, post) => {
+    const saved = await askParrot(newTurn(), caller(alice));
+    const chatId = saved.conversationRef!;
+    const turn = { ...newTurn(), question: "First follow-up", conversationRef: chatId };
+    const next = { ...newTurn(), question: "Second follow-up", conversationRef: chatId };
+    const send = (input: typeof turn) => post(new Request("http://localhost/messages", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestId: input.requestId, message: input.question }),
+    }), { params: Promise.resolve({ chatId }) });
+    const started = Promise.withResolvers<void>();
+    const finish = Promise.withResolvers<void>();
+    flow.beforeAnswer.mockImplementationOnce(() => { started.resolve(); return finish.promise; });
+    browserUser = alice;
+    try {
+      const first = askParrot(turn, caller(alice));
+      try {
+        await started.promise;
+        expect((await send(turn)).status).toBe(409);
+        expect((await send(next)).status).toBe(409);
+      } finally {
+        finish.resolve();
+        await first;
+      }
+      const startedWeb = Promise.withResolvers<void>();
+      const finishWeb = Promise.withResolvers<void>();
+      flow.beforeAnswer.mockImplementationOnce(() => { startedWeb.resolve(); return finishWeb.promise; });
+      const stream = await send(next);
+      expect(stream.status).toBe(200);
+      try {
+        await startedWeb.promise;
+        await expect(askParrot(next, caller(alice))).rejects.toThrow("Another turn is running");
+        expect(flow.histories.at(-1)).toEqual([question, answer, turn.question, answer, next.question]);
+      } finally {
+        finishWeb.resolve();
+        await stream.text();
+      }
+      const attempts = flow.histories.length;
+      expect((await askParrot(next, caller(alice))).answer).toBe(answer);
+      expect(flow.histories).toHaveLength(attempts);
+    } finally {
+      browserUser = null;
+    }
   });
 
   it("allows a guest to retry an interrupted question with the original requestId", async () => {
