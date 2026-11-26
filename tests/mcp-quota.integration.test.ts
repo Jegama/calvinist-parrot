@@ -32,15 +32,18 @@ describe.skipIf(!databaseUrl)("MCP shared caller quotas", () => {
     vi.unstubAllEnvs();
   });
 
-  it("atomically admits three concurrent guest requests, independently of other callers and tools", async () => {
+  it.each([
+    { kind: "guest_chat", maximum: 10 },
+    { kind: "account_chat", maximum: 20 },
+  ] as const)("admits $maximum concurrent $kind requests per caller", async ({ kind, maximum }) => {
     const caller = randomUUID();
-    const burst = await Promise.allSettled(Array.from({ length: 12 }, () => consumeMcpCallerLimit(caller, "guest_chat")));
-    expect(burst.filter(r => r.status === "fulfilled")).toHaveLength(3);
+    const burst = await Promise.allSettled(Array.from({ length: maximum + 2 }, () => consumeMcpCallerLimit(caller, kind)));
+    expect(burst.filter(result => result.status === "fulfilled")).toHaveLength(maximum);
     for (const result of burst) {
       if (result.status === "rejected") expect(result.reason).toMatchObject({ status: 429 });
     }
     await expect(consumeMcpCallerLimit(caller, "directory")).resolves.toBeUndefined();
-    await expect(consumeMcpCallerLimit(randomUUID(), "guest_chat")).resolves.toBeUndefined();
+    await expect(consumeMcpCallerLimit(randomUUID(), kind)).resolves.toBeUndefined();
   });
 
   it("debits one daily budget across concurrent attempts and retains the unused remainder", async () => {

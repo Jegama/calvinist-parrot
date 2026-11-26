@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 
 const callerLimits = {
   directory: { seconds: 60, maximum: 60 },
-  guest_chat: { seconds: 3600, maximum: 3 },
-  account_chat: { seconds: 60, maximum: 12 },
+  guest_chat: { seconds: 3600, maximum: 10 },
+  account_chat: { seconds: 60, maximum: 20 },
 };
 
 export class McpLimitError extends Error {
