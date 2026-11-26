@@ -2,7 +2,7 @@
 
 ## 2.4.0 — November 25, 2026
 
-- **Account usernames.** New password accounts choose a username and enter first and last names. Existing members can keep signing in by email or Google, then claim or change their username and names from Profile. [#105](https://github.com/Jegama/calvinist-parrot/issues/105)
+- **Account usernames.** New password accounts choose a username and enter first and last names. Existing members can keep signing in by email or Google, then claim or change their username and names from Profile. [#126](https://github.com/Jegama/calvinist-parrot/pull/126)
 
 ## 2.3.0 — November 25, 2026
 
