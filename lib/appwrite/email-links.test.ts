@@ -2,6 +2,14 @@ import { AppwriteException, Client } from "node-appwrite";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const cookies = vi.hoisted(() => new Map<string, { value: string }>());
+// Exercise the supported rollout window before the additive receipt table exists.
+vi.mock("@/lib/prisma", () => ({
+  default: {
+    $transaction: vi.fn().mockRejectedValue(new Error("Receipt table is not deployed")),
+    userProfile: { findUnique: vi.fn().mockResolvedValue({ id: "profile" }) },
+    accountVerificationEmail: { findUnique: vi.fn().mockRejectedValue(new Error("Receipt table is not deployed")) },
+  },
+}));
 vi.mock("next/headers", () => ({
   cookies: async () => cookies,
   headers: async () => new Headers({ "user-agent": "test-browser" }),
@@ -55,7 +63,7 @@ it("sends to the session account, enforces its resend limit, and uses the approv
   expect(sdk).not.toHaveBeenCalled();
   cookies.set("a_session_test-project", { value: "synthetic-session" });
   let verified = false;
-  sdk.mockImplementation(async method => method === "get" ? { $id: "reader", emailVerification: verified } : {});
+  sdk.mockImplementation(async method => method === "get" ? { $id: "reader", emailVerification: verified, email: "reader@example.test" } : {});
   for (let attempt = 0; attempt < 4; attempt++) {
     expect((await POST()).status).toBe(attempt < 3 ? 200 : 429);
   }
@@ -68,6 +76,19 @@ it("sends to the session account, enforces its resend limit, and uses the approv
     expect(body).toEqual({ url: "https://parrot-branch.vercel.app/verify-email" });
   }
   for (const context of sdk.mock.contexts) expect(context).toMatchObject({ config: { key: "", session: "synthetic-session" } });
+});
+
+it("skips the automatic send when its receipt cannot be stored and still allows an explicit request", async () => {
+  const { sendFirstVerificationEmail, hasVerificationEmail } = await import("@/lib/appwrite/verification");
+  const { POST: resend } = await import("@/app/api/auth/verification/route");
+  const user = { $id: "reader", name: "Reader", $updatedAt: "", email: "reader@example.test", emailVerification: false };
+  const sdk = vi.spyOn(Client.prototype, "call").mockImplementation(async method => method === "get" ? user : {});
+  expect(await sendFirstVerificationEmail(user, "synthetic-session")).toBe(false);
+  expect(await hasVerificationEmail(user)).toBe(false);
+  expect(sdk).not.toHaveBeenCalled();
+  cookies.set("a_session_test-project", { value: "synthetic-session" });
+  expect(await (await resend()).json()).toMatchObject({ verificationEmailSent: true });
+  expect(sdk.mock.calls.filter(([method]) => method === "post")).toHaveLength(1);
 });
 
 it("refuses to mail a recovery link without a trusted origin", async () => {

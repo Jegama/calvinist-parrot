@@ -21,7 +21,7 @@ export function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const consentQuery = searchParams.get("mcpConsent");
-  const { setUser } = useAuth();
+  const { user, setUser, verificationEmailSent, updateCredentials } = useAuth();
 
   useEffect(() => {
     rememberConsentRequest(consentQuery);
@@ -55,7 +55,7 @@ export function RegisterForm() {
         throw new Error(payload.error || "Registration failed.");
       }
 
-      setUser(payload.user, payload.profile);
+      setUser(payload.user, payload.profile, payload.verificationEmailSent);
       if (payload.user.emailVerification) router.push(afterLoginPath(consentQuery));
       else setRegisteredEmail(payload.user.email);
     } catch (error: unknown) {
@@ -77,10 +77,12 @@ export function RegisterForm() {
     const sendVerification = async () => {
       setSubmitting(true);
       setErrorMessage("");
+      setVerificationMessage("");
       try {
         const response = await fetch("/api/auth/verification", { method: "POST" });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Could not send the verification email.");
+        if (user) updateCredentials(user.$id, result);
         setVerificationMessage(result.message);
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Could not send the verification email.");
@@ -93,13 +95,16 @@ export function RegisterForm() {
       <Card className="mx-auto mt-10 max-w-sm">
         <CardHeader>
           <CardTitle>Your account is ready</CardTitle>
-          <CardDescription>You can verify {registeredEmail} now or later from Profile.</CardDescription>
+          <CardDescription>{user?.emailVerification ? "You can continue to Parrot." : "You can continue to Parrot while you verify your email."}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
           {errorMessage && <p role="alert" className="text-destructive">{errorMessage}</p>}
-          {verificationMessage ? <p role="status">{verificationMessage}</p> : (
+          {!errorMessage && <p role="status">{verificationMessage || (verificationEmailSent
+            ? `Check ${registeredEmail} for your verification link.`
+            : `We couldn’t send a verification link to ${registeredEmail}. You can try again here or in Profile.`)}</p>}
+          {!user?.emailVerification && (
             <Button type="button" variant="outline" disabled={submitting} onClick={sendVerification}>
-              {submitting ? "Sending…" : "Send verification email"}
+              {submitting ? "Sending…" : verificationEmailSent ? "Resend verification email" : "Send verification email"}
             </Button>
           )}
           <Button type="button" onClick={() => router.push(afterLoginPath(consentQuery))}>Continue to Parrot</Button>

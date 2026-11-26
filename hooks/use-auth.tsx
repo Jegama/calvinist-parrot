@@ -15,19 +15,21 @@ import { useQueryClient } from "@tanstack/react-query";
 export type AppwriteUser = Models.User<Models.Preferences>;
 type ProfileSnapshot = { displayName: string; firstName?: string | null; firstNameNudgeShown?: boolean };
 type AccountCredentials = Pick<AppwriteUser, "email" | "emailVerification" | "passwordUpdate">;
+type AccountUpdate = { account?: AccountCredentials; verificationEmailSent?: boolean };
 
 type SessionIdentity = {
   user: AppwriteUser | null;
   profile: ProfileSnapshot | null;
+  verificationEmailSent: boolean;
 };
 
 type AuthContextValue = SessionIdentity & {
   displayName: string;
   loading: boolean;
   refresh: () => Promise<void>;
-  setUser: (nextUser: AppwriteUser | null, profile?: ProfileSnapshot | null) => void;
+  setUser: (nextUser: AppwriteUser | null, profile?: ProfileSnapshot | null, verificationEmailSent?: boolean) => void;
   updateProfile: (userId: string, profile: ProfileSnapshot) => void;
-  updateCredentials: (userId: string, account: AccountCredentials) => void;
+  updateCredentials: (userId: string, update: AccountUpdate) => void;
   logout: () => Promise<void>;
 };
 
@@ -37,16 +39,17 @@ export type AuthResponse = {
   authenticated?: boolean;
   user?: AppwriteUser | null;
   profile?: ProfileSnapshot | null;
+  verificationEmailSent?: boolean;
   error?: string;
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [identity, setIdentity] = useState<SessionIdentity>({ user: null, profile: null });
+  const [identity, setIdentity] = useState<SessionIdentity>({ user: null, profile: null, verificationEmailSent: false });
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
 
-  const setUser = useCallback((user: AppwriteUser | null, profile?: ProfileSnapshot | null) => {
-    setIdentity({ user, profile: profile ?? null });
+  const setUser = useCallback((user: AppwriteUser | null, profile?: ProfileSnapshot | null, verificationEmailSent = false) => {
+    setIdentity({ user, profile: profile ?? null, verificationEmailSent });
     setLoading(false);
   }, []);
 
@@ -54,9 +57,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIdentity((current) => current.user?.$id === userId ? { ...current, profile } : current);
   }, []);
 
-  const updateCredentials = useCallback((userId: string, { email, emailVerification, passwordUpdate }: AccountCredentials) => {
+  const updateCredentials = useCallback((userId: string, { account, verificationEmailSent }: AccountUpdate) => {
     setIdentity((current) => current.user?.$id === userId
-      ? { ...current, user: { ...current.user, email, emailVerification, passwordUpdate } }
+      ? {
+        ...current,
+        user: account ? { ...current.user, ...account } : current.user,
+        verificationEmailSent: verificationEmailSent ?? current.verificationEmailSent,
+      }
       : current);
   }, []);
 
@@ -73,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const payload = (await response.json()) as AuthResponse;
-      setUser(payload.authenticated ? payload.user ?? null : null, payload.profile);
+      setUser(payload.authenticated ? payload.user ?? null : null, payload.profile, payload.verificationEmailSent);
     } catch {
       setUser(null);
     }

@@ -24,6 +24,7 @@ const firstPassword = { field: "password", password: "test-first-password" };
 beforeEach(() => {
   vi.resetAllMocks();
   readSession.mockResolvedValue(sessionAccount);
+  sendVerification.mockResolvedValue(true);
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -41,8 +42,8 @@ it("updates the session owner's email, syncs only provider-returned data and sen
   expect(api.mock.calls[1][3]).toEqual({ email: updatedEmail.email, password: emailChange.currentPassword });
   expect(api.mock.contexts[1]).toMatchObject({ config: { key: "", session: "test-session" } });
   expect(syncEmail).toHaveBeenCalledWith(expect.objectContaining(updatedEmail), expect.any(Function));
-  expect(sendVerification).toHaveBeenCalledWith(sessionAccount);
-  expect(await res.json()).toMatchObject({ account: { email: updatedEmail.email, emailVerification: false }, message: expect.stringContaining("Check your new inbox") });
+  expect(sendVerification).toHaveBeenCalledWith(sessionAccount, expect.objectContaining(updatedEmail), "email-change");
+  expect(await res.json()).toMatchObject({ account: { email: updatedEmail.email, emailVerification: false }, verificationEmailSent: true, message: expect.stringContaining("Check your new inbox") });
 });
 
 it("reports an already committed email change even if mirroring and delivery are temporarily unavailable", async () => {
@@ -51,7 +52,7 @@ it("reports an already committed email change even if mirroring and delivery are
   sendVerification.mockRejectedValue(new Error("SMTP unavailable"));
   const res = await patch(emailChange);
   expect(res.status).toBe(200);
-  expect(await res.json()).toMatchObject({ account: { email: updatedEmail.email }, message: expect.stringContaining("Resend verification") });
+  expect(await res.json()).toMatchObject({ account: { email: updatedEmail.email }, verificationEmailSent: false, message: expect.stringContaining("Request a new verification link") });
 });
 
 it("requires the existing password and does not mirror or send after rejected reauthentication", async () => {

@@ -34,6 +34,7 @@ model userProfile {
   firstNameNudgeShown        Boolean            @default(false)
   email                      String?
   appwriteUpdatedAt          DateTime?
+  verificationEmail          accountVerificationEmail?
   defaultSpaceId             String?
   answeredPersonalCount      Int                @default(0)
   answeredFamilyCount        Int                @default(0)
@@ -63,6 +64,12 @@ model userProfile {
   churchInvolvement          String?            // "active_member" | "seeking_church" | "unclear"
   
   defaultSpace               prayerFamilySpace? @relation("DefaultSpaceProfiles", fields: [defaultSpaceId], references: [id])
+}
+
+model accountVerificationEmail {
+  appwriteUserId String      @id
+  email          String
+  profile        userProfile @relation(fields: [appwriteUserId], references: [appwriteUserId], onDelete: Cascade, onUpdate: Cascade)
 }
 
 model prayerFamilySpace {

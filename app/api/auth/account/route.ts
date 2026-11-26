@@ -29,17 +29,19 @@ export async function PATCH(request: Request) {
     const change = parsed.data;
     let updated;
     let message: string;
+    let verificationEmailSent: boolean | undefined;
     if (change.field === "email") {
       if (!user.passwordUpdate) return fail("Set a password before changing your email.", 400);
       if (change.email.toLowerCase() === user.email.toLowerCase()) return fail("Enter a different email address.", 400);
       updated = await account.updateEmail({ email: change.email, password: change.currentPassword });
       const [mirror, verification] = await Promise.allSettled([
         syncConfirmedEmail(updated, () => account.get()),
-        sendAccountVerification(account),
+        sendAccountVerification(account, updated, "email-change"),
       ]);
-      message = verification.status === "fulfilled"
+      verificationEmailSent = verification.status === "fulfilled" && verification.value;
+      message = verificationEmailSent
         ? "Email changed. Check your new inbox for the verification link."
-        : "Email changed. Use Resend verification to request a new link.";
+        : "Email changed. Request a new verification link in Profile.";
       if (mirror.status === "rejected") {
         message += " Your saved profile will sync on your next visit.";
       }
@@ -51,6 +53,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({
       account: { email: updated.email, emailVerification: updated.emailVerification, passwordUpdate: updated.passwordUpdate },
       message,
+      verificationEmailSent,
     });
   } catch (error) {
     if (error instanceof AppwriteException) {

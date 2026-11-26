@@ -12,6 +12,7 @@ import {
   getForwardedUserAgent,
   isAuthIntent,
 } from "@/lib/appwrite/server";
+import { sendFirstVerificationEmail } from "@/lib/appwrite/verification";
 import { readGoogleNames } from "@/lib/appwrite/google-profile";
 import { transferGuestChatsToUser } from "@/lib/chat-transfer";
 import { getGuestId } from "@/lib/guest";
@@ -61,6 +62,7 @@ export async function GET(request: Request) {
       await transferGuestChatsToUser(guestId, user.$id);
     }
 
+    await sendFirstVerificationEmail(user, session.secret);
     const response = NextResponse.redirect(new URL("/auth/complete", origin));
     applyAppwriteSessionCookie(response, session);
     response.cookies.delete(AUTH_INTENT_COOKIE);

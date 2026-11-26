@@ -116,21 +116,40 @@ it("registers with exactly the five labeled identity and credential fields", asy
     username: "New_Reader", firstName: "Lee", lastName: "Rivera",
     email: "reader@example.test", password: "test-password",
   };
-  transport.mockResolvedValueOnce(Response.json(signedIn));
+  transport.mockResolvedValueOnce(Response.json({ ...signedIn, verificationEmailSent: true }));
   await submit(fields);
   expect(transport).toHaveBeenCalledWith("/api/auth/register", expect.objectContaining({
     method: "POST", body: JSON.stringify(fields),
   }));
   expect(container.textContent).toContain("Your account is ready");
+  expect(container.querySelector('[role="status"]')?.textContent).toContain("Check reader@example.test");
+  expect(transport.mock.calls.some(([url]) => url === "/api/auth/verification")).toBe(false);
   expect(push).not.toHaveBeenCalled();
-  transport.mockResolvedValueOnce(Response.json({ message: "Verification email sent. Check your inbox." }));
+  transport.mockResolvedValueOnce(Response.json({ message: "Verification email sent. Check your inbox.", verificationEmailSent: true }));
   const buttons = Array.from(container.querySelectorAll("button"));
-  await act(async () => buttons.find((button) => button.textContent === "Send verification email")!.click());
+  await act(async () => buttons.find((button) => button.textContent === "Resend verification email")!.click());
   expect(transport).toHaveBeenLastCalledWith("/api/auth/verification", { method: "POST" });
   expect(container.querySelector('[role="status"]')?.textContent).toContain("Verification email sent");
   await act(async () => buttons.find((button) => button.textContent === "Continue to Parrot")!.click());
   expect(push).toHaveBeenCalledWith(consentPath + "?grant_id=fixture");
   expectSignedInName();
+});
+
+it("keeps signup usable after mail fails and offers the first send", async () => {
+  await renderWithSession(<RegisterForm />);
+  transport.mockResolvedValueOnce(Response.json({ ...signedIn, verificationEmailSent: false }));
+  await submit({
+    username: "new_reader", firstName: "Lee", lastName: "Rivera",
+    email: providerUser.email, password: "test-password",
+  });
+  expect(container.textContent).toContain("We couldn’t send a verification link");
+  const button = (text: string) => Array.from(container.querySelectorAll("button")).find(item => item.textContent === text);
+  expect(button("Resend verification email")).toBeUndefined();
+  transport.mockResolvedValueOnce(Response.json({ message: "Verification email sent.", verificationEmailSent: true }));
+  await act(async () => button("Send verification email")!.click());
+  expect(button("Resend verification email")).toBeDefined();
+  await act(async () => button("Continue to Parrot")!.click());
+  expect(push).toHaveBeenCalledWith("/");
 });
 
 it.each([["New_Reader", consentRequest], ["reader@example.test", "/"]])("signs in %s and returns to %s", async (identifier, destination) => {
@@ -223,15 +242,20 @@ it("sets a first password, then requires that password to change the email and s
   await act(async () => button("Change email").click());
   const changes = { email: "new@example.test", currentPassword: "synthetic-password" };
   expect(container.querySelector<HTMLInputElement>("input[name=currentPassword]")?.required).toBe(true);
-  transport.mockResolvedValueOnce(Response.json({ account: { ...withPassword, email: changes.email, emailVerification: false }, message: "Email changed." }));
+  transport.mockResolvedValueOnce(Response.json({
+    account: { ...withPassword, email: changes.email, emailVerification: false },
+    message: "Email changed.", verificationEmailSent: false,
+  }));
   await submit(changes);
   expect(transport).toHaveBeenLastCalledWith("/api/auth/account", expect.objectContaining({
     method: "PATCH", body: JSON.stringify({ field: "email", ...changes }),
   }));
   expect(container.textContent).toContain(changes.email);
   expect(container.textContent).toContain("Email unverified");
-  transport.mockResolvedValueOnce(Response.json({ message: "Verification email sent." }));
-  await act(async () => button("Resend verification").click());
+  expect(button("Resend verification email")).toBeUndefined();
+  transport.mockResolvedValueOnce(Response.json({ message: "Verification email sent.", verificationEmailSent: true }));
+  await act(async () => button("Send verification email").click());
   expect(transport).toHaveBeenLastCalledWith("/api/auth/verification", { method: "POST" });
   expect(container.querySelector('[role="status"]')?.textContent).toBe("Verification email sent.");
+  expect(button("Resend verification email")).toBeDefined();
 });

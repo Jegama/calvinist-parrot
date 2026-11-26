@@ -1,6 +1,9 @@
 import { Client } from "node-appwrite";
 import { afterEach, expect, it, vi } from "vitest";
 
+const firstVerification = vi.hoisted(() => vi.fn().mockResolvedValue(true));
+vi.mock("@/lib/appwrite/verification", () => ({ sendFirstVerificationEmail: firstVerification }));
+
 const saved = vi.hoisted(() => ({ get: vi.fn(), upsert: vi.fn() }));
 vi.mock("@/lib/user-profile", () => ({
   getUserProfileForAppwriteUser: saved.get, upsertUserProfileFromAppwriteUser: saved.upsert,
@@ -21,7 +24,7 @@ it("finishes a fresh Google sign-in with name claims and skips claims after both
   vi.stubEnv("APP_URL", "https://preview.example.test");
   vi.stubEnv("VERCEL_ENV", "development");
 
-  const user = { $id: "google-account", name: "Provider Name", email: "reader@example.test" };
+  const user = { $id: "google-account", name: "Provider Name", email: "reader@example.test", emailVerification: false };
   vi.spyOn(Client.prototype, "call").mockImplementation(async function (this: Client, _method, url) {
     if (url.pathname === "/v1/account/sessions/token") return {
       secret: "test-session", userId: user.$id,
@@ -42,6 +45,7 @@ it("finishes a fresh Google sign-in with name claims and skips claims after both
   expect(first.headers.get("location")).toBe("https://preview.example.test/auth/complete");
   expect(first.cookies.get("a_session_test-google")?.value).toBe("test-session");
   expect([...first.headers.values()].join(" ")).not.toContain("google-token");
+  expect(firstVerification).toHaveBeenCalledWith(expect.objectContaining(user), "test-session");
   expect(saved.upsert).toHaveBeenCalledWith(expect.objectContaining(user), undefined, { firstName: "Renée", lastName: "Durand" });
 
   expect((await GET(request)).headers.get("location")).toBe("https://preview.example.test/auth/complete");

@@ -12,13 +12,13 @@ export async function POST() {
     const user = await account.get();
     if (user.emailVerification) {
       const { email, emailVerification, passwordUpdate } = user;
-      return NextResponse.json({ message: "Your email is already verified.", account: { email, emailVerification, passwordUpdate } });
+      return NextResponse.json({ message: "Your email is already verified.", verificationEmailSent: false, account: { email, emailVerification, passwordUpdate } });
     }
     if (!checkRateLimit(`verify-email:${user.$id}`, 3, 15 * 60_000)) {
       return NextResponse.json({ error: "Too many verification requests. Try again in 15 minutes." }, { status: 429 });
     }
-    await sendAccountVerification(account);
-    return NextResponse.json({ message: "Verification email sent. Check your inbox." });
+    await sendAccountVerification(account, user);
+    return NextResponse.json({ message: "Verification email sent. Check your inbox.", verificationEmailSent: true });
   } catch (error) {
     if (error instanceof AppwriteException && error.code === 401) {
       return NextResponse.json({ error: "Sign in again to request verification." }, { status: 401 });

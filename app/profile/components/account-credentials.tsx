@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 
 export function AccountCredentials() {
-  const { user, updateCredentials } = useAuth();
+  const { user, verificationEmailSent, updateCredentials } = useAuth();
   const [field, setField] = useState<"email" | "password" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -40,7 +40,7 @@ export function AccountCredentials() {
         : await fetch("/api/auth/verification", { method: "POST" });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Please try again.");
-      if (result.account) updateCredentials(user.$id, result.account);
+      updateCredentials(user.$id, result);
       setMessage(result.message);
       setField(null);
     } catch (error) {
@@ -54,7 +54,10 @@ export function AccountCredentials() {
     <section className="grid gap-3 border-t pt-4" aria-label="Email and password">
       <div>
         <p>{user.email}</p>
-        <p className="text-sm text-muted-foreground">{user.emailVerification ? "Email verified" : "Email unverified"}</p>
+        <p className="text-sm text-muted-foreground">
+          {user.emailVerification ? "Email verified" : "Email unverified"}
+          {!user.emailVerification && verificationEmailSent && !message && !error && " · Check your inbox for a verification link."}
+        </p>
       </div>
       {field ? (
         <form key={field} onSubmit={submit}>
@@ -85,7 +88,9 @@ export function AccountCredentials() {
               {hasPassword ? "Change password" : "Set password"}
             </Button>
             {!user.emailVerification && (
-              <Button variant="outline" disabled={busy} onClick={() => void submit()}>Resend verification</Button>
+              <Button variant="outline" disabled={busy} onClick={() => void submit()}>
+                {verificationEmailSent ? "Resend verification email" : "Send verification email"}
+              </Button>
             )}
           </div>
         </div>
