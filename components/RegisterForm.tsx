@@ -11,16 +11,18 @@ import { ProfileIdentityFields } from "@/components/ProfileIdentityFields";
 import { Label } from "@/components/ui/label";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, type AuthResponse } from "@/hooks/use-auth";
-import { afterLoginPath } from "@/lib/mcp/auth-return";
+import { afterLoginPath, consentAuthHref, rememberConsentRequest } from "@/lib/mcp/auth-return";
 
 export function RegisterForm() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const consentQuery = searchParams.get("mcpConsent");
   const { setUser } = useAuth();
 
   useEffect(() => {
+    rememberConsentRequest(consentQuery);
     if (searchParams.get("oauth") === "failed") {
       setErrorMessage("Google signup failed. Please try again.");
       return;
@@ -29,7 +31,7 @@ export function RegisterForm() {
     if (searchParams.get("oauth") === "missing_credentials") {
       setErrorMessage("Google signup could not be completed.");
     }
-  }, [searchParams]);
+  }, [consentQuery, searchParams]);
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -52,7 +54,7 @@ export function RegisterForm() {
       }
 
       setUser(payload.user, payload.profile?.displayName);
-      router.push(afterLoginPath());
+      router.push(afterLoginPath(consentQuery));
     } catch (error: unknown) {
       if (error instanceof Error) {
         setErrorMessage(error.message);
@@ -111,7 +113,7 @@ export function RegisterForm() {
             </Button>
             <div className="mt-4 text-center text-sm">
               Already have an account?{" "}
-              <Link href="/login" className="underline">
+              <Link href={consentAuthHref("/login", consentQuery)} className="underline">
                 Login
               </Link>
             </div>

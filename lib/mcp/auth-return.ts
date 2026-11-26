@@ -1,18 +1,28 @@
-const consentPath = "/auth/mcp/consent";
+export const consentPath = "/auth/mcp/consent";
 const returnKey = "parrot.mcpConsentQuery";
 
-// The normal email and Google flows both return to the same tab. Store only the
-// query and reconstruct a fixed local path after login, never a redirect target.
-export function rememberConsentRequest() {
-  if (window.location.pathname === consentPath) sessionStorage.setItem(returnKey, window.location.search);
+export function consentAuthHref(page: "/login" | "/register", query: string | null) {
+  return query ? `${page}?${new URLSearchParams({ mcpConsent: query })}` : page;
 }
 
-export function afterLoginPath() {
-  try {
-    const query = sessionStorage.getItem(returnKey);
-    sessionStorage.removeItem(returnKey);
-    return query?.startsWith("?") ? consentPath + query : "/";
-  } catch {
-    return "/";
+// Keep a same-tab copy across Google sign-in and password recovery.
+export function rememberConsentRequest(query: string | null) {
+  if (query) {
+    try {
+      sessionStorage.setItem(returnKey, `?${query}`);
+    } catch {
+      // Password sign-in can still use the query in the link.
+    }
   }
+}
+
+export function afterLoginPath(query?: string | null) {
+  let search = query ? `?${query}` : null;
+  try {
+    search ??= sessionStorage.getItem(returnKey);
+    sessionStorage.removeItem(returnKey);
+  } catch {
+    // Storage can be disabled in the browser.
+  }
+  return search?.startsWith("?") ? consentPath + search : "/";
 }

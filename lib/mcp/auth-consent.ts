@@ -2,8 +2,8 @@ import * as z from "zod";
 import { Account, Apps, Client, Oauth2, type Models } from "node-appwrite";
 import { getSessionCookieValue } from "@/lib/appwrite/server";
 import { getMcpOAuthConfig, MCP_CHAT_SCOPE } from "./auth";
+import { consentPath } from "./auth-return";
 
-export const consentPath = "/auth/mcp/consent";
 type SearchParams = Record<string, string | string[] | undefined>;
 const supportedScopes = [MCP_CHAT_SCOPE, "openid", "offline_access"];
 
