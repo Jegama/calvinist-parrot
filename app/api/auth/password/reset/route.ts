@@ -1,4 +1,4 @@
-import { Account } from "appwrite";
+import { Account } from "node-appwrite";
 import { NextResponse } from "next/server";
 
 import { createAdminAppwriteClient, getForwardedUserAgent } from "@/lib/appwrite/server";
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     const account = new Account(createAdminAppwriteClient(await getForwardedUserAgent()));
-    await account.updateRecovery(userId, secret, password);
+    await account.updateRecovery({ userId, secret, password });
 
     return NextResponse.json({ success: true });
   } catch (error) {

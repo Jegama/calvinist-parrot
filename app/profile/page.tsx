@@ -18,7 +18,7 @@ import { PreviousQuestionsCard } from "./components/previous-questions-card";
 
 export default function ProfilePage() {
   const { resetUi, setSpaceNameInput } = useProfileUiStore();
-  const { user, logout } = useAuth();
+  const { user, displayName, updateDisplayName, logout } = useAuth();
 
   const profileQueryKey = useMemo(() => ["profile-overview", user?.$id ?? "guest"], [user?.$id]);
   const profileOverview = useQuery({
@@ -80,7 +80,25 @@ export default function ProfilePage() {
 
   return (
     <ProtectedView fallback={fallback}>
-      <ProfileCard name={user.name || ""} email={user.email || ""} labels={user.labels} onLogout={handleLogout} />
+      <ProfileCard
+        key={user.$id}
+        profile={profileOverview.data?.profile}
+        name={profileStats?.displayName || displayName}
+        email={user.email}
+        labels={user.labels}
+        onUpdate={async () => {
+          const updated = await profileOverview.refetch({ throwOnError: true });
+          if (updated.data?.profile) updateDisplayName(user.$id, updated.data.profile.displayName);
+        }}
+        onLogout={handleLogout}
+      />
+
+      {profileOverview.isError && !profileOverview.data && (
+        <div className="mx-auto mt-4 max-w-sm" role="alert">
+          <p>Your profile details could not be loaded.</p>
+          <button className="underline" onClick={() => profileOverview.refetch()}>Try again</button>
+        </div>
+      )}
 
       {profileStats && (
         <TheologicalPreferencesCard stats={profileStats} userId={user.$id} onUpdate={() => profileOverview.refetch()} />
@@ -89,7 +107,7 @@ export default function ProfilePage() {
       <FamilySpaceCard
         space={space}
         membership={membership}
-        userName={user.name || "Member"}
+        userName={profileStats?.displayName || displayName || "Member"}
         onUpdate={() => profileOverview.refetch()}
       />
 

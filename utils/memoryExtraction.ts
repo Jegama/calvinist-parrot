@@ -566,7 +566,7 @@ async function syncToPrisma(
         preferredDepth?: string;
       } = {
         appwriteUserId: userId,
-        displayName: "User", // Will be updated by auth flow
+        displayName: "User",
       };
 
       // Convert increment operations to initial values for create

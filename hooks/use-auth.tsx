@@ -14,29 +14,40 @@ import { useQueryClient } from "@tanstack/react-query";
 
 export type AppwriteUser = Models.User<Models.Preferences>;
 
-type AuthContextValue = {
+type SessionIdentity = {
   user: AppwriteUser | null;
+  displayName: string;
+};
+
+type AuthContextValue = SessionIdentity & {
   loading: boolean;
   refresh: () => Promise<void>;
-  setUser: (nextUser: AppwriteUser | null) => void;
+  setUser: (nextUser: AppwriteUser | null, displayName?: string) => void;
+  updateDisplayName: (userId: string, displayName: string) => void;
   logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-type AuthMeResponse = {
-  authenticated: boolean;
-  user: AppwriteUser | null;
+export type AuthResponse = {
+  authenticated?: boolean;
+  user?: AppwriteUser | null;
+  profile?: { displayName: string } | null;
+  error?: string;
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUserState] = useState<AppwriteUser | null>(null);
+  const [identity, setIdentity] = useState<SessionIdentity>({ user: null, displayName: "" });
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
 
-  const setUser = useCallback((nextUser: AppwriteUser | null) => {
-    setUserState(nextUser);
+  const setUser = useCallback((user: AppwriteUser | null, displayName?: string) => {
+    setIdentity({ user, displayName: displayName || user?.name || "" });
     setLoading(false);
+  }, []);
+
+  const updateDisplayName = useCallback((userId: string, displayName: string) => {
+    setIdentity((current) => current.user?.$id === userId ? { ...current, displayName } : current);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -51,14 +62,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Failed to load auth state.");
       }
 
-      const payload = (await response.json()) as AuthMeResponse;
-      setUserState(payload.authenticated ? payload.user : null);
+      const payload = (await response.json()) as AuthResponse;
+      setUser(payload.authenticated ? payload.user ?? null : null, payload.profile?.displayName);
     } catch {
-      setUserState(null);
-    } finally {
-      setLoading(false);
+      setUser(null);
     }
-  }, []);
+  }, [setUser]);
 
   useEffect(() => {
     void refresh();
@@ -82,8 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const value = useMemo(
-    () => ({ user, loading, refresh, setUser, logout }),
-    [user, loading, refresh, setUser, logout],
+    () => ({ ...identity, loading, refresh, setUser, updateDisplayName, logout }),
+    [identity, loading, refresh, setUser, updateDisplayName, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

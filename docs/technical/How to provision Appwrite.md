@@ -87,4 +87,12 @@ Use development Appwrite resources for Vercel Preview/Development and production
 
 For localhost, copy the root `.env.template`: it defaults `SERMON_RUNTIME=local` and does not require the Vercel sermon Function or bucket variables to be populated. The local sermon worker requires the root `GEMINI_API_KEY`; that value does not configure the deployed Function, which must receive its own worker credential in Appwrite.
 
-The Vercel `APPWRITE_API_KEY` must remain server-only and have only the capabilities used here: file metadata/deletion, file-token creation, and Function execution. The browser receives only the `NEXT_PUBLIC_*` identifiers and a short-lived user JWT. [Source: [appwrite.ts:20](/Users/omni_jgmancilla/Dev/calvinist-parrot/lib/sermon-evaluation/appwrite.ts:20), “server key performs storage, token, and Function operations”]
+Keep the Vercel `APPWRITE_API_KEY` server-only. The Appwrite server SDK uses a key with the `sessions.write` scope to obtain the session secret. Each authenticated request gets a fresh client configured with that secret. [Appwrite SSR authentication](https://appwrite.io/docs/products/auth/server-side-rendering)
+
+The cloud sermon runtime also uses the server key for file metadata/deletion, file-token creation, and Function execution. The browser receives the public project identifiers and a short-lived JWT derived from the signed-in user's session. [Sermon Appwrite client](../../lib/sermon-evaluation/appwrite.ts)
+
+### Verify username sign-in permissions
+
+Set the server-only `APPWRITE_ANALYTICS_READ_KEY` to a separate key with just `users.read` for the same project as `APPWRITE_PROJECT_ID`. Username sign-in uses this key to fetch the canonical email by Appwrite user ID. Email and Google sign-in continue using the existing session configuration. [Appwrite API key scopes](https://appwrite.io/docs/partners/project/api-keys)
+
+In the Appwrite Console, confirm the read key's project and scope, then sign in to a preview by username with a synthetic password account. Verify the account on the profile page and repeat by email. If username sign-in alone fails, check the read key in the preview environment and redeploy after correcting it.

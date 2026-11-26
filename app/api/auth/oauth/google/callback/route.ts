@@ -1,11 +1,11 @@
-import { Account } from "appwrite";
+import { Account } from "node-appwrite";
 import { NextResponse } from "next/server";
 
 import {
   applyAppwriteSessionCookie,
   AUTH_INTENT_COOKIE,
   createAdminAppwriteClient,
-  createSessionAppwriteClient,
+  getVerifiedSessionUser,
   GUEST_ID_COOKIE,
   getAppUrl,
   getForwardedUserAgent,
@@ -37,15 +37,10 @@ export async function GET(request: Request) {
     const guestId = await getGuestId();
     const forwardedUserAgent = await getForwardedUserAgent();
     const adminAccount = new Account(createAdminAppwriteClient(forwardedUserAgent));
-    const existingProfile = await getUserProfileByAppwriteId(userId);
-    const session = await adminAccount.createSession(userId, secret);
+    const session = await adminAccount.createSession({ userId, secret });
 
-    if (!session.secret) {
-      throw new Error("Appwrite did not return a session secret.");
-    }
-
-    const sessionAccount = new Account(createSessionAppwriteClient(session.secret, forwardedUserAgent));
-    const user = await sessionAccount.get();
+    const user = await getVerifiedSessionUser(session, forwardedUserAgent, userId);
+    const existingProfile = await getUserProfileByAppwriteId(user.$id);
     await upsertUserProfileFromAppwriteUser(user);
 
     if (authIntent === "signup" && guestId && !existingProfile) {

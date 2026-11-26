@@ -1,4 +1,3 @@
-import { Account } from "appwrite";
 import {
   Client,
   Functions,
@@ -82,13 +81,14 @@ export async function createSermonUploadJwt() {
   if (!sessionSecret) {
     throw new Error("Authenticated Appwrite session is required");
   }
-  const account = new Account(
-    createSessionAppwriteClient(
-      sessionSecret,
-      await getForwardedUserAgent(),
-    ),
-  );
-  return (await account.createJWT()).jwt;
+  const client = createSessionAppwriteClient(sessionSecret, await getForwardedUserAgent());
+  // The server SDK exposes JWT creation through Users only. Use the account
+  // endpoint so this token always inherits the current session's permissions.
+  const token = await client.call("post", new URL(client.config.endpoint + "/account/jwts"), {
+    "content-type": "application/json",
+  });
+  if (typeof token?.jwt !== "string" || !token.jwt) throw new Error("Appwrite did not return an upload JWT");
+  return token.jwt;
 }
 
 export async function getSermonAudioFile(fileId: string) {

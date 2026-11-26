@@ -20,7 +20,7 @@ import { useHeaderConfig } from "@/components/providers/header-config-provider";
 import { cn } from "@/lib/utils";
 
 export function Header() {
-  const { user, loading } = useAuth();
+  const { user, displayName, loading } = useAuth();
   const { config } = useHeaderConfig();
   const [isScrolled, setIsScrolled] = useState(false);
   const lastScrolledRef = useRef<boolean>(false);
@@ -244,7 +244,7 @@ export function Header() {
             // If logged in, show the user's name linking to profile
             <Link href="/profile" prefetch={false}>
               <Button variant="outline" className={cn("hover:bg-muted/50 max-sm:px-2 max-sm:text-xs", compactChat ? "h-11" : "max-sm:h-8")} size={isScrolled ? "xsm" : "default"}>
-                {user.name}
+                {displayName}
               </Button>
             </Link>
           ) : (

@@ -1,20 +1,12 @@
-import { Account } from "appwrite";
+import { Account } from "node-appwrite";
 import { NextResponse } from "next/server";
 
 import { createAdminAppwriteClient, getAppUrl, getForwardedUserAgent } from "@/lib/appwrite/server";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const MAX_RECOVERY_REQUESTS_PER_EMAIL = 3;
 const MAX_RECOVERY_REQUESTS_PER_IP = 10;
 const RECOVERY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-
-function getClientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0]?.trim() || "unknown";
-  }
-  return request.headers.get("x-real-ip") ?? "unknown";
-}
 
 export async function POST(request: Request) {
   try {
@@ -39,7 +31,7 @@ export async function POST(request: Request) {
     }
 
     const account = new Account(createAdminAppwriteClient(await getForwardedUserAgent()));
-    await account.createRecovery(email, `${getAppUrl(request)}/reset-password`);
+    await account.createRecovery({ email, url: `${getAppUrl(request)}/reset-password` });
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -4,6 +4,12 @@ export type Question = {
   reviewed_answer: string;
 };
 
+export type ProfileIdentity = {
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+};
+
 export type ProfileStats = {
   answeredFamilyCount: number;
   answeredPersonalCount: number;
@@ -13,7 +19,7 @@ export type ProfileStats = {
 
 export type ProfileOverviewResponse = {
   questions: Question[];
-  profile: ProfileStats | null;
+  profile: (ProfileStats & ProfileIdentity & { displayName: string }) | null;
   space: RawPrayerSpace;
   membership: RawMembershipInfo | null;
 };
