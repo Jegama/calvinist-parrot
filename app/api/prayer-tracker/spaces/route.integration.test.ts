@@ -76,10 +76,11 @@ describe.skipIf(!databaseUrl)("household first names", () => {
     const family = await json(addFamily(request({ familyName: "A family" })));
     await json(confirmRotation(request({ familyAssignments: [{ familyId: family.id, prayedByMemberId: creator.id }] })));
 
-    const previousVersion = (await json(getSync())).version;
+    const previous = await json(getSync());
     await db.userProfile.update({ where: { appwriteUserId: owner }, data: { firstName: "Hélène" } });
-    const renamedVersion = (await json(getSync())).version;
-    expect(renamedVersion).not.toBe(previousVersion);
+    const renamed = await json(getSync());
+    expect(renamed.version).toBe(previous.version);
+    expect(renamed.nameVersion).not.toBe(previous.nameVersion);
 
     for (const viewer of [owner, invited]) {
       userId = viewer;
@@ -102,10 +103,11 @@ describe.skipIf(!databaseUrl)("household first names", () => {
     const changedFamily = await json(updateFamily(request({ parents: "Both" }, "PATCH"), { params: Promise.resolve({ familyId: family.id }) }));
     expect(changedFamily.lastPrayedBy).toEqual({ id: creator.id, displayName: "Hélène" });
 
-    const beforeEdit = (await json(getSync())).version;
+    const beforeEdit = await json(getSync());
+    expect(beforeEdit.version).not.toBe(renamed.version);
     for (const edit of [{ lastName: "New" }, { username: `user_${owner.slice(0, 8)}` }]) {
       await db.userProfile.update({ where: { appwriteUserId: owner }, data: edit });
-      expect((await json(getSync())).version).toBe(beforeEdit);
+      expect(await json(getSync())).toEqual(beforeEdit);
       expect((await json(getFamilies(request())))[0].lastPrayedBy.displayName).toBe("Hélène");
     }
   });

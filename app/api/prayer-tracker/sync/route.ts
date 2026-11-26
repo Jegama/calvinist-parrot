@@ -16,7 +16,7 @@ export async function GET() {
   });
   if (!membership) {
     return NextResponse.json(
-      { version: null, spaceId: null },
+      { spaceId: null, version: null, nameVersion: null },
       { headers: { "Cache-Control": "no-store" } }
     );
   }
@@ -64,7 +64,7 @@ export async function GET() {
 
   if (!space) {
     return NextResponse.json(
-      { spaceId: null, version: null },
+      { spaceId: null, version: null, nameVersion: null },
       { headers: { "Cache-Control": "no-store" } }
     );
   }
@@ -93,13 +93,12 @@ export async function GET() {
     familyRequestCount,
     personalCount,
     memberCount,
-    // First names live on account profiles. Unrelated edits and last-seen updates
-    // must not invalidate a household's prepared rotation.
-    createHash("sha256").update(JSON.stringify([...firstNames])).digest("hex"),
   ].join(":");
+  // Name edits refresh labels without invalidating the prepared assignments.
+  const nameVersion = createHash("sha256").update(JSON.stringify([...firstNames])).digest("hex");
 
   return NextResponse.json(
-    { spaceId, version },
+    { spaceId, version, nameVersion },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

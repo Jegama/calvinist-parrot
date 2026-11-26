@@ -59,13 +59,11 @@ function PrayerTrackerContent() {
     router.push(`/prayer-tracker?tab=${value}`, { scroll: false });
   }, [router, urlTab]);
 
-  // Rotation card lives in client-only state, so a refresh of the lists alone
-  // would leave the other household member staring at a stale prepared
-  // rotation. Cancel it so they see the fresh state and can re-prepare if
-  // they want to keep going.
+  // Household changes can invalidate a prepared rotation. Renaming a member
+  // only changes the labels on the same assignments.
   const cancelRotation = rotationWorkflow.handleCancelRotation;
-  const handleRemoteChange = useCallback(async () => {
-    cancelRotation();
+  const handleRemoteChange = useCallback(async (change: "household" | "names") => {
+    if (change === "household") cancelRotation();
     await refreshAll({ silent: true });
   }, [cancelRotation, refreshAll]);
 

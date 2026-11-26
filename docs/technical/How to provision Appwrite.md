@@ -93,6 +93,8 @@ The cloud sermon runtime also uses the server key for file metadata/deletion, fi
 
 ### Configure account email links
 
+Use an Appwrite deployment that invalidates outstanding verification and recovery links when an account changes its email. Appwrite 2.7.2 provides this behavior. The application delegates link issuance and redemption to Appwrite.
+
 For email verification and password recovery, configure email delivery in the Appwrite project and register the application's callback hostname as a Web platform. Production uses the HTTPS origin in `APP_URL`. Vercel Preview uses `VERCEL_BRANCH_URL` when available and otherwise `VERCEL_URL`. Register that host in the Preview Appwrite project so emailed links can return to the same preview. Local development supports an HTTP origin on localhost. [Appwrite email verification](https://appwrite.io/docs/products/auth/verify-user)
 
 ### Verify username sign-in permissions
