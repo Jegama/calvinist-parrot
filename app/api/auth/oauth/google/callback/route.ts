@@ -5,6 +5,7 @@ import {
   applyAppwriteSessionCookie,
   AUTH_INTENT_COOKIE,
   createAdminAppwriteClient,
+  discardAppwriteSession,
   getVerifiedSessionUser,
   GUEST_ID_COOKIE,
   getAppUrl,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/appwrite/server";
 import { transferGuestChatsToUser } from "@/lib/chat-transfer";
 import { getGuestId } from "@/lib/guest";
-import { getUserProfileByAppwriteId, upsertUserProfileFromAppwriteUser } from "@/lib/user-profile";
+import { getUserProfileForAppwriteUser, upsertUserProfileFromAppwriteUser } from "@/lib/user-profile";
 
 function buildFailureRedirect(request: Request, destination: "login" | "register", reason: string) {
   const url = new URL(`${getAppUrl(request)}/${destination}`);
@@ -33,6 +34,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(buildFailureRedirect(request, authIntent === "signup" ? "register" : "login", "missing_credentials"));
   }
 
+  let unissuedSession: string | undefined;
   try {
     const guestId = await getGuestId();
     const forwardedUserAgent = await getForwardedUserAgent();
@@ -40,10 +42,11 @@ export async function GET(request: Request) {
     const session = await adminAccount.createSession({ userId, secret });
 
     const user = await getVerifiedSessionUser(session, forwardedUserAgent, userId);
-    const existingProfile = await getUserProfileByAppwriteId(user.$id);
+    unissuedSession = session.secret;
+    const transferGuest = authIntent === "signup" && guestId && !(await getUserProfileForAppwriteUser(user));
     await upsertUserProfileFromAppwriteUser(user);
 
-    if (authIntent === "signup" && guestId && !existingProfile) {
+    if (transferGuest) {
       await transferGuestChatsToUser(guestId, user.$id);
     }
 
@@ -51,12 +54,13 @@ export async function GET(request: Request) {
     applyAppwriteSessionCookie(response, session);
     response.cookies.delete(AUTH_INTENT_COOKIE);
 
-    if (authIntent === "signup" && guestId && !existingProfile) {
+    if (transferGuest) {
       response.cookies.delete(GUEST_ID_COOKIE);
     }
 
     return response;
   } catch {
+    if (unissuedSession) await discardAppwriteSession(unissuedSession);
     const response = NextResponse.redirect(
       buildFailureRedirect(request, authIntent === "signup" ? "register" : "login", "failed"),
     );

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createVerifiedPasswordSession, completePasswordSignIn, getCanonicalEmailForUser } from "@/lib/appwrite/password-auth";
 import { discardAppwriteSession } from "@/lib/appwrite/server";
 import prisma from "@/lib/prisma";
-import { normalizeUsername } from "@/lib/profile-identity";
+import { AUTH_IDENTIFIER_MAX_LENGTH, normalizeUsername } from "@/lib/profile-identity";
 import { passwordAuthRateLimited } from "@/lib/rate-limit";
 import { upsertUserProfileFromAppwriteUser } from "@/lib/user-profile";
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const rawIdentifier = body?.identifier ?? body?.email;
   const identifier = typeof rawIdentifier === "string" ? rawIdentifier.trim() : "";
-  if (!identifier || identifier.length > 320 || typeof body?.password !== "string" || !body.password) {
+  if (!identifier || identifier.length > AUTH_IDENTIFIER_MAX_LENGTH || typeof body?.password !== "string" || !body.password) {
     return invalidLogin();
   }
   if (passwordAuthRateLimited(request, "login", identifier)) {

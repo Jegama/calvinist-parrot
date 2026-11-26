@@ -1,3 +1,4 @@
+export const AUTH_IDENTIFIER_MAX_LENGTH = 320;
 export const USERNAME_PATTERN = "[A-Za-z0-9_]{3,32}";
 export const USERNAME_HINT = "Use 3–32 letters (A–Z), numbers, or underscores.";
 export const PROFILE_NAME_MAX_LENGTH = 64;

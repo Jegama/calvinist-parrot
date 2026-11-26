@@ -75,6 +75,22 @@ describe.skipIf(!databaseUrl)("profile edits in PostgreSQL", () => {
     });
   });
 
+  it.each([
+    { email: null, firstName: null, expected: "Provider name" },
+    { email: "previous@example.test", firstName: null, expected: "User" },
+    { email: null, firstName: "User", expected: "User" },
+  ])("restores only an uninitialized User placeholder on read and sync: %j", async ({ email, firstName, expected }) => {
+    const user = syntheticUser();
+    currentUser.mockResolvedValue(user);
+    const where = { appwriteUserId: user.$id };
+    await db.userProfile.create({ data: { ...where, displayName: "User", email, firstName } });
+    expect(await (await GET()).json()).toMatchObject({ displayName: expected });
+    expect(await (await POST()).json()).toMatchObject({ displayName: expected, email: user.email });
+    expect(await db.userProfile.findUniqueOrThrow({ where })).toMatchObject({
+      displayName: expected, email: user.email, firstName, lastName: null,
+    });
+  });
+
   it("merges simultaneous edits to each name and retains the result across sync", async () => {
     const user = syntheticUser();
     currentUser.mockResolvedValue(user);

@@ -4,9 +4,9 @@ import { NextResponse } from "next/server";
 import { completePasswordSignIn, createVerifiedPasswordSession } from "@/lib/appwrite/password-auth";
 import { createAdminAppwriteClient, discardAppwriteSession, getForwardedUserAgent } from "@/lib/appwrite/server";
 import prisma from "@/lib/prisma";
-import { normalizeProfileName, normalizeUsername, USERNAME_HINT } from "@/lib/profile-identity";
+import { AUTH_IDENTIFIER_MAX_LENGTH, normalizeProfileName, normalizeUsername, USERNAME_HINT } from "@/lib/profile-identity";
 import { passwordAuthRateLimited } from "@/lib/rate-limit";
-import { isUniqueConstraintError } from "@/lib/user-profile";
+import { isUniqueConstraintError, upsertUserProfileFromAppwriteUser } from "@/lib/user-profile";
 
 type RegistrationIdentity = { username: string; firstName: string; lastName: string };
 
@@ -19,18 +19,14 @@ const retryRegistration = () => NextResponse.json({
 }, { status: 503 });
 
 async function claimRegistrationProfile(
-  user: { $id: string; email: string },
+  user: { $id: string; email: string; name: string },
   identity: RegistrationIdentity,
   createdAccount: boolean,
 ) {
   const where = { appwriteUserId: user.$id };
   const fields = { ...identity, displayName: `${identity.firstName} ${identity.lastName}` };
   try {
-    const profile = await prisma.userProfile.upsert({
-      where,
-      create: { ...where, ...fields, email: user.email },
-      update: { email: user.email, lastSeenAt: new Date() },
-    });
+    const profile = await upsertUserProfileFromAppwriteUser(user, fields);
     if (profile.username === identity.username) return profile;
 
     // A simultaneous sign-in can sync the new account before signup finishes.
@@ -50,6 +46,9 @@ async function claimRegistrationProfile(
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const email = typeof body?.email === "string" ? body.email.trim() : "";
+  if (email.length > AUTH_IDENTIFIER_MAX_LENGTH) {
+    return NextResponse.json({ error: "Email address is too long." }, { status: 400 });
+  }
   if (passwordAuthRateLimited(request, "register", email)) {
     return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   }

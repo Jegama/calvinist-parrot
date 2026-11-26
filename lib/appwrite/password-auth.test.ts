@@ -8,7 +8,7 @@ const db = vi.hoisted(() => ({
 const transfer = vi.hoisted(() => vi.fn());
 const cookieStore = vi.hoisted(() => new Map<string, { value: string }>());
 
-vi.mock("@/lib/prisma", () => ({ default: { userProfile: db } }));
+vi.mock("@/lib/prisma", () => ({ default: { userProfile: db, $transaction: (run: (tx: { userProfile: typeof db }) => unknown) => run({ userProfile: db }) } }));
 vi.mock("@/lib/chat-transfer", () => ({ transferGuestChatsToUser: transfer }));
 vi.mock("next/headers", () => ({
   cookies: async () => cookieStore,
@@ -17,7 +17,7 @@ vi.mock("next/headers", () => ({
 
 const account = { $id: "reader", name: "Existing Display", email: "current@example.test" };
 const session = { userId: account.$id, secret: "synthetic-session" };
-const profile = { appwriteUserId: account.$id, username: "reader_name", displayName: account.name };
+const profile = { appwriteUserId: account.$id, username: "reader_name", displayName: account.name, email: account.email };
 const providerCall = () => vi.spyOn(Client.prototype, "call");
 
 beforeEach(() => {
@@ -123,6 +123,19 @@ it.each(["unknown@example.test", "unclaimed_handle"])("limits repeated attempts 
   expect(transfer).not.toHaveBeenCalled();
 });
 
+it("rejects an oversized registration identifier before the limiter or any account lookup", async () => {
+  const rateLimit = await import("@/lib/rate-limit");
+  const limiter = vi.spyOn(rateLimit, "passwordAuthRateLimited");
+  const { POST } = await import("@/app/api/auth/register/route");
+  const response = await POST(new Request("http://localhost/api/auth/register", {
+    method: "POST", body: JSON.stringify({ email: "a".repeat(321) }),
+  }));
+  expect(response.status).toBe(400);
+  expect(limiter).not.toHaveBeenCalled();
+  expect(db.findUnique).not.toHaveBeenCalled();
+  expect(providerCall()).not.toHaveBeenCalled();
+});
+
 it.each([
   { intent: "signup", existing: false, expectedTransfer: true },
   { intent: "signup", existing: true, expectedTransfer: false },
@@ -138,6 +151,26 @@ it.each([
   expect(transfer).toHaveBeenCalledTimes(expectedTransfer ? 1 : 0);
 });
 
+
+it.each(["lookup", "sync", "transfer"])("revokes the verified Google session after failed %s", async (stage) => {
+  cookieStore.set("authIntent", { value: "signup" });
+  db.findUnique.mockResolvedValue(null);
+  vi.stubEnv("APP_URL", "http://localhost");
+  const failure = new Error("Unable to complete signup");
+  if (stage === "lookup") db.findUnique.mockRejectedValue(failure);
+  if (stage === "sync") db.upsert.mockRejectedValue(failure);
+  if (stage === "transfer") transfer.mockRejectedValue(failure);
+  serveAccount();
+  const api = providerCall().mockResolvedValue({});
+  const { GET } = await import("@/app/api/auth/oauth/google/callback/route");
+  const result = await GET(new Request("http://localhost/api/auth/oauth/google/callback?userId=reader&secret=synthetic-token"));
+  expect(result.headers.get("location")).toBe("http://localhost/register?oauth=failed");
+  expect(result.cookies.get("a_session_synthetic-project")).toBeUndefined();
+  expect(result.cookies.get("guestId")).toBeUndefined();
+  expect(api.mock.calls.at(-1)?.[0]).toBe("delete");
+  expect(api.mock.calls.at(-1)?.[1].pathname).toBe("/v1/account/sessions/current");
+  expect(api.mock.contexts.at(-1)).toMatchObject({ config: { key: "", session: session.secret } });
+});
 
 it("revokes an unissued session after a profile write fails", async () => {
   db.upsert.mockRejectedValue(new Error("Database unavailable"));
