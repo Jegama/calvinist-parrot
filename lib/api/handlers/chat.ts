@@ -219,6 +219,18 @@ function getIdempotentChatCreationResult(
   };
 }
 
+// A newly created MCP chat reserves its first request in the creation transaction.
+// Only a matching delivery can exchange the reservation for a unique worker lease.
+async function acquireMcpChatLease(tx: Prisma.TransactionClient, chatId: string, requestId: string, holder?: string) {
+  const reservation = `initial:${requestId}`;
+  return tx.$executeRaw`
+    INSERT INTO "McpChatLease" ("chatId", holder, "expiresAt")
+    VALUES (${chatId}, ${holder ?? reservation}, now() + interval '5 minutes')
+    ON CONFLICT ("chatId") DO UPDATE SET holder = EXCLUDED.holder, "expiresAt" = EXCLUDED."expiresAt"
+    WHERE "McpChatLease".holder = ${reservation} OR "McpChatLease"."expiresAt" <= now()
+  `;
+}
+
 async function loadChatContext(chatId: string, userId: string, denomination: string) {
   const [userProfile, previousMessages] = await Promise.all([
     prisma.userProfile.findUnique({
@@ -456,6 +468,8 @@ export async function executeChatCommand(
         },
       });
 
+      if (channel === "mcp") await acquireMcpChatLease(tx, createdChat.id, resolvedRequestId);
+
       // An initial answer imports an existing Q&A exchange into a new chat.
       await recordChatEvents(tx, createdChat.id, resolvedRequestId, channel, actor,
         initialAnswer ? ["created"] : ["created", "submission"]);
@@ -554,12 +568,7 @@ export async function executeChatCommand(
         return NextResponse.json({ error: "Set retry to true to restart this request" }, { status: 409 });
       }
       if (holder) {
-        const acquired = await tx.$executeRaw`
-          INSERT INTO "McpChatLease" ("chatId", holder, "expiresAt")
-          VALUES (${chatId}, ${holder}, now() + interval '5 minutes')
-          ON CONFLICT ("chatId") DO UPDATE SET holder = EXCLUDED.holder, "expiresAt" = EXCLUDED."expiresAt"
-          WHERE "McpChatLease"."expiresAt" <= now()
-        `;
+        const acquired = await acquireMcpChatLease(tx, chatId, resolvedRequestId, holder);
         if (!acquired) return NextResponse.json({
           error: "Another turn is running in this conversation. Retry shortly with the same requestId.",
         }, { status: 409 });

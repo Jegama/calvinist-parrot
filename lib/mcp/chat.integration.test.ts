@@ -4,6 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { askParrot, askParrotInput } from "./chat";
+import * as chatCommands from "@/lib/api/handlers/chat";
 import { getGuestId } from "@/lib/guest";
 import { transferGuestChatsToUser } from "@/lib/chat-transfer";
 import { GET as listChats } from "@/app/api/user-chats/route";
@@ -152,6 +153,44 @@ describe.skipIf(!databaseUrl)("MCP chat adapter through the streamed chat servic
     } finally {
       browserUser = null;
       cookie = undefined;
+    }
+  });
+
+  it("reserves the first MCP question before the saved chat appears on the website", async () => {
+    const visible = Promise.withResolvers<string>();
+    const resume = Promise.withResolvers<void>();
+    const execute = chatCommands.executeChatCommand;
+    const create = vi.spyOn(chatCommands, "executeChatCommand").mockImplementationOnce(async (...args) => {
+      const response = await execute(...args);
+      visible.resolve((await response.clone().json()).chatId);
+      await resume.promise;
+      return response;
+    });
+    const turn = newTurn();
+    const first = askParrot(turn, caller(alice));
+    browserUser = alice;
+    try {
+      const chatId = await visible.promise;
+      const next = newTurn();
+      const request = () => new Request("http://localhost/messages", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId: next.requestId, message: "How can I put this into practice?" }),
+      });
+      const params = { params: Promise.resolve({ chatId }) };
+      expect((await websiteFollowup(request(), params)).status).toBe(409);
+      expect((await publicFollowup(request(), params)).status).toBe(409);
+      expect(await db.chatMessage.count({ where: { chatId, requestId: next.requestId } })).toBe(0);
+      resume.resolve();
+      expect((await first).answer).toBe(answer);
+      const stream = await websiteFollowup(request(), params);
+      expect(stream.status).toBe(200);
+      await stream.text();
+      expect(flow.histories.at(-1)).toEqual([question, answer, "How can I put this into practice?"]);
+    } finally {
+      resume.resolve();
+      await first;
+      browserUser = null;
+      create.mockRestore();
     }
   });
 
