@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { getUserProfileForAppwriteUser } from "@/lib/user-profile";
 
 export async function GET(request: Request) {
   void request;
-  const { userId, errorResponse } = await requireAuthenticatedUser();
-  if (errorResponse || !userId) {
+  const { user, userId, errorResponse } = await requireAuthenticatedUser();
+  if (errorResponse || !user) {
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
       where: { userId },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.userProfile.findUnique({ where: { appwriteUserId: userId } }),
+    getUserProfileForAppwriteUser(user),
     prisma.prayerMember.findFirst({
       where: { appwriteUserId: userId },
       include: {

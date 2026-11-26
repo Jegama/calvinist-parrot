@@ -11,13 +11,14 @@ Calvinist Parrot ("we," "us," or "our") is a ministry project of [Calvinist Parr
 
 ### Account Information
 
-When you register for an account, we collect:
+Password registration asks for the following information.
 
-- **Name** (display name)
+- **Username**, which you can use to sign in
+- **First and last names**, which form your initial display name
 - **Email address**
-- **Password** (stored securely by our authentication provider, never accessible to us in plain text)
+- **Password**, which our server sends to Appwrite to create your account or verify a sign-in. Appwrite manages password storage.
 
-If you sign in with Google, we receive your name and email from your Google account. We do not receive or store your Google password.
+You can change your username and names in Profile. If you sign in with Google, we receive your name and email from your Google account. We do not receive or store your Google password.
 
 ### Content You Create
 

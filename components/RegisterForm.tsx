@@ -7,20 +7,14 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ProfileIdentityFields } from "@/components/ProfileIdentityFields";
 import { Label } from "@/components/ui/label";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, type AuthResponse } from "@/hooks/use-auth";
 import { afterLoginPath } from "@/lib/mcp/auth-return";
 
-type RegisterResponse = {
-  error?: string;
-  user?: Parameters<ReturnType<typeof useAuth>["setUser"]>[0];
-};
-
 export function RegisterForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -37,24 +31,27 @@ export function RegisterForm() {
     }
   }, [searchParams]);
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
     setErrorMessage("");
+    const fields = new FormData(e.currentTarget);
 
     try {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify(Object.fromEntries(fields)),
       });
 
-      const payload = (await response.json()) as RegisterResponse;
+      const payload = (await response.json()) as AuthResponse;
 
       if (!response.ok || !payload.user) {
         throw new Error(payload.error || "Registration failed.");
       }
 
-      setUser(payload.user);
+      setUser(payload.user, payload.profile?.displayName);
       router.push(afterLoginPath());
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -62,7 +59,9 @@ export function RegisterForm() {
       } else {
         setErrorMessage("An unknown error occurred.");
       }
-    }      
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleGoogleSignup = () => {
@@ -79,42 +78,33 @@ export function RegisterForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {errorMessage && <p className="text-destructive mb-4">{errorMessage}</p>}
+          {errorMessage && <p role="alert" className="text-destructive mb-4">{errorMessage}</p>}
           <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Your name"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
+            <ProfileIdentityFields />
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
+                autoComplete="email"
                 placeholder="m@example.com"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
+                name="password"
                 type="password"
+                minLength={8}
+                autoComplete="new-password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            <Button type="submit" className="w-full">
-              Register
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? "Registering…" : "Register"}
             </Button>
             <Button type="button" variant="outline" className="w-full" onClick={handleGoogleSignup}>
               Sign up with Google

@@ -9,6 +9,16 @@ Directory tools are public. The private `ask_parrot` path uses an Appwrite user 
 3. For each client, use its supported registration method. For a preregistered client, register the callback URI that the client displays. Use a public client for an installed CLI that cannot store a secret. The consent screen supports HTTPS callbacks and the HTTP loopback callback used by native clients.
 4. Create a dedicated server-side API key with the `oauth2.introspect` permission. Set `MCP_APPWRITE_INTROSPECTION_KEY` in this deployment. A blank key disables account linking. `GET /.well-known/oauth-protected-resource/api/mcp` should now publish the canonical resource, the project issuer and the `chat.write` scope.
 
+For an isolated Vercel Preview, set both `APPWRITE_ENDPOINT` and `NEXT_PUBLIC_APPWRITE_ENDPOINT` to the preview project's API endpoint, and both `APPWRITE_PROJECT_ID` and `NEXT_PUBLIC_APPWRITE_PROJECT_ID` to its project ID. Scope these variables and the server keys to the preview branch. Email sign-in and MCP account linking use two Appwrite keys from that project. Username sign-in and registration analytics use a third key.
+
+| Server variable | Appwrite API key scope | Purpose |
+| --- | --- | --- |
+| `APPWRITE_API_KEY` | `sessions.write` | Create the website session used for consent |
+| `MCP_APPWRITE_INTROSPECTION_KEY` | `oauth2.introspect` | Validate the client's MCP access token |
+| `APPWRITE_ANALYTICS_READ_KEY` | `users.read` | Resolve a username to its Appwrite email and read registration counts |
+
+Generate `MCP_SECRET` separately as a stable random secret of at least 32 bytes for MCP chat identifiers.
+
 The consent page reads and decides the pending grant through the signed-in user's session. It shows the client, return host, signed-in account and permissions. Its Allow and Deny actions require a same-origin form submission. On the MCP endpoint, introspection checks the active access token, issuer, resource audience, subject, expiry and permission. Tokens with a different resource receive HTTP 401. Missing `chat.write` returns HTTP 403. An introspection outage returns HTTP 503. The next authenticated request detects a revoked grant or rotated token. [Appwrite token introspection and revocation](https://appwrite.io/docs/products/auth/oauth-server/tokens)
 
 ### Shared production and preview identity

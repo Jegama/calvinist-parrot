@@ -14,7 +14,7 @@ import Link from "next/link";
 import * as denominations from "@/lib/denominations";
 import { DENOMINATION_OPTIONS } from "@/lib/denominationContent";
 import type { ProfileStats } from "../types";
-import { updateDenomination } from "../api";
+import { updateUserProfile } from "../api";
 
 type TheologicalPreferencesCardProps = {
   stats: ProfileStats;
@@ -41,7 +41,7 @@ export function TheologicalPreferencesCard({ stats, userId, onUpdate }: Theologi
     setDenominationSaved(false);
 
     try {
-      await updateDenomination(selectedDenomination);
+      await updateUserProfile({ denomination: selectedDenomination });
       onUpdate();
       setDenominationSaved(true);
       // Hide success message after 5 seconds

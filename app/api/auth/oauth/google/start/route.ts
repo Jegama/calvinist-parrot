@@ -1,4 +1,4 @@
-import { Account, OAuthProvider } from "appwrite";
+import { Account, OAuthProvider } from "node-appwrite";
 import { NextResponse } from "next/server";
 
 import {
@@ -20,11 +20,11 @@ export async function GET(request: Request) {
   try {
     const appUrl = getAppUrl(request);
     const account = new Account(createAdminAppwriteClient(await getForwardedUserAgent()));
-    const redirectUrl = await account.createOAuth2Token(
-      OAuthProvider.Google,
-      `${appUrl}/api/auth/oauth/google/callback`,
-      `${appUrl}/${intentParam === "signup" ? "register" : "login"}?oauth=failed`,
-    );
+    const redirectUrl = await account.createOAuth2Token({
+      provider: OAuthProvider.Google,
+      success: `${appUrl}/api/auth/oauth/google/callback`,
+      failure: `${appUrl}/${intentParam === "signup" ? "register" : "login"}?oauth=failed`,
+    });
 
     if (!redirectUrl) {
       throw new Error("Appwrite did not return an OAuth redirect URL.");

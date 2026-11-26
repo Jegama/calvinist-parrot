@@ -1,6 +1,6 @@
 // app/profile/api.ts
 
-import type { ProfileOverviewResponse } from "./types";
+import type { ProfileIdentity, ProfileOverviewResponse } from "./types";
 
 /**
  * Fetch complete profile overview including questions, stats, space, and membership
@@ -13,18 +13,16 @@ export async function fetchProfileOverview(): Promise<ProfileOverviewResponse> {
   return (await response.json()) as ProfileOverviewResponse;
 }
 
-/**
- * Update user's denomination preference
- */
-export async function updateDenomination(denomination: string): Promise<void> {
-  const response = await fetch(`/api/user-profile`, {
+export async function updateUserProfile(changes: Partial<Record<keyof ProfileIdentity | "denomination", string>>) {
+  const response = await fetch("/api/user-profile", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ denomination }),
+    body: JSON.stringify(changes),
   });
 
   if (!response.ok) {
-    throw new Error("Failed to update denomination");
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || "Failed to update your profile.");
   }
 }
 

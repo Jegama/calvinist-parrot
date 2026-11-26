@@ -32,3 +32,17 @@ export function checkRateLimit(key: string, maxRequests: number, windowMs: numbe
   entry.count += 1;
   return true;
 }
+
+export function getClientIp(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]?.trim() || "unknown";
+  return request.headers.get("x-real-ip") ?? "unknown";
+}
+
+export function passwordAuthRateLimited(request: Request, action: "login" | "register", identifier: string) {
+  const windowMs = 15 * 60_000;
+  const ip = getClientIp(request);
+  // Bound identifier rotation before admitting a new identifier into the store.
+  if (!checkRateLimit(`password-${action}:ip:${ip}`, 50, windowMs)) return true;
+  return !checkRateLimit(`password-${action}:id:${identifier.trim().toLowerCase()}`, 10, windowMs);
+}

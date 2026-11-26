@@ -1,3 +1,4 @@
+import { Client } from "node-appwrite";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const session = vi.hoisted(() => ({ secret: "", labels: [] as string[] }));
@@ -24,15 +25,15 @@ beforeEach(() => {
   report.mockClear();
   vi.stubEnv("APPWRITE_PROJECT_ID", "test-admin");
   vi.stubEnv("APPWRITE_ENDPOINT", "http://local.test/v1");
-  vi.stubGlobal("fetch", vi.fn(async (url, init) => {
-    const req = new Request(url, init);
-    expect(req.url).toBe("http://local.test/v1/account");
-    expect(req.headers.get("x-appwrite-session")).toBe("session");
-    expect(req.headers.has("x-appwrite-key")).toBe(false);
-    return Response.json({ $id: "private-account-id", labels: session.labels });
-  }));
+  vi.spyOn(Client.prototype, "call").mockImplementation(async function (this: Client, method, url) {
+    expect(method).toBe("get");
+    expect(url.href).toBe("http://local.test/v1/account");
+    expect(this.config.session).toBe("session");
+    expect(this.config.key).toBe("");
+    return { $id: "private-account-id", labels: session.labels };
+  });
 });
-afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 
 it("checks the current session and label on every page and API request, including after revocation", async () => {
   const { default: Page } = await import("@/app/admin/analytics/page");
@@ -60,7 +61,7 @@ it("checks the current session and label on every page and API request, includin
   await expect(Page(props)).rejects.toMatchObject({ digest: expect.stringContaining("404") });
   await expectApi(403);
   expect(report).toHaveBeenCalledTimes(2);
-  expect(fetch).toHaveBeenCalledTimes(6);
+  expect(Client.prototype.call).toHaveBeenCalledTimes(6);
 });
 
 it("allows only a current analytics admin to invalidate and refresh snapshots", async () => {

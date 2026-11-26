@@ -28,6 +28,9 @@ model userProfile {
   id                         String             @id @default(cuid())
   appwriteUserId             String             @unique
   displayName                String
+  username                   String?            @unique
+  firstName                  String?
+  lastName                   String?
   email                      String?
   defaultSpaceId             String?
   answeredPersonalCount      Int                @default(0)
