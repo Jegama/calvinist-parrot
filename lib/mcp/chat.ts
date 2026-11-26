@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { after } from "next/server";
 import { z } from "zod";
 import { createChatRequestSchema, createChatResponseSchema } from "@/lib/api/contracts/chat";
 import { executeChatCommand } from "@/lib/api/handlers/chat";
@@ -109,11 +110,15 @@ async function answerTurn(
     throw new McpChatError((await response.json()).error);
   }
   if (!response.ok || !response.body) throw interrupted();
-  const reader = response.body.getReader();
+  const progress = response.body;
+  // A saved answer can precede the title event. Stop draining progress at the
+  // request deadline and return whatever has already committed.
   try {
-    while (!(await reader.read()).done) { /* Drain progress without buffering the transcript. */ }
-  } finally {
-    reader.releaseLock();
+    await progress.pipeTo(new WritableStream(), { signal: request.signal, preventCancel: true });
+  } catch (error) {
+    if (!request.signal.aborted) throw error;
+    // Keep the producer alive to persist an interrupted turn and its usage receipts.
+    after(() => progress.pipeTo(new WritableStream()));
   }
 
   const answer = completedAnswer(await readTurn(chatId, requestId, userId));

@@ -1091,7 +1091,7 @@ export async function executeChatCommand(
               currentChat.conversationName === "New Conversation"
             ) {
               const allMessagesStr = conversationMessages.map((m) => `${m.sender}: ${m.content}`).join("\n");
-              const conversationName = await generateConversationName(allMessagesStr, chatUsage);
+              const conversationName = await generateConversationName(allMessagesStr, chatUsage, signal);
               const finalName = conversationName || "New Conversation";
 
               await prisma.chatHistory.update({
@@ -1099,8 +1099,8 @@ export async function executeChatCommand(
                 data: { conversationName: finalName },
               });
 
-              // Send name update event so client can update sidebar immediately
-              sendProgress(
+              // The client may have disconnected while the title was being generated.
+              if (!signal.aborted) sendProgress(
                 {
                   type: "conversationNameUpdated",
                   chatId: capturedChatId,

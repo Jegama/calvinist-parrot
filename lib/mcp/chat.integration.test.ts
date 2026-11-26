@@ -24,7 +24,7 @@ const answer = "Be quick to listen (James 1:19).";
 const citation = "[Commentary on James](https://example.org/commentary)";
 let browserUser: string | null = null;
 let cookie: string | undefined;
-const flow = vi.hoisted(() => ({ beforeAnswer: vi.fn(async () => {}), histories: [] as string[][] }));
+const flow = vi.hoisted(() => ({ title: vi.fn(async () => "Test conversation"), beforeAnswer: vi.fn(async () => {}), histories: [] as string[][] }));
 vi.mock("@/lib/prisma", () => ({ get default() { return db; } }));
 vi.mock("@/lib/auth", () => ({ getAuthenticatedUserId: () => browserUser }));
 vi.mock("@/lib/appwrite/server", () => ({ GUEST_ID_COOKIE: "guestId" }));
@@ -44,7 +44,7 @@ vi.mock("@/utils/langChainAgents/mainAgent", () => {
   };
   return { getParrotWorkflow: async () => workflow, getMcpGuestWorkflow: () => workflow };
 });
-vi.mock("@/utils/generateConversationName", () => ({ generateConversationName: () => "Test conversation" }));
+vi.mock("@/utils/generateConversationName", () => ({ generateConversationName: flow.title }));
 vi.mock("@/utils/memoryExtraction", () => ({ updateUserMemoriesFromConversation: vi.fn() }));
 vi.mock("next/server", async original => ({ ...await original<typeof import("next/server")>(), after: vi.fn() }));
 
@@ -217,6 +217,24 @@ describe.skipIf(!databaseUrl)("MCP chat adapter through the streamed chat servic
       expect(flow.histories).toHaveLength(attempts);
     } finally {
       browserUser = null;
+    }
+  });
+
+  it("returns the saved answer at the MCP deadline even if naming is still pending", async () => {
+    const naming = Promise.withResolvers<void>();
+    const finishTitle = Promise.withResolvers<string>();
+    flow.title.mockImplementationOnce(() => { naming.resolve(); return finishTitle.promise; });
+    const deadline = new AbortController();
+    const turn = newTurn();
+    const asking = askParrot(turn, { ...caller(alice), signal: deadline.signal });
+    try {
+      await naming.promise;
+      deadline.abort();
+      const result = await asking;
+      expect(result).toMatchObject({ answer, requestId: turn.requestId });
+      expect(await askParrot(turn, caller(alice))).toEqual(result);
+    } finally {
+      finishTitle.resolve("Patience");
     }
   });
 

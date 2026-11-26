@@ -218,6 +218,7 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
       const interrupted = await client.callTool(question);
       expect(timeout).toHaveBeenCalledWith(MCP_CHAT_TIMEOUT_MS);
       expect(interrupted.isError).toBe(true);
+      for (const work of afterResponse.splice(0)) await work();
       const chat = await db.chatHistory.findFirstOrThrow({
         where: { creationRequestId: requestId, userId: { startsWith: "mcp-guest:" } },
       });
