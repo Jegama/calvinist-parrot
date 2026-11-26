@@ -15,7 +15,6 @@ export class ChatUsageCaller extends AsyncCaller {
     private spec: ModelSpec,
     private stage: "agent" | "ccel_embedding" = "agent",
     options: AsyncCallerParams = {},
-    private beforeAttempt?: () => Promise<void>,
   ) {
     super(options);
   }
@@ -35,7 +34,6 @@ export class ChatUsageCaller extends AsyncCaller {
     };
     let retry = origin.isRetry === true;
     return super.callWithOptions(options, async () => {
-      if (this.beforeAttempt) await this.beforeAttempt();
       const attempt = startUsageAttempt({ ...context, isRetry: retry }, this.spec);
       retry = true;
       return observeProviderCall(attempt, () => callable(...args));

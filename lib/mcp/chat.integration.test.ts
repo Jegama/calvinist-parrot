@@ -4,7 +4,6 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { askParrot, askParrotInput } from "./chat";
-import { McpLimitError } from "./limits";
 import { getGuestId } from "@/lib/guest";
 import { transferGuestChatsToUser } from "@/lib/chat-transfer";
 import { GET as listChats } from "@/app/api/user-chats/route";
@@ -173,8 +172,10 @@ describe.skipIf(!databaseUrl)("MCP chat adapter through the streamed chat servic
     expect(await askParrot(turn, caller(alice))).toEqual(result);
   });
 
-  it("reports an exhausted guest budget without publishing a partial answer", async () => {
-    flow.beforeAnswer.mockRejectedValueOnce(new McpLimitError("Guest model quota exhausted.", 429));
-    await expect(askParrot(newTurn(), caller(null))).rejects.toMatchObject({ status: 429 });
+  it("allows a guest to retry an interrupted question with the original requestId", async () => {
+    const turn = newTurn();
+    flow.beforeAnswer.mockRejectedValueOnce(new Error("Provider unavailable"));
+    await expect(askParrot(turn, caller(null))).rejects.toThrow("The answer did not finish");
+    await expect(askParrot(turn, caller(null))).resolves.toMatchObject({ answer });
   });
 });

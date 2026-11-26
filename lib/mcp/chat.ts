@@ -6,7 +6,6 @@ import { chatOperationId } from "@/lib/chat-analytics";
 import { getRequestTerminalState } from "@/lib/chat-request-state";
 import { getChatActorId, type ChatActor } from "@/lib/guest";
 import prisma from "@/lib/prisma";
-import { McpLimitError } from "./limits";
 
 import { browserGuestIdSchema, MCP_CHAT_PREFIX, mcpConversationRefSchema } from "./ownership";
 
@@ -98,13 +97,7 @@ async function answerTurn(
       where: { operationId: chatOperationId(chatId, requestId), feature: "chat" },
       select: { attemptId: true },
     }));
-  let quotaError: McpLimitError | undefined;
-  const response = await executeChatCommand(request, { chatId, requestId, message: question, retry }, "mcp", {
-    actor,
-    onStreamError(error) {
-      if (error instanceof McpLimitError) quotaError = error;
-    },
-  });
+  const response = await executeChatCommand(request, { chatId, requestId, message: question, retry }, "mcp", actor);
   if (!response.ok || !response.body) throw interrupted();
   const reader = response.body.getReader();
   try {
@@ -113,7 +106,6 @@ async function answerTurn(
     reader.releaseLock();
   }
 
-  if (quotaError) throw quotaError;
   const answer = completedAnswer(await readTurn(chatId, requestId, userId));
   if (!answer) throw interrupted();
   return answer;
@@ -150,7 +142,7 @@ export async function askParrot(rawInput: AskInput, caller: Caller): Promise<Ask
   } else {
     const response = await executeChatCommand(request, {
       initialQuestion: input.question, clientChatId: chatId, requestId, denomination: input.denomination,
-    }, "mcp", { actor });
+    }, "mcp", actor);
     if (response.status === 409) throw new McpChatError("This requestId already belongs to a different chat or question.");
     if (!response.ok) throw interrupted();
     const created = createChatResponseSchema.parse(await response.json());

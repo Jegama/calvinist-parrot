@@ -223,7 +223,7 @@ export async function executeChatCommand(
   request: Request,
   command: ChatCommand,
   channel: ChatChannel = "unknown",
-  mcp?: { actor: ChatActor; onStreamError?: (error: unknown) => void },
+  mcpActor?: ChatActor,
 ) {
   const TOOL_NODE_NAMES = new Set(["tools", ...toolsArray.map((tool) => tool.name)]);
 
@@ -244,7 +244,7 @@ export async function executeChatCommand(
     stop = false,
   } = command;
 
-  const actor = mcp?.actor ?? await resolveChatActor();
+  const actor = mcpActor ?? await resolveChatActor();
   const isMcpGuest = channel === "mcp" && actor.kind === "guest";
   const effectiveUserId = getChatActorId(actor);
   const resolvedRequestId = requestId?.trim() || crypto.randomUUID();
@@ -1003,7 +1003,6 @@ export async function executeChatCommand(
               });
             }
           } catch (error) {
-            mcp?.onStreamError?.(error);
             generationStopped =
               request.signal.aborted ||
               (error instanceof Error && error.name === "AbortError");

@@ -60,7 +60,7 @@ async function recordFixtureCall(turn: TurnContext | undefined, stage: string, f
 }
 
 vi.mock("@/lib/mcp/limits", async original => ({
-  ...await original<typeof import("@/lib/mcp/limits")>(), consumeMcpCallerLimit: vi.fn(), reserveGuestModelAttempt: vi.fn(),
+  ...await original<typeof import("@/lib/mcp/limits")>(), consumeMcpCallerLimit: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({ get default() { return db; } }));
 vi.mock("next/server", async importOriginal => ({

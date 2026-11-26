@@ -57,7 +57,7 @@ describe("Streamable HTTP client", () => {
       const description = tools.find(tool => tool.name === "ask_parrot")?.description;
       expect(description).toMatch(/persist|stor|sav/i);
       expect(description).toContain("10 chat requests per hour per network");
-      expect(description).toContain("20 chat requests per minute outside the shared guest budget");
+      expect(description).toContain("20 chat requests per minute per account");
     } finally { await client.close(); }
   });
 

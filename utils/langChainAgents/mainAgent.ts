@@ -50,14 +50,11 @@ export async function getParrotWorkflow() {
     return initPromise;
 }
 
-// Restrict isolated guest questions to the two unmetered reference sources.
-// All paid activity then passes through the reserved model caller, including
-// the next model request after a tool result.
 let guestWorkflow: ReturnType<typeof createAgent> | undefined;
 
 export function getMcpGuestWorkflow() {
     guestWorkflow ??= createAgent({
-        model: createParrotChatModel(process.env, "mcp_guest"),
+        model,
         tools: [bibleCommentaryTool, bibleCrossReferencesTool],
     });
     return guestWorkflow;

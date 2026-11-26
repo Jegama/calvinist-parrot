@@ -2,7 +2,7 @@
 
 ## 2.5.0 — November 26, 2026
 
-- MCP clients can browse evaluated churches and read saved evaluations at `/api/mcp`. Operators can enable budgeted guest questions and account-authorized Parrot conversations with citations. [#125](https://github.com/Jegama/calvinist-parrot/pull/125)
+- MCP clients can browse evaluated churches and read saved evaluations at `/api/mcp`. Guests can ask questions and receive cited answers. Connecting a Parrot account also enables saved conversations and follow-ups. [#125](https://github.com/Jegama/calvinist-parrot/pull/125)
 
 ## 2.4.0 — November 25, 2026
 
