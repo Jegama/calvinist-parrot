@@ -3,6 +3,8 @@
 import { createAgent } from "langchain";
 import { createParrotChatModel } from "./chatModel";
 import { toolsArray } from "./tools";
+import { bibleCommentaryTool } from "./tools/bibleCommentaryTool";
+import { bibleCrossReferencesTool } from "./tools/bibleCrossReferencesTool";
 import { getStudyBibleTools } from "./tools/studyBibleMcpTools";
 import { getMemoryStore } from "@/lib/langGraphStore";
 
@@ -46,6 +48,19 @@ export async function getParrotWorkflow() {
     }
 
     return initPromise;
+}
+
+// Restrict isolated guest questions to the two unmetered reference sources.
+// All paid activity then passes through the reserved model caller, including
+// the next model request after a tool result.
+let guestWorkflow: ReturnType<typeof createAgent> | undefined;
+
+export function getMcpGuestWorkflow() {
+    guestWorkflow ??= createAgent({
+        model: createParrotChatModel(process.env, "mcp_guest"),
+        tools: [bibleCommentaryTool, bibleCrossReferencesTool],
+    });
+    return guestWorkflow;
 }
 
 // Backward compatibility: synchronous export for callers that don't use MCP tools.

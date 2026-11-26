@@ -228,8 +228,17 @@ model chatHistory {
   subcategory       String
   denomination      String        @default("reformed-baptist")
   messages          chatMessage[] @relation("ChatMessages")
+  mcpLease          McpChatLease?
 
   @@unique([userId, creationRequestId])
+}
+
+// Held while an MCP adapter drains a live streamed turn. A crashed host releases by expiry.
+model McpChatLease {
+  chatId    String      @id
+  holder    String
+  expiresAt DateTime
+  chat      chatHistory @relation(fields: [chatId], references: [id], onDelete: Cascade)
 }
 
 model chatMessage {
@@ -905,4 +914,18 @@ model AnalyticsEngagementEvent {
 
   @@id([feature, step, channel, flowId])
   @@index([occurredAt])
+}
+
+// UUID-shaped verified OAuth subjects must never be accepted as browser guest cookies.
+model McpAccountIdentity {
+  userId String @id
+}
+
+model McpQuotaBucket {
+  key         String
+  windowStart DateTime @db.Timestamptz(6)
+  used        Int
+
+  @@id([key, windowStart])
+  @@index([windowStart])
 }

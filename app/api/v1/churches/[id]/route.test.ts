@@ -12,7 +12,7 @@ it("attributes one saved record to each keyed external operation and keeps legac
   const id = "existing";
   const operationId = "daa0d573-60d4-4eb1-903c-459c19f3467c";
   findUnique.mockResolvedValue({
-    id, name: "Example", website: "https://example.org", evaluations: [], addresses: [], serviceTimes: [],
+    id, name: "Example", website: "https://example.org", confessionAdopted: false, evaluations: [], addresses: [], serviceTimes: [],
   });
   const params = { params: Promise.resolve({ id }) };
   const request = new Request("https://example.org/api/v1/churches/existing", {

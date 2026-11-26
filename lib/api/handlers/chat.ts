@@ -13,12 +13,13 @@ import {
   HumanMessage,
   SystemMessage,
 } from "@langchain/core/messages";
-import { getParrotWorkflow } from "@/utils/langChainAgents/mainAgent";
+import { getMcpGuestWorkflow, getParrotWorkflow } from "@/utils/langChainAgents/mainAgent";
 import { toolsArray } from "@/utils/langChainAgents/tools";
 import { generateConversationName } from "@/utils/generateConversationName";
 import { updateUserMemoriesFromConversation } from "@/utils/memoryExtraction";
 import { buildParrotSystemPrompt } from "@/utils/buildParrotSystemPrompt";
-import { getChatActorId, resolveChatActor } from "@/lib/guest";
+import { getChatActorId, resolveChatActor, type ChatActor } from "@/lib/guest";
+import { browserGuestCannotAccess, browserGuestChatFilter } from "@/lib/mcp/ownership";
 import { evaluateRetry } from "@/lib/chat-requests";
 import { chatOperationId, pendingVisibleReply, recordChatEvents, recordChatReply, type ChatChannel } from "@/lib/chat-analytics";
 import { recordEngagement } from "@/lib/analytics/engagement-store";
@@ -135,11 +136,13 @@ async function findExistingChatCreation(
   store: ChatCreationStore,
   userId: string,
   requestId: string,
+  actor: ChatActor,
 ) {
   const existing = await store.chatHistory.findFirst({
     where: {
       userId,
       creationRequestId: requestId,
+      ...browserGuestChatFilter(actor),
     },
     select: {
       id: true,
@@ -220,6 +223,7 @@ export async function executeChatCommand(
   request: Request,
   command: ChatCommand,
   channel: ChatChannel = "unknown",
+  mcp?: { actor: ChatActor; onStreamError?: (error: unknown) => void },
 ) {
   const TOOL_NODE_NAMES = new Set(["tools", ...toolsArray.map((tool) => tool.name)]);
 
@@ -240,9 +244,14 @@ export async function executeChatCommand(
     stop = false,
   } = command;
 
-  const actor = await resolveChatActor();
+  const actor = mcp?.actor ?? await resolveChatActor();
+  const isMcpGuest = channel === "mcp" && actor.kind === "guest";
   const effectiveUserId = getChatActorId(actor);
   const resolvedRequestId = requestId?.trim() || crypto.randomUUID();
+
+  if (browserGuestCannotAccess(actor, chatId) || browserGuestCannotAccess(actor, clientChatId)) {
+    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+  }
 
   if (chatId && stop && requestId?.trim()) {
     const chatRecord = await prisma.chatHistory.findUnique({
@@ -335,6 +344,7 @@ export async function executeChatCommand(
       prisma,
       effectiveUserId,
       resolvedRequestId,
+      actor,
     );
     if (existingCreation) {
       const replay = getIdempotentChatCreationResult(
@@ -371,6 +381,7 @@ export async function executeChatCommand(
         tx,
         effectiveUserId,
         resolvedRequestId,
+        actor,
       );
       if (existingCreation) {
         const replay = getIdempotentChatCreationResult(
@@ -813,7 +824,7 @@ export async function executeChatCommand(
             const parrotHistory = buildParrotHistory(conversationMessages, newParrotSysPrompt);
 
             // Start streaming LLM response using .stream() API with multiple modes
-            const workflow = await getParrotWorkflow();
+            const workflow = isMcpGuest ? await getMcpGuestWorkflow() : await getParrotWorkflow();
             const eventStream = await workflow.stream(
               { messages: parrotHistory },
               {
@@ -992,6 +1003,7 @@ export async function executeChatCommand(
               });
             }
           } catch (error) {
+            mcp?.onStreamError?.(error);
             generationStopped =
               request.signal.aborted ||
               (error instanceof Error && error.name === "AbortError");
@@ -1041,6 +1053,7 @@ export async function executeChatCommand(
             });
 
             if (
+              !isMcpGuest &&
               persistedTerminalState === "completed" &&
               parrotReply.trim() &&
               currentChat &&
@@ -1073,6 +1086,7 @@ export async function executeChatCommand(
 
           // Keep the request alive for memory extraction and its usage receipt after streaming.
           if (
+            !isMcpGuest &&
             persistedTerminalState === "completed" &&
             capturedUserId &&
             parrotReply.trim()
@@ -1145,6 +1159,10 @@ export async function executeGetChat(
 ) {
   const actor = await resolveChatActor();
   const requesterUserId = getChatActorId(actor);
+
+  if (browserGuestCannotAccess(actor, chatId)) {
+    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+  }
 
   if (!chatId) {
     return NextResponse.json({ error: "Missing chatId" }, { status: 400 });

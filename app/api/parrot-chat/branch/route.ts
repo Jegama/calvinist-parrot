@@ -5,6 +5,7 @@ import { getChatActorId, resolveChatActor } from "@/lib/guest";
 import prisma from "@/lib/prisma";
 import { acquireChatCreationLocks } from "@/lib/api/handlers/request-persistence-lock";
 import { chatOperationId, derivedCreationRequestId, recordChatEvents } from "@/lib/chat-analytics";
+import { browserGuestCannotAccess } from "@/lib/mcp/ownership";
 import { deterministicConversationTitle } from "@/lib/chat-title";
 import { selectBranchPrefix } from "@/lib/chat-turns";
 import { generateConversationName } from "@/utils/generateConversationName";
@@ -51,6 +52,9 @@ export async function POST(request: Request) {
 
   const actor = await resolveChatActor();
   const actorId = getChatActorId(actor);
+  if (browserGuestCannotAccess(actor, parsed.data.sourceChatId)) {
+    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+  }
   const sourceChat = await prisma.chatHistory.findUnique({
     where: { id: parsed.data.sourceChatId },
   });

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.0 — November 25, 2026
+
+- MCP clients can browse evaluated churches and read saved evaluations at `/api/mcp`. Operators can enable budgeted guest questions and account-authorized Parrot conversations with citations. [#104](https://github.com/Jegama/calvinist-parrot/issues/104)
+
 ## 2.3.0 — November 25, 2026
 
 - **Feature engagement.** Analytics administrators can see how often a chat reaches a follow-up, a devotional holds a reader’s attention, or a generated report is opened. The feature table includes matched website steps, coverage dates, and separate API and MCP outcomes. [#124](https://github.com/Jegama/calvinist-parrot/pull/124)

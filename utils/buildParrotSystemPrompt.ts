@@ -157,12 +157,6 @@ export function buildParrotSystemPrompt(params: {
   );
   const secondaryPromptText = mapDenominationPrompt(effectiveDenomination);
   const coreSysPromptWithDenomination = prompts.CORE_SYS_PROMPT.replace("{denomination}", secondaryPromptText);
-  let newParrotSysPrompt = prompts.PARROT_SYS_PROMPT_MAIN.replace("{CORE}", coreSysPromptWithDenomination);
-  newParrotSysPrompt = newParrotSysPrompt.replace("{PASTORAL_CONTEXT}", pastoralContext);
-
-  // Inject effective user id literal for tools that require it (do not expose to user)
-  const effectiveUserIdLiteral = effectiveUserId || "unknown_user";
-  newParrotSysPrompt = newParrotSysPrompt.replace(/\{EFFECTIVE_USER_ID\}/g, effectiveUserIdLiteral);
-
-  return newParrotSysPrompt;
+  const newParrotSysPrompt = prompts.PARROT_SYS_PROMPT_MAIN.replace("{CORE}", coreSysPromptWithDenomination);
+  return newParrotSysPrompt.replace("{PASTORAL_CONTEXT}", pastoralContext);
 }

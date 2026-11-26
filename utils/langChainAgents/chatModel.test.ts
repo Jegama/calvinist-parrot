@@ -12,8 +12,8 @@ import { z } from "zod";
 
 import { createParrotChatModel } from "./chatModel";
 
-const { upsert } = vi.hoisted(() => ({ upsert: vi.fn() }));
-vi.mock("@/lib/prisma", () => ({ default: { providerCallAttempt: { upsert } } }));
+const { upsert, debit } = vi.hoisted(() => ({ upsert: vi.fn(), debit: vi.fn() }));
+vi.mock("@/lib/prisma", () => ({ default: { providerCallAttempt: { upsert }, $executeRaw: debit } }));
 
 const credentials = {
   ANTHROPIC_API_KEY: "test-anthropic-key",
@@ -358,4 +358,39 @@ it("keeps received input and unknown final output when Haiku disconnects during 
   expect(upsert.mock.lastCall?.[0].create).toMatchObject({
     operationId: "fixture-aborted", inputTokens: 13, outputTokens: null, outcome: "provider_error",
   });
+});
+
+it("reserves the guest budget before every paid attempt, including the SDK retry", async () => {
+  vi.stubEnv("MCP_GUEST_DAILY_BUDGET_CENTS", "105");
+  try {
+    upsert.mockClear();
+    debit.mockReset().mockResolvedValueOnce(1).mockResolvedValue(0);
+    const model = createParrotChatModel(credentials, "mcp_guest");
+    if (!(model instanceof ChatAnthropic)) throw new Error("Expected Anthropic");
+
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(
+      JSON.stringify({ type: "error", error: { type: "api_error", message: "unavailable" } }),
+      { status: 500, headers: { "content-type": "application/json" } },
+    ));
+    model.clientOptions.fetch = fetchMock;
+    const agent = createAgent({ model, tools: [] });
+    await expect(agent.invoke({ messages: [new HumanMessage("Show me Psalm 23.")] }, {
+      configurable: { chatUsage: { operationId: "guest-budget-retry" } },
+    })).rejects.toThrow(/guest model quota exhausted/i);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(debit).toHaveBeenCalledTimes(2);
+    const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(request).toMatchObject({ service_tier: "standard_only", max_tokens: 16384, model: "claude-haiku-5-5" });
+    const receipts = upsert.mock.calls.map(([write]) => write.create);
+    expect(receipts.filter(r => r.outcome === "provider_error")).toHaveLength(1);
+    expect(new Set(receipts.map(r => r.attemptId)).size).toBe(1);
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
+
+it("refuses unpriced guest models", () => {
+  for (const override of [{ PARROT_AGENT_PROVIDER: "openai" }, { PARROT_ANTHROPIC_MODEL: "custom" }]) {
+    expect(() => createParrotChatModel({ ...credentials, ...override }, "mcp_guest")).toThrow(/unavailable/);
+  }
 });

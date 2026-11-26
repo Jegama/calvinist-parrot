@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { afterLoginPath } from "@/lib/mcp/auth-return";
 
 type LoginResponse = {
   error?: string;
@@ -53,7 +54,7 @@ export function LoginForm() {
       }
 
       setUser(payload.user);
-      router.push("/");
+      router.push(afterLoginPath());
     } catch (error: unknown) {
       if (error instanceof Error) {
         setErrorMessage(error.message);

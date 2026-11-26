@@ -1,3 +1,4 @@
+import { CORE_DOCTRINE_KEYS } from "@/lib/schemas/church-finder";
 import {
   chatMessageSchema,
   chatSchema,
@@ -7,6 +8,8 @@ import {
   createChatResponseSchema,
   errorResponseSchema,
   getChatResponseSchema,
+  findChurchesInputSchema,
+  findChurchesResultSchema,
   legacyGetChatResponseSchema,
   legacyParrotChatRequestSchema,
   publicChurchSchema,
@@ -32,6 +35,13 @@ const exampleIds = {
   messageId: "8b90be0d-497f-48cb-8c67-85c2e28f2e83",
   requestId: "f6bb8ec0-6d64-4c30-9f15-3eeebc61ff48",
 } as const;
+
+const churchSummaryExample = {
+  id: "example-church", name: "Example Church", website: "https://example.org",
+  city: "Austin", state: "TX", denomination: "Reformed Baptist", status: "recommended", confessionAdopted: false,
+};
+
+const churchSearchExample = { city: "Austin", state: "TX", denomination: "Reformed Baptist", status: "recommended", page: 1, pageSize: 10 };
 
 const createChatRequestExample = {
   initialQuestion: "What does justification by faith mean?",
@@ -189,7 +199,7 @@ export function buildSpec(): OpenApiDocument {
     jsonSchemaDialect: "https://json-schema.org/draft/2020-12/schema",
     info: {
       title: "Calvinist Parrot Public API",
-      version: "1.1.0",
+      version: "1.2.0",
       description:
         "Versioned contracts for Calvinist Parrot chat, saved Church Finder records, and retirement responses for Counsel of Three QA. Browser identity is always resolved server-side from the Appwrite session or server-managed guest cookie; v1 clients must not send `userId`.",
     },
@@ -316,6 +326,25 @@ export function buildSpec(): OpenApiDocument {
           },
         },
       },
+      "/api/v1/churches": {
+        get: {
+          tags: ["Church Finder"],
+          operationId: "findChurches",
+          summary: "Browse evaluated churches",
+          description: "Public directory of saved, evaluated churches ordered by recommendation priority, name, and ID. All supplied filters must match. Pages start at 1 and contain up to 25 churches. An empty page returns 200. No account is required.",
+          parameters: Object.entries(findChurchesInputSchema.shape).map(([name, schema]) => ({
+            name, in: "query", required: false, schema: zodToOpenApiSchema(schema, "input"),
+            example: churchSearchExample[name as keyof typeof churchSearchExample],
+          })),
+          responses: {
+            "200": {
+              description: "A directory page. Use the next page number if hasMore is true.",
+              content: jsonBody(schemaRef("FindChurchesResult"), { items: [churchSummaryExample], page: 1, pageSize: 10, hasMore: false }),
+            },
+            "400": { description: "Invalid filter or pagination.", content: jsonBody(schemaRef("ErrorResponse")) },
+          },
+        },
+      },
       "/api/v1/churches/{id}": {
         head: {
           tags: ["Church Finder"],
@@ -328,7 +357,7 @@ export function buildSpec(): OpenApiDocument {
           tags: ["Church Finder"],
           operationId: "getChurch",
           summary: "Retrieve a saved church record",
-          description: "Returns the directory summary, saved evaluation status and supporting pages without starting an evaluation. No account is required.",
+          description: "Returns the saved directory record, latest evaluation and supporting links. Records without an evaluation carry evaluationState=unevaluated. Reads never start an evaluation. No account is required.",
           parameters: [
             { name: "id", in: "path", required: true, example: "example-church", schema: zodToOpenApiSchema(resourceIdSchema, "input") },
             {
@@ -341,8 +370,12 @@ export function buildSpec(): OpenApiDocument {
             "200": {
               description: "Saved public directory record.",
               content: jsonBody(schemaRef("PublicChurch"), {
-                id: "example-church", name: "Example Church", website: "https://example.org",
-                city: "Austin", state: "TX", status: "recommended",
+                ...churchSummaryExample, evaluationState: "evaluated",
+                evaluation: {
+                  createdAt: "2026-11-20T14:00:00.000Z", coreOnSiteCount: 8, coreTotalCount: 10,
+                  coreDoctrines: Object.fromEntries(CORE_DOCTRINE_KEYS.map((key, i) => [key, i < 8 ? "true" : "unknown"])),
+                  coverageRatio: 0.8, badges: [], supportingLinks: ["https://example.org/beliefs"],
+                },
                 bestPages: { beliefs: "https://example.org/beliefs", confession: null, about: null, leadership: null },
               }),
             },
@@ -449,6 +482,7 @@ export function buildSpec(): OpenApiDocument {
     components: {
       schemas: {
         ErrorResponse: zodToOpenApiSchema(errorResponseSchema),
+        FindChurchesResult: zodToOpenApiSchema(findChurchesResultSchema),
         PublicChurch: zodToOpenApiSchema(publicChurchSchema),
         CreateChatRequest: zodToOpenApiSchema(createChatRequestSchema, "input"),
         CreateChatResponse: zodToOpenApiSchema(createChatResponseSchema),
