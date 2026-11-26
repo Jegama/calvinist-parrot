@@ -6,6 +6,7 @@ import {
 
 import type { ChatChannel } from "@/lib/chat-analytics";
 import prisma from "@/lib/prisma";
+import { recordEngagement } from "@/lib/analytics/engagement-store";
 import { providerUsageEnvironment } from "@/lib/provider-usage";
 
 import {
@@ -299,6 +300,7 @@ export async function createReservedSermonEvaluation(
           include: { preacher: true },
         });
 
+        await recordEngagement("sermon", "submitted", evaluation.id, input.channel, tx);
         await tx.sermonRunCreditReservation.create({
           data: {
             fingerprintId: input.fingerprintId,

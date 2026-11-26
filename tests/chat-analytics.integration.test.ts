@@ -10,6 +10,10 @@ import { POST as legacyChat } from "@/app/api/parrot-chat/route";
 import { POST as createPublicChat } from "@/app/api/v1/chats/route";
 import { POST as branch } from "@/app/api/parrot-chat/branch/route";
 import { POST as handoff } from "@/app/api/journal/entries/[id]/continue-chat/route";
+import { GET as webTranscript } from "@/app/api/web/chats/[chatId]/route";
+import { POST as confirmReply } from "@/app/api/web/chats/[chatId]/reply-visible/route";
+import { getChatEngagement } from "@/lib/analytics/engagement-chat";
+import { POST as sendWebMessage } from "@/app/api/web/chats/[chatId]/messages/route";
 import { POST as stop } from "@/app/api/web/chats/[chatId]/requests/[requestId]/stop/route";
 import { getChatSpend } from "@/lib/analytics/chat-spend";
 import { recordUsageAttempt, startUsageAttempt } from "@/lib/provider-usage";
@@ -121,6 +125,8 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
   });
 
   afterAll(async () => {
+    await db.$executeRaw`DELETE FROM "AnalyticsEngagementEvent" e USING "ChatAnalyticsEvent" c
+      WHERE e.feature = 'chat' AND e."flowId" = c."operationId" AND c."chatId" = ANY(${chatIds}::text[])`;
     await db.providerCallAttempt.deleteMany({ where: { operationId: { in: [...operationsToPrice] } } });
     await db.chatAnalyticsEvent.deleteMany({ where: { chatId: { in: chatIds } } });
     await db.chatMessage.deleteMany({ where: { chatId: { in: chatIds } } });
@@ -167,6 +173,18 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
       expect(stored.map(row => row.kind)).toEqual(["created", "reply", "submission"]);
       expect(new Set(stored.map(row => row.operationId)).size).toBe(1);
       operations.add(stored[0].operationId);
+      const transcript = await webTranscript(new Request("http://localhost/chat"), { params: Promise.resolve({ chatId }) });
+      const target = transcript.headers.get("x-parrot-reply-target");
+      const expectedReply = (await transcript.json()).messages.find((row: { sender: string }) => row.sender === "parrot");
+      expect(target).toBe(channel === "web" ? expectedReply.id : null);
+      expect(transcript.headers.get("x-parrot-reply-operation")).toBe(channel === "web" ? stored[0].operationId : null);
+      for (let replay = 0; replay < 2; replay++) {
+        expect((await confirmReply(post("/reply-visible", { operation: stored[0].operationId }), { params: Promise.resolve({ chatId }) })).status).toBe(204);
+      }
+      const [{ count }] = await db.$queryRaw<{ count: number }[]>`SELECT count(*)::int AS count FROM "AnalyticsEngagementEvent"
+        WHERE feature = 'chat' AND step = 'reply_visible' AND "flowId" = ${stored[0].operationId}`;
+      expect(count).toBe(channel === "web" ? 1 : 0);
+      expect((await webTranscript(new Request("http://localhost/chat"), { params: Promise.resolve({ chatId }) })).headers.has("x-parrot-reply-target")).toBe(false);
       const expectedContext = { operationId: stored[0].operationId, isRetry: channel === "web" };
       expect(modelContexts.at(-1)).toEqual(expectedContext);
       expect(titleContexts.at(-1)).toEqual(expectedContext);
@@ -191,7 +209,30 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
       await tx.chatAnalyticsEvent.updateMany({
         where: { chatId: { in: ids } }, data: { occurredAt: new Date("1997-05-05T18:00:00Z") },
       });
-      return getAnalyticsMetrics(getReportingWindow(7, "1997-05-06"), [], tx);
+      await tx.$executeRaw`UPDATE "AnalyticsEngagementEvent" SET "occurredAt" = '1997-05-05T18:30:00Z'
+        WHERE feature = 'chat' AND "flowId" = ANY(${Array.from(operations)}::text[])`;
+      const window = getReportingWindow(7, "1997-05-06");
+      expect(await getChatEngagement(window, tx)).toEqual({
+        allStarted: 1, started: 1, visible: 1, followup: 0, public_api: 1, mcp: 1, unknown: 0,
+      });
+      const metrics = await getAnalyticsMetrics(window, [], tx);
+      // The same conversation can have unrelated, out-of-order and repeated turns.
+      const addTurn = (channel: string, at: string, chatId = ids[0]) => tx.chatAnalyticsEvent.create({
+        data: { chatId, kind: "submission", actorKind: "guest", operationId: randomUUID(), channel, occurredAt: new Date(at) },
+      });
+      await addTurn("web", "1997-05-05T18:15:00Z");
+      await addTurn("public_api", "1997-05-05T18:40:00Z");
+      await addTurn("web", "1997-05-05T18:45:00Z", ids[2]); // first submission was MCP
+      expect(await getChatEngagement(window, tx)).toMatchObject({ started: 1, visible: 1, followup: 0 });
+      await addTurn("web", "1997-05-05T18:55:00Z");
+      await addTurn("web", "1997-05-05T19:10:00Z");
+      const incompleteId = newChatId();
+      await addTurn("web", "1997-05-05T19:15:00Z", incompleteId);
+      expect(await getChatEngagement(window, tx)).toMatchObject({ started: 2, visible: 1, followup: 1 });
+      expect(await getChatEngagement(window, tx, new Date("1997-05-05T18:05:00Z"))).toMatchObject({
+        allStarted: 2, started: 1, visible: 0, followup: 0, mcp: 1, public_api: 1,
+      });
+      return metrics;
     });
     expect(report.hero.newChats.current).toBe(3);
     expect(report.hero.userMessages.current).toBe(3);
@@ -201,6 +242,29 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
       ["combined", 3, 3], ["web", 1, 1], ["public_api", 1, 1], ["mcp", 1, 1], ["unknown", 0, 0],
     ]);
     expect(report.guest).toMatchObject({ newChats: 1, userMessages: 1, activeChats: 1, averageMessages: 2 });
+  });
+
+  it("confirms a visible answer before a fast follow-up and rejects a different owner's acknowledgment", async () => {
+    signedInId = null;
+    guestCookies.clear();
+    const chatId = newChatId();
+    const requestId = randomUUID();
+    const first = await (await createQuestion("web", chatId, requestId)).json();
+    await streamEvents(await sendMessage("web", chatId, { requestId, messageId: first.messageId, message: fixtureQuestion, isAutoTrigger: true }));
+    const operation = chatOperationId(chatId, requestId);
+    signedInId = randomUUID();
+    expect((await confirmReply(post("/reply-visible", { operation }), { params: Promise.resolve({ chatId }) })).status).toBe(404);
+    signedInId = null;
+    const followupId = randomUUID();
+    const followup = post("/messages", { requestId: followupId, message: "Please explain further." });
+    followup.headers.set("x-parrot-visible-operation", operation);
+    await streamEvents(await sendWebMessage(followup, { params: Promise.resolve({ chatId }) }));
+    const [result] = await db.$queryRaw<{ ordered: boolean }[]>`
+      SELECT (v."occurredAt" AT TIME ZONE 'UTC') <= f."occurredAt" AS ordered
+      FROM "AnalyticsEngagementEvent" v JOIN "ChatAnalyticsEvent" f ON f."chatId" = ${chatId}
+      WHERE v.feature = 'chat' AND v.step = 'reply_visible' AND v."flowId" = ${operation}
+        AND f.kind = 'submission' AND f."operationId" = ${chatOperationId(chatId, followupId)}`;
+    expect(result?.ordered).toBe(true);
   });
 
   it("preserves guest provenance when an API retry after login finishes a stopped website turn", async () => {

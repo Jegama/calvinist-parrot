@@ -2,12 +2,15 @@ import {
   chatMessageSchema,
   chatSchema,
   chatStreamEventSchema,
+  churchOperationKeySchema,
   createChatRequestSchema,
   createChatResponseSchema,
   errorResponseSchema,
   getChatResponseSchema,
   legacyGetChatResponseSchema,
   legacyParrotChatRequestSchema,
+  publicChurchSchema,
+  resourceIdSchema,
   sendChatMessageRequestSchema,
   stopChatRequestSchema,
   stopChatResponseSchema,
@@ -185,14 +188,15 @@ export function buildSpec(): OpenApiDocument {
     openapi: "3.1.0",
     jsonSchemaDialect: "https://json-schema.org/draft/2020-12/schema",
     info: {
-      title: "Calvinist Parrot Conversational API",
-      version: "1.0.0",
+      title: "Calvinist Parrot Public API",
+      version: "1.1.0",
       description:
-        "Versioned contracts for Calvinist Parrot chat and retirement responses for Counsel of Three QA. Browser identity is always resolved server-side from the Appwrite session or server-managed guest cookie; v1 clients must not send `userId`.",
+        "Versioned contracts for Calvinist Parrot chat, saved Church Finder records, and retirement responses for Counsel of Three QA. Browser identity is always resolved server-side from the Appwrite session or server-managed guest cookie; v1 clients must not send `userId`.",
     },
     servers: [{ url: "/", description: "Current Calvinist Parrot origin" }],
     tags: [
       { name: "Chat", description: "LangGraph-backed conversations." },
+      { name: "Church Finder", description: "Read saved public directory records." },
       {
         name: "QA",
         description: "Retired Counsel of Three endpoints. Use Parrot chat.",
@@ -312,6 +316,45 @@ export function buildSpec(): OpenApiDocument {
           },
         },
       },
+      "/api/v1/churches/{id}": {
+        head: {
+          tags: ["Church Finder"],
+          operationId: "checkChurchRecord",
+          summary: "Check whether a saved church record exists",
+          parameters: [{ name: "id", in: "path", required: true, example: "example-church", schema: zodToOpenApiSchema(resourceIdSchema, "input") }],
+          responses: { "200": { description: "Church exists." }, "404": { description: "Church not found." } },
+        },
+        get: {
+          tags: ["Church Finder"],
+          operationId: "getChurch",
+          summary: "Retrieve a saved church record",
+          description: "Returns the directory summary, saved evaluation status and supporting pages without starting an evaluation. No account is required.",
+          parameters: [
+            { name: "id", in: "path", required: true, example: "example-church", schema: zodToOpenApiSchema(resourceIdSchema, "input") },
+            {
+              name: "Idempotency-Key", in: "header", required: true,
+              description: "Supply a UUID for this retrieval and reuse it when retrying the same operation.",
+              schema: zodToOpenApiSchema(churchOperationKeySchema, "input"), example: exampleIds.requestId,
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Saved public directory record.",
+              content: jsonBody(schemaRef("PublicChurch"), {
+                id: "example-church", name: "Example Church", website: "https://example.org",
+                city: "Austin", state: "TX", status: "recommended",
+                bestPages: { beliefs: "https://example.org/beliefs", confession: null, about: null, leadership: null },
+              }),
+            },
+            "204": { description: "Speculative prefetch. No record body is delivered." },
+            "400": {
+              description: "Invalid church id or missing or invalid UUID in Idempotency-Key.",
+              content: jsonBody(schemaRef("ErrorResponse"), { error: "Idempotency-Key must be a UUID for this retrieval." }),
+            },
+            "404": { description: "Church not found.", content: jsonBody(schemaRef("ErrorResponse")) },
+          },
+        },
+      },
       "/api/v1/qa": {
         post: {
           tags: ["QA"],
@@ -406,6 +449,7 @@ export function buildSpec(): OpenApiDocument {
     components: {
       schemas: {
         ErrorResponse: zodToOpenApiSchema(errorResponseSchema),
+        PublicChurch: zodToOpenApiSchema(publicChurchSchema),
         CreateChatRequest: zodToOpenApiSchema(createChatRequestSchema, "input"),
         CreateChatResponse: zodToOpenApiSchema(createChatResponseSchema),
         Chat: zodToOpenApiSchema(chatSchema),

@@ -8,7 +8,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MarkdownWithBibleVerses } from '@/components/MarkdownWithBibleVerses';
 import { BibleVerseText } from '@/components/BibleVerseText';
 
+import { observeDevotionalReading } from './reading-time';
+
 interface DevotionalData {
+    readingId?: string;
     bible_verse: string;
     title: string;
     devotional: string;
@@ -34,6 +37,7 @@ export default function DevotionalPage() {
                     setError(json.error);
                 } else {
                     setData({
+                        readingId: json.readingId,
                         bible_verse: json.bible_verse,
                         title: json.title,
                         devotional: json.devotional,
@@ -48,6 +52,10 @@ export default function DevotionalPage() {
 
         getDevotional();
     }, []);
+
+    useEffect(() => {
+        if (data?.devotional) return observeDevotionalReading(data.readingId);
+    }, [data]);
 
     if (error) {
         return (

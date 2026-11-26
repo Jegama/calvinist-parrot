@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import { trackEngagement } from "@/lib/analytics/engagement-client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -33,7 +35,7 @@ type RotationCardProps = {
   onFamilyAssignmentChange: (familyId: string, value: string) => void;
   onPersonalSelectionChange: (requestId: string, value: boolean) => void;
   onCancelRotation: () => void;
-  onConfirmRotation: () => void;
+  onConfirmRotation: (shown?: Promise<void>) => void;
 };
 
 export function RotationCard({
@@ -48,6 +50,21 @@ export function RotationCard({
   onCancelRotation,
   onConfirmRotation,
 }: RotationCardProps) {
+  const flowId = rotation?.flowId;
+  const shown = useRef<Promise<void> | undefined>(undefined);
+  useEffect(() => {
+    shown.current = undefined;
+    if (!flowId) return;
+    const recordWhenVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      shown.current = trackEngagement("prayer", "rotation_shown", flowId);
+      document.removeEventListener("visibilitychange", recordWhenVisible);
+    };
+    document.addEventListener("visibilitychange", recordWhenVisible);
+    recordWhenVisible();
+    return () => document.removeEventListener("visibilitychange", recordWhenVisible);
+  }, [flowId]);
+
   // Check if user has other household members (assuming current user is always 1)
   const hasHouseholdMembers = members.length > 1;
 
@@ -207,7 +224,7 @@ export function RotationCard({
               <Button variant="outline" onClick={onCancelRotation} disabled={isConfirming}>
                 Cancel
               </Button>
-              <Button onClick={onConfirmRotation} disabled={isConfirming || !hasSelections}>
+              <Button onClick={() => onConfirmRotation(shown.current)} disabled={isConfirming || !hasSelections}>
                 {isConfirming ? "Saving..." : "Mark as Prayed"}
               </Button>
             </div>

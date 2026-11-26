@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3.0 — November 25, 2026
+
+- **Feature engagement.** Analytics administrators can see how often a chat reaches a follow-up, a devotional holds a reader’s attention, or a generated report is opened. The feature table includes matched website steps, coverage dates, and separate API and MCP outcomes. [#124](https://github.com/Jegama/calvinist-parrot/pull/124)
+
 ## 2.2.0 — November 25, 2026
 
 - **Evaluation costs.** Admin analytics shows Church Finder and Sermon Evaluator costs by entry channel, including billed retries, external-service fees and coverage for completed evaluations. The dashboard’s time picker now goes from one year to All time. [#123](https://github.com/Jegama/calvinist-parrot/pull/123)

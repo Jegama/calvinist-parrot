@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { AlertCircle, CircleStop } from "lucide-react";
 
 import { MarkdownWithBibleVerses } from "@/components/MarkdownWithBibleVerses";
@@ -12,13 +12,40 @@ import type { ChatMessageRecord, ChatTurn as ChatTurnType } from "@/lib/chat-tur
 
 type ChatTurnProps = {
   turn: ChatTurnType;
+  visibilityOperation?: string;
+  onReplyVisible: (operation: string) => void;
   onEdit: (message: ChatMessageRecord) => void;
   onRetry: (turn: ChatTurnType) => void;
 };
 
-export const ChatTurn = memo(function ChatTurn({ turn, onEdit, onRetry }: ChatTurnProps) {
+export const ChatTurn = memo(function ChatTurn({ turn, visibilityOperation, onReplyVisible, onEdit, onRetry }: ChatTurnProps) {
   const userContentRef = useRef<HTMLDivElement>(null);
   const assistantContentRef = useRef<HTMLDivElement>(null);
+
+  // Only confirm an answer the website has actually rendered in the viewport.
+  // Waiting for the persisted transcript excludes partial, failed or stopped streams.
+  useEffect(() => {
+    const node = assistantContentRef.current;
+    if (!node || !visibilityOperation || typeof IntersectionObserver === "undefined") return;
+    let intersecting = false;
+    let reported = false;
+    const report = () => {
+      if (reported || !intersecting || document.visibilityState !== "visible") return;
+      reported = true;
+      observer.disconnect();
+      onReplyVisible(visibilityOperation);
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      intersecting = entry.isIntersecting;
+      report();
+    });
+    observer.observe(node);
+    document.addEventListener("visibilitychange", report);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", report);
+    };
+  }, [visibilityOperation, onReplyVisible]);
 
   return (
     <article
@@ -139,6 +166,8 @@ export const ChatTurn = memo(function ChatTurn({ turn, onEdit, onRetry }: ChatTu
   const a = previous.turn;
   const b = next.turn;
   return (
+    previous.visibilityOperation === next.visibilityOperation &&
+    previous.onReplyVisible === next.onReplyVisible &&
     previous.onEdit === next.onEdit &&
     previous.onRetry === next.onRetry &&
     a.key === b.key &&

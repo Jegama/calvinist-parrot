@@ -1,3 +1,4 @@
+import { v5 as uuidv5 } from "uuid";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import {
@@ -96,5 +97,11 @@ export async function GET(request: Request) {
   }
 
   const assignments = assignFamilies(families, capacities);
-  return NextResponse.json({ families, personal, members, assignments });
+  // The same suggested rotation can be prepared repeatedly by a household.
+  const flowId = uuidv5(JSON.stringify([
+    "prayer-rotation", membership.spaceId, startOfToday.getTime(),
+    families.map(family => [family.id, assignments[family.id] ?? null]),
+    personal.map(item => item.id).sort(),
+  ]), uuidv5.URL);
+  return NextResponse.json({ families, personal, members, assignments, flowId });
 }

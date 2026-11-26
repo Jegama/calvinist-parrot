@@ -27,6 +27,7 @@ vi.mock("@/components/ProtectedView", () => ({
   ProtectedView: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+import { normalizeSermonEvaluationDetail } from "@/components/sermon-evaluation/api";
 import { SermonEvaluationDetailFeature } from "@/components/sermon-evaluation/detail-shell";
 import type {
   SermonEvaluationDetail,
@@ -116,5 +117,39 @@ describe("canonical evaluation navigation", () => {
     expect(mocks.replace).toHaveBeenCalledWith(
       "/sermon-evaluation/canonical-evaluation?notice=duplicate",
     );
+  });
+
+  it("acknowledges an open only after the completed detail is loaded in a foreground tab", async () => {
+    let detail = normalizeSermonEvaluationDetail({
+      id: "evaluation", title: "Synthetic report", status: "SCORING", hasRetainedAudio: false,
+    });
+    const refetch = vi.fn();
+    mocks.useQuery.mockImplementation(({ queryKey }: { queryKey: unknown[] }) => {
+      if (queryKey[1] === "capabilities") return { data: { hasAccess: true } };
+      if (queryKey[2] === "status") return { data: { ...detail, status: "COMPLETE" } };
+      return { data: detail, refetch };
+    });
+    const acknowledge = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", acknowledge);
+    vi.stubGlobal("self", dom.window);
+    vi.stubGlobal("getComputedStyle", dom.window.getComputedStyle);
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => setTimeout(callback, 0));
+    vi.stubGlobal("cancelAnimationFrame", clearTimeout);
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const render = () => act(async () => { root.render(<SermonEvaluationDetailFeature evaluationId="evaluation" />); });
+    await render();
+    expect(acknowledge).not.toHaveBeenCalled();
+
+    detail = { ...detail, status: "COMPLETE" };
+    visibility.mockReturnValue("hidden");
+    await render();
+    expect(acknowledge).not.toHaveBeenCalled();
+    visibility.mockReturnValue("visible");
+    document.dispatchEvent(new dom.window.Event("visibilitychange"));
+    document.dispatchEvent(new dom.window.Event("visibilitychange"));
+    expect(acknowledge).toHaveBeenCalledExactlyOnceWith("/api/web/sermon-evaluations/evaluation/report-opened", {
+      method: "POST", keepalive: true,
+    });
+    visibility.mockRestore();
   });
 });

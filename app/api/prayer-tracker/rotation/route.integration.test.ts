@@ -7,6 +7,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 
 import { GET } from "./route";
 import { POST } from "./confirm/route";
+import { PATCH as updateRequest } from "../requests/[requestId]/route";
+import { POST as observe } from "@/app/api/web/engagement/route";
 
 if (process.env.RUN_DATABASE_INTEGRATION_TESTS === "1") config();
 const databaseUrl = process.env.CI
@@ -67,6 +69,7 @@ async function generate() {
   return await response.json() as {
     families: Array<{ id: string; lastPrayedAt: string | null; lastPrayedByMemberId: string | null }>;
     assignments: Record<string, string>;
+    flowId: string;
   };
 }
 
@@ -167,6 +170,61 @@ describe.skipIf(!databaseUrl)("prayer rotation endpoints", () => {
 
     await prisma.prayerMember.update({ where: { id: member1 }, data: { assignmentCapacity: 0 } });
     expect((await generate()).assignments).toEqual({ [a]: "skip", [b]: "skip" });
+  });
+
+  it("counts one shown rotation, one confirmation and explicit answers independently of retries", async () => {
+    await seedMembers(1, 1);
+    const request = await prisma.prayerPersonalRequest.create({
+      data: { spaceId, requestText: "Fixture", dateUpdated: early },
+    });
+    const { flowId } = await generate();
+    // Capture the IDs allocated for fixture actions to isolate their receipts
+    // from other test suites sharing this database.
+    const ids = vi.spyOn(crypto, "randomUUID");
+    const flowIds = () => [flowId, ...ids.mock.results.map(result => result.value as string)];
+    const receipts = () => prisma.analyticsEngagementEvent.findMany({
+      where: { feature: "prayer", flowId: { in: flowIds() } },
+      orderBy: { step: "asc" }, select: { step: true },
+    }).then(rows => rows.map(row => row.step));
+    const patch = (body: object) => updateRequest(new Request(rotationUrl, {
+      method: "PATCH", body: JSON.stringify({ isHouseholdRequest: true, ...body }),
+    }), { params: Promise.resolve({ requestId: request.id }) });
+    const confirm = (personalIds: string[]) => POST(new Request(rotationUrl, {
+      method: "POST", body: JSON.stringify({ personalIds, flowId }),
+    }));
+    try {
+      expect((await generate()).flowId).toBe(flowId);
+      expect(await receipts()).toEqual([]);
+      for (let replay = 0; replay < 2; replay++) {
+        const shown = await observe(new Request("http://localhost/api/web/engagement", {
+          method: "POST", headers: { Origin: "http://localhost", "Content-Type": "application/json" },
+          body: JSON.stringify({ feature: "prayer", step: "rotation_shown", flowId }),
+        }));
+        expect(shown.status).toBe(204);
+      }
+      expect((await confirm(["missing-request"])).status).toBe(404);
+      expect(await receipts()).toEqual(["rotation_shown"]);
+
+      // An ordinary save with an active status never marks a request answered.
+      expect((await patch({ status: "ACTIVE" })).status).toBe(200);
+      expect(await receipts()).toEqual(["rotation_shown"]);
+      for (let replay = 0; replay < 2; replay++) {
+        expect((await confirm([request.id])).status).toBe(200);
+      }
+      expect(await receipts()).toEqual(["rotation_confirmed", "rotation_shown"]);
+      const simultaneous = await Promise.all([patch({ markAnswered: true }), patch({ markAnswered: true })]);
+      expect(simultaneous.map(response => response.status)).toEqual([200, 200]);
+      expect((await patch({ markAnswered: true })).status).toBe(200);
+      expect(await receipts()).toEqual(["request_answered", "rotation_confirmed", "rotation_shown"]);
+      expect((await patch({ status: "ACTIVE" })).status).toBe(200);
+      expect((await patch({ markAnswered: true })).status).toBe(200);
+      expect(await receipts()).toEqual(["request_answered", "request_answered", "rotation_confirmed", "rotation_shown"]);
+    } finally {
+      await prisma.analyticsEngagementEvent.deleteMany({ where: { flowId: { in: flowIds() } } });
+      ids.mockRestore();
+      await prisma.prayerPersonalRequest.delete({ where: { id: request.id } });
+      await prisma.userProfile.deleteMany({ where: { appwriteUserId: userId } });
+    }
   });
 
   it("uses the confirmed override and leaves skipped families in place for the next rotation", async () => {

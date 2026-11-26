@@ -184,6 +184,7 @@ export function SermonEvaluationDetailFeature({
           ) : user ? (
             <SermonDetail
               evaluation={detail}
+              reportLoaded={!!detailQuery.data && COMPLETE_SERMON_STATUSES.has(detailQuery.data.status)}
               capabilities={capabilitiesQuery.data}
               notice={notice}
               onChanged={async () => {
@@ -199,16 +200,32 @@ export function SermonEvaluationDetailFeature({
 
 function SermonDetail({
   evaluation,
+  reportLoaded,
   capabilities,
   notice,
   onChanged,
 }: {
   evaluation: SermonEvaluationDetail;
+  reportLoaded: boolean;
   capabilities: SermonCapabilities;
   notice?: "duplicate" | "reattach";
   onChanged: () => Promise<unknown>;
 }) {
   const isComplete = COMPLETE_SERMON_STATUSES.has(evaluation.status);
+  // A status poll can announce completion before the refreshed report is on screen.
+  useEffect(() => {
+    if (!isComplete || !reportLoaded) return;
+    function acknowledgeOpen() {
+      if (document.visibilityState !== "visible") return;
+      document.removeEventListener("visibilitychange", acknowledgeOpen);
+      void fetch(`/api/web/sermon-evaluations/${encodeURIComponent(evaluation.id)}/report-opened`, {
+        method: "POST", keepalive: true,
+      }).catch(() => {});
+    }
+    document.addEventListener("visibilitychange", acknowledgeOpen);
+    acknowledgeOpen();
+    return () => document.removeEventListener("visibilitychange", acknowledgeOpen);
+  }, [evaluation.id, isComplete, reportLoaded]);
   const scoreToDisplay =
     evaluation.durationAdjustmentEnabled && evaluation.overallImpactAdjusted !== null
       ? evaluation.overallImpactAdjusted

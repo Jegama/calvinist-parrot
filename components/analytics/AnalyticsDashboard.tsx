@@ -202,7 +202,7 @@ export default function AnalyticsDashboard({ report }: { report: AnalyticsReport
       <GrowthCharts growth={metrics.growth} chatCoverage={metrics.coverage.chat} endDay={period.endDay} timeZone={period.timeZone} />
       <AccountActivity report={report} />
       <ChatBreakdown metrics={metrics} />
-      <FeatureTable features={report.features} />
+      <FeatureTable features={report.features} period={period} generatedAt={report.generatedAt} />
       <footer className="space-y-2 border-t pt-4 text-sm text-muted-foreground">
         <h2 id="data-coverage" tabIndex={-1} className="scroll-mt-[calc(var(--app-header-height)+1rem)] text-xl font-semibold text-foreground">Coverage for this report</h2>
         <p>Generated {instantLabel(report.generatedAt, period.timeZone)}. A dash indicates unavailable data or an undefined rate.</p>

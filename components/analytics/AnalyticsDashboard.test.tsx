@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { AnalyticsReport } from "@/lib/analytics/report";
 import AnalyticsDashboard from "./AnalyticsDashboard";
+import FeatureTable from "./FeatureTable";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/app/admin/analytics/actions", () => ({ refreshAnalytics: vi.fn() }));
@@ -83,8 +84,67 @@ describe("admin analytics presentation", () => {
     expect(feature.textContent).toContain("Saved entries3");
     expect(feature.textContent).toContain("$0.000032");
     expect(feature.cells[1].textContent).toBe("—");
-    expect(feature.cells[4].textContent).toBe("—");
+    expect(feature.cells[5].textContent).toBe("—");
     expect(document.querySelector('section[aria-labelledby="channels-heading"] dl')?.textContent)
       .toContain("Chats started as a guest0Messages sent by guests0Avg. messages per active guest chat—");
+  });
+
+  it("keeps matched website steps, independent counts, and server outcomes distinct in each feature view", () => {
+    const period: AnalyticsReport["period"] = {
+      days: 7, startDay: "2026-11-15", endDay: "2026-11-21", previousStartDay: "2026-11-08",
+      previousEndDay: "2026-11-14", timeZone: "America/Chicago",
+    };
+    const defaults = { pageviews: 15, actions: [], estimatedSpendUsd: null, costPerCompletionUsd: null, spendCoverage: "Unavailable." };
+    const features: AnalyticsReport["features"] = {
+      evaluationChannels: null,
+      evaluationStages: null,
+      rows: [
+        { ...defaults, name: "Parrot Chat", key: "chat", engagement: {
+          steps: [
+            { label: "First messages sent", count: 2 },
+            { label: "Visible replies received", count: 1, denominator: 2, denominatorLabel: "First messages sent" },
+            { label: "Follow-ups sent", count: 0, denominator: 1, denominatorLabel: "Visible replies received" },
+          ],
+          external: [{ label: "Direct API · answers returned", count: 1 }, { label: "MCP · answers returned", count: 1 }],
+          coverage: "Partial coverage since Nov 17, 2026.",
+        } },
+        { ...defaults, name: "Prayer Tracker", key: "prayer", engagement: {
+          steps: [
+            { label: "Rotations shown", count: 0 },
+            { label: "Rotations confirmed", count: 0, denominator: 0, denominatorLabel: "Rotations shown" },
+            { label: "Requests marked answered", count: 3 },
+          ], coverage: "Collection started Nov 15, 2026.",
+        } },
+        { ...defaults, name: "Personal Journal", key: "personal_journal", engagement: {
+          steps: [{ label: "Reflections ready", count: 4, denominator: null }], coverage: "Start count unavailable.",
+        } },
+      ],
+      chatSpend: null, pageviewCoverage: "Anonymous reach.", actionCoverage: "Saved actions available.",
+    };
+
+    const generatedAt = "2026-11-22T09:00:00Z";
+    const doc = new JSDOM(renderToStaticMarkup(<FeatureTable features={features} period={period} generatedAt={generatedAt} />)).window.document;
+    const allTime = { ...period, days: "all" as const, startDay: null, endDay: "2026-11-22", previousStartDay: null, previousEndDay: null };
+    const lifetime = new JSDOM(renderToStaticMarkup(<FeatureTable features={features} period={allTime} generatedAt={generatedAt} />)).window.document;
+    expect(lifetime.querySelector("#outcomes-chat")?.textContent).toContain("All time through Nov 22, 2026, 3:00 AM CST");
+    const overview = doc.querySelector<HTMLTableElement>("table")!;
+    const websiteCounts = overview.rows[1].cells[3].textContent;
+    expect(websiteCounts).toBe("First messages sent2Visible replies received1Follow-ups sent0");
+    expect(overview.rows[1].cells[1].textContent).toBe("15");
+
+    const link = overview.rows[1].querySelector("a")!;
+    const chat = doc.querySelector(link.hash)!;
+    expect(chat.closest("details")?.querySelector("summary")?.textContent).toBe("Parrot Chat");
+    expect(chat.textContent).toContain("Nov 15, 2026 – Nov 21, 2026 · America/Chicago");
+    expect(chat.textContent).toContain("Partial coverage since Nov 17, 2026.");
+    expect(chat.querySelector("table")?.textContent).not.toContain("answers returned");
+    expect(chat.querySelector("tbody")?.rows[1].cells[2].textContent).toBe("50%1 of 2 · First messages sent");
+    expect(chat.querySelector("tbody")?.rows[2].cells[2].textContent).toBe("0%0 of 1 · Visible replies received");
+    expect(chat.querySelector("dl")?.textContent).toBe("Direct API · answers returned1MCP · answers returned1");
+
+    const prayer = doc.querySelector("#outcomes-prayer tbody")!;
+    expect(prayer.children[1].textContent).toContain("—0 of 0 · Rotations shown");
+    expect(prayer.children[2].textContent).toBe("Requests marked answered3Count only");
+    expect(doc.querySelector("#outcomes-personal_journal tbody")?.textContent).toBe("Reflections ready4Denominator unavailable");
   });
 });

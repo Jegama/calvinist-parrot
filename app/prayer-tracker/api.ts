@@ -18,6 +18,7 @@ export type SpaceData = {
  * Rotation data returned from the API
  */
 export type RotationData = {
+  flowId?: string;
   families: Family[];
   personal: PersonalRequest[];
   members?: Member[];
@@ -28,6 +29,7 @@ export type RotationData = {
  * Payload for confirming rotation
  */
 export type ConfirmRotationPayload = {
+  flowId?: string;
   familyAssignments: Array<{ familyId: string; prayedByMemberId: string }>;
   personalIds: string[];
 };
@@ -333,6 +335,7 @@ export async function computeRotation(): Promise<Result<RotationData>> {
 
     const data = await res.json();
     const rotation: RotationData = {
+      flowId: typeof data?.flowId === "string" ? data.flowId : undefined,
       families: Array.isArray(data?.families) ? data.families : [],
       personal: Array.isArray(data?.personal) ? data.personal : [],
       members: Array.isArray(data?.members) ? data.members : undefined,

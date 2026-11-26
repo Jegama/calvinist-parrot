@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChurchObservation } from "./church-observation";
 import type { ChurchListItem, EvaluationStatus } from "@/types/church";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
@@ -25,6 +26,7 @@ type ChurchListProps = {
   loading?: boolean;
   onPageChange: (page: number) => void;
   onSelect: (church: ChurchListItem) => void;
+  showingResults: boolean;
 };
 
 function formatLocation(church: ChurchListItem): string {
@@ -36,7 +38,7 @@ function formatLocation(church: ChurchListItem): string {
 
 // Coverage percent is displayed via a progress bar; keep helper minimal if needed later
 
-export function ChurchList({ items, page, pageSize, total, loading, onPageChange, onSelect }: ChurchListProps) {
+export function ChurchList({ items, page, pageSize, total, loading, onPageChange, onSelect, showingResults }: ChurchListProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const containerRef = useRef<HTMLDivElement | null>(null);
   const hasInteractedRef = useRef(false);
@@ -115,6 +117,7 @@ export function ChurchList({ items, page, pageSize, total, loading, onPageChange
 
   return (
     <div ref={containerRef} data-church-list>
+      {showingResults && items.length > 0 && <ChurchObservation step="results_viewed" />}
       <TooltipProvider delayDuration={0}>
         <div className="space-y-4">
           {paginationControls}

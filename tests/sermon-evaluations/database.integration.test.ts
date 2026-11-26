@@ -125,6 +125,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
       const evaluationIds = evaluations.map(
         (evaluation) => evaluation.id,
       );
+      await prisma.$executeRaw`DELETE FROM "AnalyticsEngagementEvent" WHERE feature = 'sermon' AND "flowId" = ANY(${evaluationIds}::text[])`;
       await prisma.sermonWorkerLease.updateMany({
         where: { evaluationId: { in: evaluationIds } },
         data: {
@@ -279,6 +280,67 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
       }),
     ]);
   }
+
+  it("lets the restricted worker finish attributed and legacy evaluations without analytics table grants", async () => {
+    const tracked = await createEvaluation(await createFixture("worker-tracked"), "Tracked sermon");
+    const legacy = await createEvaluation(await createFixture("worker-legacy"), "Legacy sermon");
+    const client = await pool.connect();
+    // A unique, transaction-local test setup also works with concurrent test databases.
+    const role = `"test_worker_${randomUUID()}"`;
+    try {
+      await client.query("BEGIN");
+      await client.query(`INSERT INTO "AnalyticsEngagementEvent" (feature, step, channel, "flowId")
+        VALUES ('sermon', 'submitted', 'web', $1)`, [tracked.id]);
+      await client.query(`CREATE ROLE ${role} NOLOGIN`);
+      await client.query(`GRANT USAGE ON SCHEMA public TO ${role}`);
+      await client.query(`GRANT SELECT (id), UPDATE (status) ON "sermonEvaluation" TO ${role}`);
+      await client.query(`SET LOCAL ROLE ${role}`);
+      const { rows } = await client.query(`SELECT
+        has_table_privilege(current_user, 'public."AnalyticsEngagementEvent"', 'SELECT') AS can_read,
+        has_table_privilege(current_user, 'public."AnalyticsEngagementEvent"', 'INSERT') AS can_write,
+        has_function_privilege(current_user, 'public.record_engagement_sermon_ready()', 'EXECUTE') AS can_attach_trigger`);
+      const result = await client.query(`UPDATE "sermonEvaluation" SET status = 'COMPLETE' WHERE id = ANY($1::text[])`,
+        [[tracked.id, legacy.id]]);
+      expect(result.rowCount).toBe(2);
+      expect(rows[0]).toEqual({ can_read: false, can_write: false, can_attach_trigger: false });
+      await client.query("RESET ROLE");
+      const ready = await client.query(`SELECT channel, "flowId" FROM "AnalyticsEngagementEvent"
+        WHERE feature = 'sermon' AND step = 'report_ready' AND "flowId" = ANY($1::text[])`, [[tracked.id, legacy.id]]);
+      expect(ready.rows).toEqual([{ channel: "web", flowId: tracked.id }]);
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
+  it.each(["web", "public_api"] as const)("records %s sermon submission and generation separately from a report open", async channel => {
+    const fixture = await createFixture(`engagement-${channel}`);
+    const source = await createEvaluation(fixture, "Existing sermon", "COMPLETE");
+    const reevaluate = channel === "web"
+      ? (await import("@/app/api/web/sermon-evaluations/[id]/reevaluate/route")).POST
+      : (await import("@/app/api/v1/sermon-evaluations/[id]/reevaluate/route")).POST;
+    const opened = (await import("@/app/api/web/sermon-evaluations/[id]/report-opened/route")).POST;
+    handlerMocks.userId = fixture.ownerId;
+    const request = new Request("http://localhost/api", { method: "POST", body: JSON.stringify({ preset: "standard" }) });
+    const response = await reevaluate(request, { params: Promise.resolve({ id: source.id }) });
+    expect(response.status).toBe(201);
+    const { evaluation } = await response.json();
+    const context = { params: Promise.resolve({ id: evaluation.id }) };
+    const receipts = () => prisma.$queryRaw<{ step: string; channel: string }[]>`
+      SELECT step, channel FROM "AnalyticsEngagementEvent" WHERE feature = 'sermon' AND "flowId" = ${evaluation.id} ORDER BY step
+    `;
+    expect(await receipts()).toEqual([{ step: "submitted", channel }]);
+    expect((await opened(request, context)).status).toBe(404);
+    await prisma.sermonEvaluation.update({
+      where: { id: evaluation.id }, data: { status: "COMPLETE_WITH_WARNINGS", completedRuns: 1, completedAt: new Date() },
+    });
+    expect(await receipts()).toEqual([{ step: "report_ready", channel }, { step: "submitted", channel }]);
+    handlerMocks.userId = "another-owner";
+    expect((await opened(request, context)).status).toBe(404);
+    handlerMocks.userId = fixture.ownerId;
+    for (let i = 0; i < 2; i++) expect((await opened(request, context)).status).toBe(204);
+    expect(await receipts()).toEqual([{ step: "report_opened", channel: "web" }, { step: "report_ready", channel }, { step: "submitted", channel }]);
+  });
 
   it.each(["web", "public_api"] as const)(
     "persists the %s evaluation entry and attributes a reevaluation to its new caller",

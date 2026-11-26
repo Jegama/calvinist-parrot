@@ -78,6 +78,7 @@ export type UnifiedRequest = {
 };
 
 export type Rotation = {
+  flowId?: string;
   families: Family[];
   personal: PersonalRequest[];
   assignments?: Record<string, string>;

@@ -1,3 +1,4 @@
+import { getEngagementReport, type FeatureEngagement } from "./engagement";
 import prisma from "@/lib/prisma";
 import { providerUsageEnvironment } from "@/lib/provider-usage";
 import { getEvaluationStages, getEvaluationUsage, type EvaluationStage, type EvaluationUsage } from "./evaluation-spend";
@@ -11,6 +12,7 @@ export interface FeatureRow {
   name: string;
   pageviews: number | null;
   actions: Action[];
+  engagement?: FeatureEngagement;
   estimatedSpendUsd: number | null;
   costPerCompletionUsd: number | null;
   spendCoverage: string;
@@ -86,7 +88,7 @@ export async function getFeatureReport(window: FeatureWindow): Promise<FeatureRe
     ? { OR: [{ usageEnvironment: environment }, { usageEnvironment: null }] }
     : { usageEnvironment: environment };
   const dateRange = { gte: window.start, lt: window.end };
-  const [views, usage, chatSpend, saves, since, publications, prayerFamilies, churches, sermons, evaluationUsage, evaluationStages] = await Promise.all([
+  const [views, usage, chatSpend, saves, since, publications, prayerFamilies, churches, sermons, evaluationUsage, evaluationStages, engagement] = await Promise.all([
     getPageviews(window).catch(() => null),
     getUsageTotals(window).catch(() => null),
     getChatSpend(window).catch(() => null),
@@ -98,6 +100,7 @@ export async function getFeatureReport(window: FeatureWindow): Promise<FeatureRe
     prisma.sermonEvaluation.count({ where: { ...evaluationsInEnvironment, completedAt: dateRange, status: { in: ["COMPLETE", "COMPLETE_WITH_WARNINGS"] } } }).catch(() => null),
     getEvaluationUsage(window, environment).catch(() => null),
     getEvaluationStages(window, environment).catch(() => null),
+    getEngagementReport(window),
   ]);
   const reflectionStart = since?.[0]?.reflections;
   const savedCount = (key: Feature) => saves ? (saves.find((row) => row.kind === key)?.total ?? 0) : null;
@@ -116,7 +119,7 @@ export async function getFeatureReport(window: FeatureWindow): Promise<FeatureRe
     if (key === "chat") {
       const combined = chatSpend?.byChannel[0];
       return {
-        key, name: featureNames[key], pageviews: views ? (views.counts.get(key) ?? 0) : null,
+        key, name: featureNames[key], engagement: engagement[key], pageviews: views ? (views.counts.get(key) ?? 0) : null,
         actions: [{ label: "Completed turns", count: combined?.completions ?? null }],
         estimatedSpendUsd: combined?.estimatedSpendUsd ?? null,
         costPerCompletionUsd: combined?.costPerCompletionUsd ?? null,
@@ -142,7 +145,7 @@ export async function getFeatureReport(window: FeatureWindow): Promise<FeatureRe
         break;
     }
     return {
-      key, name: featureNames[key], actions,
+      key, name: featureNames[key], actions, engagement: engagement[key],
       pageviews: views ? (views.counts.get(key) ?? 0) : null,
       ...spendFields(key, recorded, window, evaluation?.collectionStart),
     };

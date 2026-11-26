@@ -95,6 +95,9 @@ describe.skipIf(!databaseUrl)("feature report with provider attempts and a Verce
     const report = await getFeatureReport({ start, end });
     expect(report.pageviewCoverage).toContain("unavailable");
     expect(report.rows.every(row => row.pageviews === null)).toBe(true);
+    const chat = report.rows.find(row => row.key === "chat")!;
+    expect(chat.actions.map(action => action.label)).toContain("Completed turns");
+    expect(chat.engagement?.steps.map(step => step.label)).toEqual(["First genuine message sent", "Visible reply received", "Follow-up sent"]);
     const personal = report.rows.find(row => row.key === "personal_journal")!;
     // Four successful attempts in the window plus one billed, invalid-output attempt before it.
     expect(personal.actions).toContainEqual({ label: "AI reflections completed", count: 1 });
