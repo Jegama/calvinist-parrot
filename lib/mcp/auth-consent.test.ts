@@ -16,6 +16,8 @@ function decision(action: string, source = origin) {
 }
 
 beforeEach(() => {
+  vi.stubEnv("VERCEL_ENV", "");
+  vi.stubEnv("MCP_APPWRITE_ISSUER", "");
   vi.stubEnv("APP_URL", origin);
   vi.stubEnv("APPWRITE_ENDPOINT", "https://auth.example/v1");
   vi.stubEnv("APPWRITE_PROJECT_ID", "fixture");

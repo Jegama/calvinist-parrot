@@ -20,6 +20,7 @@ import { recordUsageAttempt, startUsageAttempt } from "@/lib/provider-usage";
 import { getAnalyticsMetrics } from "@/lib/analytics/metrics";
 import { getReportingWindow } from "@/lib/analytics/period";
 import { chatOperationId } from "@/lib/chat-analytics";
+import { MCP_CHAT_TIMEOUT_MS } from "@/lib/mcp/chat";
 import { transferGuestChatsToUser } from "@/lib/chat-transfer";
 import { citedAnswer, createQuestion, fixtureQuestion, guestModelResponse, httpChatChannels, post, sendMessage } from "./fixtures/chat-channels";
 import { connectMcpClient, mcpTestUrl } from "./fixtures/mcp-client";
@@ -206,7 +207,7 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
     const deadline = new AbortController();
     const realTimeout = AbortSignal.timeout.bind(AbortSignal);
     const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation(ms =>
-      ms === 90_000 ? deadline.signal : realTimeout(ms));
+      ms === MCP_CHAT_TIMEOUT_MS ? deadline.signal : realTimeout(ms));
     const provider = vi.fn<typeof fetch>()
       .mockImplementationOnce(async () => guestModelResponse(() => deadline.abort()))
       .mockImplementationOnce(async () => guestModelResponse());
@@ -215,6 +216,7 @@ describe.skipIf(!databaseUrl)("chat analytics through server entry points and Po
     try {
       const question = { name: "ask_parrot", arguments: { question: fixtureQuestion, requestId } };
       const interrupted = await client.callTool(question);
+      expect(timeout).toHaveBeenCalledWith(MCP_CHAT_TIMEOUT_MS);
       expect(interrupted.isError).toBe(true);
       const chat = await db.chatHistory.findFirstOrThrow({
         where: { creationRequestId: requestId, userId: { startsWith: "mcp-guest:" } },

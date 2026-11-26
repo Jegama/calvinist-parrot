@@ -8,10 +8,12 @@ const active = { active: true, token_use: "access_token", token_type: "Bearer", 
 const request = (authorization?: string) => new Request(resource, { headers: authorization === undefined ? { Cookie: "userId=account" } : { Authorization: authorization } });
 
 beforeEach(() => {
+  vi.stubEnv("VERCEL_ENV", "");
   vi.stubEnv("APP_URL", "https://parrot.example");
   vi.stubEnv("APPWRITE_ENDPOINT", "https://auth.example/v1");
   vi.stubEnv("APPWRITE_PROJECT_ID", "fixture");
   vi.stubEnv("MCP_APPWRITE_INTROSPECTION_KEY", "fixture-key");
+  vi.stubEnv("MCP_APPWRITE_ISSUER", "");
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
@@ -21,6 +23,35 @@ describe("MCP authorization", () => {
     const response = requireMcpAccount();
     expect(response.status).toBe(401);
     expect(response.headers.get("WWW-Authenticate")).toContain('resource_metadata="https://parrot.example/.well-known/oauth-protected-resource/api/mcp"');
+  });
+
+  it("pins Appwrite OAuth to the discovered project issuer when the site uses a custom API domain", async () => {
+    vi.stubEnv("MCP_APPWRITE_ISSUER", "https://fra.cloud.appwrite.io/v1/oauth2/fixture");
+    const expected = "https://fra.cloud.appwrite.io/v1/oauth2/fixture";
+    expect(await metadata().json()).toMatchObject({ authorization_servers: [expected] });
+    const transport = vi.fn().mockResolvedValueOnce(Response.json({ ...active, iss: expected }));
+    vi.stubGlobal("fetch", transport);
+    expect(await authenticateMcpRequest(request("Bearer test"))).toEqual({ userId: "user-a" });
+    expect(transport).toHaveBeenCalledWith(`${expected}/introspect`, expect.any(Object));
+    vi.stubEnv("MCP_APPWRITE_ISSUER", "https://fra.cloud.appwrite.io/v1/oauth2/another-project");
+    expect(metadata().status).toBe(404);
+  });
+
+  it("keeps a preview on its deployment audience even when production settings are inherited", async () => {
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("VERCEL_BRANCH_URL", "parrot-preview.vercel.app");
+    vi.stubEnv("VERCEL_URL", "parrot-commit.vercel.app");
+    const preview = "https://parrot-preview.vercel.app/api/mcp";
+    expect(await metadata().json()).toMatchObject({ resource: preview, authorization_servers: [issuer] });
+    expect(requireMcpAccount().headers.get("WWW-Authenticate")).toContain("https://parrot-preview.vercel.app/.well-known/");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(Response.json(active))
+      .mockResolvedValueOnce(Response.json({ ...active, aud: [preview] })));
+    expect(await authenticateMcpRequest(request("Bearer production"))).toMatchObject({ status: 401 });
+    expect(await authenticateMcpRequest(request("Bearer preview"))).toEqual({ userId: "user-a" });
+    vi.stubEnv("VERCEL_BRANCH_URL", "");
+    expect(await metadata().json()).toMatchObject({ resource: "https://parrot-commit.vercel.app/api/mcp" });
+    vi.stubEnv("VERCEL_URL", "");
+    expect(metadata().status).toBe(404);
   });
 
   it("never assigns an account from site cookies, even when private access is off", async () => {
@@ -45,6 +76,7 @@ describe("MCP authorization", () => {
 
   it.each([
     [{ token_use: "refresh_token" }, 401], [{ token_use: "id_token" }, 401], [{ exp: 1 }, 401], [{ client_id: "" }, 401],
+    [{ sub: "installation", authorization_details: [{ type: "organization", identifiers: ["team"] }] }, 401],
     [{ sub: null }, 401], [{ iss: "https://other.example" }, 401], [{ aud: ["https://auth.example/v1/fixture"] }, 401],
     [{ aud: [resource + "-other"] }, 401], [{ scope: "chat.write.other" }, 403],
   ])("rejects unusable credentials %j", async (changes, status) => {

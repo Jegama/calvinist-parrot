@@ -6,7 +6,7 @@ import {
 } from "@/lib/api/contracts/church";
 import { findChurches, retrievePublicChurch } from "@/lib/api/handlers/church";
 import { authenticateMcpRequest, getMcpResourceUrl, MCP_CHAT_SCOPE, requireMcpAccount } from "@/lib/mcp/auth";
-import { askParrot, askParrotInput, McpChatError } from "@/lib/mcp/chat";
+import { askParrot, askParrotInput, MCP_CHAT_TIMEOUT_MS, McpChatError } from "@/lib/mcp/chat";
 import { consumeMcpCallerLimit, McpLimitError } from "@/lib/mcp/limits";
 import { version } from "@/package.json";
 
@@ -86,7 +86,7 @@ function createServer(request: Request, userId: string | null) {
     }
     return toolResult(async () => {
       await consumeMcpCallerLimit(key, userId ? "account_chat" : "guest_chat");
-      const signal = AbortSignal.any([request.signal, ctx.mcpReq.signal, AbortSignal.timeout(180_000)]);
+      const signal = AbortSignal.any([request.signal, ctx.mcpReq.signal, AbortSignal.timeout(MCP_CHAT_TIMEOUT_MS)]);
       return askParrot(args, { userId, callerKey: key, signal });
     });
   });

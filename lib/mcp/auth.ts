@@ -10,8 +10,10 @@ const activeAccessToken = z.object({
   iss: z.string(),
   aud: z.array(z.string()),
   exp: z.number().int(),
-  sub: z.string().trim().min(1),
-  client_id: z.string().trim().min(1),
+  sub: z.string().regex(/^\S+$/),
+  client_id: z.string().regex(/^\S+$/),
+  // Team installation tokens carry an organization grant and identify the installation.
+  authorization_details: z.array(z.unknown()).max(0).nullish(),
   scope: z.string().nullish(),
 });
 
@@ -24,17 +26,29 @@ function trustedUrl(value: string | undefined): URL | null {
 }
 
 export function getMcpResourceUrl(): URL | null {
+  // Vercel previews may inherit the production APP_URL and Appwrite issuer.
+  // Only deployment-owned host metadata may establish their resource audience.
+  if (process.env.VERCEL_ENV === "preview") {
+    const host = process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL;
+    if (!host || !/^[a-z0-9.-]+$/i.test(host)) return null;
+    const preview = trustedUrl(`https://${host}`);
+    return preview ? new URL("/api/mcp", preview) : null;
+  }
   const site = trustedUrl(process.env.APP_URL);
   return site ? new URL("/api/mcp", site) : null;
 }
 
 export function getMcpOAuthConfig() {
   const resource = getMcpResourceUrl();
-  const endpoint = trustedUrl(process.env.APPWRITE_ENDPOINT ?? process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT)?.href.replace(/\/$/, "");
   const project = process.env.APPWRITE_PROJECT_ID ?? process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
   const key = process.env.MCP_APPWRITE_INTROSPECTION_KEY;
-  if (!resource || !endpoint || !project || !key) return null;
-  return { resource, endpoint, project, key, issuer: `${endpoint}/oauth2/${encodeURIComponent(project)}` };
+  if (!resource || !project || !key) return null;
+  const projectPath = `/oauth2/${encodeURIComponent(project)}`;
+  const endpoint = trustedUrl(process.env.APPWRITE_ENDPOINT ?? process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT)?.href.replace(/\/$/, "");
+  // A site's Appwrite custom domain and the project's advertised OAuth issuer can differ.
+  const issuer = trustedUrl(process.env.MCP_APPWRITE_ISSUER || (endpoint && endpoint + projectPath));
+  if (!issuer || !issuer.pathname.endsWith(projectPath)) return null;
+  return { resource, endpoint: issuer.href.slice(0, -projectPath.length), project, key, issuer: issuer.href };
 }
 
 export function protectedResourceMetadata() {

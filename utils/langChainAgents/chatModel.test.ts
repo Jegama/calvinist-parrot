@@ -394,3 +394,24 @@ it("refuses unpriced guest models", () => {
     expect(() => createParrotChatModel({ ...credentials, ...override }, "mcp_guest")).toThrow(/unavailable/);
   }
 });
+
+it("rejects a truncated Haiku stream before a partial answer can be persisted", async () => {
+  upsert.mockClear();
+  const model = createParrotChatModel(credentials);
+  if (!(model instanceof ChatAnthropic)) throw new Error("Expected Anthropic");
+  const response = streamedResponse([{
+    start: { type: "text", text: "" },
+    deltas: [{ type: "text_delta", text: "Only the beginning" }],
+  }], "end_turn");
+  const events = (await response.text()).split("event: message_delta")[0];
+  model.clientOptions = { fetch: vi.fn<typeof fetch>().mockResolvedValue(
+    new Response(events, { headers: { "Content-Type": "text/event-stream" } }),
+  ) };
+  const agent = createAgent({ model, tools: [] });
+  await expect(agent.invoke({ messages: [new HumanMessage("Show me Psalm 23.")] }, {
+    configurable: { chatUsage: { operationId: "fixture-truncated" } },
+  })).rejects.toThrow("The provider stream ended before its final event.");
+  expect(upsert.mock.lastCall?.[0].create).toMatchObject({
+    operationId: "fixture-truncated", inputTokens: 20, outputTokens: null, outcome: "provider_error",
+  });
+});

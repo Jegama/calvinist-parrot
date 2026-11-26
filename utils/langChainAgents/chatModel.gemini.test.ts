@@ -77,7 +77,7 @@ it("withholds final output usage when a Gemini stream ends after a nonterminal b
   vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(new Response(
     `data: ${JSON.stringify(event)}\n\n`, { headers: { "Content-Type": "text/event-stream" } },
   )));
-  await model.invoke("Hello");
+  await expect(model.invoke("Hello")).rejects.toThrow("The provider stream ended before its final event.");
   expect(upsert.mock.lastCall?.[0].create).toMatchObject({
     inputTokens: 12, outputTokens: null, outcome: "provider_error", returnedModel: "fixture-hydrogen",
   });

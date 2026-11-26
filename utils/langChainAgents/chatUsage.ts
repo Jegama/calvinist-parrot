@@ -102,7 +102,10 @@ async function observeProviderCall<Result>(attempt: ReturnType<typeof startUsage
           observe(event);
           yield event;
         }
-        finished = completed;
+        // An upstream disconnect can look like ordinary EOF to the SDK.
+        // Propagate it before the chat handler saves any partial tokens as a reply.
+        if (!completed) throw new Error("The provider stream ended before its final event.");
+        finished = true;
       } catch (error) {
         observeError(error);
         throw error;

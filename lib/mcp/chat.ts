@@ -10,6 +10,8 @@ import { McpLimitError } from "./limits";
 
 import { browserGuestIdSchema, MCP_CHAT_PREFIX, mcpConversationRefSchema } from "./ownership";
 
+export const MCP_CHAT_TIMEOUT_MS = 180_000;
+
 const researchSource = z.object({
   toolName: z.enum(["Theological Research", "CCEL Retrieval"]),
   content: z.string(),
