@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.6.0 — November 26, 2026
+
+- Profile now shows email verification status and lets people change their email or password. People who signed up with Google can set their first password. Verification and recovery links take users back to the environment that sent the email. [#106](https://github.com/Jegama/calvinist-parrot/issues/106)
+- Google sign-in fills missing profile names when available, and Profile displays the account photo. Prayer Tracker uses each linked adult’s saved first name, including on past prayers. Signed-in users without a first name get a one-time invitation to add it.
+
 ## 2.5.0 — November 26, 2026
 
 - MCP clients can browse evaluated churches and read saved evaluations at `/api/mcp`. Guests can ask questions and receive cited answers. Connecting a Parrot account also enables saved conversations and follow-ups. [#125](https://github.com/Jegama/calvinist-parrot/pull/125)

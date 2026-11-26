@@ -1,5 +1,6 @@
 import { Account, Client, type Models } from "node-appwrite";
 import { cookies, headers } from "next/headers";
+import { getDeploymentOrigin } from "@/lib/deployment-origin";
 import type { NextResponse } from "next/server";
 
 const appwriteEndpoint = process.env.APPWRITE_ENDPOINT ?? process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
@@ -30,7 +31,7 @@ type SessionLike = {
   expire?: string | null;
 };
 
-function createBaseClient(forwardedUserAgent?: string) {
+export function createPublicAppwriteClient(forwardedUserAgent?: string) {
   const client = new Client().setEndpoint(resolvedAppwriteEndpoint).setProject(resolvedAppwriteProjectId);
 
   if (forwardedUserAgent) {
@@ -45,11 +46,11 @@ export function createAdminAppwriteClient(forwardedUserAgent?: string) {
     throw new Error("APPWRITE_API_KEY is required for server-side auth routes");
   }
 
-  return createBaseClient(forwardedUserAgent).setKey(appwriteApiKey);
+  return createPublicAppwriteClient(forwardedUserAgent).setKey(appwriteApiKey);
 }
 
 export function createSessionAppwriteClient(sessionSecret: string, forwardedUserAgent?: string) {
-  return createBaseClient(forwardedUserAgent).setSession(sessionSecret);
+  return createPublicAppwriteClient(forwardedUserAgent).setSession(sessionSecret);
 }
 
 export async function discardAppwriteSession(secret: string) {
@@ -89,7 +90,7 @@ export async function getVerifiedSessionUser(
 export function createUserReadClient() {
   const key = process.env.APPWRITE_ANALYTICS_READ_KEY;
   if (!key) throw new Error("Appwrite users.read lookup is not configured");
-  return createBaseClient().setKey(key);
+  return createPublicAppwriteClient().setKey(key);
 }
 
 export async function getSessionCookieValue() {
@@ -105,15 +106,18 @@ export async function getForwardedUserAgent() {
   return headerStore.get("user-agent") ?? undefined;
 }
 
-export async function getAppwriteAccountFromSessionCookie() {
+export async function getSessionAccount() {
   const sessionSecret = await getSessionCookieValue();
   if (!sessionSecret) {
     return null;
   }
 
-  const account = new Account(
-    createSessionAppwriteClient(sessionSecret, await getForwardedUserAgent()),
-  );
+  return new Account(createSessionAppwriteClient(sessionSecret, await getForwardedUserAgent()));
+}
+
+export async function getAppwriteAccountFromSessionCookie() {
+  const account = await getSessionAccount();
+  if (!account) return null;
 
   try {
     return await account.get();
@@ -143,16 +147,10 @@ export function clearAppwriteSessionCookie(response: NextResponse) {
   response.cookies.delete(LEGACY_USER_ID_COOKIE);
 }
 
-export function getAppUrl(request?: Request) {
-  if (process.env.APP_URL) {
-    return process.env.APP_URL.replace(/\/$/, "");
-  }
-
-  if (!request) {
-    throw new Error("APP_URL is required when no request context is available");
-  }
-
-  return new URL(request.url).origin.replace(/\/$/, "");
+export function getAppUrl() {
+  const origin = getDeploymentOrigin();
+  if (!origin) throw new Error("A trusted application origin is required for authentication links.");
+  return origin;
 }
 
 export function isAuthIntent(value: string | null | undefined): value is AuthIntent {
@@ -165,6 +163,7 @@ export function toSerializableUser(user: Models.User<Models.Preferences>) {
     name: user.name,
     email: user.email,
     emailVerification: user.emailVerification,
+    passwordUpdate: user.passwordUpdate,
     registration: user.registration,
     status: user.status,
     labels: user.labels,

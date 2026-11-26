@@ -31,7 +31,9 @@ model userProfile {
   username                   String?            @unique
   firstName                  String?
   lastName                   String?
+  firstNameNudgeShown        Boolean            @default(false)
   email                      String?
+  appwriteUpdatedAt          DateTime?
   defaultSpaceId             String?
   answeredPersonalCount      Int                @default(0)
   answeredFamilyCount        Int                @default(0)

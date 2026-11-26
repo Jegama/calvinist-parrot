@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ARCHIVED_CATEGORY } from "@/app/prayer-tracker/constants";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { getHouseholdFirstNames, withPrayerAttribution } from "@/lib/householdService";
 
 type RouteContext = { params: Promise<{ familyId: string }> };
 
@@ -65,7 +66,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json(withPrayerAttribution(updated, await getHouseholdFirstNames(membership.spaceId)));
 }
 
 export async function DELETE(request: Request, context: RouteContext) {

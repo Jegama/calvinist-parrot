@@ -12,17 +12,24 @@ import {
   getForwardedUserAgent,
   isAuthIntent,
 } from "@/lib/appwrite/server";
+import { readGoogleNames } from "@/lib/appwrite/google-profile";
 import { transferGuestChatsToUser } from "@/lib/chat-transfer";
 import { getGuestId } from "@/lib/guest";
 import { getUserProfileForAppwriteUser, upsertUserProfileFromAppwriteUser } from "@/lib/user-profile";
 
-function buildFailureRedirect(request: Request, destination: "login" | "register", reason: string) {
-  const url = new URL(`${getAppUrl(request)}/${destination}`);
+function buildFailureRedirect(origin: string, destination: "login" | "register", reason: string) {
+  const url = new URL(`/${destination}`, origin);
   url.searchParams.set("oauth", reason);
   return url;
 }
 
 export async function GET(request: Request) {
+  let origin: string;
+  try {
+    origin = getAppUrl();
+  } catch {
+    return NextResponse.json({ error: "Google sign-in is unavailable." }, { status: 503 });
+  }
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("userId");
   const secret = searchParams.get("secret");
@@ -31,7 +38,7 @@ export async function GET(request: Request) {
   const authIntent = isAuthIntent(authIntentValue) ? authIntentValue : "login";
 
   if (!userId || !secret) {
-    return NextResponse.redirect(buildFailureRedirect(request, authIntent === "signup" ? "register" : "login", "missing_credentials"));
+    return NextResponse.redirect(buildFailureRedirect(origin, authIntent === "signup" ? "register" : "login", "missing_credentials"));
   }
 
   let unissuedSession: string | undefined;
@@ -43,14 +50,18 @@ export async function GET(request: Request) {
 
     const user = await getVerifiedSessionUser(session, forwardedUserAgent, userId);
     unissuedSession = session.secret;
-    const transferGuest = authIntent === "signup" && guestId && !(await getUserProfileForAppwriteUser(user));
-    await upsertUserProfileFromAppwriteUser(user);
+    const profile = await getUserProfileForAppwriteUser(user);
+    const transferGuest = authIntent === "signup" && guestId && !profile;
+    const names = !profile || profile.firstName === null || profile.lastName === null
+      ? await readGoogleNames(session, forwardedUserAgent)
+      : undefined;
+    await upsertUserProfileFromAppwriteUser(user, undefined, names);
 
     if (transferGuest) {
       await transferGuestChatsToUser(guestId, user.$id);
     }
 
-    const response = NextResponse.redirect(new URL("/auth/complete", request.url));
+    const response = NextResponse.redirect(new URL("/auth/complete", origin));
     applyAppwriteSessionCookie(response, session);
     response.cookies.delete(AUTH_INTENT_COOKIE);
 
@@ -62,7 +73,7 @@ export async function GET(request: Request) {
   } catch {
     if (unissuedSession) await discardAppwriteSession(unissuedSession);
     const response = NextResponse.redirect(
-      buildFailureRedirect(request, authIntent === "signup" ? "register" : "login", "failed"),
+      buildFailureRedirect(origin, authIntent === "signup" ? "register" : "login", "failed"),
     );
     response.cookies.delete(AUTH_INTENT_COOKIE);
     return response;

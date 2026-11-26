@@ -8,6 +8,7 @@ import {
   MAX_PERSONAL_REQUESTS_PER_ROTATION,
 } from "@/app/prayer-tracker/constants";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { getHouseholdFirstNames, withPrayerAttribution, withHouseholdName } from "@/lib/householdService";
 import { assignFamilies } from "./assign-families";
 
 export async function GET(request: Request) {
@@ -103,5 +104,12 @@ export async function GET(request: Request) {
     families.map(family => [family.id, assignments[family.id] ?? null]),
     personal.map(item => item.id).sort(),
   ]), uuidv5.URL);
-  return NextResponse.json({ families, personal, members, assignments, flowId });
+  const names = await getHouseholdFirstNames(membership.spaceId);
+  return NextResponse.json({
+    families: families.map(family => withPrayerAttribution(family, names)),
+    personal,
+    members: members.map(member => withHouseholdName(member, names)),
+    assignments,
+    flowId,
+  });
 }

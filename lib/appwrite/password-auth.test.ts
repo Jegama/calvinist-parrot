@@ -31,6 +31,7 @@ const providerCall = () => vi.spyOn(Client.prototype, "call");
 beforeEach(() => {
   vi.resetModules();
   vi.resetAllMocks();
+  vi.stubEnv("APP_URL", "http://localhost");
   vi.stubEnv("APPWRITE_PROJECT_ID", "synthetic-project");
   vi.stubEnv("APPWRITE_ENDPOINT", "http://localhost/v1");
   vi.stubEnv("APPWRITE_ANALYTICS_READ_KEY", "read-only-key");
@@ -150,11 +151,12 @@ it.each([
   { intent: "login", existing: true, expectedTransfer: false },
 ])("keeps Google $intent working for existing=$existing with its guest transfer policy", async ({ intent, existing, expectedTransfer }) => {
   cookieStore.set("authIntent", { value: intent });
+  vi.stubEnv("APP_URL", "https://preview.example.test");
   db.findUnique.mockResolvedValue(existing ? profile : null);
   serveAccount();
   const { GET } = await import("@/app/api/auth/oauth/google/callback/route");
   const result = await GET(new Request("http://localhost/api/auth/oauth/google/callback?userId=reader&secret=synthetic-token"));
-  expect(result.headers.get("location")).toBe("http://localhost/auth/complete");
+  expect(result.headers.get("location")).toBe("https://preview.example.test/auth/complete");
   expect(result.cookies.get("a_session_synthetic-project")?.value).toBe(session.secret);
   expect(transfer).toHaveBeenCalledTimes(expectedTransfer ? 1 : 0);
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -20,15 +21,12 @@ function ResetPasswordPageContent() {
   const userId = searchParams.get("userId") ?? "";
   const secret = searchParams.get("secret") ?? "";
 
+  const linkError = !userId || !secret ? "This reset link is incomplete. Request a new password reset email." : "";
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setErrorMessage("");
-    setSuccessMessage("");
-
-    if (!userId || !secret) {
-      setErrorMessage("This reset link is invalid or incomplete.");
-      return;
-    }
+    if (linkError || successMessage || isSubmitting) return;
 
     if (!password) {
       setErrorMessage("Please enter a new password.");
@@ -56,7 +54,7 @@ function ResetPasswordPageContent() {
       }
 
       setSuccessMessage("Your password has been reset. Redirecting to login...");
-      setTimeout(() => router.push("/login"), 1200);
+      setTimeout(() => router.replace("/login"), 1200);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to reset password.");
     } finally {
@@ -73,13 +71,15 @@ function ResetPasswordPageContent() {
             <CardDescription>Choose a new password for your account.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
-            {errorMessage ? <p className="text-destructive">{errorMessage}</p> : null}
-            {successMessage ? <p className="text-green-600">{successMessage}</p> : null}
+            {(linkError || errorMessage) && <p role="alert" className="text-destructive">{linkError || errorMessage}</p>}
+            {successMessage ? <p role="status" className="text-success">{successMessage}</p> : null}
             <div className="grid gap-2">
               <Label htmlFor="password">New Password</Label>
               <Input
                 id="password"
                 type="password"
+                autoComplete="new-password"
+                minLength={8}
                 required
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -90,14 +90,17 @@ function ResetPasswordPageContent() {
               <Input
                 id="confirm-password"
                 type="password"
+                autoComplete="new-password"
+                minLength={8}
                 required
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+            <Button type="submit" className="w-full" disabled={Boolean(linkError || successMessage) || isSubmitting}>
               {isSubmitting ? "Resetting..." : "Reset Password"}
             </Button>
+            <Link href="/forgot-password" className="text-center text-sm underline">Request a new reset link</Link>
           </CardContent>
         </Card>
       </form>

@@ -13,7 +13,7 @@ export async function GET() {
     return response;
   }
 
-  const profile = await getUserProfileForAppwriteUser(user);
+  const profile = await getUserProfileForAppwriteUser(user, getAuthenticatedUser);
 
   return NextResponse.json({
     authenticated: true,

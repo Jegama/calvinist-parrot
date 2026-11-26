@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { DEFAULT_ADULT_CAPACITY } from "@/app/prayer-tracker/constants";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { getHouseholdForUser, getHouseholdFirstNames, withHouseholdName } from "@/lib/householdService";
 
 function generateShareCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxy123456789-*";
@@ -15,32 +16,10 @@ export async function GET(request: Request) {
   const { userId, errorResponse } = await requireAuthenticatedUser();
   if (errorResponse || !userId) return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const membership = await prisma.prayerMember.findFirst({
-    where: { appwriteUserId: userId },
-    include: {
-      space: {
-        include: {
-          members: {
-            select: {
-              id: true,
-              displayName: true,
-              appwriteUserId: true,
-              role: true,
-              joinedAt: true,
-              assignmentCapacity: true,
-              assignmentCount: true,
-              isChild: true,
-              birthdate: true,
-            },
-            orderBy: { joinedAt: "asc" },
-          },
-        },
-      },
-    },
-  });
-
-  if (!membership) return NextResponse.json({ space: null, membership: null });
-  return NextResponse.json({ space: membership.space, membership });
+  const household = await getHouseholdForUser(userId);
+  if (!household) return NextResponse.json({ space: null, membership: null });
+  const { space, membership } = household;
+  return NextResponse.json({ space, membership: { ...membership, space } });
 }
 
 export async function POST(request: Request) {
@@ -57,7 +36,10 @@ export async function POST(request: Request) {
     where: { appwriteUserId: authenticatedUserId },
     include: { space: true },
   });
-  if (existing) return NextResponse.json({ space: existing.space, membership: existing });
+  if (existing) {
+    const names = await getHouseholdFirstNames(existing.spaceId);
+    return NextResponse.json({ space: existing.space, membership: withHouseholdName(existing, names) });
+  }
 
   const shareCode = generateShareCode();
   const resolvedSpaceName = spaceName?.trim() ? spaceName.trim() : `${displayName || "Family"}'s Prayer Space`;
@@ -74,7 +56,7 @@ export async function POST(request: Request) {
     data: {
       spaceId: space.id,
       appwriteUserId: authenticatedUserId,
-      displayName: displayName || "You",
+      displayName: displayName?.trim() || "You",
       role: "OWNER",
       assignmentCapacity: DEFAULT_ADULT_CAPACITY,
       assignmentCount: 0,
@@ -88,7 +70,7 @@ export async function POST(request: Request) {
     })
     .catch(() => null);
 
-  return NextResponse.json({ space, membership: member });
+  return NextResponse.json({ space, membership: withHouseholdName(member, await getHouseholdFirstNames(space.id)) });
 }
 
 // PATCH: Rename space (owner only)

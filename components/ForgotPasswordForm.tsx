@@ -32,15 +32,10 @@ export function ForgotPasswordForm() {
         throw new Error(payload.error || "Failed to send recovery email.");
       }
 
-      setMessage("Recovery email sent! Check your inbox.");
+      setMessage("If an account uses that email address, you’ll receive a password reset link.");
     } catch (error: unknown) {
-        if (error instanceof Error) {
-          setErrorMessage(error.message);
-        } else {
-          setErrorMessage("An unknown error occurred.");
-        }
-      }
-      
+      setErrorMessage(error instanceof Error ? error.message : "Failed to request a password reset.");
+    }
   };
 
   return (
@@ -53,8 +48,8 @@ export function ForgotPasswordForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {message && <p className="text-success mb-4">{message}</p>}
-          {errorMessage && <p className="text-destructive mb-4">{errorMessage}</p>}
+          {message && <p role="status" className="text-success mb-4">{message}</p>}
+          {errorMessage && <p role="alert" className="text-destructive mb-4">{errorMessage}</p>}
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>

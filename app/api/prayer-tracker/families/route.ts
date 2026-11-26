@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { getHouseholdFirstNames, withPrayerAttribution } from "@/lib/householdService";
 
 export async function GET(request: Request) {
   void request;
@@ -25,7 +26,8 @@ export async function GET(request: Request) {
       { familyName: "asc" },
     ],
   });
-  return NextResponse.json(families);
+  const names = await getHouseholdFirstNames(membership.spaceId);
+  return NextResponse.json(families.map(family => withPrayerAttribution(family, names)));
 }
 
 export async function POST(request: Request) {

@@ -7,6 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { LoginForm } from "@/components/LoginForm";
 import { RegisterForm } from "@/components/RegisterForm";
+import { AccountCredentials } from "@/app/profile/components/account-credentials";
 import { ProfileCard } from "@/app/profile/components/profile-card";
 
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -120,6 +121,14 @@ it("registers with exactly the five labeled identity and credential fields", asy
   expect(transport).toHaveBeenCalledWith("/api/auth/register", expect.objectContaining({
     method: "POST", body: JSON.stringify(fields),
   }));
+  expect(container.textContent).toContain("Your account is ready");
+  expect(push).not.toHaveBeenCalled();
+  transport.mockResolvedValueOnce(Response.json({ message: "Verification email sent. Check your inbox." }));
+  const buttons = Array.from(container.querySelectorAll("button"));
+  await act(async () => buttons.find((button) => button.textContent === "Send verification email")!.click());
+  expect(transport).toHaveBeenLastCalledWith("/api/auth/verification", { method: "POST" });
+  expect(container.querySelector('[role="status"]')?.textContent).toContain("Verification email sent");
+  await act(async () => buttons.find((button) => button.textContent === "Continue to Parrot")!.click());
   expect(push).toHaveBeenCalledWith(consentPath + "?grant_id=fixture");
   expectSignedInName();
 });
@@ -158,7 +167,7 @@ it("lets a legacy user retry a handle claim without entering or overwriting thei
   const onUpdate = vi.fn().mockResolvedValue(undefined);
   await act(async () => root.render(
     <ProfileCard profile={{ username: null, firstName: null, lastName: null }}
-      name="Lee van der Meer" email="reader@example.test" labels={[]} onUpdate={onUpdate} onLogout={vi.fn()} />,
+      name="Lee van der Meer" labels={[]} onUpdate={onUpdate} onLogout={vi.fn()} />,
   ));
   expect(container.textContent).toContain("Lee van der Meer");
   await act(async () => container.querySelector("button")!.click());
@@ -182,7 +191,7 @@ it("edits a saved name independently of the other name and username", async () =
   const onUpdate = vi.fn().mockResolvedValue(undefined);
   await act(async () => root.render(
     <ProfileCard profile={{ username: "reader", firstName: "Lee", lastName: "Rivera" }}
-      name="Lee Rivera" email="reader@example.test" labels={[]} onUpdate={onUpdate} onLogout={vi.fn()} />,
+      name="Lee Rivera" labels={[]} onUpdate={onUpdate} onLogout={vi.fn()} />,
   ));
   await act(async () => container.querySelector("button")!.click());
   expect(container.querySelector<HTMLInputElement>("#username")!.value).toBe("reader");
@@ -193,4 +202,36 @@ it("edits a saved name independently of the other name and username", async () =
     method: "PATCH", body: JSON.stringify({ firstName: "Leigh" }),
   }));
   expect(onUpdate).toHaveBeenCalledOnce();
+});
+
+it("sets a first password, then requires that password to change the email and shows the new verification status", async () => {
+  const account = { ...providerUser, emailVerification: true, passwordUpdate: "" };
+  await renderWithSession(<AccountCredentials />, { ...signedIn, user: account });
+  const button = (text: string) => Array.from(container.querySelectorAll("button")).find(item => item.textContent === text)!;
+  expect(container.textContent).toContain("Email verified");
+  expect(button("Change email")).toBeUndefined();
+  await act(async () => button("Set password").click());
+  expect(container.querySelector("input[name=currentPassword]")).toBeNull();
+
+  const withPassword = { ...account, passwordUpdate: "2026-11-26T00:00:00.000Z" };
+  transport.mockResolvedValueOnce(Response.json({ account: withPassword, message: "Password set." }));
+  await submit({ password: "synthetic-password" });
+  expect(transport).toHaveBeenLastCalledWith("/api/auth/account", expect.objectContaining({
+    method: "PATCH", body: JSON.stringify({ field: "password", password: "synthetic-password" }),
+  }));
+
+  await act(async () => button("Change email").click());
+  const changes = { email: "new@example.test", currentPassword: "synthetic-password" };
+  expect(container.querySelector<HTMLInputElement>("input[name=currentPassword]")?.required).toBe(true);
+  transport.mockResolvedValueOnce(Response.json({ account: { ...withPassword, email: changes.email, emailVerification: false }, message: "Email changed." }));
+  await submit(changes);
+  expect(transport).toHaveBeenLastCalledWith("/api/auth/account", expect.objectContaining({
+    method: "PATCH", body: JSON.stringify({ field: "email", ...changes }),
+  }));
+  expect(container.textContent).toContain(changes.email);
+  expect(container.textContent).toContain("Email unverified");
+  transport.mockResolvedValueOnce(Response.json({ message: "Verification email sent." }));
+  await act(async () => button("Resend verification").click());
+  expect(transport).toHaveBeenLastCalledWith("/api/auth/verification", { method: "POST" });
+  expect(container.querySelector('[role="status"]')?.textContent).toBe("Verification email sent.");
 });

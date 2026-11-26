@@ -12,6 +12,12 @@ const nextConfig = {
   },
   async headers() {
     return [{
+      source: '/:page(reset-password|verify-email)',
+      headers: [
+        { key: 'Cache-Control', value: 'private, no-store' },
+        { key: 'Referrer-Policy', value: 'no-referrer' },
+      ],
+    }, {
       source: '/admin/analytics',
       headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
     }, {

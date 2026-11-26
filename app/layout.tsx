@@ -5,9 +5,9 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
+import { FirstNameNudge } from "@/components/FirstNameNudge";
 import { AppProviders } from "@/components/providers/app-providers";
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Analytics } from "@vercel/analytics/react";
+import { BrowserTelemetry } from "@/components/analytics/BrowserTelemetry";
 import { siteMetadata } from "@/lib/seo";
 
 // Load variable fonts and expose as CSS variables for system-wide use
@@ -41,10 +41,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         <AppProviders>
           <Header />
+          <FirstNameNudge />
           {children}
         </AppProviders>
-        <SpeedInsights />
-        <Analytics />
+        <BrowserTelemetry />
       </body>
     </html>
   );

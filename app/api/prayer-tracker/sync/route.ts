@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { getHouseholdFirstNames } from "@/lib/householdService";
 
 export async function GET() {
   const { userId, errorResponse } = await requireAuthenticatedUser();
@@ -31,6 +33,7 @@ export async function GET() {
     familyRequestCount,
     personalCount,
     memberCount,
+    firstNames,
   ] = await Promise.all([
     prisma.prayerFamilySpace.findUnique({
       where: { id: spaceId },
@@ -56,6 +59,7 @@ export async function GET() {
     prisma.prayerFamilyRequest.count({ where: { family: { spaceId } } }),
     prisma.prayerPersonalRequest.count({ where: { spaceId } }),
     prisma.prayerMember.count({ where: { spaceId } }),
+    getHouseholdFirstNames(spaceId),
   ]);
 
   if (!space) {
@@ -89,6 +93,9 @@ export async function GET() {
     familyRequestCount,
     personalCount,
     memberCount,
+    // First names live on account profiles. Unrelated edits and last-seen updates
+    // must not invalidate a household's prepared rotation.
+    createHash("sha256").update(JSON.stringify([...firstNames])).digest("hex"),
   ].join(":");
 
   return NextResponse.json(

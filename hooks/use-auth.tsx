@@ -13,17 +13,21 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 
 export type AppwriteUser = Models.User<Models.Preferences>;
+type ProfileSnapshot = { displayName: string; firstName?: string | null; firstNameNudgeShown?: boolean };
+type AccountCredentials = Pick<AppwriteUser, "email" | "emailVerification" | "passwordUpdate">;
 
 type SessionIdentity = {
   user: AppwriteUser | null;
-  displayName: string;
+  profile: ProfileSnapshot | null;
 };
 
 type AuthContextValue = SessionIdentity & {
+  displayName: string;
   loading: boolean;
   refresh: () => Promise<void>;
-  setUser: (nextUser: AppwriteUser | null, displayName?: string) => void;
-  updateDisplayName: (userId: string, displayName: string) => void;
+  setUser: (nextUser: AppwriteUser | null, profile?: ProfileSnapshot | null) => void;
+  updateProfile: (userId: string, profile: ProfileSnapshot) => void;
+  updateCredentials: (userId: string, account: AccountCredentials) => void;
   logout: () => Promise<void>;
 };
 
@@ -32,22 +36,28 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export type AuthResponse = {
   authenticated?: boolean;
   user?: AppwriteUser | null;
-  profile?: { displayName: string } | null;
+  profile?: ProfileSnapshot | null;
   error?: string;
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [identity, setIdentity] = useState<SessionIdentity>({ user: null, displayName: "" });
+  const [identity, setIdentity] = useState<SessionIdentity>({ user: null, profile: null });
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
 
-  const setUser = useCallback((user: AppwriteUser | null, displayName?: string) => {
-    setIdentity({ user, displayName: displayName || user?.name || "" });
+  const setUser = useCallback((user: AppwriteUser | null, profile?: ProfileSnapshot | null) => {
+    setIdentity({ user, profile: profile ?? null });
     setLoading(false);
   }, []);
 
-  const updateDisplayName = useCallback((userId: string, displayName: string) => {
-    setIdentity((current) => current.user?.$id === userId ? { ...current, displayName } : current);
+  const updateProfile = useCallback((userId: string, profile: ProfileSnapshot) => {
+    setIdentity((current) => current.user?.$id === userId ? { ...current, profile } : current);
+  }, []);
+
+  const updateCredentials = useCallback((userId: string, { email, emailVerification, passwordUpdate }: AccountCredentials) => {
+    setIdentity((current) => current.user?.$id === userId
+      ? { ...current, user: { ...current.user, email, emailVerification, passwordUpdate } }
+      : current);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -63,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const payload = (await response.json()) as AuthResponse;
-      setUser(payload.authenticated ? payload.user ?? null : null, payload.profile?.displayName);
+      setUser(payload.authenticated ? payload.user ?? null : null, payload.profile);
     } catch {
       setUser(null);
     }
@@ -91,8 +101,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   const value = useMemo(
-    () => ({ ...identity, loading, refresh, setUser, updateDisplayName, logout }),
-    [identity, loading, refresh, setUser, updateDisplayName, logout],
+    () => ({
+      ...identity, displayName: identity.profile?.displayName || identity.user?.name || "",
+      loading, refresh, setUser, updateProfile, updateCredentials, logout,
+    }),
+    [identity, loading, refresh, setUser, updateProfile, updateCredentials, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

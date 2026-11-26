@@ -1,41 +1,38 @@
-import { Account } from "node-appwrite";
+import { Account, AppwriteException } from "node-appwrite";
 import { NextResponse } from "next/server";
 
-import { createAdminAppwriteClient, getAppUrl, getForwardedUserAgent } from "@/lib/appwrite/server";
+import { createPublicAppwriteClient, getAppUrl, getForwardedUserAgent } from "@/lib/appwrite/server";
+import { AUTH_IDENTIFIER_MAX_LENGTH } from "@/lib/profile-identity";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const MAX_RECOVERY_REQUESTS_PER_EMAIL = 3;
 const MAX_RECOVERY_REQUESTS_PER_IP = 10;
-const RECOVERY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const RECOVERY_WINDOW_MS = 15 * 60_000;
 
 export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const email = typeof body.email === "string" ? body.email.trim() : "";
-
-    if (!email) {
-      return NextResponse.json({ error: "Email is required." }, { status: 400 });
-    }
-
-    // Per-IP limit blocks email rotation from a single source; per-email limit
-    // blocks targeting one inbox from rotating sources. Both must pass.
-    const clientIp = getClientIp(request);
-    const ipAllowed = checkRateLimit(`recovery-ip:${clientIp}`, MAX_RECOVERY_REQUESTS_PER_IP, RECOVERY_WINDOW_MS);
-    const emailAllowed = checkRateLimit(`recovery:${email.toLowerCase()}`, MAX_RECOVERY_REQUESTS_PER_EMAIL, RECOVERY_WINDOW_MS);
-
-    if (!ipAllowed || !emailAllowed) {
-      return NextResponse.json(
-        { error: "Too many recovery requests. Please try again later." },
-        { status: 429 },
-      );
-    }
-
-    const account = new Account(createAdminAppwriteClient(await getForwardedUserAgent()));
-    await account.createRecovery({ email, url: `${getAppUrl(request)}/reset-password` });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to send recovery email.";
-    return NextResponse.json({ error: message }, { status: 400 });
+  const body = await request.json().catch(() => null);
+  const email = typeof body?.email === "string" ? body.email.trim() : "";
+  if (!email || email.length > AUTH_IDENTIFIER_MAX_LENGTH) {
+    return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
   }
+
+  const clientIp = getClientIp(request);
+  if (!checkRateLimit(`recovery-ip:${clientIp}`, MAX_RECOVERY_REQUESTS_PER_IP, RECOVERY_WINDOW_MS) ||
+      !checkRateLimit(`recovery:${email.toLowerCase()}`, MAX_RECOVERY_REQUESTS_PER_EMAIL, RECOVERY_WINDOW_MS)) {
+    return NextResponse.json({ error: "Too many recovery requests. Please try again later." }, { status: 429 });
+  }
+
+  try {
+    const account = new Account(createPublicAppwriteClient(await getForwardedUserAgent()));
+    await account.createRecovery({ email, url: `${getAppUrl()}/reset-password` });
+  } catch (error) {
+    // Account-specific failures and provider mail quotas must not disclose inbox membership.
+    const privateFailure = error instanceof AppwriteException && (
+      error.type === "user_not_found" || error.type === "user_blocked" || error.type === "user_invalid_credentials" || error.code === 429
+    );
+    if (!privateFailure) {
+      return NextResponse.json({ error: "Password recovery is temporarily unavailable. Try again later." }, { status: 503 });
+    }
+  }
+  return NextResponse.json({ success: true });
 }
