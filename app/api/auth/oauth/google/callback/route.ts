@@ -27,7 +27,7 @@ function buildFailureRedirect(origin: string, destination: "login" | "register",
 export async function GET(request: Request) {
   let origin: string;
   try {
-    origin = getAppUrl();
+    origin = getAppUrl(request);
   } catch {
     return NextResponse.json({ error: "Google sign-in is unavailable." }, { status: 503 });
   }

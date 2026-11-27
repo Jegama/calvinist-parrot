@@ -147,8 +147,9 @@ export function clearAppwriteSessionCookie(response: NextResponse) {
   response.cookies.delete(LEGACY_USER_ID_COOKIE);
 }
 
-export function getAppUrl() {
-  const origin = getDeploymentOrigin();
+export function getAppUrl(request?: Request) {
+  const host = request ? request.headers.get("host") ?? new URL(request.url).host : undefined;
+  const origin = getDeploymentOrigin(host);
   if (!origin) throw new Error("A trusted application origin is required for authentication links.");
   return origin;
 }

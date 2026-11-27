@@ -6,10 +6,12 @@ export function trustedUrl(value: string | undefined): URL | null {
   return url;
 }
 
-export function getDeploymentOrigin(): string | null {
-  // A Preview can inherit the production APP_URL. Use only the Preview's configured host.
+export function getDeploymentOrigin(requestHost?: string): string | null {
+  // Preview aliases share a deployment, but each has its own cookies and sessionStorage.
   if (process.env.VERCEL_ENV === "preview") {
-    const host = process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL;
+    const { VERCEL_BRANCH_URL, VERCEL_URL } = process.env;
+    const host = requestHost === undefined ? VERCEL_BRANCH_URL || VERCEL_URL
+      : [VERCEL_BRANCH_URL, VERCEL_URL].find(host => host?.toLowerCase() === requestHost.toLowerCase());
     if (!host || !/^[a-z0-9.-]+$/i.test(host)) return null;
     return trustedUrl(`https://${host}`)?.origin ?? null;
   }

@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const appUrl = getAppUrl();
+    const appUrl = getAppUrl(request);
     const account = new Account(createAdminAppwriteClient(await getForwardedUserAgent()));
     const redirectUrl = await account.createOAuth2Token({
       provider: OAuthProvider.Google,

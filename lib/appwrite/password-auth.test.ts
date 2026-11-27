@@ -207,6 +207,41 @@ it("starts Google signup with the configured callbacks and saves its intent", as
   });
 });
 
+it.each(["branch.example.test", "deployment.example.test"])("keeps Google signup and completion on the initiating Preview host %s", async host => {
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("VERCEL_BRANCH_URL", "branch.example.test");
+  vi.stubEnv("VERCEL_URL", "deployment.example.test");
+  vi.stubEnv("APP_URL", "https://production.example.test");
+  const redirect = vi.spyOn(Client.prototype, "redirect").mockResolvedValue("https://accounts.example.test/authorize");
+  const { GET: start } = await import("@/app/api/auth/oauth/google/start/route");
+  const { GET: callback } = await import("@/app/api/auth/oauth/google/callback/route");
+  const begin = await start(new Request("http://localhost/api/auth/oauth/google/start?intent=signup", { headers: { host } }));
+  expect(redirect.mock.calls[0][3]).toMatchObject({
+    success: `https://${host}/api/auth/oauth/google/callback`, failure: `https://${host}/register?oauth=failed`,
+  });
+  cookieStore.set("authIntent", { value: begin.cookies.get("authIntent")!.value });
+  db.findUnique.mockResolvedValue(null);
+  serveAccount();
+  const completed = await callback(new Request(`https://${host}/api/auth/oauth/google/callback?userId=reader&secret=synthetic-token`));
+  expect(completed.headers.get("location")).toBe(`https://${host}/auth/complete`);
+  expect(completed.cookies.get("a_session_synthetic-project")?.value).toBe(session.secret);
+  expect(transfer).toHaveBeenCalledWith(guestId, account.$id);
+});
+
+it("refuses Google OAuth on a host outside the configured Preview URLs", async () => {
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("VERCEL_BRANCH_URL", "branch.example.test");
+  vi.stubEnv("VERCEL_URL", "deployment.example.test");
+  vi.stubEnv("APP_URL", "https://production.example.test");
+  const redirect = vi.spyOn(Client.prototype, "redirect");
+  const { GET: start } = await import("@/app/api/auth/oauth/google/start/route");
+  const { GET: callback } = await import("@/app/api/auth/oauth/google/callback/route");
+  const unknown = "https://production.example.test";
+  expect((await start(new Request(unknown + "/api/auth/oauth/google/start?intent=signup"))).status).toBe(400);
+  expect((await callback(new Request(unknown + "/api/auth/oauth/google/callback"))).status).toBe(503);
+  expect(redirect).not.toHaveBeenCalled();
+});
+
 it("preserves the password recovery and reset requests through the server SDK", async () => {
   vi.stubEnv("APP_URL", "http://localhost");
   const api = providerCall().mockResolvedValue({});
