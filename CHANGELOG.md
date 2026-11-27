@@ -2,7 +2,7 @@
 
 ## 2.6.1 — November 27, 2026
 
-- Prayer Tracker now checks a household revision to pick up shared changes with fewer database reads. Moving a prayer request keeps the original if the destination is unavailable.
+- Prayer Tracker now checks a household revision to pick up shared changes with fewer database reads. Moving a prayer request keeps the original if the destination is unavailable. [#129](https://github.com/Jegama/calvinist-parrot/pull/129)
 
 ## 2.6.0 — November 26, 2026
 
