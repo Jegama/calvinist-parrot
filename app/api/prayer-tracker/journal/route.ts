@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { bumpSpaceVersion } from "@/lib/householdService";
 
 export async function GET(request: Request) {
   void request;
@@ -38,15 +39,18 @@ export async function POST(request: Request) {
   const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId } });
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
 
-  const created = await prisma.prayerJournalEntry.create({
-    data: {
-      spaceId: membership.spaceId,
-      entryText,
-      tags: Array.isArray(tags)
-        ? tags.filter((tag): tag is string => typeof tag === "string")
-        : [],
-    },
-  });
+  const [created] = await prisma.$transaction([
+    prisma.prayerJournalEntry.create({
+      data: {
+        spaceId: membership.spaceId,
+        entryText,
+        tags: Array.isArray(tags)
+          ? tags.filter((tag): tag is string => typeof tag === "string")
+          : [],
+      },
+    }),
+    bumpSpaceVersion(prisma, membership.spaceId),
+  ]);
   return NextResponse.json(created);
 }
 

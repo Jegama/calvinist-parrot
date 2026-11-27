@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { recordJournalFollowOn } from "@/lib/analytics/engagement-journal";
+import { bumpSpaceVersion } from "@/lib/householdService";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
 
@@ -209,6 +210,7 @@ export async function POST(request: Request) {
         const feature = linkedEntry.entryType === "PERSONAL" ? "personal_journal" : "heritage_journal";
         await recordJournalFollowOn(tx, feature, "prayer_saved", linkedEntry.id);
       }
+      await bumpSpaceVersion(tx, membership.spaceId);
       return saved;
     });
 
@@ -239,15 +241,18 @@ export async function POST(request: Request) {
     }
 
     // Create family-specific request
-    const created = await prisma.prayerFamilyRequest.create({
-      data: {
-        familyId: linkedToFamily,
-        requestText,
-        notes: notes || null,
-        linkedScripture: linkedScripture || null,
-        linkedJournalEntryId: linkedEntry?.id ?? null,
-      },
-    });
+    const [created] = await prisma.$transaction([
+      prisma.prayerFamilyRequest.create({
+        data: {
+          familyId: linkedToFamily,
+          requestText,
+          notes: notes || null,
+          linkedScripture: linkedScripture || null,
+          linkedJournalEntryId: linkedEntry?.id ?? null,
+        },
+      }),
+      bumpSpaceVersion(prisma, membership.spaceId),
+    ]);
 
     return NextResponse.json({
       id: created.id,

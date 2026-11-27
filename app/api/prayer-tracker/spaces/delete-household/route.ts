@@ -67,21 +67,22 @@ export async function DELETE(request: Request) {
       });
       const memberIds = members.map((m) => m.id);
 
-      // Get all journal entry IDs in this space
-      const journalEntries = await tx.journalEntry.findMany({
-        where: { spaceId },
-        select: { id: true },
-      });
+      // Lock the sources before clearing links so a new prayer cannot reference a source mid-delete.
+      const journalEntries = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "journalEntry" WHERE "spaceId" = ${spaceId} ORDER BY id FOR UPDATE
+      `;
       const journalEntryIds = journalEntries.map((j) => j.id);
 
       // 1. Delete journalEntryAI (child of journalEntry)
       if (journalEntryIds.length > 0) {
+        // Clear the whole batch before taking any surviving household's revision lock.
+        await tx.$executeRaw`SELECT unlink_prayer_journal_sources(${journalEntryIds}::text[], ${spaceId})`;
         await tx.journalEntryAI.deleteMany({
           where: { entryId: { in: journalEntryIds } },
         });
       }
 
-      // 2. Delete journalEntry
+      // 2. Also remove household entries committed after the initial source scan.
       await tx.journalEntry.deleteMany({
         where: { spaceId },
       });

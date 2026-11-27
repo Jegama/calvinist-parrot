@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { DEFAULT_ADULT_CAPACITY, DEFAULT_CHILD_CAPACITY } from "@/app/prayer-tracker/constants";
 import { parseBirthdate } from "@/utils/ageUtils";
 import { requireAuthenticatedUser } from "@/lib/auth";
-import { getHouseholdFirstNames, withHouseholdName } from "@/lib/householdService";
+import { bumpSpaceVersion, getHouseholdFirstNames, withHouseholdName } from "@/lib/householdService";
 
 function parseIntOrFallback(value: unknown, fallback: number) {
   const parsed = typeof value === "string" ? Number.parseInt(value, 10) : typeof value === "number" ? value : fallback;
@@ -42,18 +42,21 @@ export async function POST(request: Request) {
 
   const capacity = parseIntOrFallback(assignmentCapacity, isChild ? DEFAULT_CHILD_CAPACITY : DEFAULT_ADULT_CAPACITY);
 
-  const member = await prisma.prayerMember.create({
-    data: {
-      spaceId: actingMember.spaceId,
-      displayName: displayName.trim(),
-      appwriteUserId: null,
-      role: "MEMBER",
-      isChild: Boolean(isChild),
-      birthdate: parsedBirthdate,
-      assignmentCapacity: capacity,
-      assignmentCount: 0,
-    },
-  });
+  const [member] = await prisma.$transaction([
+    prisma.prayerMember.create({
+      data: {
+        spaceId: actingMember.spaceId,
+        displayName: displayName.trim(),
+        appwriteUserId: null,
+        role: "MEMBER",
+        isChild: Boolean(isChild),
+        birthdate: parsedBirthdate,
+        assignmentCapacity: capacity,
+        assignmentCount: 0,
+      },
+    }),
+    bumpSpaceVersion(prisma, actingMember.spaceId),
+  ]);
 
   return NextResponse.json(member, { status: 201 });
 }
@@ -83,27 +86,34 @@ export async function PATCH(request: Request) {
   if (!target) return NextResponse.json({ error: "Member not found in your space" }, { status: 404 });
 
   const data: Record<string, unknown> = {};
-  if (typeof displayName === "string" && displayName.trim()) data.displayName = displayName.trim();
-  if (typeof isChild === "boolean") data.isChild = isChild;
-  if (assignmentCapacity !== undefined)
-    data.assignmentCapacity = parseIntOrFallback(assignmentCapacity, target.assignmentCapacity);
+  const name = typeof displayName === "string" ? displayName.trim() : undefined;
+  if (name && name !== target.displayName) data.displayName = name;
+  if (typeof isChild === "boolean" && isChild !== target.isChild) data.isChild = isChild;
+  if (assignmentCapacity !== undefined) {
+    const capacity = parseIntOrFallback(assignmentCapacity, target.assignmentCapacity);
+    if (capacity !== target.assignmentCapacity) data.assignmentCapacity = capacity;
+  }
 
   // Handle birthdate update (can be set to null to clear)
   if (birthdate !== undefined) {
     if (birthdate === null) {
-      data.birthdate = null;
+      if (target.birthdate !== null) data.birthdate = null;
     } else if (typeof birthdate === "string") {
       const parsedBirthdate = parseBirthdate(birthdate);
       if (!parsedBirthdate) {
         return NextResponse.json({ error: "Invalid birthdate format. Use ISO 8601 (YYYY-MM-DD)." }, { status: 400 });
       }
-      data.birthdate = parsedBirthdate;
+      if (parsedBirthdate.getTime() !== target.birthdate?.getTime()) data.birthdate = parsedBirthdate;
     }
   }
 
-  const updated = Object.keys(data).length
-    ? await prisma.prayerMember.update({ where: { id: memberId }, data })
-    : target;
+  let updated = target;
+  if (Object.keys(data).length > 0) {
+    [updated] = await prisma.$transaction([
+      prisma.prayerMember.update({ where: { id: memberId }, data }),
+      bumpSpaceVersion(prisma, actingMember.spaceId),
+    ]);
+  }
   if (!updated.appwriteUserId) return NextResponse.json(updated);
   return NextResponse.json(withHouseholdName(updated, await getHouseholdFirstNames(actingMember.spaceId)));
 }

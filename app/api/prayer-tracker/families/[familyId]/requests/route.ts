@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { bumpSpaceVersion } from "@/lib/householdService";
 
 type RouteContext = { params: Promise<{ familyId: string }> };
 
@@ -80,9 +81,12 @@ export async function POST(request: Request, context: RouteContext) {
   });
   if (!family) return NextResponse.json({ error: "Family not found" }, { status: 404 });
 
-  const created = await prisma.prayerFamilyRequest.create({
-    data: { familyId, requestText, notes: notes || null, linkedScripture: linkedScripture || null },
-  });
+  const [created] = await prisma.$transaction([
+    prisma.prayerFamilyRequest.create({
+      data: { familyId, requestText, notes: notes || null, linkedScripture: linkedScripture || null },
+    }),
+    bumpSpaceVersion(prisma, membership.spaceId),
+  ]);
   return NextResponse.json(created);
 }
 

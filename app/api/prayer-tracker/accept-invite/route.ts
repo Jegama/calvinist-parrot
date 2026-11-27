@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
-import { getHouseholdFirstNames, withHouseholdName } from "@/lib/householdService";
+import { bumpSpaceVersion, getHouseholdFirstNames, withHouseholdName } from "@/lib/householdService";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -30,14 +30,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ space, membership: withHouseholdName(existing, await getHouseholdFirstNames(space.id)) });
   }
 
-  const member = await prisma.prayerMember.create({
-    data: {
-      spaceId: space.id,
-      appwriteUserId: authenticatedUserId,
-      displayName: displayName?.trim() || "Spouse",
-      role: "MEMBER",
-    },
-  });
+  const [member] = await prisma.$transaction([
+    prisma.prayerMember.create({
+      data: {
+        spaceId: space.id,
+        appwriteUserId: authenticatedUserId,
+        displayName: displayName?.trim() || "Spouse",
+        role: "MEMBER",
+      },
+    }),
+    bumpSpaceVersion(prisma, space.id),
+  ]);
 
   await prisma.userProfile
     .update({

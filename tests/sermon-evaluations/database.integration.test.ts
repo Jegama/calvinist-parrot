@@ -75,7 +75,7 @@ describeWithDatabase("sermon PostgreSQL invariants", () => {
   const testPrefix = `sermon-pg-${randomUUID()}`;
   let pool: Pool;
   let prisma: PrismaClient;
-  let sharedPrisma: PrismaClient;
+  let sharedPrisma: typeof import("@/lib/prisma").default;
   let createReservedSermonEvaluation: typeof import("@/lib/sermon-evaluation/quotas").createReservedSermonEvaluation;
   let createPreparedSermonUploadReservation: typeof import("@/lib/sermon-evaluation/quotas").createPreparedSermonUploadReservation;
   let releaseQueuedCreditReservation: typeof import("@/lib/sermon-evaluation/quotas").releaseQueuedCreditReservation;
