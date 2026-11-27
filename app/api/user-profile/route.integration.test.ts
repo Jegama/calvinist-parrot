@@ -56,6 +56,36 @@ describe.skipIf(!databaseUrl)("profile edits in PostgreSQL", () => {
     await db.$disconnect();
   });
 
+  it("prefills missing Google name claims and preserves subsequent member edits at sign-in", async () => {
+    const user = syntheticUser();
+    currentUser.mockResolvedValue(user);
+    const { upsertUserProfileFromAppwriteUser } = await import("@/lib/user-profile");
+    const signIn = (firstName: string | null, lastName: string | null) =>
+      upsertUserProfileFromAppwriteUser(user, undefined, { firstName, lastName });
+
+    await expect(signIn("Elena", "de la Cruz")).resolves.toMatchObject({
+      firstName: "Elena", lastName: "de la Cruz", displayName: "Elena de la Cruz",
+    });
+    expect((await send(PATCH, "PATCH", { firstName: "Hélène" })).status).toBe(200);
+    await expect(signIn("Elena", "Other")).resolves.toMatchObject({
+      firstName: "Hélène", lastName: "de la Cruz", displayName: "Hélène de la Cruz",
+    });
+  });
+
+  it("retains the legacy display name for a partial Google claim and fills only missing parts later", async () => {
+    const user = syntheticUser();
+    currentUser.mockResolvedValue(user);
+    await db.userProfile.create({ data: {
+      appwriteUserId: user.$id, email: user.email, displayName: "Saved display name",
+    } });
+    const { upsertUserProfileFromAppwriteUser } = await import("@/lib/user-profile");
+    await expect(upsertUserProfileFromAppwriteUser(user, undefined, { firstName: "Ángel", lastName: null }))
+      .resolves.toMatchObject({ firstName: "Ángel", lastName: null, displayName: "Saved display name" });
+    expect((await send(PATCH, "PATCH", { firstName: "Angelito" })).status).toBe(200);
+    await expect(upsertUserProfileFromAppwriteUser(user, undefined, { firstName: "Ángel", lastName: "Vega" }))
+      .resolves.toMatchObject({ firstName: "Angelito", lastName: "Vega", displayName: "Angelito Vega" });
+  });
+
   it("preserves a legacy display name, refreshes the authoritative email and allows an independent claim", async () => {
     const user = syntheticUser();
     currentUser.mockResolvedValue(user);
@@ -125,4 +155,60 @@ describe.skipIf(!databaseUrl)("profile edits in PostgreSQL", () => {
       where: { appwriteUserId: loser.$id }, data: { username },
     })).rejects.toThrow();
   });
+  it("keeps the confirmed email after delayed login and edit snapshots, including a timestamp tie", async () => {
+    const { upsertUserProfileFromAppwriteUser, editUserProfile, syncConfirmedEmail } = await import("@/lib/user-profile");
+    const user = { ...syntheticUser(), $updatedAt: "2026-11-26T00:00:00.001Z" };
+    const confirmed = { ...user, email: "changed@example.test", $updatedAt: "2026-11-26T00:00:00.002Z" };
+    const readConfirmed = vi.fn().mockResolvedValue(confirmed);
+    await upsertUserProfileFromAppwriteUser(user);
+    await syncConfirmedEmail(confirmed, readConfirmed);
+    expect((await editUserProfile(user, { firstName: "Edited" })).email).toBe(confirmed.email);
+    expect((await upsertUserProfileFromAppwriteUser({ ...user, $updatedAt: confirmed.$updatedAt })).email).toBe(confirmed.email);
+    expect(readConfirmed).not.toHaveBeenCalled();
+    await syncConfirmedEmail({ ...confirmed, email: "delayed-confirmation@example.test" }, readConfirmed);
+    expect(readConfirmed).toHaveBeenCalledOnce();
+    expect(await db.userProfile.findUniqueOrThrow({ where: { appwriteUserId: user.$id } }))
+      .toMatchObject({ email: confirmed.email, firstName: "Edited" });
+  });
+
+  it("keeps private spiritual history out of profile responses", async () => {
+    const user = syntheticUser();
+    currentUser.mockResolvedValue(user);
+    await db.userProfile.create({ data: {
+      appwriteUserId: user.$id, displayName: "Reader", spiritualStatus: "seeker",
+      gospelPresentedAt: new Date(), gospelPresentationCount: 2,
+    } });
+    for (const response of [await GET(), await POST()]) {
+      const profile = await response.json();
+      expect(profile.displayName).toBe("Reader");
+      expect(profile).not.toHaveProperty("spiritualStatus");
+      expect(profile).not.toHaveProperty("gospelPresentedAt");
+      expect(profile).not.toHaveProperty("gospelPresentationCount");
+    }
+  });
+
+  it("records a newer account revision even when its email is unchanged", async () => {
+    const { upsertUserProfileFromAppwriteUser, getUserProfileForAppwriteUser } = await import("@/lib/user-profile");
+    const user = { ...syntheticUser(), $updatedAt: "2026-11-26T00:00:00.001Z" };
+    await upsertUserProfileFromAppwriteUser(user);
+    const latest = { ...user, $updatedAt: "2026-11-26T00:00:00.003Z" };
+    await getUserProfileForAppwriteUser(latest);
+    await upsertUserProfileFromAppwriteUser({ ...user, email: "intermediate@example.test", $updatedAt: "2026-11-26T00:00:00.002Z" });
+    expect(await db.userProfile.findUniqueOrThrow({ where: { appwriteUserId: user.$id } }))
+      .toMatchObject({ email: user.email, appwriteUpdatedAt: new Date(latest.$updatedAt) });
+  });
+
+  it("repairs a missed email mirror from an authoritative signed-in read", async () => {
+    const { upsertUserProfileFromAppwriteUser, getUserProfileForAppwriteUser } = await import("@/lib/user-profile");
+    const user = { ...syntheticUser(), $updatedAt: "2026-11-26T00:00:00.001Z" };
+    await upsertUserProfileFromAppwriteUser(user);
+    const changed = { ...user, email: "changed@example.test", $updatedAt: "2026-11-26T00:00:00.002Z" };
+    expect((await getUserProfileForAppwriteUser(changed))?.email).toBe(changed.email);
+    const sameMillisecond = { ...changed, email: "current-tie@example.test" };
+    expect((await getUserProfileForAppwriteUser(sameMillisecond, async () => sameMillisecond))?.email)
+      .toBe(sameMillisecond.email);
+    expect(await db.userProfile.findUniqueOrThrow({ where: { appwriteUserId: user.$id } }))
+      .toMatchObject({ email: sameMillisecond.email });
+  });
+
 });

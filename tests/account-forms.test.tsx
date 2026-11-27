@@ -7,6 +7,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { LoginForm } from "@/components/LoginForm";
 import { RegisterForm } from "@/components/RegisterForm";
+import { AccountCredentials } from "@/app/profile/components/account-credentials";
 import { ProfileCard } from "@/app/profile/components/profile-card";
 
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -115,13 +116,40 @@ it("registers with exactly the five labeled identity and credential fields", asy
     username: "New_Reader", firstName: "Lee", lastName: "Rivera",
     email: "reader@example.test", password: "test-password",
   };
-  transport.mockResolvedValueOnce(Response.json(signedIn));
+  transport.mockResolvedValueOnce(Response.json({ ...signedIn, verificationEmailSent: true }));
   await submit(fields);
   expect(transport).toHaveBeenCalledWith("/api/auth/register", expect.objectContaining({
     method: "POST", body: JSON.stringify(fields),
   }));
+  expect(container.textContent).toContain("Your account is ready");
+  expect(container.querySelector('[role="status"]')?.textContent).toContain("Check reader@example.test");
+  expect(transport.mock.calls.some(([url]) => url === "/api/auth/verification")).toBe(false);
+  expect(push).not.toHaveBeenCalled();
+  transport.mockResolvedValueOnce(Response.json({ message: "Verification email sent. Check your inbox.", verificationEmailSent: true }));
+  const buttons = Array.from(container.querySelectorAll("button"));
+  await act(async () => buttons.find((button) => button.textContent === "Resend verification email")!.click());
+  expect(transport).toHaveBeenLastCalledWith("/api/auth/verification", { method: "POST" });
+  expect(container.querySelector('[role="status"]')?.textContent).toContain("Verification email sent");
+  await act(async () => buttons.find((button) => button.textContent === "Continue to Parrot")!.click());
   expect(push).toHaveBeenCalledWith(consentPath + "?grant_id=fixture");
   expectSignedInName();
+});
+
+it("keeps signup usable after mail fails and offers the first send", async () => {
+  await renderWithSession(<RegisterForm />);
+  transport.mockResolvedValueOnce(Response.json({ ...signedIn, verificationEmailSent: false }));
+  await submit({
+    username: "new_reader", firstName: "Lee", lastName: "Rivera",
+    email: providerUser.email, password: "test-password",
+  });
+  expect(container.textContent).toContain("We couldn’t send a verification link");
+  const button = (text: string) => Array.from(container.querySelectorAll("button")).find(item => item.textContent === text);
+  expect(button("Resend verification email")).toBeUndefined();
+  transport.mockResolvedValueOnce(Response.json({ message: "Verification email sent.", verificationEmailSent: true }));
+  await act(async () => button("Send verification email")!.click());
+  expect(button("Resend verification email")).toBeDefined();
+  await act(async () => button("Continue to Parrot")!.click());
+  expect(push).toHaveBeenCalledWith("/");
 });
 
 it.each([["New_Reader", consentRequest], ["reader@example.test", "/"]])("signs in %s and returns to %s", async (identifier, destination) => {
@@ -148,6 +176,41 @@ it("remembers the cold consent request across the Google round trip and consumes
   expect(afterLoginPath()).toBe("/");
 });
 
+it("ignores an older session refresh that finishes after a credential or profile update", async () => {
+  function Actions() {
+    const { refresh, updateCredentials, updateProfile } = useAuth();
+    return <>
+      <button onClick={() => void refresh()}>Refresh</button>
+      <button onClick={() => {
+        updateCredentials(providerUser.$id, { account: { email: "new@example.test", emailVerification: true, passwordUpdate: "" } });
+        updateProfile(providerUser.$id, { displayName: "Edited Name" });
+      }}>Apply changes</button>
+    </>;
+  }
+  await renderWithSession(<Actions />, signedIn);
+  let finish!: (response: Response) => void;
+  transport.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const buttons = container.querySelectorAll("button");
+  await act(async () => buttons[0].click());
+  await act(async () => buttons[1].click());
+  await act(async () => finish(Response.json(signedIn)));
+  expect(JSON.parse(container.querySelector("output")!.textContent!)).toMatchObject({
+    user: { email: "new@example.test", emailVerification: true }, displayName: "Edited Name",
+  });
+});
+
+it("keeps a successful sign-in when a previous guest session read finishes later", async () => {
+  let finish!: (response: Response) => void;
+  transport.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  await act(async () => root.render(<QueryClientProvider client={new QueryClient()}>
+    <AuthProvider><LoginForm /><SessionDetails /></AuthProvider>
+  </QueryClientProvider>));
+  transport.mockResolvedValueOnce(Response.json(signedIn));
+  await submit({ identifier: providerUser.email, password: "test-password" });
+  await act(async () => finish(Response.json({ authenticated: false })));
+  expectSignedInName();
+});
+
 it("restores the saved display name and provider identity from /api/auth/me", async () => {
   await renderWithSession(null, signedIn);
   expect(transport).toHaveBeenCalledWith("/api/auth/me", expect.objectContaining({ method: "GET" }));
@@ -158,7 +221,7 @@ it("lets a legacy user retry a handle claim without entering or overwriting thei
   const onUpdate = vi.fn().mockResolvedValue(undefined);
   await act(async () => root.render(
     <ProfileCard profile={{ username: null, firstName: null, lastName: null }}
-      name="Lee van der Meer" email="reader@example.test" labels={[]} onUpdate={onUpdate} onLogout={vi.fn()} />,
+      name="Lee van der Meer" labels={[]} onUpdate={onUpdate} onLogout={vi.fn()} />,
   ));
   expect(container.textContent).toContain("Lee van der Meer");
   await act(async () => container.querySelector("button")!.click());
@@ -182,7 +245,7 @@ it("edits a saved name independently of the other name and username", async () =
   const onUpdate = vi.fn().mockResolvedValue(undefined);
   await act(async () => root.render(
     <ProfileCard profile={{ username: "reader", firstName: "Lee", lastName: "Rivera" }}
-      name="Lee Rivera" email="reader@example.test" labels={[]} onUpdate={onUpdate} onLogout={vi.fn()} />,
+      name="Lee Rivera" labels={[]} onUpdate={onUpdate} onLogout={vi.fn()} />,
   ));
   await act(async () => container.querySelector("button")!.click());
   expect(container.querySelector<HTMLInputElement>("#username")!.value).toBe("reader");
@@ -193,4 +256,41 @@ it("edits a saved name independently of the other name and username", async () =
     method: "PATCH", body: JSON.stringify({ firstName: "Leigh" }),
   }));
   expect(onUpdate).toHaveBeenCalledOnce();
+});
+
+it("sets a first password, then requires that password to change the email and shows the new verification status", async () => {
+  const account = { ...providerUser, emailVerification: true, passwordUpdate: "" };
+  await renderWithSession(<AccountCredentials />, { ...signedIn, user: account });
+  const button = (text: string) => Array.from(container.querySelectorAll("button")).find(item => item.textContent === text)!;
+  expect(container.textContent).toContain("Email verified");
+  expect(button("Change email")).toBeUndefined();
+  await act(async () => button("Set password").click());
+  expect(container.querySelector("input[name=currentPassword]")).toBeNull();
+
+  const withPassword = { ...account, passwordUpdate: "2026-11-26T00:00:00.000Z" };
+  transport.mockResolvedValueOnce(Response.json({ account: withPassword, message: "Password set." }));
+  await submit({ password: "synthetic-password" });
+  expect(transport).toHaveBeenLastCalledWith("/api/auth/account", expect.objectContaining({
+    method: "PATCH", body: JSON.stringify({ field: "password", password: "synthetic-password" }),
+  }));
+
+  await act(async () => button("Change email").click());
+  const changes = { email: "new@example.test", currentPassword: "synthetic-password" };
+  expect(container.querySelector<HTMLInputElement>("input[name=currentPassword]")?.required).toBe(true);
+  transport.mockResolvedValueOnce(Response.json({
+    account: { ...withPassword, email: changes.email, emailVerification: false },
+    message: "Email changed.", verificationEmailSent: false,
+  }));
+  await submit(changes);
+  expect(transport).toHaveBeenLastCalledWith("/api/auth/account", expect.objectContaining({
+    method: "PATCH", body: JSON.stringify({ field: "email", ...changes }),
+  }));
+  expect(container.textContent).toContain(changes.email);
+  expect(container.textContent).toContain("Email unverified");
+  expect(button("Resend verification email")).toBeUndefined();
+  transport.mockResolvedValueOnce(Response.json({ message: "Verification email sent.", verificationEmailSent: true }));
+  await act(async () => button("Send verification email").click());
+  expect(transport).toHaveBeenLastCalledWith("/api/auth/verification", { method: "POST" });
+  expect(container.querySelector('[role="status"]')?.textContent).toBe("Verification email sent.");
+  expect(button("Resend verification email")).toBeDefined();
 });

@@ -31,6 +31,7 @@ const providerCall = () => vi.spyOn(Client.prototype, "call");
 beforeEach(() => {
   vi.resetModules();
   vi.resetAllMocks();
+  vi.stubEnv("APP_URL", "http://localhost");
   vi.stubEnv("APPWRITE_PROJECT_ID", "synthetic-project");
   vi.stubEnv("APPWRITE_ENDPOINT", "http://localhost/v1");
   vi.stubEnv("APPWRITE_ANALYTICS_READ_KEY", "read-only-key");
@@ -150,11 +151,12 @@ it.each([
   { intent: "login", existing: true, expectedTransfer: false },
 ])("keeps Google $intent working for existing=$existing with its guest transfer policy", async ({ intent, existing, expectedTransfer }) => {
   cookieStore.set("authIntent", { value: intent });
+  vi.stubEnv("APP_URL", "https://preview.example.test");
   db.findUnique.mockResolvedValue(existing ? profile : null);
   serveAccount();
   const { GET } = await import("@/app/api/auth/oauth/google/callback/route");
   const result = await GET(new Request("http://localhost/api/auth/oauth/google/callback?userId=reader&secret=synthetic-token"));
-  expect(result.headers.get("location")).toBe("http://localhost/auth/complete");
+  expect(result.headers.get("location")).toBe("https://preview.example.test/auth/complete");
   expect(result.cookies.get("a_session_synthetic-project")?.value).toBe(session.secret);
   expect(transfer).toHaveBeenCalledTimes(expectedTransfer ? 1 : 0);
 });
@@ -203,6 +205,41 @@ it("starts Google signup with the configured callbacks and saves its intent", as
     success: "http://localhost/api/auth/oauth/google/callback",
     failure: "http://localhost/register?oauth=failed",
   });
+});
+
+it.each(["branch.example.test", "deployment.example.test"])("keeps Google signup and completion on the initiating Preview host %s", async host => {
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("VERCEL_BRANCH_URL", "branch.example.test");
+  vi.stubEnv("VERCEL_URL", "deployment.example.test");
+  vi.stubEnv("APP_URL", "https://production.example.test");
+  const redirect = vi.spyOn(Client.prototype, "redirect").mockResolvedValue("https://accounts.example.test/authorize");
+  const { GET: start } = await import("@/app/api/auth/oauth/google/start/route");
+  const { GET: callback } = await import("@/app/api/auth/oauth/google/callback/route");
+  const begin = await start(new Request("http://localhost/api/auth/oauth/google/start?intent=signup", { headers: { host } }));
+  expect(redirect.mock.calls[0][3]).toMatchObject({
+    success: `https://${host}/api/auth/oauth/google/callback`, failure: `https://${host}/register?oauth=failed`,
+  });
+  cookieStore.set("authIntent", { value: begin.cookies.get("authIntent")!.value });
+  db.findUnique.mockResolvedValue(null);
+  serveAccount();
+  const completed = await callback(new Request(`https://${host}/api/auth/oauth/google/callback?userId=reader&secret=synthetic-token`));
+  expect(completed.headers.get("location")).toBe(`https://${host}/auth/complete`);
+  expect(completed.cookies.get("a_session_synthetic-project")?.value).toBe(session.secret);
+  expect(transfer).toHaveBeenCalledWith(guestId, account.$id);
+});
+
+it("refuses Google OAuth on a host outside the configured Preview URLs", async () => {
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("VERCEL_BRANCH_URL", "branch.example.test");
+  vi.stubEnv("VERCEL_URL", "deployment.example.test");
+  vi.stubEnv("APP_URL", "https://production.example.test");
+  const redirect = vi.spyOn(Client.prototype, "redirect");
+  const { GET: start } = await import("@/app/api/auth/oauth/google/start/route");
+  const { GET: callback } = await import("@/app/api/auth/oauth/google/callback/route");
+  const unknown = "https://production.example.test";
+  expect((await start(new Request(unknown + "/api/auth/oauth/google/start?intent=signup"))).status).toBe(400);
+  expect((await callback(new Request(unknown + "/api/auth/oauth/google/callback"))).status).toBe(503);
+  expect(redirect).not.toHaveBeenCalled();
 });
 
 it("preserves the password recovery and reset requests through the server SDK", async () => {

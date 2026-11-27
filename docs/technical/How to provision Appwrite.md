@@ -91,6 +91,12 @@ Keep the Vercel `APPWRITE_API_KEY` server-only. The Appwrite server SDK uses a k
 
 The cloud sermon runtime also uses the server key for file metadata/deletion, file-token creation, and Function execution. The browser receives the public project identifiers and a short-lived JWT derived from the signed-in user's session. [Sermon Appwrite client](../../lib/sermon-evaluation/appwrite.ts)
 
+### Configure account email links
+
+Use an Appwrite deployment that invalidates outstanding verification and recovery links when an account changes its email. Appwrite 2.7.2 provides this behavior. The application delegates link issuance and redemption to Appwrite.
+
+For email verification and password recovery, configure email delivery in the Appwrite project and register the application's callback hostname as a Web platform. Production uses the HTTPS origin in `APP_URL`. Vercel Preview uses `VERCEL_BRANCH_URL` when available and otherwise `VERCEL_URL`. Register that host in the Preview Appwrite project so emailed links can return to the same preview. Google sign-in returns to the Preview hostname where it started. Register each branch or deployment hostname you use for Google sign-in as an Appwrite Web platform. Local development supports an HTTP origin on localhost. [Appwrite email verification](https://appwrite.io/docs/products/auth/verify-user)
+
 ### Verify username sign-in permissions
 
 Set the server-only `APPWRITE_ANALYTICS_READ_KEY` to a separate key with just `users.read` for the same project as `APPWRITE_PROJECT_ID`. Username sign-in uses this key to fetch the canonical email by Appwrite user ID. Email and Google sign-in continue using the existing session configuration. [Appwrite API key scopes](https://appwrite.io/docs/partners/project/api-keys)

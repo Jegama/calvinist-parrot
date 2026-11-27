@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { getHouseholdFirstNames } from "@/lib/householdService";
 
 export async function GET() {
   const { userId, errorResponse } = await requireAuthenticatedUser();
@@ -14,7 +16,7 @@ export async function GET() {
   });
   if (!membership) {
     return NextResponse.json(
-      { version: null, spaceId: null },
+      { spaceId: null, version: null, nameVersion: null },
       { headers: { "Cache-Control": "no-store" } }
     );
   }
@@ -31,6 +33,7 @@ export async function GET() {
     familyRequestCount,
     personalCount,
     memberCount,
+    firstNames,
   ] = await Promise.all([
     prisma.prayerFamilySpace.findUnique({
       where: { id: spaceId },
@@ -56,11 +59,12 @@ export async function GET() {
     prisma.prayerFamilyRequest.count({ where: { family: { spaceId } } }),
     prisma.prayerPersonalRequest.count({ where: { spaceId } }),
     prisma.prayerMember.count({ where: { spaceId } }),
+    getHouseholdFirstNames(spaceId),
   ]);
 
   if (!space) {
     return NextResponse.json(
-      { spaceId: null, version: null },
+      { spaceId: null, version: null, nameVersion: null },
       { headers: { "Cache-Control": "no-store" } }
     );
   }
@@ -90,9 +94,11 @@ export async function GET() {
     personalCount,
     memberCount,
   ].join(":");
+  // Name edits refresh labels without invalidating the prepared assignments.
+  const nameVersion = createHash("sha256").update(JSON.stringify([...firstNames])).digest("hex");
 
   return NextResponse.json(
-    { spaceId, version },
+    { spaceId, version, nameVersion },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

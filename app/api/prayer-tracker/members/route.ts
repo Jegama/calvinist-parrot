@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { DEFAULT_ADULT_CAPACITY, DEFAULT_CHILD_CAPACITY } from "@/app/prayer-tracker/constants";
 import { parseBirthdate } from "@/utils/ageUtils";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { getHouseholdFirstNames, withHouseholdName } from "@/lib/householdService";
 
 function parseIntOrFallback(value: unknown, fallback: number) {
   const parsed = typeof value === "string" ? Number.parseInt(value, 10) : typeof value === "number" ? value : fallback;
@@ -100,8 +101,9 @@ export async function PATCH(request: Request) {
     }
   }
 
-  if (!Object.keys(data).length) return NextResponse.json(target);
-
-  const updated = await prisma.prayerMember.update({ where: { id: memberId }, data });
-  return NextResponse.json(updated);
+  const updated = Object.keys(data).length
+    ? await prisma.prayerMember.update({ where: { id: memberId }, data })
+    : target;
+  if (!updated.appwriteUserId) return NextResponse.json(updated);
+  return NextResponse.json(withHouseholdName(updated, await getHouseholdFirstNames(actingMember.spaceId)));
 }

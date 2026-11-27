@@ -109,6 +109,7 @@ export function RotationCard({
               ) : (
                 <div className="space-y-3">
                   {rotation.families.map((family) => {
+                    const lastPrayedBy = members.find(member => member.id === family.lastPrayedBy?.id) ?? family.lastPrayedBy;
                     const assignedMemberId = familyAssignments[family.id] ?? "skip";
                     const memberColor =
                       assignedMemberId !== "skip" ? getMemberColor(assignedMemberId, members) : undefined;
@@ -145,7 +146,7 @@ export function RotationCard({
                             )}
                             <p className="text-xs text-muted-foreground">
                               Last prayed: {formatRelative(family.lastPrayedAt)} ({formatTimeSince(family.lastPrayedAt)}
-                              ){family.lastPrayedBy?.displayName && ` - by ${family.lastPrayedBy.displayName}`}
+                              ){lastPrayedBy?.displayName && ` - by ${lastPrayedBy.displayName}`}
                             </p>
                             {family.requests && family.requests.length > 0 && (
                               <div className="mt-3 space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3">

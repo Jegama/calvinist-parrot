@@ -192,7 +192,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   const spaceMembers = markAnswered
     ? await prisma.prayerMember.findMany({
         where: { spaceId: membership.spaceId },
-        select: { appwriteUserId: true, displayName: true },
+        select: { appwriteUserId: true },
       })
     : [];
 
@@ -230,10 +230,11 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
-  // Update current user's profile
+  // A missing profile uses the same recoverable placeholder as other background writes.
+  // Account sync replaces it on sign-in, preserving independent household labels.
   transactions.push(
-      prisma.userProfile.upsert({
-        where: { appwriteUserId: authenticatedUserId },
+    prisma.userProfile.upsert({
+      where: { appwriteUserId: authenticatedUserId },
       update: markAnswered
         ? {
             // Increment answeredPersonalCount for household requests, answeredFamilyCount for family-specific requests
@@ -245,28 +246,20 @@ export async function PATCH(request: Request, context: RouteContext) {
         : {
             lastSeenAt: now,
           },
-      create: markAnswered
-        ? {
-            appwriteUserId: authenticatedUserId,
-            displayName: membership.displayName,
-            email: null,
-            answeredFamilyCount: isHouseholdRequest ? 0 : 1,
-            answeredPersonalCount: isHouseholdRequest ? 1 : 0,
-            lastSeenAt: now,
-          }
-        : {
-            appwriteUserId: authenticatedUserId,
-            displayName: membership.displayName,
-            email: null,
-            lastSeenAt: now,
-          },
+      create: {
+        appwriteUserId: authenticatedUserId,
+        displayName: "User",
+        answeredFamilyCount: markAnswered && !isHouseholdRequest ? 1 : 0,
+        answeredPersonalCount: markAnswered && isHouseholdRequest ? 1 : 0,
+        lastSeenAt: now,
+      },
     })
   );
 
   // Update profiles for all other members in the space when marking as answered
   if (markAnswered && spaceMembers.length > 0) {
     spaceMembers.forEach((member) => {
-        if (!member.appwriteUserId || member.appwriteUserId === authenticatedUserId) {
+      if (!member.appwriteUserId || member.appwriteUserId === authenticatedUserId) {
         return;
       }
 
@@ -281,7 +274,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           },
           create: {
             appwriteUserId: member.appwriteUserId,
-            displayName: member.displayName,
+            displayName: "User",
             email: null,
             answeredFamilyCount: isHouseholdRequest ? 0 : 1,
             answeredPersonalCount: isHouseholdRequest ? 1 : 0,

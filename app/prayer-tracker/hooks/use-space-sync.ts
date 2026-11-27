@@ -2,13 +2,14 @@ import { useEffect, useRef } from "react";
 
 type UseSpaceSyncOptions = {
   enabled: boolean;
-  onRemoteChange: () => void | Promise<void>;
+  onRemoteChange: (change: "household" | "names") => Promise<boolean>;
   intervalMs?: number;
 };
 
 type SyncResponse = {
   spaceId: string | null;
   version: string | null;
+  nameVersion: string | null;
 };
 
 const DEFAULT_INTERVAL_MS = 20_000;
@@ -32,9 +33,7 @@ export function useSpaceSync({
     let cancelled = false;
     let intervalId: ReturnType<typeof setInterval> | null = null;
     let inFlight = false;
-    let seeded = false;
-    let lastVersion: string | null = null;
-    let lastSpaceId: string | null = null;
+    let previous: SyncResponse | null = null;
 
     const poll = async () => {
       if (cancelled || inFlight) return;
@@ -49,29 +48,16 @@ export function useSpaceSync({
         const data = (await response.json()) as SyncResponse;
         if (cancelled) return;
 
-        const spaceChanged = seeded && data.spaceId !== lastSpaceId;
-        const versionChanged = seeded && data.version !== lastVersion;
-
-        // First poll always refreshes once: there's an unavoidable race window
-        // between the page's initial data load and this hook mounting, so we
-        // can't trust that the seeded version matches what's already on screen.
-        const shouldRefresh = !seeded || spaceChanged || versionChanged;
-
-        if (shouldRefresh) {
-          try {
-            await onRemoteChangeRef.current();
-          } catch {
-            // Refresh failed — leave refs untouched so the next poll retries.
-            return;
-          }
-          if (cancelled) return;
+        // Refresh the first poll to cover changes since the page's initial load.
+        // A simultaneous membership or prayer change takes priority over a rename.
+        const householdChanged = !previous || data.spaceId !== previous.spaceId || data.version !== previous.version;
+        if (householdChanged || data.nameVersion !== previous?.nameVersion) {
+          const refreshed = await onRemoteChangeRef.current(householdChanged ? "household" : "names");
+          if (!refreshed || cancelled) return;
         }
-
-        lastVersion = data.version;
-        lastSpaceId = data.spaceId;
-        seeded = true;
+        previous = data;
       } catch {
-        // Network blips are fine — try again on the next tick.
+        // Keep the previous version so a failed poll or refresh retries on the next tick.
       } finally {
         inFlight = false;
       }

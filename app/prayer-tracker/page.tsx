@@ -17,7 +17,6 @@ import { FamilySheet } from "./components/FamilySheet";
 import { RequestSheet } from "./components/RequestSheet";
 import { FamilyDetailDialog } from "./components/FamilyDetailDialog";
 import { OverviewSection } from "./components/OverviewSection";
-import type { Family } from "./types";
 import { usePrayerSpace } from "./hooks/use-prayer-space";
 import { useFamilyManager } from "./hooks/use-family-manager";
 import { useRequestManager } from "./hooks/use-request-manager";
@@ -40,8 +39,8 @@ function PrayerTrackerContent() {
     refreshAll,
   });
 
-  const [familyDetailDialogOpen, setFamilyDetailDialogOpen] = useState(false);
-  const [selectedFamilyForDetail, setSelectedFamilyForDetail] = useState<Family | null>(null);
+  const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
+  const selectedFamily = families.find(family => family.id === selectedFamilyId) ?? null;
 
   // Tab state synced with URL for browser history support. A short-lived
   // local override makes clicks feel instant even if router.push is delayed
@@ -60,14 +59,12 @@ function PrayerTrackerContent() {
     router.push(`/prayer-tracker?tab=${value}`, { scroll: false });
   }, [router, urlTab]);
 
-  // Rotation card lives in client-only state, so a refresh of the lists alone
-  // would leave the other household member staring at a stale prepared
-  // rotation. Cancel it so they see the fresh state and can re-prepare if
-  // they want to keep going.
+  // Household changes can invalidate a prepared rotation. Renaming a member
+  // only changes the labels on the same assignments.
   const cancelRotation = rotationWorkflow.handleCancelRotation;
-  const handleRemoteChange = useCallback(async () => {
-    cancelRotation();
-    await refreshAll({ silent: true });
+  const handleRemoteChange = useCallback(async (change: "household" | "names") => {
+    if (change === "household") cancelRotation();
+    return refreshAll({ silent: true });
   }, [cancelRotation, refreshAll]);
 
   useSpaceSync({
@@ -95,7 +92,7 @@ function PrayerTrackerContent() {
     return <ProtectedView fallback={authFallback} />;
   }
 
-  if (!isCurrentUserSpaceLoaded) {
+  if (!isCurrentUserSpaceLoaded || spaceName === undefined) {
     return (
       <ProtectedView fallback={authFallback}>
         <Card className="max-w-2xl mx-auto mt-8 mb-8">
@@ -103,7 +100,7 @@ function PrayerTrackerContent() {
             <CardTitle>Prayer Tracker</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>Loading your family space...</p>
+            <p role="status">{isCurrentUserSpaceLoaded ? "Couldn’t load your household. Retrying…" : "Loading your family space..."}</p>
           </CardContent>
         </Card>
       </ProtectedView>
@@ -246,10 +243,7 @@ function PrayerTrackerContent() {
                 onCategoryFilterChange={familyManager.setCategoryFilter}
                 onFamilySearchChange={familyManager.setFamilySearch}
                 onEditFamily={familyManager.openFamilySheet}
-                onViewFamilyDetail={(family) => {
-                  setSelectedFamilyForDetail(family);
-                  setFamilyDetailDialogOpen(true);
-                }}
+                onViewFamilyDetail={(family) => setSelectedFamilyId(family.id)}
               />
             </TabsContent>
           </Tabs>
@@ -306,15 +300,12 @@ function PrayerTrackerContent() {
         />
 
         <FamilyDetailDialog
-          isOpen={familyDetailDialogOpen}
-          family={selectedFamilyForDetail}
+          isOpen={Boolean(selectedFamily)}
+          family={selectedFamily}
           requests={requests}
           answeringRequestId={requestManager.answeringRequestId}
           onOpenChange={(open) => {
-            setFamilyDetailDialogOpen(open);
-            if (!open) {
-              setSelectedFamilyForDetail(null);
-            }
+            if (!open) setSelectedFamilyId(null);
           }}
           onEditRequest={requestManager.openRequestSheet}
           onMarkAnswered={(requestId) => requestManager.markRequestAnswered(requestId, false)}

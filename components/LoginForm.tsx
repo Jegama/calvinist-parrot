@@ -50,7 +50,7 @@ export function LoginForm() {
         throw new Error(payload.error || "Login failed.");
       }
 
-      setUser(payload.user, payload.profile?.displayName);
+      setUser(payload.user, payload.profile, payload.verificationEmailSent);
       router.push(afterLoginPath(consentQuery));
     } catch (error: unknown) {
       if (error instanceof Error) {

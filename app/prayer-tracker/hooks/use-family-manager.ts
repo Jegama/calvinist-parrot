@@ -17,7 +17,7 @@ import type { AppwriteUser, Family, FamilySheetState, NewFamilyFormState } from 
 type UseFamilyManagerOptions = {
   user: AppwriteUser | null;
   families: Family[];
-  refreshLists: () => Promise<void>;
+  refreshLists: () => Promise<boolean>;
 };
 
 type CategoryFilter = string;

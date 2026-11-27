@@ -75,6 +75,29 @@ export async function assertOwnerAccess(
   return membership;
 }
 
+// prayerMember can outlive (or predate) a profile. Look up first names only
+// within the caller's authorized household, leaving stored labels as fallbacks.
+export async function getHouseholdFirstNames(spaceId: string) {
+  const rows = await prisma.$queryRaw<{ id: string; firstName: string }[]>`
+    SELECT member.id, profile."firstName"
+    FROM "prayerMember" AS member
+    JOIN "userProfile" AS profile ON profile."appwriteUserId" = member."appwriteUserId"
+    WHERE member."spaceId" = ${spaceId} AND NULLIF(TRIM(profile."firstName"), '') IS NOT NULL
+    ORDER BY member.id
+  `;
+  return new Map(rows.map(({ id, firstName }) => [id, firstName]));
+}
+
+type NamedMember = { id: string; displayName: string };
+
+export function withHouseholdName<T extends NamedMember>(member: T, names: Map<string, string>): T {
+  return { ...member, displayName: names.get(member.id) ?? member.displayName };
+}
+
+export function withPrayerAttribution<T extends { lastPrayedBy: NamedMember | null }>(family: T, names: Map<string, string>) {
+  return { ...family, lastPrayedBy: family.lastPrayedBy && withHouseholdName(family.lastPrayedBy, names) };
+}
+
 /**
  * Get full household data including space details and all members.
  * Useful for household overview pages.
@@ -107,12 +130,10 @@ export async function getHouseholdForUser(appwriteUserId: string) {
 
   if (!result) return null;
 
-  const membership: HouseholdMembership = {
-    memberId: result.id,
-    spaceId: result.spaceId,
-    role: result.role as "OWNER" | "MEMBER",
-    displayName: result.displayName,
+  const names = await getHouseholdFirstNames(result.spaceId);
+  const { space, ...member } = result;
+  return {
+    membership: withHouseholdName(member, names),
+    space: { ...space, members: space.members.map(member => withHouseholdName(member, names)) },
   };
-
-  return { space: result.space, membership };
 }

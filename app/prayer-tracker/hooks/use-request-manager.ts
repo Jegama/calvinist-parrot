@@ -15,7 +15,7 @@ const EMPTY_REQUEST_SHEET: PersonalSheetState = {
 
 type UseRequestManagerOptions = {
   user: AppwriteUser | null;
-  refreshLists: () => Promise<void>;
+  refreshLists: () => Promise<boolean>;
   queryClient: QueryClient;
 };
 

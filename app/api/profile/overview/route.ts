@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
-import { getUserProfileForAppwriteUser } from "@/lib/user-profile";
+import { getUserProfileForAppwriteUser, toPublicProfile } from "@/lib/user-profile";
+import { getHouseholdForUser } from "@/lib/householdService";
 
 export async function GET(request: Request) {
   void request;
@@ -10,37 +11,16 @@ export async function GET(request: Request) {
     return errorResponse ?? NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [questions, profile, membership] = await Promise.all([
+  const [questions, profile, household] = await Promise.all([
     prisma.questionHistory.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
     }),
     getUserProfileForAppwriteUser(user),
-    prisma.prayerMember.findFirst({
-      where: { appwriteUserId: userId },
-      include: {
-        space: {
-          include: {
-            members: {
-              select: {
-                id: true,
-                displayName: true,
-                appwriteUserId: true,
-                role: true,
-                joinedAt: true,
-                assignmentCapacity: true,
-                assignmentCount: true,
-                isChild: true,
-                birthdate: true,
-              },
-              orderBy: { joinedAt: "asc" },
-            },
-          },
-        },
-      },
-    }),
+    getHouseholdForUser(userId),
   ]);
 
+  const membership = household?.membership;
   const serializedMembership = membership
     ? {
         id: membership.id,
@@ -58,8 +38,8 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     questions,
-    profile,
-    space: membership?.space ?? null,
+    profile: toPublicProfile(profile),
+    space: household?.space ?? null,
     membership: serializedMembership,
   });
 }

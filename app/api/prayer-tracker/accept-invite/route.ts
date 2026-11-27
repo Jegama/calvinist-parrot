@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { getHouseholdFirstNames, withHouseholdName } from "@/lib/householdService";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -26,14 +27,14 @@ export async function POST(request: Request) {
         data: { defaultSpaceId: space.id, lastSeenAt: new Date() },
       })
       .catch(() => null);
-    return NextResponse.json({ space, membership: existing });
+    return NextResponse.json({ space, membership: withHouseholdName(existing, await getHouseholdFirstNames(space.id)) });
   }
 
   const member = await prisma.prayerMember.create({
     data: {
       spaceId: space.id,
       appwriteUserId: authenticatedUserId,
-      displayName: displayName || "Spouse",
+      displayName: displayName?.trim() || "Spouse",
       role: "MEMBER",
     },
   });
@@ -45,5 +46,5 @@ export async function POST(request: Request) {
     })
     .catch(() => null);
 
-  return NextResponse.json({ space, membership: member });
+  return NextResponse.json({ space, membership: withHouseholdName(member, await getHouseholdFirstNames(space.id)) });
 }

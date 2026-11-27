@@ -1,24 +1,25 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { canViewAnalytics } from "@/lib/analytics/permissions";
 import { ProfileIdentityFields } from "@/components/ProfileIdentityFields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AccountPhoto } from "./account-photo";
 import { updateUserProfile } from "../api";
 import type { ProfileIdentity } from "../types";
 
 type ProfileCardProps = {
   profile: ProfileIdentity | null | undefined;
   name: string;
-  email: string;
+  children?: ReactNode;
   labels: string[];
   onUpdate: () => Promise<unknown>;
   onLogout: () => void;
 };
 
-export function ProfileCard({ profile, name, email, labels, onUpdate, onLogout }: ProfileCardProps) {
+export function ProfileCard({ profile, name, children, labels, onUpdate, onLogout }: ProfileCardProps) {
   const [editing, setEditing] = useState<ProfileIdentity | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -64,8 +65,8 @@ export function ProfileCard({ profile, name, email, labels, onUpdate, onLogout }
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
+          <AccountPhoto name={name} />
           <p>Name: {name}</p>
-          <p>Email: {email}</p>
           {profile?.username && <p>Username: {profile.username}</p>}
         </div>
         {editing ? (
@@ -83,6 +84,7 @@ export function ProfileCard({ profile, name, email, labels, onUpdate, onLogout }
           profile !== undefined && <Button variant="outline" onClick={edit}>Edit profile</Button>
         )}
         {saved && <p role="status">Profile saved.</p>}
+        {children}
         <div className="flex flex-wrap gap-2">
           {canViewAnalytics(labels) && (
             <Button asChild>

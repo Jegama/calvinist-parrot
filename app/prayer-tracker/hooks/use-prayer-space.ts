@@ -13,7 +13,7 @@ type SpaceLoadState = {
 };
 
 export function usePrayerSpace({ user, authLoading }: UsePrayerSpaceOptions) {
-  const [spaceName, setSpaceName] = useState<string | null>(null);
+  const [spaceName, setSpaceName] = useState<string | null>();
   const [spaceLoadState, setSpaceLoadState] = useState<SpaceLoadState>({ userId: null, ready: false });
   const [members, setMembers] = useState<Member[]>([]);
   const [families, setFamilies] = useState<Family[]>([]);
@@ -29,25 +29,23 @@ export function usePrayerSpace({ user, authLoading }: UsePrayerSpaceOptions) {
   }, []);
 
   const loadSpace = useCallback(async () => {
+    const userId = initializedForUser.current;
     const result = await api.fetchSpace();
 
-    if (result.success && result.data) {
-      setSpaceName(result.data.spaceName);
-      setMembers(result.data.members);
-      return result.data;
-    }
-
-    setSpaceName(null);
-    setMembers([]);
-    return null;
+    if (!result.success || initializedForUser.current !== userId) return false;
+    setSpaceName(result.data?.spaceName ?? null);
+    setMembers(result.data?.members ?? []);
+    return true;
   }, []);
 
   const refreshLists = useCallback(async () => {
+    const userId = initializedForUser.current;
     const [familiesResult, requestsResult] = await Promise.all([
       api.fetchFamilies(),
       api.fetchUnifiedRequests(),
     ]);
 
+    if (initializedForUser.current !== userId) return false;
     if (familiesResult.success) {
       setFamilies(familiesResult.data);
     }
@@ -55,6 +53,7 @@ export function usePrayerSpace({ user, authLoading }: UsePrayerSpaceOptions) {
     if (requestsResult.success) {
       setRequests(requestsResult.data);
     }
+    return familiesResult.success && requestsResult.success;
   }, []);
 
   const refreshAll = useCallback(
@@ -62,9 +61,10 @@ export function usePrayerSpace({ user, authLoading }: UsePrayerSpaceOptions) {
       const silent = options?.silent ?? false;
       if (!silent) markSpaceLoading(user?.$id ?? "");
       try {
-        await Promise.all([loadSpace(), refreshLists()]);
+        const [spaceLoaded, listsLoaded] = await Promise.all([loadSpace(), refreshLists()]);
+        return spaceLoaded && listsLoaded;
       } finally {
-        if (!silent) markSpaceReady(user?.$id ?? "");
+        if (!silent && user && initializedForUser.current === user.$id) markSpaceReady(user.$id);
       }
     },
     [loadSpace, markSpaceLoading, markSpaceReady, refreshLists, user]
@@ -73,18 +73,17 @@ export function usePrayerSpace({ user, authLoading }: UsePrayerSpaceOptions) {
   useEffect(() => {
     if (authLoading) return;
 
+    const userId = user?.$id ?? null;
+    if (initializedForUser.current === userId) return;
+    initializedForUser.current = userId;
+    setSpaceName(undefined);
+    setMembers([]);
+    setFamilies([]);
+    setRequests([]);
     if (!user) {
-      initializedForUser.current = null;
-      setSpaceName(null);
-      setMembers([]);
-      setFamilies([]);
-      setRequests([]);
       setSpaceLoadState({ userId: null, ready: false });
       return;
     }
-
-    if (initializedForUser.current === user.$id) return;
-    initializedForUser.current = user.$id;
 
     (async () => {
       try {

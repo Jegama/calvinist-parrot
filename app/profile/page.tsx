@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toMembershipInfo, toPrayerSpace } from "./types";
 import { useProfileUiStore } from "./ui-store";
 import { fetchProfileOverview } from "./api";
+import { AccountCredentials } from "./components/account-credentials";
 import { ProfileCard } from "./components/profile-card";
 import { PrayerJourneyCard } from "./components/prayer-journey-card";
 import { TheologicalPreferencesCard } from "./components/theological-preferences-card";
@@ -18,7 +19,7 @@ import { PreviousQuestionsCard } from "./components/previous-questions-card";
 
 export default function ProfilePage() {
   const { resetUi, setSpaceNameInput } = useProfileUiStore();
-  const { user, displayName, updateDisplayName, logout } = useAuth();
+  const { user, displayName, updateProfile, logout } = useAuth();
 
   const profileQueryKey = useMemo(() => ["profile-overview", user?.$id ?? "guest"], [user?.$id]);
   const profileOverview = useQuery({
@@ -84,14 +85,15 @@ export default function ProfilePage() {
         key={user.$id}
         profile={profileOverview.data?.profile}
         name={profileStats?.displayName || displayName}
-        email={user.email}
         labels={user.labels}
         onUpdate={async () => {
           const updated = await profileOverview.refetch({ throwOnError: true });
-          if (updated.data?.profile) updateDisplayName(user.$id, updated.data.profile.displayName);
+          if (updated.data?.profile) updateProfile(user.$id, updated.data.profile);
         }}
         onLogout={handleLogout}
-      />
+      >
+        <AccountCredentials />
+      </ProfileCard>
 
       {profileOverview.isError && !profileOverview.data && (
         <div className="mx-auto mt-4 max-w-sm" role="alert">
