@@ -46,7 +46,7 @@ function changeFixtureEmail(user: FixtureAccount, email: string) {
   user.email = email;
   user.emailVerification = false;
   user.$updatedAt = new Date(Date.parse(user.$updatedAt) + 1).toISOString();
-  if (user.targets) user.targets[0] = { ...user.targets[0], identifier: email, $updatedAt: user.$updatedAt };
+  if (user.targets?.length) user.targets[0] = { ...user.targets[0], identifier: email, $updatedAt: user.$updatedAt };
   accounts.set(email, user);
   for (const [secret, address] of sessions) {
     if (address === oldEmail) sessions.set(secret, email);
@@ -105,6 +105,13 @@ describe.skipIf(!databaseUrl)("password registration through Appwrite and Postgr
         const user = oldEmail && accounts.get(oldEmail);
         if (!user || user.password !== data.password) throw new AppwriteException("Invalid", 401);
         changeFixtureEmail(user, email);
+        return user;
+      }
+      if (url.pathname === "/v1/account/password") {
+        const user = accounts.get(sessions.get(session) ?? "");
+        if (!user || user.password !== data.oldPassword) throw new AppwriteException("Invalid", 401);
+        user.password = String(data.password);
+        user.$updatedAt = user.passwordUpdate = new Date(Date.parse(user.$updatedAt) + 1).toISOString();
         return user;
       }
       if (url.pathname === "/v1/account/verifications/email") {
@@ -276,19 +283,74 @@ describe.skipIf(!databaseUrl)("password registration through Appwrite and Postgr
     }
   });
 
-  it("refreshes a legacy address-only receipt once and keeps it through unrelated account updates", async () => {
-    const body = form("oldreceipt");
-    await register(body);
+  it.each([true, false])("keeps the receipt after a password change (has email target: %s)", async hasTarget => {
+    const body = form(hasTarget ? "withtarget" : "notarget");
+    const signup = await register(body);
+    cookieStore.set("a_session_test-project", { value: signup.cookies.get("a_session_test-project")!.value });
     const user = accounts.get(body.email)!;
+    if (!hasTarget) delete user.targets;
     await db.accountVerificationEmail.update({ where: { appwriteUserId: user.$id }, data: { deliveryKey: user.email } });
     const { POST: login } = await import("@/app/api/auth/login/route");
-    const signIn = () => login(new Request("http://localhost/api/auth/login", {
-      method: "POST", body: JSON.stringify({ identifier: body.email, password: body.password }),
+    const { PATCH: edit } = await import("@/app/api/auth/account/route");
+    const { GET: me } = await import("@/app/api/auth/me/route");
+    const signIn = (password: string) => login(new Request("http://localhost/api/auth/login", {
+      method: "POST", body: JSON.stringify({ identifier: body.email, password }),
     }));
-    expect((await (await signIn()).json()).verificationEmailSent).toBe(true);
-    user.$updatedAt = new Date(Date.parse(user.$updatedAt) + 1).toISOString();
-    expect((await (await signIn()).json()).verificationEmailSent).toBe(true);
+    expect((await (await signIn(body.password)).json()).verificationEmailSent).toBe(true);
+    const newPassword = "new-" + body.password;
+    const passwordChange = await edit(new Request("http://localhost/api/auth/account", {
+      method: "PATCH", body: JSON.stringify({ field: "password", currentPassword: body.password, password: newPassword }),
+    }));
+    expect(passwordChange.status).toBe(200);
+    expect((await (await me()).json()).verificationEmailSent).toBe(true);
+    expect((await (await signIn(newPassword)).json()).verificationEmailSent).toBe(true);
     expect(sentMail.filter(email => email === body.email)).toHaveLength(2);
+    cookieStore.clear();
+  });
+
+  it("protects a targetless address round trip and leaves the address alone when its receipt cannot be locked", async () => {
+    const body = form("legacyemail");
+    const signup = await register(body);
+    cookieStore.set("a_session_test-project", { value: signup.cookies.get("a_session_test-project")!.value });
+    const user = accounts.get(body.email)!;
+    delete user.targets;
+    const { POST: send } = await import("@/app/api/auth/verification/route");
+    const { PATCH: edit } = await import("@/app/api/auth/account/route");
+    const { GET: me } = await import("@/app/api/auth/me/route");
+    const update = (email: string, currentPassword = body.password) => edit(new Request("http://localhost/api/auth/account", {
+      method: "PATCH", body: JSON.stringify({ field: "email", email, currentPassword }),
+    }));
+    const alternate = "new-" + body.email;
+    expect((await send()).status).toBe(200);
+    try {
+      expect((await update(alternate, "incorrect-password")).ok).toBe(false);
+      expect(user.email).toBe(body.email);
+      expect((await (await me()).json()).verificationEmailSent).toBe(true);
+      databaseOffline = true;
+      expect((await update(alternate)).status).toBe(503);
+      expect(user.email).toBe(body.email);
+      databaseOffline = false;
+      expect((await (await me()).json()).verificationEmailSent).toBe(true);
+      failedMail.add(alternate);
+      failedMail.add(body.email);
+      for (const email of [alternate, body.email]) {
+        expect((await update(email)).status).toBe(200);
+        expect(user.email).toBe(email);
+        expect((await (await me()).json()).verificationEmailSent).toBe(false);
+      }
+      failedMail.delete(body.email);
+      const { POST: login } = await import("@/app/api/auth/login/route");
+      const next = await login(new Request("http://localhost/api/auth/login", {
+        method: "POST", body: JSON.stringify({ identifier: body.email, password: body.password }),
+      }));
+      expect((await next.json()).verificationEmailSent).toBe(true);
+      expect(sentMail.filter(email => email === body.email)).toHaveLength(3);
+    } finally {
+      databaseOffline = false;
+      cookieStore.clear();
+      failedMail.delete(alternate);
+      failedMail.delete(body.email);
+    }
   });
 
   it("tracks an explicit send for an older authenticated account without a local profile", async () => {

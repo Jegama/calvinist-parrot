@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSessionAccount } from "@/lib/appwrite/server";
-import { sendAccountVerification } from "@/lib/appwrite/verification";
+import { changeVerificationEmail, sendAccountVerification } from "@/lib/appwrite/verification";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { syncConfirmedEmail } from "@/lib/user-profile";
 
@@ -33,7 +33,7 @@ export async function PATCH(request: Request) {
     if (change.field === "email") {
       if (!user.passwordUpdate) return fail("Set a password before changing your email.", 400);
       if (change.email.toLowerCase() === user.email.toLowerCase()) return fail("Enter a different email address.", 400);
-      updated = await account.updateEmail({ email: change.email, password: change.currentPassword });
+      updated = await changeVerificationEmail(account, user, change.email, change.currentPassword);
       const [mirror, verification] = await Promise.allSettled([
         syncConfirmedEmail(updated, () => account.get()),
         sendAccountVerification(account, updated),

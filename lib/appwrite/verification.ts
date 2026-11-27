@@ -3,16 +3,22 @@ import { Account, type Models } from "node-appwrite";
 
 import { createSessionAppwriteClient, getAppUrl, getForwardedUserAgent } from "./server";
 
-type EmailIdentity = Pick<Models.User<Models.Preferences>, "$id" | "email" | "emailVerification" | "$updatedAt" | "targets">;
+type EmailIdentity = Pick<Models.User<Models.Preferences>, "$id" | "email" | "emailVerification" | "targets">;
+type VerificationUser = EmailIdentity & Pick<Models.User<Models.Preferences>, "name" | "$updatedAt">;
+
+function emailTarget(user: EmailIdentity) {
+  const email = user.email.toLowerCase();
+  return user.targets?.find(target =>
+    target.providerType === "email" && target.identifier.toLowerCase() === email && target.$id && target.$updatedAt
+  );
+}
+
+function deliveryKey(email: string, target?: Models.Target) {
+  return createHash("sha256").update(JSON.stringify([email.toLowerCase(), target?.$id, target?.$updatedAt])).digest("hex");
+}
 
 function verificationKey(user: EmailIdentity) {
-  const email = user.email.toLowerCase();
-  const target = user.targets?.find(target => target.providerType === "email" && target.identifier.toLowerCase() === email);
-  // Appwrite updates the email target on each address change, including a change back.
-  // Older accounts can lack a target. Their account timestamp also changes on email edits.
-  const revision = target?.$updatedAt || user.$updatedAt;
-  if (!revision) return null;
-  return createHash("sha256").update(JSON.stringify([email, target?.$id, revision])).digest("hex");
+  return deliveryKey(user.email, emailTarget(user));
 }
 
 export async function hasVerificationEmail(user: EmailIdentity) {
@@ -31,7 +37,44 @@ async function deliver(account: Account) {
   await account.createEmailVerification({ url: `${getAppUrl()}/verify-email` });
 }
 
-type VerificationUser = EmailIdentity & Pick<Models.User<Models.Preferences>, "name">;
+async function ensureReceiptProfile(user: VerificationUser) {
+  const { default: prisma } = await import("@/lib/prisma");
+  const profile = await prisma.userProfile.findUnique({ where: { appwriteUserId: user.$id }, select: { id: true } });
+  if (!profile) {
+    const { upsertUserProfileFromAppwriteUser } = await import("@/lib/user-profile");
+    await upsertUserProfileFromAppwriteUser(user);
+  }
+}
+
+export async function changeVerificationEmail(account: Account, user: VerificationUser, email: string, password: string) {
+  if (emailTarget(user)) return account.updateEmail({ email, password });
+
+  // Legacy Appwrite users have no email-specific timestamp. Clear any receipt for
+  // the destination durably before the provider can invalidate links on the change.
+  const { default: prisma } = await import("@/lib/prisma");
+  await ensureReceiptProfile(user);
+  const where = { appwriteUserId: user.$id };
+  const destination = deliveryKey(email);
+  await prisma.accountVerificationEmail.deleteMany({ where: { ...where, deliveryKey: destination } });
+
+  let changed: Models.User<Models.Preferences> | undefined;
+  try {
+    return await prisma.$transaction(async tx => {
+      // Lock the same row as send(). If an overlapping change has already delivered
+      // to the destination since the deletion, let the caller retry with fresh state.
+      const receipt = await tx.accountVerificationEmail.upsert({
+        where, create: { ...where, deliveryKey: "" }, update: where,
+      });
+      if (receipt.deliveryKey === destination) throw new Error("Concurrent email change");
+      changed = await account.updateEmail({ email, password });
+      return changed;
+    }, { timeout: 15_000 });
+  } catch (error) {
+    // Appwrite may have confirmed the change before the database connection was lost.
+    if (changed) return changed;
+    throw error;
+  }
+}
 
 async function send(account: Account, user: VerificationUser, automatic: boolean) {
   // The updateEmail response can still include the old target. Read the authoritative
@@ -41,23 +84,11 @@ async function send(account: Account, user: VerificationUser, automatic: boolean
     throw new Error("The account email changed during verification.");
   }
   const key = verificationKey(recipient);
-  if (!key) {
-    if (automatic) return false;
-    await deliver(account);
-    return true;
-  }
   let contactedProvider = false;
   let accepted = false;
   try {
     const { default: prisma } = await import("@/lib/prisma");
-    if (!automatic) {
-      // Some older Appwrite sessions predate the creation of a local profile.
-      const profile = await prisma.userProfile.findUnique({ where: { appwriteUserId: user.$id }, select: { id: true } });
-      if (!profile) {
-        const { upsertUserProfileFromAppwriteUser } = await import("@/lib/user-profile");
-        await upsertUserProfileFromAppwriteUser(user);
-      }
-    }
+    if (!automatic) await ensureReceiptProfile(user);
     return await prisma.$transaction(async tx => {
       // The unique account row serializes sends across instances. Concurrent sign-ins
       // see the first accepted send when its transaction commits.

@@ -6,12 +6,17 @@ const syncEmail = vi.hoisted(() => vi.fn());
 const sendVerification = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/appwrite/server", () => ({ getSessionAccount: readSession }));
 vi.mock("@/lib/user-profile", () => ({ syncConfirmedEmail: syncEmail }));
-vi.mock("@/lib/appwrite/verification", () => ({ sendAccountVerification: sendVerification }));
+vi.mock("@/lib/appwrite/verification", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/appwrite/verification")>(), sendAccountVerification: sendVerification,
+}));
 
 import { PATCH } from "./route";
 
-const user = { $id: "reader", email: "reader@example.test", emailVerification: true, passwordUpdate: "2026-11-26T00:00:00.000Z" };
-const updatedEmail = { ...user, email: "new@example.test", emailVerification: false };
+const user = {
+  $id: "reader", email: "reader@example.test", emailVerification: true, passwordUpdate: "2026-11-26T00:00:00.000Z",
+  targets: [{ $id: "target", providerType: "email", identifier: "reader@example.test", $updatedAt: "2026-11-26T00:00:00.000Z" }],
+};
+const updatedEmail = { ...user, targets: [], email: "new@example.test", emailVerification: false };
 const sessionClient = new Client().setEndpoint("http://localhost/v1").setProject("test").setSession("test-session");
 const sessionAccount = new Account(sessionClient);
 
