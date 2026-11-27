@@ -36,7 +36,7 @@ export async function PATCH(request: Request) {
       updated = await changeVerificationEmail(account, user, change.email, change.currentPassword);
       const [mirror, verification] = await Promise.allSettled([
         syncConfirmedEmail(updated, () => account.get()),
-        sendAccountVerification(account, updated),
+        sendAccountVerification(account, updated, "email-change"),
       ]);
       verificationEmailSent = verification.status === "fulfilled" && verification.value;
       message = verificationEmailSent

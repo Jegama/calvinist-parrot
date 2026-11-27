@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
-import { getUserProfileForAppwriteUser } from "@/lib/user-profile";
+import { getUserProfileForAppwriteUser, toPublicProfile } from "@/lib/user-profile";
 import { getHouseholdForUser } from "@/lib/householdService";
 
 export async function GET(request: Request) {
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     questions,
-    profile,
+    profile: toPublicProfile(profile),
     space: household?.space ?? null,
     membership: serializedMembership,
   });

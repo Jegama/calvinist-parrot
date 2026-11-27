@@ -6,6 +6,21 @@ type ProfileUser = { $id: string; name: string; email: string; $updatedAt?: stri
 type GoogleNames = Pick<userProfile, "firstName" | "lastName">;
 type ReadCurrentAccount = () => Promise<ProfileUser | null>;
 
+// Browser responses expose the account fields and statistics used by Profile.
+// The database row also contains private pastoral notes and synchronization state.
+export function toPublicProfile(profile: userProfile | null) {
+  if (!profile) return null;
+  return {
+    id: profile.id, appwriteUserId: profile.appwriteUserId, email: profile.email,
+    displayName: profile.displayName, username: profile.username,
+    firstName: profile.firstName, lastName: profile.lastName, firstNameNudgeShown: profile.firstNameNudgeShown,
+    denomination: profile.denomination, preferredDepth: profile.preferredDepth, defaultSpaceId: profile.defaultSpaceId,
+    answeredPersonalCount: profile.answeredPersonalCount, answeredFamilyCount: profile.answeredFamilyCount,
+    journalEntriesCount: profile.journalEntriesCount, lastPrayerAt: profile.lastPrayerAt,
+    createdAt: profile.createdAt, updatedAt: profile.updatedAt, lastSeenAt: profile.lastSeenAt,
+  };
+}
+
 export function isUniqueConstraintError(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
@@ -99,10 +114,10 @@ export async function getUserProfileForAppwriteUser(user: ProfileUser, readCurre
   const profile = await prisma.userProfile.findUnique({ where: { appwriteUserId: user.$id } });
   // Retry the mirror on a subsequent signed-in read if the original email change
   // reached Appwrite while PostgreSQL was temporarily unavailable.
-  if (profile && profile.email !== (user.email || null) && user.$updatedAt) {
+  if (profile && user.$updatedAt) {
     const version = new Date(user.$updatedAt).getTime();
     const storedVersion = profile.appwriteUpdatedAt?.getTime() ?? -Infinity;
-    if (version > storedVersion || (version === storedVersion && readCurrentAccount)) {
+    if (version > storedVersion || (version === storedVersion && readCurrentAccount && profile.email !== (user.email || null))) {
       return prisma.$transaction(tx => syncProfile(tx, user, { readCurrentAccount }));
     }
   }

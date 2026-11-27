@@ -37,6 +37,7 @@ const accounts = new Map<string, FixtureAccount>();
 const sessions = new Map<string, string>();
 const guestChatId = randomUUID();
 let failNextSession = false;
+let afterEmailChange: (() => Promise<void>) | undefined;
 const sentMail: string[] = [];
 const failedMail = new Set<string>();
 
@@ -105,6 +106,7 @@ describe.skipIf(!databaseUrl)("password registration through Appwrite and Postgr
         const user = oldEmail && accounts.get(oldEmail);
         if (!user || user.password !== data.password) throw new AppwriteException("Invalid", 401);
         changeFixtureEmail(user, email);
+        await afterEmailChange?.();
         return user;
       }
       if (url.pathname === "/v1/account/password") {
@@ -244,6 +246,39 @@ describe.skipIf(!databaseUrl)("password registration through Appwrite and Postgr
     expect((await next.json()).verificationEmailSent).toBe(true);
     expect(sentMail.filter(to => to === body.email)).toHaveLength(2);
     cookieStore.clear();
+  });
+
+  it("coalesces an email change with a sign-in that has already sent to the new address", async () => {
+    const body = form("sharedsend");
+    const signup = await register(body);
+    cookieStore.set("a_session_test-project", { value: signup.cookies.get("a_session_test-project")!.value });
+    const { PATCH: edit } = await import("@/app/api/auth/account/route");
+    const { POST: login } = await import("@/app/api/auth/login/route");
+    const email = "new-" + body.email;
+    afterEmailChange = async () => {
+      const result = await login(new Request("http://localhost/api/auth/login", {
+        method: "POST", body: JSON.stringify({ identifier: email, password: body.password }),
+      }));
+      expect((await result.json()).verificationEmailSent).toBe(true);
+    };
+    try {
+      const result = await edit(new Request("http://localhost/api/auth/account", {
+        method: "PATCH", body: JSON.stringify({ field: "email", email, currentPassword: body.password }),
+      }));
+      expect(await result.json()).toMatchObject({ account: { email }, verificationEmailSent: true });
+      expect(sentMail.filter(address => address === email)).toHaveLength(1);
+    } finally {
+      afterEmailChange = undefined;
+      cookieStore.clear();
+    }
+  });
+
+  it("returns anonymous session state without deleting a later sign-in cookie", async () => {
+    cookieStore.clear();
+    const { GET: me } = await import("@/app/api/auth/me/route");
+    const result = await me();
+    expect((await result.json()).authenticated).toBe(false);
+    expect(result.headers.get("set-cookie")).toBeNull();
   });
 
   it("rejects the original receipt after an address round trip during simultaneous database and mail outages", async () => {

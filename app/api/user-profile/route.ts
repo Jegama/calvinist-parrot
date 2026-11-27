@@ -6,6 +6,7 @@ import { getAuthenticatedUser } from "@/lib/auth";
 import { normalizeProfileName, normalizeUsername, PROFILE_NAME_MAX_LENGTH, USERNAME_HINT } from "@/lib/profile-identity";
 import {
   editUserProfile,
+  toPublicProfile,
   getUserProfileForAppwriteUser,
   isUniqueConstraintError,
   upsertUserProfileFromAppwriteUser,
@@ -26,14 +27,14 @@ export async function GET() {
   const user = await getAuthenticatedUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  return NextResponse.json(await getUserProfileForAppwriteUser(user));
+  return NextResponse.json(toPublicProfile(await getUserProfileForAppwriteUser(user, getAuthenticatedUser)));
 }
 
 export async function POST() {
   const user = await getAuthenticatedUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  return NextResponse.json(await upsertUserProfileFromAppwriteUser(user));
+  return NextResponse.json(toPublicProfile(await upsertUserProfileFromAppwriteUser(user)));
 }
 
 export async function PATCH(request: Request) {

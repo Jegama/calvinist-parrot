@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -47,17 +48,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [identity, setIdentity] = useState<SessionIdentity>({ user: null, profile: null, verificationEmailSent: false });
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
+  const activeUserId = useRef<string | undefined>(undefined);
+  const authRevision = useRef(0);
 
   const setUser = useCallback((user: AppwriteUser | null, profile?: ProfileSnapshot | null, verificationEmailSent = false) => {
+    activeUserId.current = user?.$id;
+    authRevision.current++;
     setIdentity({ user, profile: profile ?? null, verificationEmailSent });
     setLoading(false);
   }, []);
 
   const updateProfile = useCallback((userId: string, profile: ProfileSnapshot) => {
+    if (activeUserId.current !== userId) return;
+    authRevision.current++;
+    setLoading(false);
     setIdentity((current) => current.user?.$id === userId ? { ...current, profile } : current);
   }, []);
 
   const updateCredentials = useCallback((userId: string, { account, verificationEmailSent }: AccountUpdate) => {
+    if (activeUserId.current !== userId) return;
+    authRevision.current++;
+    setLoading(false);
     setIdentity((current) => current.user?.$id === userId
       ? {
         ...current,
@@ -68,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refresh = useCallback(async () => {
+    const revision = ++authRevision.current;
     setLoading(true);
     try {
       const response = await fetch("/api/auth/me", {
@@ -80,9 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const payload = (await response.json()) as AuthResponse;
+      if (revision !== authRevision.current) return;
       setUser(payload.authenticated ? payload.user ?? null : null, payload.profile, payload.verificationEmailSent);
     } catch {
-      setUser(null);
+      if (revision === authRevision.current) setUser(null);
     }
   }, [setUser]);
 

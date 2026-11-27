@@ -54,6 +54,21 @@ it("keeps unknown and known recovery addresses indistinguishable and applies the
   expect(sdk.mock.contexts[0]).toMatchObject({ config: { key: "", session: "" } });
 });
 
+it("returns the same recovery acknowledgement when the provider fails while queueing mail", async () => {
+  const { POST } = await import("@/app/api/auth/password/recovery/route");
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  vi.spyOn(Client.prototype, "call")
+    .mockRejectedValueOnce(new AppwriteException("Queue offline", 500))
+    .mockRejectedValueOnce(new AppwriteException("No account", 404, "user_not_found"))
+    .mockResolvedValueOnce({});
+  for (const email of ["queue@example.test", "unregistered@example.test", "delivered@example.test"]) {
+    const result = await POST(request("/api/auth/password/recovery", { email }));
+    expect(result.status).toBe(200);
+    expect(await result.json()).toEqual({ success: true });
+  }
+  expect(warn).toHaveBeenCalledWith("Appwrite could not complete a password recovery request.");
+});
+
 it("sends to the session account, enforces its resend limit, and uses the approved Preview origin", async () => {
   vi.stubEnv("VERCEL_ENV", "preview");
   vi.stubEnv("VERCEL_BRANCH_URL", "parrot-branch.vercel.app");

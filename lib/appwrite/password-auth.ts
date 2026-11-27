@@ -12,6 +12,7 @@ import {
 } from "@/lib/appwrite/server";
 import { transferGuestChatsToUser } from "@/lib/chat-transfer";
 import { sendFirstVerificationEmail } from "./verification";
+import { toPublicProfile } from "@/lib/user-profile";
 import { getGuestId } from "@/lib/guest";
 
 export async function getCanonicalEmailForUser(userId: string) {
@@ -36,7 +37,7 @@ export async function completePasswordSignIn(
   if (guestId) await transferGuestChatsToUser(guestId, user.$id);
 
   const verificationEmailSent = await sendFirstVerificationEmail(user, session.secret);
-  const response = NextResponse.json({ authenticated: true, user: toSerializableUser(user), profile, verificationEmailSent });
+  const response = NextResponse.json({ authenticated: true, user: toSerializableUser(user), profile: toPublicProfile(profile), verificationEmailSent });
   applyAppwriteSessionCookie(response, session);
   if (guestId) response.cookies.delete(GUEST_ID_COOKIE);
   return response;

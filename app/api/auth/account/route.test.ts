@@ -47,7 +47,7 @@ it("updates the session owner's email, syncs only provider-returned data and sen
   expect(api.mock.calls[1][3]).toEqual({ email: updatedEmail.email, password: emailChange.currentPassword });
   expect(api.mock.contexts[1]).toMatchObject({ config: { key: "", session: "test-session" } });
   expect(syncEmail).toHaveBeenCalledWith(expect.objectContaining(updatedEmail), expect.any(Function));
-  expect(sendVerification).toHaveBeenCalledWith(sessionAccount, expect.objectContaining(updatedEmail));
+  expect(sendVerification).toHaveBeenCalledWith(sessionAccount, expect.objectContaining(updatedEmail), "email-change");
   expect(await res.json()).toMatchObject({ account: { email: updatedEmail.email, emailVerification: false }, verificationEmailSent: true, message: expect.stringContaining("Check your new inbox") });
 });
 

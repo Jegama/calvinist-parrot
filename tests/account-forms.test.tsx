@@ -176,6 +176,41 @@ it("remembers the cold consent request across the Google round trip and consumes
   expect(afterLoginPath()).toBe("/");
 });
 
+it("ignores an older session refresh that finishes after a credential or profile update", async () => {
+  function Actions() {
+    const { refresh, updateCredentials, updateProfile } = useAuth();
+    return <>
+      <button onClick={() => void refresh()}>Refresh</button>
+      <button onClick={() => {
+        updateCredentials(providerUser.$id, { account: { email: "new@example.test", emailVerification: true, passwordUpdate: "" } });
+        updateProfile(providerUser.$id, { displayName: "Edited Name" });
+      }}>Apply changes</button>
+    </>;
+  }
+  await renderWithSession(<Actions />, signedIn);
+  let finish!: (response: Response) => void;
+  transport.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const buttons = container.querySelectorAll("button");
+  await act(async () => buttons[0].click());
+  await act(async () => buttons[1].click());
+  await act(async () => finish(Response.json(signedIn)));
+  expect(JSON.parse(container.querySelector("output")!.textContent!)).toMatchObject({
+    user: { email: "new@example.test", emailVerification: true }, displayName: "Edited Name",
+  });
+});
+
+it("keeps a successful sign-in when a previous guest session read finishes later", async () => {
+  let finish!: (response: Response) => void;
+  transport.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  await act(async () => root.render(<QueryClientProvider client={new QueryClient()}>
+    <AuthProvider><LoginForm /><SessionDetails /></AuthProvider>
+  </QueryClientProvider>));
+  transport.mockResolvedValueOnce(Response.json(signedIn));
+  await submit({ identifier: providerUser.email, password: "test-password" });
+  await act(async () => finish(Response.json({ authenticated: false })));
+  expectSignedInName();
+});
+
 it("restores the saved display name and provider identity from /api/auth/me", async () => {
   await renderWithSession(null, signedIn);
   expect(transport).toHaveBeenCalledWith("/api/auth/me", expect.objectContaining({ method: "GET" }));

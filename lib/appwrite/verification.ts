@@ -76,10 +76,12 @@ export async function changeVerificationEmail(account: Account, user: Verificati
   }
 }
 
-async function send(account: Account, user: VerificationUser, automatic: boolean) {
+type SendReason = "sign-in" | "email-change" | "resend";
+
+async function send(account: Account, user: VerificationUser, reason: SendReason) {
   // The updateEmail response can still include the old target. Read the authoritative
   // revision for explicit sends; sign-in already supplied a fresh account snapshot.
-  const recipient = automatic ? user : await account.get();
+  const recipient = reason === "sign-in" ? user : await account.get();
   if (recipient.$id !== user.$id || recipient.email.toLowerCase() !== user.email.toLowerCase() || recipient.emailVerification) {
     throw new Error("The account email changed during verification.");
   }
@@ -88,7 +90,7 @@ async function send(account: Account, user: VerificationUser, automatic: boolean
   let accepted = false;
   try {
     const { default: prisma } = await import("@/lib/prisma");
-    if (!automatic) await ensureReceiptProfile(user);
+    if (reason !== "sign-in") await ensureReceiptProfile(user);
     return await prisma.$transaction(async tx => {
       // The unique account row serializes sends across instances. Concurrent sign-ins
       // see the first accepted send when its transaction commits.
@@ -97,7 +99,7 @@ async function send(account: Account, user: VerificationUser, automatic: boolean
         ON CONFLICT ("appwriteUserId") DO UPDATE SET "email" = EXCLUDED."email"
         WHERE "accountVerificationEmail"."email" <> EXCLUDED."email"
       `;
-      if (automatic && changed === 0) return true;
+      if (reason !== "resend" && changed === 0) return true;
 
       contactedProvider = true;
       // A sign-in or resend can arrive behind an email change in another session.
@@ -110,7 +112,7 @@ async function send(account: Account, user: VerificationUser, automatic: boolean
       return true;
     }, { timeout: 15_000 });
   } catch (error) {
-    if (accepted || automatic) return accepted;
+    if (accepted || reason === "sign-in") return accepted;
     if (contactedProvider) throw error;
     // A missing receipt table or unavailable DB must not disable explicit sends.
     await deliver(account);
@@ -118,15 +120,15 @@ async function send(account: Account, user: VerificationUser, automatic: boolean
   }
 }
 
-export function sendAccountVerification(account: Account, user: VerificationUser) {
-  return send(account, user, false);
+export function sendAccountVerification(account: Account, user: VerificationUser, reason: "resend" | "email-change" = "resend") {
+  return send(account, user, reason);
 }
 
 export async function sendFirstVerificationEmail(user: VerificationUser, sessionSecret: string) {
   if (user.emailVerification !== false || !user.email) return false;
   try {
     const account = new Account(createSessionAppwriteClient(sessionSecret, await getForwardedUserAgent()));
-    return await send(account, user, true);
+    return await send(account, user, "sign-in");
   } catch {
     return false;
   }

@@ -22,16 +22,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Too many recovery requests. Please try again later." }, { status: 429 });
   }
 
+  let account: Account;
+  let url: string;
   try {
-    const account = new Account(createPublicAppwriteClient(await getForwardedUserAgent()));
-    await account.createRecovery({ email, url: `${getAppUrl()}/reset-password` });
+    url = `${getAppUrl()}/reset-password`;
+    account = new Account(createPublicAppwriteClient(await getForwardedUserAgent()));
+  } catch {
+    return NextResponse.json({ error: "Password recovery is temporarily unavailable. Try again later." }, { status: 503 });
+  }
+
+  try {
+    await account.createRecovery({ email, url });
   } catch (error) {
-    // Account-specific failures and provider mail quotas must not disclose inbox membership.
-    const privateFailure = error instanceof AppwriteException && (
-      error.type === "user_not_found" || error.type === "user_blocked" || error.type === "user_invalid_credentials" || error.code === 429
-    );
-    if (!privateFailure) {
-      return NextResponse.json({ error: "Password recovery is temporarily unavailable. Try again later." }, { status: 503 });
+    // Only existing accounts enqueue mail. Returning a queue error would reveal
+    // which addresses are registered when the provider has a delivery outage.
+    if (!(error instanceof AppwriteException) || error.code >= 500) {
+      console.warn("Appwrite could not complete a password recovery request.");
     }
   }
   return NextResponse.json({ success: true });
