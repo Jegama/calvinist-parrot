@@ -64,7 +64,7 @@ function PrayerTrackerContent() {
   const cancelRotation = rotationWorkflow.handleCancelRotation;
   const handleRemoteChange = useCallback(async (change: "household" | "names") => {
     if (change === "household") cancelRotation();
-    await refreshAll({ silent: true });
+    return refreshAll({ silent: true });
   }, [cancelRotation, refreshAll]);
 
   useSpaceSync({
@@ -92,7 +92,7 @@ function PrayerTrackerContent() {
     return <ProtectedView fallback={authFallback} />;
   }
 
-  if (!isCurrentUserSpaceLoaded) {
+  if (!isCurrentUserSpaceLoaded || spaceName === undefined) {
     return (
       <ProtectedView fallback={authFallback}>
         <Card className="max-w-2xl mx-auto mt-8 mb-8">
@@ -100,7 +100,7 @@ function PrayerTrackerContent() {
             <CardTitle>Prayer Tracker</CardTitle>
           </CardHeader>
           <CardContent>
-            <p>Loading your family space...</p>
+            <p role="status">{isCurrentUserSpaceLoaded ? "Couldn’t load your household. Retrying…" : "Loading your family space..."}</p>
           </CardContent>
         </Card>
       </ProtectedView>

@@ -10,8 +10,18 @@ const databaseUrl = process.env.CI ? process.env.DATABASE_URL
   : process.env.RUN_DATABASE_INTEGRATION_TESTS === "1" ? process.env.TEST_DATABASE_URL : undefined;
 
 let db: PrismaClient;
+let databaseOffline = false;
+
 const cookieStore = new Map<string, { value: string }>();
-vi.mock("@/lib/prisma", () => ({ get default() { return db; } }));
+vi.mock("@/lib/prisma", () => {
+  const reject = async () => { throw new Error("Database unavailable"); };
+  const offline = {
+    $transaction: reject,
+    userProfile: { findUnique: reject },
+    accountVerificationEmail: { findUnique: reject },
+  };
+  return { get default() { return databaseOffline ? offline : db; } };
+});
 vi.mock("next/headers", () => ({
   cookies: async () => cookieStore,
   headers: async () => new Headers(),
@@ -19,12 +29,29 @@ vi.mock("next/headers", () => ({
 
 const suffix = randomUUID().slice(0, 8);
 const guestId = randomUUID();
-const accounts = new Map<string, { $id: string; email: string; name: string; password: string; passwordUpdate: string; emailVerification: boolean }>();
+type FixtureAccount = {
+  $id: string; $updatedAt: string; name: string; email: string; password: string; passwordUpdate: string; emailVerification: boolean;
+  targets?: { $id: string; providerType: string; identifier: string; $updatedAt: string }[];
+};
+const accounts = new Map<string, FixtureAccount>();
 const sessions = new Map<string, string>();
 const guestChatId = randomUUID();
 let failNextSession = false;
 const sentMail: string[] = [];
 const failedMail = new Set<string>();
+
+function changeFixtureEmail(user: FixtureAccount, email: string) {
+  const oldEmail = user.email;
+  accounts.delete(oldEmail);
+  user.email = email;
+  user.emailVerification = false;
+  user.$updatedAt = new Date(Date.parse(user.$updatedAt) + 1).toISOString();
+  if (user.targets) user.targets[0] = { ...user.targets[0], identifier: email, $updatedAt: user.$updatedAt };
+  accounts.set(email, user);
+  for (const [secret, address] of sessions) {
+    if (address === oldEmail) sessions.set(secret, email);
+  }
+}
 
 function form(label: string) {
   return {
@@ -52,7 +79,12 @@ describe.skipIf(!databaseUrl)("password registration through Appwrite and Postgr
       const account = accounts.get(email);
       if (url.pathname === "/v1/account" && method.toLowerCase() === "post") {
         if (account) throw new AppwriteException("Duplicate", 409);
-        const user = { $id: data.userId, name: data.name, email, password: data.password, passwordUpdate: new Date().toISOString(), emailVerification: false };
+        const created = new Date().toISOString();
+        const user = {
+          $id: data.userId, $updatedAt: created, name: data.name, email, password: data.password,
+          passwordUpdate: created, emailVerification: false,
+          targets: [{ $id: "email-target", providerType: "email", identifier: email, $updatedAt: created }],
+        };
         accounts.set(email, user);
         return user;
       }
@@ -72,13 +104,7 @@ describe.skipIf(!databaseUrl)("password registration through Appwrite and Postgr
         const oldEmail = sessions.get(session);
         const user = oldEmail && accounts.get(oldEmail);
         if (!user || user.password !== data.password) throw new AppwriteException("Invalid", 401);
-        accounts.delete(oldEmail);
-        user.email = email;
-        user.emailVerification = false;
-        accounts.set(email, user);
-        for (const [secret, address] of sessions) {
-          if (address === oldEmail) sessions.set(secret, email);
-        }
+        changeFixtureEmail(user, email);
         return user;
       }
       if (url.pathname === "/v1/account/verifications/email") {
@@ -165,9 +191,7 @@ describe.skipIf(!databaseUrl)("password registration through Appwrite and Postgr
     cookieStore.clear();
 
     const user = accounts.get(body.email)!;
-    accounts.delete(body.email);
-    user.email = `new-${body.email}`;
-    accounts.set(user.email, user);
+    changeFixtureEmail(user, `new-${body.email}`);
     const byHandle = await login(username.toUpperCase());
     expect(byHandle.status).toBe(200);
     expect(await byHandle.json()).toMatchObject({ verificationEmailSent: true, profile: { appwriteUserId: user.$id, email: user.email, username } });
@@ -215,9 +239,61 @@ describe.skipIf(!databaseUrl)("password registration through Appwrite and Postgr
     cookieStore.clear();
   });
 
+  it("rejects the original receipt after an address round trip during simultaneous database and mail outages", async () => {
+    const body = form("offline");
+    const signup = await register(body);
+    expect((await signup.json()).verificationEmailSent).toBe(true);
+    cookieStore.set("a_session_test-project", { value: signup.cookies.get("a_session_test-project")!.value });
+    const { PATCH: edit } = await import("@/app/api/auth/account/route");
+    const { GET: me } = await import("@/app/api/auth/me/route");
+    const { POST: login } = await import("@/app/api/auth/login/route");
+    const alternate = "new-" + body.email;
+    failedMail.add(alternate);
+    failedMail.add(body.email);
+    try {
+      databaseOffline = true;
+      for (const email of [alternate, body.email]) {
+        const response = await edit(new Request("http://localhost/api/auth/account", {
+          method: "PATCH", body: JSON.stringify({ field: "email", email, currentPassword: body.password }),
+        }));
+        expect(response.status).toBe(200);
+        expect(await response.json()).toMatchObject({ account: { email }, verificationEmailSent: false });
+      }
+      databaseOffline = false;
+      expect((await (await me()).json()).verificationEmailSent).toBe(false);
+      failedMail.delete(body.email);
+      const session = await login(new Request("http://localhost/api/auth/login", {
+        method: "POST", body: JSON.stringify({ identifier: body.email, password: body.password }),
+      }));
+      expect((await session.json()).verificationEmailSent).toBe(true);
+      expect(sentMail.filter(email => email === body.email)).toHaveLength(2);
+      expect((await (await me()).json()).verificationEmailSent).toBe(true);
+    } finally {
+      databaseOffline = false;
+      failedMail.delete(alternate);
+      failedMail.delete(body.email);
+      cookieStore.clear();
+    }
+  });
+
+  it("refreshes a legacy address-only receipt once and keeps it through unrelated account updates", async () => {
+    const body = form("oldreceipt");
+    await register(body);
+    const user = accounts.get(body.email)!;
+    await db.accountVerificationEmail.update({ where: { appwriteUserId: user.$id }, data: { deliveryKey: user.email } });
+    const { POST: login } = await import("@/app/api/auth/login/route");
+    const signIn = () => login(new Request("http://localhost/api/auth/login", {
+      method: "POST", body: JSON.stringify({ identifier: body.email, password: body.password }),
+    }));
+    expect((await (await signIn()).json()).verificationEmailSent).toBe(true);
+    user.$updatedAt = new Date(Date.parse(user.$updatedAt) + 1).toISOString();
+    expect((await (await signIn()).json()).verificationEmailSent).toBe(true);
+    expect(sentMail.filter(email => email === body.email)).toHaveLength(2);
+  });
+
   it("tracks an explicit send for an older authenticated account without a local profile", async () => {
     const body = form("legacy");
-    const user = { $id: randomUUID(), email: body.email, name: "Legacy Name", password: body.password, passwordUpdate: "", emailVerification: false };
+    const user = { $id: randomUUID(), email: body.email, $updatedAt: new Date().toISOString(), name: "Legacy Name", password: body.password, passwordUpdate: "", emailVerification: false };
     accounts.set(user.email, user);
     const secret = randomUUID();
     sessions.set(secret, user.email);

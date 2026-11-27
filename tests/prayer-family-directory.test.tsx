@@ -16,7 +16,7 @@ it("searches all directory pages and returns to page one when the query changes"
   }));
   families.push({ ...families[20], id: "archived", familyName: "Family 21 archived", archivedAt: "2026-01-01" });
   function Directory() {
-    const manager = useFamilyManager({ user: null, families, refreshLists: async () => {} });
+    const manager = useFamilyManager({ user: null, families, refreshLists: async () => true });
     return (
       <FamilySection
         {...manager}

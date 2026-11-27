@@ -46,10 +46,12 @@ export async function fetchSpace(): Promise<Result<SpaceData | null>> {
     const res = await fetch(`/api/prayer-tracker/spaces`);
 
     if (!res.ok) {
-      return { success: true, data: null }; // No space exists yet
+      const error = await handleApiError(res, "Unable to load your prayer space right now.");
+      return { success: false, error };
     }
 
     const data = await res.json();
+    if (data.space === null) return { success: true, data: null };
     const space: SpaceData = {
       spaceName: data?.space?.spaceName ?? null,
       members: Array.isArray(data?.space?.members) ? data.space.members : [],

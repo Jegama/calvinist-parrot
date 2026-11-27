@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 
 type UseSpaceSyncOptions = {
   enabled: boolean;
-  onRemoteChange: (change: "household" | "names") => void | Promise<void>;
+  onRemoteChange: (change: "household" | "names") => Promise<boolean>;
   intervalMs?: number;
 };
 
@@ -52,8 +52,8 @@ export function useSpaceSync({
         // A simultaneous membership or prayer change takes priority over a rename.
         const householdChanged = !previous || data.spaceId !== previous.spaceId || data.version !== previous.version;
         if (householdChanged || data.nameVersion !== previous?.nameVersion) {
-          await onRemoteChangeRef.current(householdChanged ? "household" : "names");
-          if (cancelled) return;
+          const refreshed = await onRemoteChangeRef.current(householdChanged ? "household" : "names");
+          if (!refreshed || cancelled) return;
         }
         previous = data;
       } catch {

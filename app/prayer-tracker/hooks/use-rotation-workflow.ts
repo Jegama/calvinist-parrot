@@ -7,7 +7,7 @@ type UseRotationWorkflowOptions = {
   user: AppwriteUser | null;
   members: Member[];
   onMembersUpdate: (nextMembers: Member[]) => void;
-  refreshAll: (options?: { silent?: boolean }) => Promise<void>;
+  refreshAll: (options?: { silent?: boolean }) => Promise<boolean>;
 };
 
 type FamilyWithAssignment = {

@@ -81,7 +81,7 @@ it("sends to the session account, enforces its resend limit, and uses the approv
 it("skips the automatic send when its receipt cannot be stored and still allows an explicit request", async () => {
   const { sendFirstVerificationEmail, hasVerificationEmail } = await import("@/lib/appwrite/verification");
   const { POST: resend } = await import("@/app/api/auth/verification/route");
-  const user = { $id: "reader", name: "Reader", $updatedAt: "", email: "reader@example.test", emailVerification: false };
+  const user = { $id: "reader", name: "Reader", targets: [], $updatedAt: "2026-11-26T00:00:00Z", email: "reader@example.test", emailVerification: false };
   const sdk = vi.spyOn(Client.prototype, "call").mockImplementation(async method => method === "get" ? user : {});
   expect(await sendFirstVerificationEmail(user, "synthetic-session")).toBe(false);
   expect(await hasVerificationEmail(user)).toBe(false);
