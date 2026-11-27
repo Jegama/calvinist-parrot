@@ -183,6 +183,9 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
+  // Journal deletion also locks prayer rows, their household, then the author profile.
+  transactions.push(bumpSpaceVersion(prisma, membership.spaceId));
+
   // A missing profile uses the same recoverable placeholder as other background writes.
   // Account sync replaces it on sign-in, preserving independent household labels.
   transactions.push(
@@ -237,8 +240,6 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
     });
   }
-
-  transactions.push(bumpSpaceVersion(prisma, membership.spaceId));
 
   if (markAnswered === true) {
     // Lock before updating so simultaneous clicks and replays count a single

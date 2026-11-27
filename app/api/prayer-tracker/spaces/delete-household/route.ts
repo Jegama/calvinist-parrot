@@ -82,9 +82,9 @@ export async function DELETE(request: Request) {
         });
       }
 
-      // 2. Delete journalEntry
+      // 2. Also remove household entries committed after the initial source scan.
       await tx.journalEntry.deleteMany({
-        where: { id: { in: journalEntryIds } },
+        where: { spaceId },
       });
 
       // 3. Delete prayerJournalEntry (old journal entries)
