@@ -57,7 +57,17 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     // Copy the row returned by DELETE so a concurrent edit is included in the move.
     const created = await prisma.$transaction(async (tx) => {
-      const previous = originalLinkedToFamily === "household"
+      // Journal deletion locks the entry before clearing its request links. Use that
+      // same order when carrying a link to the destination request.
+      const wasHousehold = originalLinkedToFamily === "household";
+      const sourceLink = wasHousehold
+        ? Prisma.sql`SELECT "linkedJournalEntryId" FROM "prayerPersonalRequest"
+            WHERE id = ${requestId} AND "spaceId" = ${membership.spaceId}`
+        : Prisma.sql`SELECT request."linkedJournalEntryId" FROM "prayerFamilyRequest" AS request
+            JOIN "prayerFamily" AS family ON family.id = request."familyId"
+            WHERE request.id = ${requestId} AND family."spaceId" = ${membership.spaceId}`;
+      await tx.$queryRaw`SELECT id FROM "journalEntry" WHERE id = (${sourceLink}) FOR KEY SHARE`;
+      const previous = wasHousehold
         ? await tx.prayerPersonalRequest.delete({
             where: { id: requestId, spaceId: membership.spaceId },
           })

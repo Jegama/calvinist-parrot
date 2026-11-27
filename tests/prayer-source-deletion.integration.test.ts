@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
+import { Client } from "pg";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE as deletePersonalEntry } from "@/app/api/journal/entries/[id]/route";
 import { DELETE as deleteHeritageEntry } from "@/app/api/kids-discipleship/logs/[id]/route";
+import { PATCH as moveRequest } from "@/app/api/prayer-tracker/requests/[requestId]/route";
 import { DELETE as deleteHousehold } from "@/app/api/prayer-tracker/spaces/delete-household/route";
 
 if (process.env.RUN_DATABASE_INTEGRATION_TESTS === "1") config();
@@ -77,22 +79,103 @@ describe.skipIf(!databaseUrl)("prayer sync after a journal source is deleted", (
     })).rejects.toBe(rollback);
     expect(await Promise.all(spaceIds.map(version))).toEqual(["0", "0", "0"]);
 
+    expect(await db.prayerFamilyRequest.findUniqueOrThrow({ where: { id: familyRequest.id } })).toMatchObject({ linkedJournalEntryId: linked.id });
+    const personalWhere = { spaceId: { in: spaceIds } };
+    const linkedCount = entryType === "PERSONAL" ? 2 : 1;
+    expect(await db.prayerPersonalRequest.count({ where: { ...personalWhere, linkedJournalEntryId: linked.id } })).toBe(linkedCount);
+
     expect((await remove(request, { params: Promise.resolve({ id: linked.id }) })).status).toBe(200);
     expect(await Promise.all(spaceIds.map(version))).toEqual(["1", entryType === "PERSONAL" ? "1" : "0", "0"]);
     expect(await db.prayerFamilyRequest.findUniqueOrThrow({ where: { id: familyRequest.id } })).toMatchObject({ linkedJournalEntryId: null });
-    const personal = await db.prayerPersonalRequest.findMany({ where: { spaceId: { in: spaceIds } } });
-    expect(personal.map(row => row.linkedJournalEntryId)).toEqual(entryType === "PERSONAL" ? [null, null] : [null]);
+    expect(await db.prayerPersonalRequest.count({ where: { ...personalWhere, linkedJournalEntryId: null } })).toBe(linkedCount);
+  });
+
+  it("commits a prayer edit while a concurrent journal delete waits for the same request", async () => {
+    const source = await db.journalEntry.create({ data: { authorProfileId: profileId, entryText: "Source" } });
+    const prayer = await db.prayerPersonalRequest.create({ data: { spaceId: sourceSpace, requestText: "Prayer", linkedJournalEntryId: source.id } });
+    const editor = new Client({ connectionString: databaseUrl });
+    const deleter = new Client({ connectionString: databaseUrl });
+
+    await Promise.all([editor.connect(), deleter.connect()]);
+    try {
+      const { rows: [deletingSession] } = await deleter.query<{ pid: number }>("SELECT pg_backend_pid() AS pid");
+      await editor.query("BEGIN");
+      await editor.query("SET LOCAL lock_timeout = '2s'");
+      await editor.query('UPDATE "prayerPersonalRequest" SET "requestText" = $1 WHERE id = $2', ["Edited", prayer.id]);
+
+      // Observe the overlapping transactions before asking the editor to lock its household.
+      const deletion = deleter.query('DELETE FROM "journalEntry" WHERE id = $1', [source.id])
+        .then(result => result.rowCount, error => error);
+      await vi.waitFor(async () => {
+        const { rows: [lock] } = await editor.query<{ blocked: boolean }>(
+          "SELECT pg_backend_pid() = ANY(pg_blocking_pids($1)) AS blocked", [deletingSession.pid],
+        );
+        expect(lock.blocked).toBe(true);
+      }, { timeout: 3000, interval: 10 });
+
+      await editor.query('UPDATE "prayerFamilySpace" SET version = version + 1 WHERE id = $1', [sourceSpace]);
+      await editor.query("COMMIT");
+      expect(await deletion).toBe(1);
+    } finally {
+      // Closing the editor also rolls back an open transaction if an assertion fails.
+      await editor.end();
+      await deleter.end();
+    }
+    expect(await version(sourceSpace)).toBe("2");
+    expect(await db.prayerPersonalRequest.findUniqueOrThrow({ where: { id: prayer.id } })).toMatchObject({
+      requestText: "Edited", linkedJournalEntryId: null,
+    });
+  });
+
+  it.each(["household", "family"])("commits a %s request move during journal source deletion", async origin => {
+    const source = await db.journalEntry.create({ data: { authorProfileId: profileId, entryText: "Source" } });
+    const family = await db.prayerFamily.create({ data: { spaceId: sourceSpace, familyName: "Family", parents: "" } });
+    const data = { requestText: "Prayer", linkedJournalEntryId: source.id };
+    const household = origin === "household";
+    const prayer = household
+      ? await db.prayerPersonalRequest.create({ data: { ...data, spaceId: sourceSpace } })
+      : await db.prayerFamilyRequest.create({ data: { ...data, familyId: family.id } });
+    const deleter = new Client({ connectionString: databaseUrl });
+    await deleter.connect();
+    try {
+      await deleter.query("BEGIN");
+      await deleter.query('SELECT id FROM "journalEntry" WHERE id = $1 FOR UPDATE', [source.id]);
+      const move = moveRequest(new Request("http://localhost", { method: "PATCH", body: JSON.stringify({
+        originalLinkedToFamily: household ? "household" : family.id,
+        linkedToFamily: household ? family.id : "household",
+      }) }), { params: Promise.resolve({ requestId: prayer.id }) });
+      // Observe the route waiting, then let the journal's trigger lock the source request.
+      await vi.waitFor(async () => {
+        const { rows: [lock] } = await deleter.query<{ blocked: boolean }>(`
+          SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE pg_backend_pid() = ANY(pg_blocking_pids(pid))) AS blocked
+        `);
+        expect(lock.blocked).toBe(true);
+      }, { timeout: 3000, interval: 10 });
+      await deleter.query('DELETE FROM "journalEntry" WHERE id = $1', [source.id]);
+      await deleter.query("COMMIT");
+      const response = await move;
+      expect(response.status).toBe(200);
+      const { id } = await response.json();
+      const moved = household
+        ? await db.prayerFamilyRequest.findUniqueOrThrow({ where: { id } })
+        : await db.prayerPersonalRequest.findUniqueOrThrow({ where: { id } });
+      expect(moved).toMatchObject({ requestText: "Prayer", linkedJournalEntryId: null });
+      expect(await version(sourceSpace)).toBe("2");
+    } finally {
+      await deleter.end();
+    }
   });
 
   it("advances the surviving household when removing the household containing its journal source", async () => {
-    const source = await db.journalEntry.create({ data: { authorProfileId: profileId, spaceId: sourceSpace, entryText: "Source" } });
-    const prayer = await db.prayerPersonalRequest.create({ data: { spaceId: linkedSpace, requestText: "Prayer", linkedJournalEntryId: source.id } });
+    const sourceIds = [randomUUID(), randomUUID()];
+    await db.journalEntry.createMany({ data: sourceIds.map(id => ({ id, authorProfileId: profileId, spaceId: sourceSpace, entryText: "Source" })) });
+    await db.prayerPersonalRequest.createMany({ data: sourceIds.map(id => ({ spaceId: linkedSpace, requestText: "Prayer", linkedJournalEntryId: id })) });
     const response = await deleteHousehold(new Request("http://localhost", { method: "DELETE", body: JSON.stringify({ spaceId: sourceSpace }) }));
 
     expect(response.status).toBe(200);
     expect(await db.prayerFamilySpace.findUnique({ where: { id: sourceSpace } })).toBeNull();
     expect(await version(linkedSpace)).toBe("1");
     expect(await version(unrelatedSpace)).toBe("0");
-    expect(await db.prayerPersonalRequest.findUniqueOrThrow({ where: { id: prayer.id } })).toMatchObject({ linkedJournalEntryId: null });
+    expect(await db.prayerPersonalRequest.count({ where: { spaceId: linkedSpace, linkedJournalEntryId: null } })).toBe(2);
   });
 });
