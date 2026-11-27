@@ -1,25 +1,29 @@
 import { randomUUID } from "node:crypto";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@prisma/client";
+import { createAppPrismaClient } from "@/lib/prisma-client";
 import { config } from "dotenv";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { GET as getSpace, POST as createSpace } from "./route";
+import { DELETE as leaveSpace, GET as getSpace, PATCH as renameSpace, POST as createSpace } from "./route";
+import { DELETE as deleteHousehold } from "./delete-household/route";
+import { POST as invite } from "../invite/route";
 import { POST as acceptInvite } from "../accept-invite/route";
-import { POST as addMember } from "../members/route";
+import { PATCH as updateMember, POST as addMember } from "../members/route";
 import { GET as getSync } from "../sync/route";
 import { POST as addFamily, GET as getFamilies } from "../families/route";
-import { PATCH as updateFamily } from "../families/[familyId]/route";
+import { DELETE as deleteFamily, PATCH as updateFamily } from "../families/[familyId]/route";
 import { POST as confirmRotation } from "../rotation/confirm/route";
 import { GET as getRotation } from "../rotation/route";
-import { PATCH as updateRequest } from "../requests/[requestId]/route";
+import { POST as postJournal } from "../journal/route";
+import { POST as addFamilyRequest } from "../families/[familyId]/requests/route";
+import { POST as addRequest } from "../requests/route";
+import { DELETE as deleteRequest, PATCH as updateRequest } from "../requests/[requestId]/route";
 import { GET as getOverview } from "@/app/api/profile/overview/route";
 
 if (process.env.RUN_DATABASE_INTEGRATION_TESTS === "1") config();
 const databaseUrl = process.env.CI ? process.env.DATABASE_URL
   : process.env.RUN_DATABASE_INTEGRATION_TESTS === "1" ? process.env.TEST_DATABASE_URL : undefined;
 
-let db: PrismaClient;
+let db: ReturnType<typeof createAppPrismaClient>;
 let userId: string;
 const accountIds: string[] = [];
 vi.mock("@/lib/prisma", () => ({ get default() { return db; } }));
@@ -45,12 +49,30 @@ async function json(response: Promise<Response>) {
   return result.json();
 }
 
-describe.skipIf(!databaseUrl)("household first names", () => {
+// Poll through the public handler after each operation, just as a household member does.
+async function trackRevision(spaceId: string) {
+  async function read() {
+    const sync = await json(getSync());
+    expect(sync.spaceId).toBe(spaceId);
+    expect(sync.version).toMatch(/^\d+$/);
+    return BigInt(sync.version);
+  }
+  let previous = await read();
+  return async (delta = 1) => {
+    const current = await read();
+    expect(current).toBe(previous + BigInt(delta));
+    previous = current;
+  };
+}
+
+describe.skipIf(!databaseUrl)("household prayer tracking", () => {
   beforeAll(() => {
-    db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+    db = createAppPrismaClient(databaseUrl!);
   });
   afterAll(async () => {
     const where = { space: { createdByUserId: { in: accountIds } } };
+    await db.prayerJournalEntry.deleteMany({ where });
+    await db.prayerFamilyRequest.deleteMany({ where: { family: where } });
     await db.prayerPersonalRequest.deleteMany({ where });
     await db.prayerFamily.deleteMany({ where });
     await db.prayerMember.deleteMany({ where });
@@ -144,5 +166,129 @@ describe.skipIf(!databaseUrl)("household first names", () => {
     expect((await json(getSpace(request()))).space.members).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: creator.id, displayName: "Dad" }),
     ]));
+  });
+
+  it("tracks space, invite and member changes and stops reporting a departed household", async () => {
+    const owner = account();
+    const partner = account();
+    userId = owner;
+    const empty = { spaceId: null, version: null, nameVersion: null };
+    expect(await json(getSync())).toEqual(empty);
+    const { space } = await json(createSpace(request({ spaceName: "First home" })));
+    const spaceId: string = space.id;
+    const changed = await trackRevision(spaceId);
+
+    await json(createSpace(request({})));
+    await json(invite(request({})));
+    await changed(0);
+    await json(renameSpace(request({ spaceId, spaceName: "New home" }, "PATCH")));
+    await changed();
+    const { shareCode } = await json(invite(request({ regenerate: true })));
+    await changed();
+
+    userId = partner;
+    const joined = await json(acceptInvite(request({ shareCode })));
+    await changed();
+    await json(acceptInvite(request({ shareCode })));
+    await changed(0);
+    userId = owner;
+    const child = await json(addMember(request({ displayName: "Youngest" })));
+    await changed();
+    await json(updateMember(request({ memberId: child.id }, "PATCH")));
+    await changed(0);
+    await json(updateMember(request({ memberId: child.id, assignmentCapacity: 3 }, "PATCH")));
+    await changed();
+    await json(leaveSpace(request({ spaceId, removeMemberId: child.id }, "DELETE")));
+    await changed();
+
+    await json(leaveSpace(request({ spaceId, transferToMemberId: joined.membership.id }, "DELETE")));
+    expect(await json(getSync())).toEqual(empty);
+    userId = partner;
+    await changed();
+    userId = owner;
+    await json(acceptInvite(request({ shareCode })));
+    await changed();
+    await json(leaveSpace(request({ spaceId }, "DELETE")));
+    expect(await json(getSync())).toEqual(empty);
+    userId = partner;
+    await changed();
+    await json(deleteHousehold(request({ spaceId }, "DELETE")));
+    expect(await json(getSync())).toEqual(empty);
+  });
+
+  it("increments once for each prayer mutation, including multi-row confirmations, moves, and deletes", async () => {
+    userId = account();
+    const { space, membership } = await json(createSpace(request({})));
+    const changed = await trackRevision(space.id);
+    const family = await json(addFamily(request({ familyName: "Friend" })));
+    const familyContext = { params: Promise.resolve({ familyId: family.id }) };
+    await changed();
+    await json(updateFamily(request({ familyName: "Friends" }, "PATCH"), familyContext));
+    await changed();
+
+    const personal = await json(addRequest(request({ requestText: "Household prayer" })));
+    const requestContext = (requestId: string) => ({ params: Promise.resolve({ requestId }) });
+    await changed();
+    const familyRequest = await json(addRequest(request({ requestText: "Family prayer", linkedToFamily: family.id })));
+    await changed();
+    await json(addFamilyRequest(request({ requestText: "Another prayer" }), familyContext));
+    await changed();
+    await json(updateRequest(request({ isHouseholdRequest: true, notes: "Update" }, "PATCH"), requestContext(personal.id)));
+    await changed();
+    await json(updateRequest(request({ isHouseholdRequest: false, notes: "Update" }, "PATCH"), requestContext(familyRequest.id)));
+    await changed();
+
+    await json(confirmRotation(request({})));
+    await changed(0);
+    await json(confirmRotation(request({
+      personalIds: [personal.id], familyAssignments: [{ familyId: family.id, prayedByMemberId: membership.id }],
+    })));
+    await changed();
+
+    const move = (id: string, from: string, to: string) => updateRequest(
+      request({ originalLinkedToFamily: from, linkedToFamily: to }, "PATCH"), requestContext(id),
+    );
+    expect((await move(personal.id, "household", randomUUID())).status).toBe(404);
+    await changed(0);
+    const moved = await json(move(personal.id, "household", family.id));
+    expect(moved).toMatchObject({ familyId: family.id, requestText: "Household prayer" });
+    await changed();
+    const movedBack = await json(move(moved.id, family.id, "household"));
+    expect(movedBack).toMatchObject({ familyId: null, requestText: "Household prayer" });
+    await changed();
+    await json(deleteRequest(request({ isHouseholdRequest: true }, "DELETE"), requestContext(movedBack.id)));
+    await changed();
+    await json(deleteRequest(request({ isHouseholdRequest: false }, "DELETE"), requestContext(familyRequest.id)));
+    await changed();
+    await json(deleteFamily(request({}, "DELETE"), familyContext));
+    await changed();
+    await json(postJournal(request({ entryText: "A household prayer" })));
+    await changed();
+  });
+
+  it("preserves exact revisions for concurrent writes and isolates other households", async () => {
+    const other = account();
+    userId = other;
+    await json(createSpace(request({})));
+    const otherSnapshot = await json(getSync());
+    userId = account();
+    const { space } = await json(createSpace(request({})));
+    await db.prayerFamilySpace.update({ where: { id: space.id }, data: { version: BigInt("9007199254740993") } });
+    expect(await json(getSync())).toMatchObject({ spaceId: space.id, version: "9007199254740993" });
+    const changed = await trackRevision(space.id);
+    await Promise.all(["A", "B", "C"].map(familyName => json(addFamily(request({ familyName })))));
+    await changed(3);
+    userId = other;
+    expect(await json(getSync())).toEqual(otherSnapshot);
+  });
+
+  it("rolls back a saved prayer if the revision increment fails", async () => {
+    userId = account();
+    const { space } = await json(createSpace(request({})));
+    const maxRevision = "9223372036854775807";
+    await db.prayerFamilySpace.update({ where: { id: space.id }, data: { version: BigInt(maxRevision) } });
+    await expect(addFamily(request({ familyName: "Uncommitted" }))).rejects.toThrow();
+    expect(await db.prayerFamily.count({ where: { spaceId: space.id } })).toBe(0);
+    expect((await json(getSync())).version).toBe(maxRevision);
   });
 });

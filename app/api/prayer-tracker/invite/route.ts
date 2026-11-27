@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   if (regenerate) {
     space = await prisma.prayerFamilySpace.update({
       where: { id: space.id },
-      data: { shareCode: generateShareCode() },
+      data: { shareCode: generateShareCode(), version: { increment: 1 } },
     });
   }
 

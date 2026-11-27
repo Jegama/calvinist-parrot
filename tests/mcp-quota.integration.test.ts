@@ -8,7 +8,7 @@ import { consumeMcpCallerLimit } from "@/lib/mcp/limits";
 if (process.env.RUN_DATABASE_INTEGRATION_TESTS === "1") config();
 const databaseUrl = process.env.CI ? process.env.DATABASE_URL :
   process.env.RUN_DATABASE_INTEGRATION_TESTS === "1" ? process.env.TEST_DATABASE_URL : undefined;
-let db: PrismaClient;
+let db: typeof import("@/lib/prisma").default;
 
 describe.skipIf(!databaseUrl)("MCP per-caller rate limits", () => {
   const schema = `mcp_quota_${randomUUID().replaceAll("-", "")}`;

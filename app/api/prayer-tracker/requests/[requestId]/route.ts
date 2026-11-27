@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
-
+import { bumpSpaceVersion } from "@/lib/householdService";
 import { requireAuthenticatedUser } from "@/lib/auth";
 
 type RouteContext = { params: Promise<{ requestId: string }> };
@@ -47,103 +47,45 @@ export async function PATCH(request: Request, context: RouteContext) {
     linkedToFamily !== undefined && originalLinkedToFamily !== undefined && linkedToFamily !== originalLinkedToFamily;
 
   if (familyChanged) {
-    // DELETE from old table and CREATE in new table
-    const oldIsHousehold = originalLinkedToFamily === "household";
-    const newIsHousehold = linkedToFamily === "household";
-
-    // Fetch existing request data
-    let existingRequest: {
-      id: string;
-      requestText: string;
-      notes: string | null;
-      linkedScripture: string | null;
-      status: "ACTIVE" | "ANSWERED" | "ARCHIVED";
-      lastPrayedAt: Date | null;
-      answeredAt: Date | null;
-    } | null;
-    if (oldIsHousehold) {
-      existingRequest = await prisma.prayerPersonalRequest.findFirst({
-        where: { id: requestId, spaceId: membership.spaceId },
-      });
-    } else {
-      existingRequest = await prisma.prayerFamilyRequest.findFirst({
-        where: {
-          id: requestId,
-          family: { spaceId: membership.spaceId },
-        },
-        include: { family: { select: { familyName: true } } },
-      });
+    const destination = linkedToFamily === "household" ? null : await prisma.prayerFamily.findFirst({
+      where: { id: linkedToFamily, spaceId: membership.spaceId },
+      select: { id: true, familyName: true },
+    });
+    if (linkedToFamily !== "household" && !destination) {
+      return NextResponse.json({ error: "Family not found in your space" }, { status: 404 });
     }
 
-    if (!existingRequest) {
-      return NextResponse.json({ error: "Request not found" }, { status: 404 });
-    }
-
-    // Prepare new data
-    const newRequestText =
-      typeof requestText === "string" && requestText.trim().length ? requestText.trim() : existingRequest.requestText;
-    const newNotes = notes !== undefined ? (notes ? notes.trim() : null) : existingRequest.notes;
-
-    // Delete from old table and create in new table
-    if (oldIsHousehold) {
-      await prisma.prayerPersonalRequest.delete({ where: { id: requestId } });
-    } else {
-      await prisma.prayerFamilyRequest.delete({ where: { id: requestId } });
-    }
-
-    let created: {
-      id: string;
-      requestText: string;
-      notes: string | null;
-      linkedScripture: string | null;
-      status: string;
-      lastPrayedAt: Date | null;
-      answeredAt: Date | null;
-      dateAdded: Date;
-    };
-    if (newIsHousehold) {
-      created = await prisma.prayerPersonalRequest.create({
-        data: {
-          spaceId: membership.spaceId,
-          requestText: newRequestText,
-          notes: newNotes,
-          linkedScripture: existingRequest.linkedScripture,
-          requesterMemberId: membership.id,
-          status: existingRequest.status,
-          lastPrayedAt: existingRequest.lastPrayedAt,
-          answeredAt: existingRequest.answeredAt,
-        },
-      });
-    } else {
-      // Verify new family exists
-      const family = await prisma.prayerFamily.findFirst({
-        where: { id: linkedToFamily, spaceId: membership.spaceId },
-        select: { id: true, familyName: true },
-      });
-
-      if (!family) {
-        return NextResponse.json({ error: "Family not found in your space" }, { status: 404 });
-      }
-
-      created = await prisma.prayerFamilyRequest.create({
-        data: {
-          familyId: linkedToFamily,
-          requestText: newRequestText,
-          notes: newNotes,
-          linkedScripture: existingRequest.linkedScripture,
-          status: existingRequest.status,
-          lastPrayedAt: existingRequest.lastPrayedAt,
-          answeredAt: existingRequest.answeredAt,
-        },
-      });
-    }
-
-    // Return the newly created request with unified format
-    const familyInfo = newIsHousehold
-      ? { familyId: null, familyName: null }
-      : await prisma.prayerFamily
-          .findUnique({ where: { id: linkedToFamily }, select: { id: true, familyName: true } })
-          .then((f) => ({ familyId: f?.id || null, familyName: f?.familyName || null }));
+    // Copy the row returned by DELETE so a concurrent edit is included in the move.
+    const created = await prisma.$transaction(async (tx) => {
+      const previous = originalLinkedToFamily === "household"
+        ? await tx.prayerPersonalRequest.delete({
+            where: { id: requestId, spaceId: membership.spaceId },
+          })
+        : await tx.prayerFamilyRequest.delete({
+            where: { id: requestId, family: { spaceId: membership.spaceId } },
+          });
+      const data = {
+        requestText: typeof requestText === "string" && requestText.trim() ? requestText.trim() : previous.requestText,
+        notes: notes !== undefined ? (notes ? notes.trim() : null) : previous.notes,
+        linkedScripture: previous.linkedScripture,
+        linkedJournalEntryId: previous.linkedJournalEntryId,
+        dateAdded: previous.dateAdded,
+        status: previous.status,
+        lastPrayedAt: previous.lastPrayedAt,
+        answeredAt: previous.answeredAt,
+      };
+      const moved = destination
+        ? await tx.prayerFamilyRequest.create({ data: { ...data, familyId: destination.id } })
+        : await tx.prayerPersonalRequest.create({
+            data: { ...data, spaceId: membership.spaceId, requesterMemberId: membership.id },
+          });
+      await bumpSpaceVersion(tx, membership.spaceId);
+      return moved;
+    }).catch((error: unknown) => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") return null;
+      throw error;
+    });
+    if (!created) return NextResponse.json({ error: "Request not found" }, { status: 404 });
 
     return NextResponse.json({
       id: created.id,
@@ -154,7 +96,8 @@ export async function PATCH(request: Request, context: RouteContext) {
       dateAdded: created.dateAdded.toISOString(),
       status: created.status,
       answeredAt: created.answeredAt?.toISOString() || null,
-      ...familyInfo,
+      familyId: destination?.id ?? null,
+      familyName: destination?.familyName ?? null,
     });
   }
 
@@ -285,6 +228,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     });
   }
 
+  transactions.push(bumpSpaceVersion(prisma, membership.spaceId));
+
   if (markAnswered === true) {
     // Lock before updating so simultaneous clicks and replays count a single
     // transition. Reopening the request makes a subsequent answer eligible again.
@@ -317,24 +262,14 @@ export async function DELETE(request: Request, context: RouteContext) {
   const membership = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId } });
   if (!membership) return NextResponse.json({ error: "No family space found" }, { status: 404 });
 
-  if (isHouseholdRequest) {
-    const requestRecord = await prisma.prayerPersonalRequest.findFirst({
-      where: { id: requestId, spaceId: membership.spaceId },
-    });
-    if (!requestRecord) return NextResponse.json({ error: "Request not found" }, { status: 404 });
-
-    await prisma.prayerPersonalRequest.delete({ where: { id: requestId } });
-  } else {
-    const requestRecord = await prisma.prayerFamilyRequest.findFirst({
-      where: {
-        id: requestId,
-        family: { spaceId: membership.spaceId },
-      },
-    });
-    if (!requestRecord) return NextResponse.json({ error: "Request not found" }, { status: 404 });
-
-    await prisma.prayerFamilyRequest.delete({ where: { id: requestId } });
-  }
+  const deleted = await prisma.$transaction(async (tx) => {
+    const { count } = isHouseholdRequest
+      ? await tx.prayerPersonalRequest.deleteMany({ where: { id: requestId, spaceId: membership.spaceId } })
+      : await tx.prayerFamilyRequest.deleteMany({ where: { id: requestId, family: { spaceId: membership.spaceId } } });
+    if (count) await bumpSpaceVersion(tx, membership.spaceId);
+    return count;
+  });
+  if (!deleted) return NextResponse.json({ error: "Request not found" }, { status: 404 });
 
   return NextResponse.json({ ok: true });
 }

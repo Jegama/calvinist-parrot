@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { DEFAULT_ADULT_CAPACITY } from "@/app/prayer-tracker/constants";
 import { requireAuthenticatedUser } from "@/lib/auth";
-import { getHouseholdForUser, getHouseholdFirstNames, withHouseholdName } from "@/lib/householdService";
+import { bumpSpaceVersion, getHouseholdForUser, getHouseholdFirstNames, withHouseholdName } from "@/lib/householdService";
 
 function generateShareCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijklmnopqrstuvwxy123456789-*";
@@ -44,23 +44,23 @@ export async function POST(request: Request) {
   const shareCode = generateShareCode();
   const resolvedSpaceName = spaceName?.trim() ? spaceName.trim() : `${displayName || "Family"}'s Prayer Space`;
 
-  const space = await prisma.prayerFamilySpace.create({
+  const { members: [member], ...space } = await prisma.prayerFamilySpace.create({
     data: {
       shareCode,
       createdByUserId: authenticatedUserId,
       spaceName: resolvedSpaceName,
+      version: 1,
+      members: {
+        create: {
+          appwriteUserId: authenticatedUserId,
+          displayName: displayName?.trim() || "You",
+          role: "OWNER",
+          assignmentCapacity: DEFAULT_ADULT_CAPACITY,
+          assignmentCount: 0,
+        },
+      },
     },
-  });
-
-  const member = await prisma.prayerMember.create({
-    data: {
-      spaceId: space.id,
-      appwriteUserId: authenticatedUserId,
-      displayName: displayName?.trim() || "You",
-      role: "OWNER",
-      assignmentCapacity: DEFAULT_ADULT_CAPACITY,
-      assignmentCount: 0,
-    },
+    include: { members: true },
   });
 
   await prisma.userProfile
@@ -84,12 +84,18 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Missing spaceId or spaceName" }, { status: 400 });
 
   // Only owner can rename
-  const member = await prisma.prayerMember.findFirst({ where: { appwriteUserId: authenticatedUserId, spaceId } });
+  const member = await prisma.prayerMember.findFirst({
+    where: { appwriteUserId: authenticatedUserId, spaceId },
+    include: { space: true },
+  });
   if (!member || member.role !== "OWNER") return NextResponse.json({ error: "Only owner can rename" }, { status: 403 });
+
+  const trimmedName = spaceName.trim();
+  if (member.space.spaceName === trimmedName) return NextResponse.json({ space: member.space });
 
   const updated = await prisma.prayerFamilySpace.update({
     where: { id: spaceId },
-    data: { spaceName: spaceName.trim() },
+    data: { spaceName: trimmedName, version: { increment: 1 } },
   });
   return NextResponse.json({ space: updated });
 }
@@ -118,7 +124,10 @@ export async function DELETE(request: Request) {
     const targetMember = await prisma.prayerMember.findFirst({ where: { id: removeMemberId, spaceId } });
     if (!targetMember) return NextResponse.json({ error: "Member not found in this space" }, { status: 404 });
 
-    await prisma.prayerMember.delete({ where: { id: targetMember.id } });
+    await prisma.$transaction([
+      prisma.prayerMember.delete({ where: { id: targetMember.id } }),
+      bumpSpaceVersion(prisma, spaceId),
+    ]);
     return NextResponse.json({ success: true });
   }
 
@@ -129,12 +138,18 @@ export async function DELETE(request: Request) {
     const targetMember = await prisma.prayerMember.findFirst({ where: { id: transferToMemberId, spaceId } });
     if (!targetMember) return NextResponse.json({ error: "Transfer target must be in this space" }, { status: 404 });
 
-    await prisma.prayerMember.update({ where: { id: targetMember.id }, data: { role: "OWNER" } });
-    await prisma.prayerMember.delete({ where: { id: member.id } });
+    await prisma.$transaction([
+      prisma.prayerMember.update({ where: { id: targetMember.id }, data: { role: "OWNER" } }),
+      prisma.prayerMember.delete({ where: { id: member.id } }),
+      bumpSpaceVersion(prisma, spaceId),
+    ]);
     return NextResponse.json({ success: true, transferred: targetMember.id });
   }
 
   // Regular member leaving
-  await prisma.prayerMember.delete({ where: { id: member.id } });
+  await prisma.$transaction([
+    prisma.prayerMember.delete({ where: { id: member.id } }),
+    bumpSpaceVersion(prisma, spaceId),
+  ]);
   return NextResponse.json({ success: true });
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.6.1 — November 27, 2026
+
+- Prayer Tracker now checks a household revision to pick up shared changes with fewer database reads. Moving a prayer request keeps the original if the destination is unavailable.
+
 ## 2.6.0 — November 26, 2026
 
 - Profile now shows email verification status and lets people change their email or password. Unverified accounts receive a verification link automatically on signup or sign-in and can request another in Profile. People who signed up with Google can set their first password. Verification and recovery links take users back to the environment that sent the email. [#127](https://github.com/Jegama/calvinist-parrot/pull/127)

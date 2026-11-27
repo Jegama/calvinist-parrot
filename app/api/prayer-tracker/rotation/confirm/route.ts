@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { requireAuthenticatedUser } from "@/lib/auth";
+import { bumpSpaceVersion } from "@/lib/householdService";
 
 type FamilyAssignment = { familyId: string; prayedByMemberId?: string | null };
 
@@ -132,6 +133,7 @@ export async function POST(request: Request) {
         skipDuplicates: true,
       }));
     }
+    transactions.push(bumpSpaceVersion(prisma, membership.spaceId));
     await prisma.$transaction(transactions);
   }
 

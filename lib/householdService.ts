@@ -5,6 +5,15 @@
 
 import prisma from "@/lib/prisma";
 
+// Queue this with the writes that change what other household members can see.
+export function bumpSpaceVersion(db: Pick<typeof prisma, "prayerFamilySpace">, spaceId: string) {
+  return db.prayerFamilySpace.update({
+    where: { id: spaceId },
+    data: { version: { increment: 1 } },
+    select: { id: true },
+  });
+}
+
 export type HouseholdMembership = {
   memberId: string;
   spaceId: string;

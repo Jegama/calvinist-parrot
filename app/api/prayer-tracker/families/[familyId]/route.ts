@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { ARCHIVED_CATEGORY } from "@/app/prayer-tracker/constants";
 import { requireAuthenticatedUser } from "@/lib/auth";
-import { getHouseholdFirstNames, withPrayerAttribution } from "@/lib/householdService";
+import { bumpSpaceVersion, getHouseholdFirstNames, withPrayerAttribution } from "@/lib/householdService";
 
 type RouteContext = { params: Promise<{ familyId: string }> };
 
@@ -58,13 +58,16 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "No updates provided" }, { status: 400 });
   }
 
-  const updated = await prisma.prayerFamily.update({
-    where: { id: familyId },
-    data,
-    include: {
-      lastPrayedBy: { select: { id: true, displayName: true } },
-    },
-  });
+  const [updated] = await prisma.$transaction([
+    prisma.prayerFamily.update({
+      where: { id: familyId },
+      data,
+      include: {
+        lastPrayedBy: { select: { id: true, displayName: true } },
+      },
+    }),
+    bumpSpaceVersion(prisma, membership.spaceId),
+  ]);
 
   return NextResponse.json(withPrayerAttribution(updated, await getHouseholdFirstNames(membership.spaceId)));
 }
@@ -95,6 +98,7 @@ export async function DELETE(request: Request, context: RouteContext) {
   await prisma.$transaction([
     prisma.prayerFamilyRequest.deleteMany({ where: { familyId } }),
     prisma.prayerFamily.delete({ where: { id: familyId } }),
+    bumpSpaceVersion(prisma, membership.spaceId),
   ]);
 
   return NextResponse.json({ ok: true });
