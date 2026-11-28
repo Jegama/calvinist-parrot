@@ -129,6 +129,16 @@ Appwrite should also be split by environment. Local development should use a dev
 
 The root `.env.template` contains variables consumed by the Next.js application and its local processes. In Vercel, set `SERMON_RUNTIME=appwrite` plus the server-only sermon Function and bucket IDs. Variables consumed inside the deployed Python Function are intentionally separate in `services/sermon-evaluator/.env.template` and must be configured in Appwrite, not Vercel.
 
+## Chat model configuration
+
+The conversational Parrot agent uses Claude Haiku 5.5 through LangChain's `ChatAnthropic`. Configure `ANTHROPIC_API_KEY`, `PARROT_AGENT_PROVIDER=anthropic`, and `PARROT_ANTHROPIC_MODEL=claude-haiku-5-5` in each environment. Existing deployments with `PARROT_AGENT_PROVIDER=gemini` or `openai` must change that setting to switch providers; restart or redeploy after updating it.
+
+When `PARROT_AGENT_PROVIDER=gemini`, chat uses `gemini-4-hydrogen` for streaming responses and tool calls. `PARROT_GEMINI_MODEL` overrides the model for that provider. Check both Preview and Production environment variables for older explicit aliases when deploying a new default. The OpenAI conversation provider uses `PARROT_OPENAI_MODEL` (default `gpt-6-luna`) with the Responses API.
+
+Personal Journal and Heritage Journal use Claude Haiku 5.5 for all structured generation stages. The daily devotional and conversation titles use the shared Gemini default, Hydrogen. Church Finder uses Hydrogen for all six extraction calls and records the alias with the evaluation. The sermon worker uses Hydrogen for audio evidence, scoring, harmonization, and feedback, with its own `SERMON_GEMINI_MODEL` override in Appwrite. Memory extraction uses OpenAI's `gpt-6-luna` and CCEL retrieval uses `text-embedding-3-small` for embeddings. Historical model identifiers in saved reports, evaluations, and fixtures describe the model used when those outputs were created.
+
+The default Haiku 5.5 configuration uses adaptive thinking with a 16,384-token output budget shared by thinking and answer text, and omits sampling parameters. Other `PARROT_ANTHROPIC_MODEL` overrides omit the thinking setting and use that model's API default; for example, Haiku 4.5 runs without extended thinking rather than receiving an unsupported adaptive setting. The agent retains thinking and tool blocks within a request; persisted conversation history contains the visible answer text. See [LangChain's Anthropic integration](https://docs.langchain.com/oss/javascript/integrations/chat/anthropic), [Anthropic's Haiku 5.5 migration guide](https://platform.claude.com/docs/en/models/haiku-5-5/migration-guide), and [legacy thinking compatibility](https://platform.claude.com/docs/en/build-with-claude/extended-thinking#migrating-to-adaptive-thinking).
+
 ## CI
 
 `.github/workflows/ci.yml` now runs on pull requests and pushes to `main`/`master`:
