@@ -11,9 +11,12 @@ on:
 permissions:
   contents: write
 
+# The default queue keeps one pending run and drops the older one. Every
+# master push has to publish its own version, so pending releases stay queued.
 concurrency:
   group: release
   cancel-in-progress: false
+  queue: max
 
 jobs:
   publish:
