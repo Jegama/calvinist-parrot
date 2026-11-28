@@ -2,7 +2,7 @@
 
 ## 2.7.1 — November 27, 2026
 
-- ChatGPT users can connect with the default OAuth scopes. Parrot omits email access when approving the connection.
+- Parrot accepts ChatGPT’s default OAuth scope request and omits email access when approving the connection. [#132](https://github.com/Jegama/calvinist-parrot/pull/132)
 
 ## 2.7.0 — November 27, 2026
 
