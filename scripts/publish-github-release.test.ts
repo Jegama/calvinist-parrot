@@ -1,4 +1,10 @@
-import { readFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,7 +27,10 @@ const changelog = readFileSync(path.join(repoRoot, "CHANGELOG.md"), "utf8");
 
 const connectToParrotSection = `- Connect to Parrot from the Labs or More menu for ChatGPT, Codex and Claude setup, chat persistence and permissions. A runnable Node.js example compares evaluated churches across cities using the public API. [#130](https://github.com/Jegama/calvinist-parrot/pull/130)`;
 
-const pr130Changelog = `# Changelog
+const prayerSection =
+  "- Prayer Tracker now checks a household revision to pick up shared changes with fewer database reads. Moving a prayer request keeps the original if the destination is unavailable. [#129](https://github.com/Jegama/calvinist-parrot/pull/129)";
+
+const releaseChangelog = `# Changelog
 
 ## 2.7.0 — November 27, 2026
 
@@ -29,57 +38,77 @@ ${connectToParrotSection}
 
 ## 2.6.1 — November 27, 2026
 
-- Prayer Tracker now checks a household revision to pick up shared changes with fewer database reads. Moving a prayer request keeps the original if the destination is unavailable. [#129](https://github.com/Jegama/calvinist-parrot/pull/129)
+${prayerSection}
+
+## 2.6.0 — November 26, 2026
+
+- Profile now shows email verification status.
+- Google sign-in fills missing profile names when available.
+
+## 2.1.0 — November 25, 2026
+
+- **Chat costs and dashboard history.** Admins can see estimated chat spend.
+
+Previously shipped in [#121](https://github.com/Jegama/calvinist-parrot/pull/121)
+
+- **Form visibility.** Light-mode fields have clearer outlines.
+
+## 2.0.0 — November 24, 2026
+
+### Breaking change for Q&A integrations
+
+- Counsel of Three retired.
+
+### Maintenance
+
+- Ten Dependabot PRs updated dependencies.
+
+## 1.0.0 — July 26, 2026
+
+- Integrators gained a documented API.
+
+## Earlier package versions
+
+| Version | Milestone |
+| --- | --- |
+| 0.3.1 | Improved chat caching. |
 `;
 
 describe("changelog section extraction", () => {
-  it("extracts every dated section from the master changelog", () => {
+  it("extracts every dated section of the repository changelog", () => {
     const versions = [
       ...changelog.matchAll(/^## (\d+\.\d+\.\d+) — .+$/gm),
     ].map((match) => match[1]);
 
-    expect(versions).toEqual([
-      "2.6.1",
-      "2.6.0",
-      "2.5.0",
-      "2.4.0",
-      "2.3.0",
-      "2.2.0",
-      "2.1.0",
-      "2.0.0",
-      "1.0.0",
-      "0.9.0",
-      "0.8.0",
-      "0.7.0",
-      "0.6.1",
-      "0.6.0",
-      "0.5.2",
-      "0.5.1",
-    ]);
+    expect(versions.length).toBeGreaterThan(0);
+    expect(new Set(versions).size).toBe(versions.length);
 
     for (const version of versions) {
       const section = extractChangelogSection(changelog, version);
+      expect(section.length).toBeGreaterThan(0);
       expect(section.startsWith("## ")).toBe(false);
       expect(section).not.toMatch(/^## /m);
       expect(changelog).toContain(section);
     }
   });
 
-  it("keeps the 2.6.1 and 2.6.0 sections as their changelog bullets", () => {
-    const lines = changelog.split("\n");
-    expect(extractChangelogSection(changelog, "2.6.1")).toBe(
-      lines.find((line) => line.startsWith("- Prayer Tracker now checks")),
+  it("keeps a new release section and the sections around it", () => {
+    expect(extractChangelogSection(releaseChangelog, "2.7.0")).toBe(
+      connectToParrotSection,
     );
-    expect(extractChangelogSection(changelog, "2.6.0")).toBe(
+    expect(extractChangelogSection(releaseChangelog, "2.6.1")).toBe(
+      prayerSection,
+    );
+    expect(extractChangelogSection(releaseChangelog, "2.6.0")).toBe(
       [
-        lines.find((line) => line.startsWith("- Profile now shows")),
-        lines.find((line) => line.startsWith("- Google sign-in")),
+        "- Profile now shows email verification status.",
+        "- Google sign-in fills missing profile names when available.",
       ].join("\n"),
     );
   });
 
-  it("keeps the 2.1.0 previously-shipped note as prose", () => {
-    const section = extractChangelogSection(changelog, "2.1.0");
+  it("keeps the previously-shipped note as prose", () => {
+    const section = extractChangelogSection(releaseChangelog, "2.1.0");
 
     expect(section.startsWith("- **Chat costs and dashboard history.**")).toBe(
       true,
@@ -91,38 +120,29 @@ describe("changelog section extraction", () => {
     expect(section).toContain("- **Form visibility.**");
   });
 
-  it("stops the 2.0.0 section before the next version", () => {
-    const section = extractChangelogSection(changelog, "2.0.0");
+  it("stops a section before the next version and ignores the history table", () => {
+    const section = extractChangelogSection(releaseChangelog, "2.0.0");
 
     expect(section).toContain("### Breaking change for Q&A integrations");
     expect(section).toContain("Counsel of Three retired");
     expect(section).toContain("### Maintenance");
     expect(section).not.toContain("Integrators gained");
     expect(section).not.toContain("## 1.0.0");
-  });
-
-  it("extracts the 2.7.0 section format from the open connect-to-parrot branch", () => {
-    expect(extractChangelogSection(pr130Changelog, "2.7.0")).toBe(
-      connectToParrotSection,
-    );
-    expect(extractChangelogSection(pr130Changelog, "2.6.1")).toContain(
-      "[#129](https://github.com/Jegama/calvinist-parrot/pull/129)",
+    expect(() => extractChangelogSection(releaseChangelog, "0.3.1")).toThrow(
+      /no section/,
     );
   });
 
   it("accepts Windows newlines", () => {
-    const markdown = pr130Changelog.replace(/\n/g, "\r\n");
+    const markdown = releaseChangelog.replace(/\n/g, "\r\n");
     expect(extractChangelogSection(markdown, "2.7.0")).toBe(
       connectToParrotSection,
     );
   });
 
   it("fails when the section is missing, empty, duplicated, or hyphenated", () => {
-    expect(() => extractChangelogSection(changelog, "2.7.0")).toThrow(
-      /no section headed "## 2\.7\.0/,
-    );
-    expect(() => extractChangelogSection(changelog, "0.3.1")).toThrow(
-      /no section/,
+    expect(() => extractChangelogSection(releaseChangelog, "9.9.9")).toThrow(
+      /no section headed "## 9\.9\.9/,
     );
     expect(() =>
       extractChangelogSection(
@@ -142,7 +162,7 @@ describe("changelog section extraction", () => {
         "2.7.0",
       ),
     ).toThrow(/no section/);
-    expect(() => extractChangelogSection(changelog, "2.6")).toThrow(
+    expect(() => extractChangelogSection(releaseChangelog, "2.6")).toThrow(
       /major\.minor\.patch/,
     );
   });
@@ -185,35 +205,60 @@ describe("release notes", () => {
     ]);
   });
 
-  it("builds the published release body and compare link", () => {
-    const section = extractChangelogSection(changelog, "2.6.1");
+  it("builds the release body and compare link from the section", () => {
+    const section = extractChangelogSection(releaseChangelog, "2.7.0");
     const notes = buildReleaseNotes({
       section,
       repository: "Jegama/calvinist-parrot",
-      previousTag: "v2.6.0",
-      tag: "v2.6.1",
+      previousTag: "v2.6.1",
+      tag: "v2.7.0",
     });
 
     expect(notes).toBe(
-      `${section}\n\n**Full Changelog**: https://github.com/Jegama/calvinist-parrot/compare/v2.6.0...v2.6.1\n`,
+      `${section}\n\n**Full Changelog**: https://github.com/Jegama/calvinist-parrot/compare/v2.6.1...v2.7.0\n`,
     );
     expect(() =>
       buildReleaseNotes({
         section: "   ",
         repository: "Jegama/calvinist-parrot",
-        previousTag: "v2.6.0",
-        tag: "v2.6.1",
+        previousTag: "v2.6.1",
+        tag: "v2.7.0",
       }),
     ).toThrow(/empty release body/);
   });
 
-  it("skips an existing release and refuses a moved tag or missing notes", () => {
+  it("publishes a newly added version and refuses a missing section or moved tag", () => {
+    const head = "3a1fd2e22a4cf5e782ba2ed56b7e427a23c8b3c1";
+    const plan = planRelease({
+      version: "2.7.0",
+      releaseExists: false,
+      tagCommit: null,
+      headCommit: head,
+      changelog: releaseChangelog,
+      tagNames: ["v2.0.0", "v2.6.1", "v2.10.0"],
+      repository: "Jegama/calvinist-parrot",
+    });
+    expect(plan.action).toBe("publish");
+    if (plan.action !== "publish") {
+      throw new Error("expected a publish plan");
+    }
+    expect(plan).toMatchObject({
+      tag: "v2.7.0",
+      title: "Calvinist Parrot 2.7.0",
+      target: head,
+      previousTag: "v2.6.1",
+    });
+    expect(plan.notes).toContain(connectToParrotSection);
+    expect(plan.notes).toContain(
+      "https://github.com/Jegama/calvinist-parrot/compare/v2.6.1...v2.7.0",
+    );
+
     expect(
       planRelease({
         version: "2.6.1",
         releaseExists: true,
         tagCommit: "elsewhere",
-        headCommit: "3a1fd2e22a4cf5e782ba2ed56b7e427a23c8b3c1",
+        headCommit: head,
         changelog: "",
         tagNames: [],
         repository: "Jegama/calvinist-parrot",
@@ -224,79 +269,67 @@ describe("release notes", () => {
       reason: "Release v2.6.1 already exists.",
     });
 
-    const head = "3a1fd2e22a4cf5e782ba2ed56b7e427a23c8b3c1";
-    const plan = planRelease({
-      version: "2.6.1",
-      releaseExists: false,
-      tagCommit: null,
-      headCommit: head,
-      changelog,
-      tagNames: ["v2.0.0", "v2.6.0", "v2.10.0"],
-      repository: "Jegama/calvinist-parrot",
-    });
-    expect(plan.action).toBe("publish");
-    if (plan.action !== "publish") {
-      throw new Error("expected a publish plan");
-    }
-    expect(plan).toMatchObject({
-      tag: "v2.6.1",
-      title: "Calvinist Parrot 2.6.1",
-      target: head,
-      previousTag: "v2.6.0",
-    });
-    expect(plan.notes).toContain(
-      "https://github.com/Jegama/calvinist-parrot/compare/v2.6.0...v2.6.1",
-    );
-    expect(plan.notes.startsWith("- Prayer Tracker now checks")).toBe(true);
+    expect(() =>
+      planRelease({
+        version: "9.9.9",
+        releaseExists: false,
+        tagCommit: null,
+        headCommit: head,
+        changelog: releaseChangelog,
+        tagNames: ["v2.7.0"],
+        repository: "Jegama/calvinist-parrot",
+      }),
+    ).toThrow(/no section headed "## 9\.9\.9/);
 
     expect(() =>
       planRelease({
         version: "2.7.0",
         releaseExists: false,
-        tagCommit: null,
-        headCommit: head,
-        changelog,
-        tagNames: ["v2.6.1"],
-        repository: "Jegama/calvinist-parrot",
-      }),
-    ).toThrow(/no section headed "## 2\.7\.0/);
-
-    expect(() =>
-      planRelease({
-        version: "2.6.1",
-        releaseExists: false,
         tagCommit: "other-commit",
         headCommit: head,
-        changelog,
-        tagNames: ["v2.6.0"],
+        changelog: releaseChangelog,
+        tagNames: ["v2.6.1"],
         repository: "Jegama/calvinist-parrot",
       }),
     ).toThrow(/points at other-commit/);
   });
 
-  it("leaves an existing package version unpublished and refuses a missing section", () => {
-    expect(
-      publishCurrentRelease({
-        repository: "Jegama/calvinist-parrot",
-        packageJsonPath: path.join(repoRoot, "package.json"),
-        releaseAlreadyExists: true,
-      }),
-    ).toEqual({
-      action: "skip",
-      tag: "v2.6.1",
-      reason: "Release v2.6.1 already exists.",
-    });
+  it("follows the package version in fixture files", () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "github-release-test-"));
+    const packageJsonPath = path.join(directory, "package.json");
+    const changelogPath = path.join(directory, "CHANGELOG.md");
+    writeFileSync(packageJsonPath, JSON.stringify({ version: "2.7.0" }));
+    writeFileSync(
+      changelogPath,
+      "## 2.6.1 — November 27, 2026\n\n- Older.\n",
+    );
 
-    expect(() =>
-      publishCurrentRelease({
-        repository: "Jegama/calvinist-parrot",
-        packageJsonPath: path.join(repoRoot, "package.json"),
-        changelogPath: path.join(repoRoot, "package.json"),
-        releaseAlreadyExists: false,
-        headCommit: "3a1fd2e22a4cf5e782ba2ed56b7e427a23c8b3c1",
-        remoteOutput:
-          "69ea5f4fa67e3863cec189001eaddc63ee50c6f8\trefs/tags/v2.6.0\n",
-      }),
-    ).toThrow(/no section headed "## 2\.6\.1/);
+    try {
+      expect(
+        publishCurrentRelease({
+          repository: "Jegama/calvinist-parrot",
+          packageJsonPath,
+          releaseAlreadyExists: true,
+        }),
+      ).toEqual({
+        action: "skip",
+        tag: "v2.7.0",
+        reason: "Release v2.7.0 already exists.",
+      });
+
+      expect(() =>
+        publishCurrentRelease({
+          repository: "Jegama/calvinist-parrot",
+          packageJsonPath,
+          changelogPath,
+          releaseAlreadyExists: false,
+          headCommit: "3a1fd2e22a4cf5e782ba2ed56b7e427a23c8b3c1",
+          remoteOutput:
+            "3a1fd2e22a4cf5e782ba2ed56b7e427a23c8b3c1\trefs/tags/v2.6.1\n",
+        }),
+      ).toThrow(/no section headed "## 2\.7\.0/);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });
