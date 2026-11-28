@@ -18,7 +18,7 @@ export default function ConnectPage() {
         <p className="text-lg">Ask a theological question with Scripture citations or explore saved church evaluations from your AI client. All three clients use the same hosted MCP server.</p>
         <p className="pt-2 text-sm font-medium">Server URL · Streamable HTTP</p>
         <CopySnippet text={endpoint} label="Copy server URL" />
-        <p className="border-l-2 border-accent pl-3 text-sm"><strong>Service check · November 27, 2026.</strong> Codex returned a cited answer to a guest question, found churches and opened a saved evaluation. Codex also reached Parrot’s sign-in screen for account linking. Verification of a saved follow-up is pending. You can also ask a question in <Link href="/">Parrot web chat</Link>.</p>
+        <p className="border-l-2 border-accent pl-3 text-sm"><strong>Service check · November 27, 2026.</strong> Codex returned a cited answer to a guest question, found churches and opened a saved evaluation. After sign-in and consent, Codex saved a question to a test account and continued that conversation. You can also ask a question in <Link href="/">Parrot web chat</Link>.</p>
       </header>
 
       <section>
