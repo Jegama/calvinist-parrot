@@ -1,5 +1,5 @@
 import { getMcpResourceUrl } from "@/lib/mcp/auth";
-import { consentCallback, consentSession, isChatGrant } from "@/lib/mcp/auth-consent";
+import { consentCallback, consentSession, getChatGrantScopes } from "@/lib/mcp/auth-consent";
 
 export async function POST(request: Request) {
   const resource = getMcpResourceUrl();
@@ -12,8 +12,9 @@ export async function POST(request: Request) {
     const decision = form.get("decision");
     if (typeof grantId !== "string" || !grantId || (decision !== "allow" && decision !== "deny")) return new Response("Invalid decision.", { status: 400 });
     const grant = await session.oauth.getGrant({ grantId });
-    if (!isChatGrant(grant, session.account.$id, resource.href)) return new Response("This request has expired or is unavailable.", { status: 403 });
-    const result = decision === "allow" ? await session.oauth.approve({ grantId, scope: grant.scopes.join(" ") }) : await session.oauth.reject({ grantId });
+    const scopes = getChatGrantScopes(grant, session.account.$id, resource.href);
+    if (!scopes) return new Response("This request has expired or is unavailable.", { status: 403 });
+    const result = decision === "allow" ? await session.oauth.approve({ grantId, scope: scopes.join(" ") }) : await session.oauth.reject({ grantId });
     const url = consentCallback(result.redirectUrl);
     if (url) return Response.redirect(url, 303);
   } catch {

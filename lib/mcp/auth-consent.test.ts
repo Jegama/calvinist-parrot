@@ -39,10 +39,37 @@ it("resumes the client's code flow with its S256 challenge, resource and state",
   const begin = vi.spyOn(Oauth2.prototype, "authorize").mockResolvedValue({ grantId: "grant", redirectUrl: "" });
   expect(await loadConsent(query)).toEqual({ state: "redirect", url: "/auth/mcp/consent?grant_id=grant" });
   expect(begin).toHaveBeenCalledWith(expect.objectContaining({ state: query.state, codeChallenge: query.code_challenge, codeChallengeMethod: "S256", resource: [resource] }));
-  for (const changes of [{ code_challenge_method: "plain" }, { code_challenge: "short" }, { resource: "https://other.example" }, { scope: "project:all" }]) {
+  for (const changes of [{ code_challenge_method: "plain" }, { code_challenge: "short" }, { resource: "https://other.example" }, { scope: "openid email" }, { scope: "chat.write email project:all" }]) {
     expect(await loadConsent({ ...query, ...changes })).toEqual({ state: "invalid" });
   }
   expect(begin).toHaveBeenCalledTimes(1);
+});
+
+it("resumes ChatGPT sign-in with only the permissions Parrot can grant", async () => {
+  const authorize = vi.spyOn(Oauth2.prototype, "authorize").mockResolvedValue({ grantId: "grant", redirectUrl: "" });
+  const params = {
+    ...query,
+    client_id: "https://chatgpt.com/oauth/example/client.json",
+    redirect_uri: "https://chatgpt.com/connector/oauth/example",
+    scope: "openid email chat.write",
+    nonce: "",
+  };
+  expect(await loadConsent(params)).toEqual({ state: "redirect", url: "/auth/mcp/consent?grant_id=grant" });
+  expect(authorize).toHaveBeenCalledWith(expect.objectContaining({
+    clientId: params.client_id, redirectUri: params.redirect_uri, codeChallenge: query.code_challenge,
+    codeChallengeMethod: "S256", resource: [resource], state: query.state, scope: "openid chat.write",
+  }));
+});
+
+it.each([
+  { requested: ["openid", "email", "chat.write"], approved: ["openid", "chat.write"] },
+  { requested: ["chat.write", "email", "offline_access"], approved: ["chat.write", "offline_access"] },
+])("displays and approves only the chat permissions from a pending grant with $requested", async ({ requested, approved }) => {
+  vi.mocked(Oauth2.prototype.getGrant).mockResolvedValue({ ...grant, scopes: requested });
+  const approve = vi.spyOn(Oauth2.prototype, "approve").mockResolvedValue({ redirectUrl: callback });
+  expect(await loadConsent({ grant_id: "grant" })).toMatchObject({ state: "grant", scopes: approved });
+  expect((await decide(decision("allow"))).status).toBe(303);
+  expect(approve).toHaveBeenCalledWith({ grantId: "grant", scope: approved.join(" ") });
 });
 
 it("shows the grant's application and account before the user chooses", async () => {
@@ -58,7 +85,7 @@ it("requires same-origin consent and verifies the grant again for each decision"
   expect(reject).toHaveBeenCalledWith({ grantId: "grant" });
   expect((await decide(decision("allow"))).headers.get("location")).toBe(`${callback}?code=test`);
   expect(approve).toHaveBeenCalledWith({ grantId: "grant", scope: "chat.write" });
-  for (const changes of [{ userId: "user-b" }, { scopes: ["chat.write", "project:all"] }, { resources: [] }, { expire: "2000-01-01T00:00:00Z" }]) {
+  for (const changes of [{ userId: "user-b" }, { scopes: ["openid", "email"] }, { scopes: ["chat.write", "email", "project:all"] }, { resources: [] }, { expire: "2000-01-01T00:00:00Z" }]) {
     vi.mocked(Oauth2.prototype.getGrant).mockResolvedValue({ ...grant, ...changes });
     expect(await loadConsent({ grant_id: "grant" })).toEqual({ state: "invalid" });
     expect((await decide(decision("allow"))).status).toBe(403);

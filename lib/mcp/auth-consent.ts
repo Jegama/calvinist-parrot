@@ -5,7 +5,10 @@ import { getMcpOAuthConfig, MCP_CHAT_SCOPE } from "./auth";
 import { consentPath } from "./auth-return";
 
 type SearchParams = Record<string, string | string[] | undefined>;
-const supportedScopes = [MCP_CHAT_SCOPE, "openid", "offline_access"];
+// ChatGPT also requests email. Accept that request, but only grant the scopes used by Parrot chat.
+const chatConsentScopes = z.array(z.enum([MCP_CHAT_SCOPE, "openid", "offline_access", "email"]))
+  .refine(scopes => scopes.includes(MCP_CHAT_SCOPE))
+  .transform(scopes => scopes.filter(scope => scope !== "email"));
 
 export function consentCallback(value: string) {
   if (!URL.canParse(value)) return null;
@@ -15,17 +18,13 @@ export function consentCallback(value: string) {
   return url.protocol === "https:" || loopback ? url.href : null;
 }
 
-function hasChatScopes(scopes: string[]) {
-  return scopes.includes(MCP_CHAT_SCOPE) && scopes.every(scope => supportedScopes.includes(scope));
-}
-
 const authorizationRequest = z.object({
   client_id: z.string().min(1),
   redirect_uri: z.string().refine(uri => Boolean(consentCallback(uri))),
   response_type: z.literal("code"),
   code_challenge: z.string().regex(/^[\w-]{43}$/),
   code_challenge_method: z.literal("S256"),
-  scope: z.string().refine(scope => hasChatScopes(scope.split(" "))),
+  scope: z.string().transform(scope => scope.split(" ")).pipe(chatConsentScopes),
   resource: z.string(),
   prompt: z.literal("consent").optional(),
   state: z.string().optional(),
@@ -34,12 +33,14 @@ const authorizationRequest = z.object({
   authorization_details: z.never().optional(),
 });
 
-export function isChatGrant(grant: Models.Oauth2Grant, userId: string, resource: string) {
-  return grant.userId === userId && Date.parse(grant.expire) > Date.now() &&
+export function getChatGrantScopes(grant: Models.Oauth2Grant, userId: string, resource: string) {
+  const validGrant = grant.userId === userId && Date.parse(grant.expire) > Date.now() &&
     grant.resources.length === 1 && grant.resources[0] === resource &&
-    hasChatScopes(grant.scopes) &&
     (!grant.authorizationDetails || grant.authorizationDetails === "[]") &&
     (!grant.prompt || grant.prompt === "consent") && Boolean(consentCallback(grant.redirectUri));
+  if (!validGrant) return null;
+  const scopes = chatConsentScopes.safeParse(grant.scopes);
+  return scopes.success ? scopes.data : null;
 }
 
 export async function consentSession() {
@@ -75,7 +76,7 @@ export async function loadConsent(params: SearchParams): Promise<ConsentView> {
         responseType: request.response_type,
         codeChallenge: request.code_challenge,
         codeChallengeMethod: request.code_challenge_method,
-        scope: request.scope,
+        scope: request.scope.join(" "),
         resource: [request.resource],
         prompt: request.prompt,
         state: request.state,
@@ -90,9 +91,10 @@ export async function loadConsent(params: SearchParams): Promise<ConsentView> {
     }
     if (typeof grantId !== "string") return { state: "invalid" };
     const grant = await session.oauth.getGrant({ grantId });
-    if (!isChatGrant(grant, session.account.$id, session.resource.href)) return { state: "invalid" };
+    const scopes = getChatGrantScopes(grant, session.account.$id, session.resource.href);
+    if (!scopes) return { state: "invalid" };
     const client = grant.appId ? await session.apps.get({ appId: grant.appId }).then(app => app.name).catch(() => grant.appId) : "MCP client";
-    return { state: "grant", id: grant.$id, client, account: session.account.email, callbackHost: new URL(grant.redirectUri).host, scopes: grant.scopes };
+    return { state: "grant", id: grant.$id, client, account: session.account.email, callbackHost: new URL(grant.redirectUri).host, scopes };
   } catch (error) {
     return { state: error && typeof error === "object" && "code" in error && error.code === 401 ? "signedOut" : "invalid" };
   }
