@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.7.1 — November 27, 2026
+
+- ChatGPT users can connect with the default OAuth scopes. Parrot omits email access when approving the connection.
+
 ## 2.7.0 — November 27, 2026
 
 - Connect to Parrot from the Labs or More menu for ChatGPT, Codex and Claude setup, chat persistence and permissions. A runnable Node.js example compares evaluated churches across cities using the public API. [#130](https://github.com/Jegama/calvinist-parrot/pull/130)
