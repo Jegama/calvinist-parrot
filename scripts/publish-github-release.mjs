@@ -19,6 +19,7 @@ const VERSION_TAG = /^v(\d+)\.(\d+)\.(\d+)$/;
  *   notes: string,
  *   target: string,
  *   previousTag: string,
+ *   latest: boolean,
  * }} ReleasePublish
  * @typedef {{
  *   version: string,
@@ -163,6 +164,22 @@ export function previousReleaseTag(tagNames, version) {
   return bestName;
 }
 
+/**
+ * A late publish of an older version must not replace a newer Latest release.
+ * @param {string[]} tagNames
+ * @param {string} version
+ */
+export function shouldMarkLatest(tagNames, version) {
+  const current = parseVersion(version);
+  for (const name of tagNames) {
+    const match = VERSION_TAG.exec(name);
+    if (!match) continue;
+    const parts = [Number(match[1]), Number(match[2]), Number(match[3])];
+    if (compareVersions(parts, current) > 0) return false;
+  }
+  return true;
+}
+
 export function buildReleaseNotes({
   section,
   repository,
@@ -217,6 +234,7 @@ export function planRelease({
     notes: buildReleaseNotes({ section, repository, previousTag, tag }),
     target: headCommit,
     previousTag,
+    latest: shouldMarkLatest(tagNames, version),
   };
 }
 
@@ -266,7 +284,7 @@ function publishRelease(repository, plan) {
         plan.title,
         "--notes-file",
         notesPath,
-        "--latest=true",
+        `--latest=${plan.latest ? "true" : "false"}`,
       ],
       { stdio: "inherit" },
     );

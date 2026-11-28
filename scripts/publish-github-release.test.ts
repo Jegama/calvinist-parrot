@@ -18,6 +18,7 @@ import {
   previousPackageVersion,
   previousReleaseTag,
   publishCurrentRelease,
+  shouldMarkLatest,
   versionTagsFromLsRemote,
 } from "./publish-github-release.mjs";
 
@@ -186,6 +187,14 @@ describe("release notes", () => {
     );
   });
 
+  it("marks only the highest version as Latest", () => {
+    expect(shouldMarkLatest(["v2.6.1"], "2.7.0")).toBe(true);
+    expect(shouldMarkLatest([], "1.0.0")).toBe(true);
+    expect(shouldMarkLatest(["v2.9.0"], "2.10.0")).toBe(true);
+    expect(shouldMarkLatest(["v2.10.0", "v2.7.0"], "2.8.0")).toBe(false);
+    expect(shouldMarkLatest(["v2.9.0"], "2.8.0")).toBe(false);
+  });
+
   it("reads lightweight and annotated tags from ls-remote", () => {
     const output = [
       "2de7eaa68550fe92f8b1e5ad08da357a9f717f97\trefs/tags/v2.0.0",
@@ -250,6 +259,7 @@ describe("release notes", () => {
       target: head,
       previousTag: "v2.6.1",
     });
+    expect(plan.latest).toBe(false);
     expect(plan.notes).toContain(connectToParrotSection);
     expect(plan.notes).toContain(
       "https://github.com/Jegama/calvinist-parrot/compare/v2.6.1...v2.7.0",
