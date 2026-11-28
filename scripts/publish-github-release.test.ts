@@ -13,7 +13,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildReleaseNotes,
   extractChangelogSection,
+  packageVersionChanged,
   planRelease,
+  previousPackageVersion,
   previousReleaseTag,
   publishCurrentRelease,
   versionTagsFromLsRemote,
@@ -323,13 +325,41 @@ describe("release notes", () => {
           packageJsonPath,
           changelogPath,
           releaseAlreadyExists: false,
+          previousVersion: "2.6.1",
           headCommit: "3a1fd2e22a4cf5e782ba2ed56b7e427a23c8b3c1",
           remoteOutput:
             "3a1fd2e22a4cf5e782ba2ed56b7e427a23c8b3c1\trefs/tags/v2.6.1\n",
         }),
       ).toThrow(/no section headed "## 2\.7\.0/);
+
+      expect(
+        publishCurrentRelease({
+          repository: "Jegama/calvinist-parrot",
+          packageJsonPath,
+          releaseAlreadyExists: false,
+          previousVersion: "2.7.0",
+        }),
+      ).toEqual({
+        action: "skip",
+        tag: "v2.7.0",
+        reason: "package.json version 2.7.0 did not change.",
+      });
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
+  });
+
+  it("treats the first push as a version change and ignores an unchanged one", () => {
+    expect(packageVersionChanged(null, "2.7.0")).toBe(true);
+    expect(packageVersionChanged("2.6.1", "2.7.0")).toBe(true);
+    expect(packageVersionChanged("2.7.0", "2.7.0")).toBe(false);
+    expect(
+      previousPackageVersion("0".repeat(40), () => {
+        throw new Error("the zero SHA has no package.json");
+      }),
+    ).toBeNull();
+    expect(
+      previousPackageVersion("abc", () => JSON.stringify({ version: "2.6.1" })),
+    ).toBe("2.6.1");
   });
 });

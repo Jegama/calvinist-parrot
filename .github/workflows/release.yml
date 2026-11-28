@@ -31,7 +31,16 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Fetch the previous master commit
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            git fetch --depth=1 origin "$BEFORE_SHA"
+          fi
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_BEFORE_SHA: ${{ github.event.before }}
         run: node scripts/publish-github-release.mjs

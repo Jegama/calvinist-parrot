@@ -36,8 +36,41 @@ const VERSION_TAG = /^v(\d+)\.(\d+)\.(\d+)$/;
  *   releaseAlreadyExists?: boolean,
  *   headCommit?: string | null,
  *   remoteOutput?: string,
+ *   previousVersion?: string | null,
  * }} PublishOptions
  */
+
+const ZERO_SHA = /^0+$/;
+
+/**
+ * @param {string} packageJson
+ */
+export function readPackageVersion(packageJson) {
+  const { version } = JSON.parse(packageJson);
+  parseVersion(version);
+  return version;
+}
+
+/**
+ * The all-zero before SHA has no previous package version, so that push may publish.
+ * @param {string | null | undefined} beforeSha
+ * @param {(sha: string) => string} readPackageJson
+ */
+export function previousPackageVersion(beforeSha, readPackageJson) {
+  if (!beforeSha || ZERO_SHA.test(beforeSha)) return null;
+  return readPackageVersion(readPackageJson(beforeSha));
+}
+
+/**
+ * @param {string | null | undefined} previousVersion
+ * @param {string} version
+ */
+export function packageVersionChanged(previousVersion, version) {
+  parseVersion(version);
+  if (previousVersion == null) return true;
+  parseVersion(previousVersion);
+  return previousVersion !== version;
+}
 
 export function parseVersion(version) {
   const match = VERSION_PATTERN.exec(version);
@@ -272,6 +305,7 @@ export function publishCurrentRelease({
   releaseAlreadyExists,
   headCommit,
   remoteOutput,
+  previousVersion,
 } = {}) {
   if (!repository) {
     throw new Error(
@@ -279,9 +313,17 @@ export function publishCurrentRelease({
     );
   }
 
-  const { version } = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-  parseVersion(version);
+  const version = readPackageVersion(readFileSync(packageJsonPath, "utf8"));
   const tag = `v${version}`;
+  if (!packageVersionChanged(previousVersion, version)) {
+    const plan = {
+      action: "skip",
+      tag,
+      reason: `package.json version ${version} did not change.`,
+    };
+    console.log(plan.reason);
+    return plan;
+  }
   const exists = releaseAlreadyExists ?? releaseExists(repository, tag);
   if (exists) {
     const plan = planRelease({
@@ -318,8 +360,25 @@ export function publishCurrentRelease({
   return plan;
 }
 
+function readPackageJsonAtSha(sha) {
+  try {
+    return execFileSync("git", ["show", `${sha}:package.json`], {
+      encoding: "utf8",
+    });
+  } catch (error) {
+    throw new Error(
+      `Could not read package.json at ${sha}. Fetch that commit before publishing.\n${commandFailureText(error)}`,
+    );
+  }
+}
+
 function main() {
-  publishCurrentRelease();
+  publishCurrentRelease({
+    previousVersion: previousPackageVersion(
+      process.env.RELEASE_BEFORE_SHA,
+      readPackageJsonAtSha,
+    ),
+  });
 }
 
 const executedModuleUrl = process.argv[1]
