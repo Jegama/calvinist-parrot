@@ -45,10 +45,11 @@ A verified publisher needs an organization owner or a member with **Apps Managem
 
 The draft uses OpenAI's supported Codex package layout. The manifest supplies the listing, five positive and three negative review cases, and release notes. The MCP declaration uses dynamic client registration and the mixed public/OAuth mode. Complete `interface.termsOfServiceURL` and `extensions.com.openai.review.demo_recording_url` with the real public URLs before review. Confirm the category and country availability in the dashboard. [Manifest](../../integrations/openai/.codex-plugin/plugin.json) · [MCP configuration](../../integrations/openai/.mcp.json)
 
-From the repository root, package the two source files and the existing Parrot logo. The ZIP is a local build artifact.
+From the repository root, enter the OpenAI plugin directory and package its manifest, MCP configuration, and logo. The ZIP is a local build artifact.
 
 ```sh
-python3 -m zipfile -c /tmp/calvinist-parrot-directory.zip integrations/openai/.codex-plugin integrations/openai/.mcp.json public/Logo.png
+cd integrations/openai
+python3 -m zipfile -c /tmp/calvinist-parrot-directory.zip .codex-plugin .mcp.json Logo.png
 python3 -m zipfile -t /tmp/calvinist-parrot-directory.zip
 ```
 
