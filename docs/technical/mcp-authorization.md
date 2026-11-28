@@ -31,6 +31,8 @@ If preview shares the production Appwrite project, retain its existing project s
 
 ## Client verification
 
+See the [dated hosted client results](mcp-client-verification.md) for production Codex guest chat, saved directory reads and account-link status. [Directory submission records](mcp-directory-listings.md) track publisher review separately.
+
 Use two test accounts and a new connection in each target client. Run against the selected nonproduction deployment. Record the client version, date and outcome in the onboarding handoff. The automated repository tests use Appwrite-shaped fixtures for consent, access tokens and revocation. Codex CLI 0.167.0-alpha.4 also exercised discovery, dynamic registration, the consent callback and the token request against a local test issuer. That issuer verified the PKCE verifier and MCP resource, then stopped before credential issuance. Hosted compatibility requires a configured OAuth project and a reachable HTTPS deployment.
 
 | Client | Connection and sign-in check |
