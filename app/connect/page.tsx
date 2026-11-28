@@ -18,7 +18,7 @@ export default function ConnectPage() {
         <p className="text-lg">Ask a theological question with Scripture citations or explore saved church evaluations from your AI client. All three clients use the same hosted MCP server.</p>
         <p className="pt-2 text-sm font-medium">Server URL · Streamable HTTP</p>
         <CopySnippet text={endpoint} label="Copy server URL" />
-        <p className="border-l-2 border-accent pl-3 text-sm"><strong>Service check · November 27, 2026.</strong> Codex returned a cited answer to a guest question, found churches and opened a saved evaluation. Hosted account linking was pending configuration. You can also ask a question in <Link href="/">Parrot web chat</Link>.</p>
+        <p className="border-l-2 border-accent pl-3 text-sm"><strong>Service check · November 27, 2026.</strong> Codex returned a cited answer to a guest question, found churches and opened a saved evaluation. Codex also reached Parrot’s sign-in screen for account linking. Verification of a saved follow-up is pending. You can also ask a question in <Link href="/">Parrot web chat</Link>.</p>
       </header>
 
       <section>
@@ -67,7 +67,7 @@ export default function ConnectPage() {
 
       <section className="space-y-3">
         <h2>Save a conversation to your account</h2>
-        <p>When linking is available, choose OAuth in ChatGPT or the sign-in option in Claude. In Codex, run <code>codex mcp login parrot --scopes chat.write</code>. Sign in on the Parrot consent screen, check the named client and account, and approve <code>chat.write</code>.</p>
+        <p>For account access, choose OAuth in ChatGPT or the sign-in option in Claude. In Codex, run <code>codex mcp login parrot --scopes chat.write</code>. Sign in on the Parrot consent screen, check the named client and account, and approve <code>chat.write</code>.</p>
         <p>All authorized questions and replies appear in your Parrot account history and can inform your account’s personalized chat memory. The limit is 20 chat requests per minute per account. Ask your client to start a saved conversation, then continue using the returned <code>conversationRef</code> with the same account. Keep that reference private.</p>
       </section>
 
