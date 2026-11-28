@@ -10,6 +10,35 @@ const VERSION_PATTERN = /^(\d+)\.(\d+)\.(\d+)$/;
 const SECTION_HEADING = /^## (\d+\.\d+\.\d+) — (.+)$/;
 const VERSION_TAG = /^v(\d+)\.(\d+)\.(\d+)$/;
 
+/**
+ * @typedef {{ action: "skip", tag: string, reason: string }} ReleaseSkip
+ * @typedef {{
+ *   action: "publish",
+ *   tag: string,
+ *   title: string,
+ *   notes: string,
+ *   target: string,
+ *   previousTag: string,
+ * }} ReleasePublish
+ * @typedef {{
+ *   version: string,
+ *   releaseExists: boolean,
+ *   tagCommit: string | null,
+ *   headCommit: string | null,
+ *   changelog: string,
+ *   tagNames: string[],
+ *   repository: string,
+ * }} ReleasePlanInput
+ * @typedef {{
+ *   repository?: string,
+ *   packageJsonPath?: string,
+ *   changelogPath?: string,
+ *   releaseAlreadyExists?: boolean,
+ *   headCommit?: string | null,
+ *   remoteOutput?: string,
+ * }} PublishOptions
+ */
+
 export function parseVersion(version) {
   const match = VERSION_PATTERN.exec(version);
   if (!match) {
@@ -118,6 +147,10 @@ export function buildReleaseNotes({
   return `${section.trim()}\n\n**Full Changelog**: https://github.com/${repository}/compare/${previousTag}...${tag}\n`;
 }
 
+/**
+ * @param {ReleasePlanInput} input
+ * @returns {ReleaseSkip | ReleasePublish}
+ */
 export function planRelease({
   version,
   releaseExists,
@@ -228,6 +261,10 @@ function readRemoteTags() {
   });
 }
 
+/**
+ * @param {PublishOptions} [options]
+ * @returns {ReleaseSkip | ReleasePublish}
+ */
 export function publishCurrentRelease({
   repository = process.env.GITHUB_REPOSITORY,
   packageJsonPath = "package.json",

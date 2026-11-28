@@ -235,6 +235,9 @@ describe("release notes", () => {
       repository: "Jegama/calvinist-parrot",
     });
     expect(plan.action).toBe("publish");
+    if (plan.action !== "publish") {
+      throw new Error("expected a publish plan");
+    }
     expect(plan).toMatchObject({
       tag: "v2.6.1",
       title: "Calvinist Parrot 2.6.1",
