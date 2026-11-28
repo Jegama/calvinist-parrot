@@ -1,0 +1,25 @@
+# Admin analytics
+
+## Dashboard access and reporting windows
+
+Accounts with the Appwrite label `analyticsadmin` can open **Analytics dashboard** from their profile or read aggregate JSON at `/api/admin/analytics`. The dashboard offers 7 (default), 30, 90, 180, and 365 days, plus **All time**. Existing dashboard links and API requests with `?days=730` still return the two-year report. Fixed periods compare completed America/Chicago days with the preceding period of equal length. **All time** includes available history through the displayed snapshot time, including today. Each reporting window reuses its aggregate snapshot until the next Chicago midnight. **Refresh** obtains a fresh snapshot and expires cached snapshots for the other windows. Access is checked on every request.
+
+## Data sources and credentials
+
+Registration counts and username sign-in share the server-only `APPWRITE_ANALYTICS_READ_KEY`. Grant this key only `users.read` in the same Appwrite project that issues sessions. Production pageviews use `VERCEL_PROJECT_ID` and a server-only token (`VERCEL_ANALYTICS_TOKEN` or `VERCEL_TOKEN`). Set `VERCEL_TEAM_ID` to explicitly scope the request to a team. The dashboard labels unavailable sources and shows the remaining metrics. See the [environment template](../../.env.template) for configuration.
+
+## Chat and evaluation costs
+
+Preview and Production use separate application databases. Each dashboard counts chat activity in its own database, including turns without usage receipts. Chat spend uses provider receipts from the current deployment environment and follows the Chicago date of the original submission. A visible reply completes that turn once. Fixed periods include later retries and background work for those submissions. All time includes replies recorded and attempts started before the report snapshot. Open **Chat cost details** for channel totals, retry spend, token counts and stage/model costs. Each channel shows spend per completed turn when collection covers its submissions, every completed turn has a successful model receipt, and every recorded attempt is measured and priced. Work with no matching submission is reported separately by attempt date. Estimates use standard published token prices.
+
+Church Finder and Sermon Evaluator report model spend, external-service fees, and cost per completed evaluation by entry channel for the current deployment environment. Period spend includes failed and retried calls. The completion average includes earlier attempts on evaluations that finished during the period and is available when their costs are fully covered. Saved church reads and resumed sermon stages that reuse saved results generate no new charges. The dedicated worker database role needs the grants in the [sermon worker setup](../../services/sermon-evaluator/README.md).
+
+## Feature engagement
+
+Feature names in the usage table open the corresponding engagement details. Website rates match each step to an earlier step of the same conversation, journal entry, rotation, devotional view, directory visit, or sermon submission. Both steps must fall in the selected observation window, and each flow counts once per step. Personal Journal prayer saves and chat handoffs each use ready reflections as their denominator. Requests marked answered and external server outcomes have independent counts. Anonymous Vercel pageviews continue to measure reach.
+
+Engaged devotional reading is an estimate of 30 seconds of visible-tab time. Hiding the page pauses the clock. Reloading the same reading within its short-lived view resumes the clock. Devotional and directory views use opaque IDs local to a browser history entry, reused on reload for up to 30 minutes. Existing first-party operation IDs match saved actions. Apply the engagement migrations with the release. The dashboard gives the collection dates and earlier periods retain their available independent counts. Older browser builds can miss newly instrumented UI steps. To retrieve a saved church through `GET /api/v1/churches/{id}`, supply a UUID `Idempotency-Key` and reuse it when retrying that lookup. The shared legacy church detail route has unknown origin. New sermon submissions use their server entry point, including submissions from older website tabs that still call the public API. Existing evaluations with unknown origin stay outside the website funnel. The hosted MCP endpoint preserves the original tool operation for saved church reads and chat turns. Set `ANALYTICS_MCP_COVERAGE_FROM` to the verified deployment start to show zero counts for fully covered periods. See the [MCP authorization and preview guide](./mcp-authorization.md).
+
+## Account deletion
+
+Deleting an individual chat or journal entry leaves its content-free activity records in place. When fulfilling an account deletion request, include the account’s chat and action records and any engagement, journal completion, and provider records linked to its operations, entries, evaluations, or revisions. Delete chat provider receipts linked by operation ID to the account’s chat events before removing those events.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.7.0 — November 27, 2026
+
+- Connect to Parrot from the Labs or More menu for ChatGPT, Codex and Claude setup, chat persistence and permissions. A runnable Node.js example compares evaluated churches across cities using the public API. [#130](https://github.com/Jegama/calvinist-parrot/pull/130)
+
 ## 2.6.1 — November 27, 2026
 
 - Prayer Tracker now checks a household revision to pick up shared changes with fewer database reads. Moving a prayer request keeps the original if the destination is unavailable. [#129](https://github.com/Jegama/calvinist-parrot/pull/129)
@@ -44,7 +48,7 @@ Previously shipped in [#121](https://github.com/Jegama/calvinist-parrot/pull/121
 
 - **Church Finder.** Evaluations can use quotations in the original language of a church website. The results distinguish what a congregation states directly, what it affirms by publicly adopting a confession, and what can be established about its current affiliations. Time limits on website retrieval give submitters a clear failure when a site cannot be evaluated. [#81](https://github.com/Jegama/calvinist-parrot/pull/81) · [#84](https://github.com/Jegama/calvinist-parrot/pull/84)
 - **Sermon evaluation.** Invited users can privately upload a recording, follow its evaluation, read rubric-based feedback, compare trends across sermons, and download reports. [#82](https://github.com/Jegama/calvinist-parrot/pull/82)
-- **Chat and model evaluations.** Claude Haiku 5.5 became the default chat model. Operators switching an existing deployment need an Anthropic API key and `PARROT_AGENT_PROVIDER=anthropic`. The public evaluation dashboard shows which models all three judges reviewed in the provisional November edition and preserves earlier scores. Gemini 4 Hydrogen became the default for Church Finder and sermon analysis. [Chat model configuration](./README.md#chat-model-configuration) · [#84](https://github.com/Jegama/calvinist-parrot/pull/84) · [#93](https://github.com/Jegama/calvinist-parrot/pull/93)
+- **Chat and model evaluations.** Claude Haiku 5.5 became the default chat model. Operators switching an existing deployment need an Anthropic API key and `PARROT_AGENT_PROVIDER=anthropic`. The public evaluation dashboard shows which models all three judges reviewed in the provisional November edition and preserves earlier scores. Gemini 4 Hydrogen became the default for Church Finder and sermon analysis. [Chat model configuration](./docs/technical/Local%20Development.md#chat-model-configuration) · [#84](https://github.com/Jegama/calvinist-parrot/pull/84) · [#93](https://github.com/Jegama/calvinist-parrot/pull/93)
 - **Personal and Heritage Journals.** People can retry an incomplete reflection and keep the stages that succeeded. Both journals now use Claude Haiku 5.5, and the privacy policy explains which journal text and parent-entered information is sent to Anthropic. [#83](https://github.com/Jegama/calvinist-parrot/pull/83) · [#101](https://github.com/Jegama/calvinist-parrot/pull/101)
 - **Prayer Tracker.** Rotations give priority to families with no recorded prayer, then those who have waited longest, and minimize repeat assignments within each member's capacity. Families are searchable when creating or editing a request and in the family directory. A request keeps its family link if that family is archived. [#92](https://github.com/Jegama/calvinist-parrot/pull/92) · [#95](https://github.com/Jegama/calvinist-parrot/pull/95)
 

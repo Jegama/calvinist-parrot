@@ -27,6 +27,7 @@ const routes: Record<string, Feature> = {
   "llm-evaluation-dashboard": "evaluations",
   "documentation-parrot-qa": "documentation",
   "documentation-parrot-chat": "documentation",
+  connect: "documentation",
   login: "account", register: "account", profile: "account", auth: "account",
   "forgot-password": "account", "reset-password": "account",
   about: "about", "privacy-policy": "about", "doctrinal-statement": "about",

@@ -24,13 +24,15 @@ The interactive reference also describes the required `application/x-ndjson` str
 
 ## Using an MCP client
 
+For direct setup in ChatGPT, Codex, or Claude and the latest hosted service check, see [Connect to Parrot](/connect).
+
 Connect a remote Streamable HTTP client to `/api/mcp` on the Parrot deployment. On the public site the endpoint is `https://www.calvinistparrot.com/api/mcp`. Run `tools/list` to see the current input schemas and tool annotations. `find_churches` and `get_church` work without an account. `ask_parrot` sends the question through the Parrot chat service and returns the final answer with its inline citations. If the research tools supplied separate source summaries, the response includes them in `sources`. The service persists the chat transcript. An anonymous question is isolated and has no follow-up reference. Guests can send up to 10 chat requests per hour per network.
 
 For saved follow-ups, connect your Parrot account and grant the `chat.write` scope. A connected account can send up to 20 chat requests per minute. Authorized questions appear in that account’s chat history. Ask the first question with `saveConversation` set to `true`. Keep the returned `conversationRef` and request IDs private and use it for subsequent turns on the same account. Generate a fresh random UUIDv4 `requestId` for each new question. If a call times out, retry with the original inputs and UUID. Reusing that UUID for a different question produces a conflict.
 
 ### Checking a client connection
 
-Use two test accounts and a deployment with OAuth and guest chat enabled. These checks can incur model usage. Repeat them in each target client and record the client version, deployment, and observed result. ChatGPT and Claude require access to custom remote connectors in the chosen workspace. Codex needs a configured HTTP MCP server. A client that can browse the anonymous directory still needs a successful OAuth consent and follow-up check before private chat can be marked as working. Client-specific setup and live verification are tracked in [issue #107](https://github.com/Jegama/calvinist-parrot/issues/107).
+Use two test accounts and a deployment with OAuth and guest chat enabled. These checks can incur model usage. Repeat them in each target client and record the client version, deployment, and observed result. ChatGPT and Claude require access to custom remote connectors in the chosen workspace. Codex needs a configured HTTP MCP server. A client that can browse the anonymous directory still needs a successful OAuth consent and follow-up check before private chat can be marked as working. Live verification is tracked in [issue #107](https://github.com/Jegama/calvinist-parrot/issues/107).
 
 | Check | Action and expected result |
 | --- | --- |

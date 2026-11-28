@@ -27,6 +27,7 @@ export default async function ConsentPage({ searchParams }: { searchParams: Prom
           {consent.state === "grant" && <>
             <p><strong>{consent.client}</strong> ({consent.callbackHost}) is requesting access as <strong>{consent.account}</strong>.</p>
             <p>This client can send questions and save answers to your Parrot account. It can continue conversations when it has their references and renew access while you are away.</p>
+            <p>Parrot can use these conversations to update your theological interests and other account memories. <Link href="/privacy-policy" className="underline">Read the privacy policy</Link>.</p>
             {consent.scopes.includes("openid") && <p>The client can identify your Parrot account.</p>}
             <form method="post" action="/auth/mcp/consent/decision" className="flex flex-wrap gap-3">
               <input type="hidden" name="grant_id" value={consent.id} />

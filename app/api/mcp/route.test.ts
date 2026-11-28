@@ -52,10 +52,15 @@ describe("Streamable HTTP client", () => {
     const client = await connectMcpClient(undefined, { versionNegotiation: { mode: version === "2025-11-25" ? "legacy" : { pin: "2026-07-28" } } });
     try {
       const { tools } = await client.listTools();
-      expect(tools.map(tool => tool.name).sort()).toEqual(["ask_parrot", "find_churches", "get_church"]);
+      expect(Object.fromEntries(tools.map(tool => [tool.name, tool.title]))).toEqual({
+        ask_parrot: "Ask Parrot a theology question",
+        find_churches: "Find evaluated churches",
+        get_church: "Read a saved church evaluation",
+      });
       for (const tool of tools) expect(tool.annotations?.readOnlyHint).toBe(tool.name !== "ask_parrot");
       const description = tools.find(tool => tool.name === "ask_parrot")?.description;
       expect(description).toMatch(/persist|stor|sav/i);
+      expect(description).toContain("profile and memories");
       expect(description).toContain("10 chat requests per hour per network");
       expect(description).toContain("20 chat requests per minute per account");
     } finally { await client.close(); }

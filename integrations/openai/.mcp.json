@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "parrot": {
+      "url": "https://www.calvinistparrot.com/api/mcp",
+      "extensions": {
+        "com.openai": {
+          "auth": {
+            "type": "mixed",
+            "client": {
+              "mode": "dcr"
+            },
+            "baseScopes": [
+              "chat.write"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -2,51 +2,9 @@
 
 ## How to set up the project
 
-### Prerequisites
+Fork the repository on GitHub and clone your fork. Use Node.js 24 (see `.nvmrc`), npm, Docker, and the Python 3.14 worker environment. The local development guide walks through configuring credentials, starting the database, applying migrations, and running the app and worker together. [Local development](./docs/technical/Local%20Development.md)
 
-You will need to have the following installed on your machine:
-
-- Node.js 20.9.0 or higher
-- npm (comes with Node.js)
-- Docker, for the local Postgres database
-
-### Environment Setup
-
-1. **Fork this repository**
-
-- Click the "Fork" button in the top right
-- Follow the prompts to create your fork
-
-2. **Clone the repository**
-
-```bash
-git clone https://github.com/YOUR_USERNAME/calvinist-parrot.git
-cd calvinist-parrot
-```
-
-3. **Install dependencies**
-
-```bash
-npm install
-```
-
-4. **Environment variables and database**
-
-* Copy `.env.template` to `.env`
-* Fill in required credentials and API keys
-* Start the local database and apply migrations:
-
-```bash
-npm run db:up
-npm run db:migrate
-npm run db:seed
-```
-
-5. **Run the development server**
-
-```bash
-npm run dev
-```
+Maintainers can find the dashboard access requirements, metric definitions, and account deletion procedure in the [admin analytics guide](./docs/technical/admin-analytics.md).
 
 ## Contributing to the Project
 

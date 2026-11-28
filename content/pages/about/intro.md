@@ -19,6 +19,8 @@ If you want to learn the legal restrictions to sharing God's word, click [here](
 
 ## Calvinist Parrot APIs
 
+Use Parrot chat and the church directory from your AI client. [Connect to Parrot](/connect)
+
 We are opening an API that is carefully guarded so you do not have to worry about prompt design or safety.
 
 ### Parrot Chat API
