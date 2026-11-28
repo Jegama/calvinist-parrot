@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.7.0 — November 27, 2026
+
+- Connect to Parrot from the Labs or More menu for ChatGPT, Codex and Claude setup, chat persistence and permissions. A runnable Node.js example compares evaluated churches across cities using the public API. [#107](https://github.com/Jegama/calvinist-parrot/issues/107)
+
 ## 2.6.1 — November 27, 2026
 
 - Prayer Tracker now checks a household revision to pick up shared changes with fewer database reads. Moving a prayer request keeps the original if the destination is unavailable. [#129](https://github.com/Jegama/calvinist-parrot/pull/129)

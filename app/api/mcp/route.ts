@@ -47,6 +47,7 @@ function createServer(request: Request, userId: string | null) {
   const key = callerKey(request, userId);
   const directoryAnnotations = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
   server.registerTool("find_churches", {
+    title: "Find evaluated churches",
     description: "Browse a page of saved, evaluated churches. Filter by city, state, denomination or evaluation status.",
     inputSchema: findChurchesInputSchema, outputSchema: findChurchesResultSchema, annotations: directoryAnnotations,
     _meta: { securitySchemes: [{ type: "noauth" }] },
@@ -55,6 +56,7 @@ function createServer(request: Request, userId: string | null) {
     return findChurches(args);
   }));
   server.registerTool("get_church", {
+    title: "Read a saved church evaluation",
     description: "Read a saved church, its latest evaluation and supporting links. Reuse the operation UUID on retry.",
     inputSchema: getChurchInputSchema, outputSchema: getChurchResultSchema, annotations: directoryAnnotations,
     _meta: { securitySchemes: [{ type: "noauth" }] },
@@ -66,7 +68,8 @@ function createServer(request: Request, userId: string | null) {
     return getChurchResultSchema.parse(await record.json());
   }));
   server.registerTool("ask_parrot", {
-    description: `Ask Parrot and receive its final answer with citations. Questions and answers are persisted. Guests get one isolated turn per conversation. ${mcpChatAccess} Authorized questions appear in account history and return a conversation reference for follow-ups. Use a fresh random request UUID for each new question and reuse it on retry.`,
+    title: "Ask Parrot a theology question",
+    description: `Ask Parrot and receive its final answer with citations. Questions and answers are persisted. Guests get one isolated turn per conversation. ${mcpChatAccess} Authorized questions appear in account history, can update your Parrot profile and memories, and return a conversation reference for follow-ups. Use a fresh random request UUID for each new question and reuse it on retry.`,
     inputSchema: askParrotInput,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     _meta: { securitySchemes: [{ type: "noauth" }, { type: "oauth2", scopes: [MCP_CHAT_SCOPE] }] },

@@ -1,0 +1,93 @@
+{
+  "name": "calvinist-parrot",
+  "version": "1.0.0",
+  "description": "Ask theological questions with citations and search saved church evaluations.",
+  "author": {
+    "name": "Calvinist Parrot Ministries",
+    "email": "contact@calvinistparrotministries.org",
+    "url": "https://www.calvinistparrotministries.org/"
+  },
+  "homepage": "https://www.calvinistparrot.com/",
+  "repository": "https://github.com/Jegama/calvinist-parrot",
+  "extensions": {
+    "com.openai": {
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Ask an isolated guest question",
+              "prompt": "Ask Parrot what Ephesians 2:8–10 teaches about grace. Include its citations.",
+              "tools_triggered": "ask_parrot",
+              "expected_behavior": "Without a linked account, return Parrot's final answer and citations with no reusable conversation reference."
+            },
+            {
+              "description": "Search the evaluated directory",
+              "prompt": "Show two saved, evaluated churches from Parrot’s directory.",
+              "tools_triggered": "find_churches",
+              "expected_behavior": "Return up to two saved summaries. Use a returned church for the next case."
+            },
+            {
+              "description": "Open one evaluated church from the search",
+              "prompt": "Open the first church’s saved evaluation. Show its status and any supporting links.",
+              "tools_triggered": "get_church",
+              "expected_behavior": "Return the selected church, its latest saved assessment, and available source links."
+            },
+            {
+              "description": "Start a saved conversation",
+              "prompt": "Save a Parrot conversation about how James 2 describes faith and works.",
+              "tools_triggered": "ask_parrot",
+              "expected_behavior": "Prompt for authorization if necessary. Return a cited answer and a conversation reference for the connected test account."
+            },
+            {
+              "description": "Follow up in the saved conversation",
+              "prompt": "Continue that saved Parrot conversation. How does James’s example of Abraham illustrate his point?",
+              "tools_triggered": "ask_parrot",
+              "expected_behavior": "Use the returned reference and a fresh request ID. Verify the follow-up appears in the same Parrot conversation."
+            }
+          ],
+          "negative": [
+            {
+              "description": "The directory is read-only. Explain that this integration cannot delete a record.",
+              "prompt": "Delete the first church in the Parrot results."
+            },
+            {
+              "description": "The integration exposes chat and public church records. It cannot retrieve private journal data.",
+              "prompt": "Use Parrot to read my private journal."
+            },
+            {
+              "description": "Explain that the connector reads saved evaluations. No new evaluation starts.",
+              "prompt": "Submit my church for a new paid doctrinal evaluation."
+            }
+          ]
+        },
+        "commerce": false
+      },
+      "publication": {
+        "release_notes": "Adds remote access to cited Parrot answers, church directory search, and saved evaluations."
+      }
+    }
+  },
+  "interface": {
+    "displayName": "Calvinist Parrot",
+    "shortDescription": "Bible study and church search",
+    "longDescription": "Ask a Bible or theology question and read Parrot's answer with citations from a Reformed perspective. Search the public directory by city, state, denomination, or evaluation status and read a church’s saved evaluation with its available sources. Guest questions are stored and isolated. Where account linking is available, authorized questions appear in Parrot history, can update account memories, and support follow-ups. Directory coverage varies by location.",
+    "developerName": "Calvinist Parrot Ministries",
+    "category": "Education",
+    "websiteURL": "https://www.calvinistparrot.com/",
+    "supportURL": "https://www.calvinistparrot.com/about",
+    "privacyPolicyURL": "https://www.calvinistparrot.com/privacy-policy",
+    "logo": "./Logo.png",
+    "composerIcon": "./Logo.png",
+    "defaultPrompt": [
+      "Ask Parrot what Ephesians 2:8–10 teaches about grace. Include its citations.",
+      "Show two saved, evaluated churches from Parrot’s directory.",
+      "Read a saved church evaluation and show the sources used."
+    ],
+    "capabilities": [
+      "Ask a theology question",
+      "Search evaluated churches",
+      "Read a saved evaluation"
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

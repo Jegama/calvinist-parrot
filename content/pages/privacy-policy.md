@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Effective Date:** April 6, 2026  
-**Last Updated:** November 25, 2026
+**Last Updated:** November 27, 2026
 
 Calvinist Parrot ("we," "us," or "our") is a ministry project of [Calvinist Parrot Ministries](https://www.calvinistparrotministries.org/). We are committed to protecting your privacy and handling your data with transparency and care. This Privacy Policy explains what information we collect, how we use it, and what choices you have.
 
@@ -29,6 +29,14 @@ When you use our features, we store the content you provide:
 - **Prayer requests:** Personal and family prayer request text, prayer history, and rotation schedules
 - **Kids discipleship:** Annual plans, monthly visions, and discipleship observations for children in your household
 - **Family member information:** Names, relationships, and birth dates of household members you add to the prayer tracker
+
+### When You Connect a Chat App to Parrot
+
+When you use a Parrot tool from ChatGPT, Codex, Claude, or another MCP client, the client sends the tool arguments to Parrot. For a question, these include the question text, a request identifier, and any denomination or conversation reference supplied. For a directory search, the client can send location, denomination, evaluation filters, and the identifier of a church you select. The client receives the answer and citations or the saved directory results. Its provider may retain this material in your conversation according to its own settings and privacy policy. [OpenAI privacy policy](https://openai.com/policies/privacy-policy/) · [Anthropic privacy policy](https://www.anthropic.com/legal/privacy)
+
+Parrot stores the question and reply even when you ask as a guest. Each guest question is isolated and skips account memory extraction. When you grant a client `chat.write` and it uses your account, Parrot saves its questions to your history, returns a reference for follow-ups, and can update the account memories described below. Parrot validates the client's access token with Appwrite. The tools provide no access to journals, prayer requests, or a list of your conversations.
+
+We use a digest of the account or connecting network address to enforce request limits. We count a successful saved church retrieval as client activity. This read uses the existing evaluation. Chat uses the model and research services described in Section 3.
 
 ### Automatically Collected Information
 
@@ -90,11 +98,13 @@ Anthropic processes API content under its [Commercial Terms](https://www.anthrop
 - **Account data:** Retained as long as your account is active.
 - **Chat history, journal entries, prayer requests, and discipleship data:** Retained as long as your account exists. You can delete individual conversations from the chat sidebar.
 - **AI memory:** Retained alongside your profile and updated as you have new conversations.
-- **Guest data:** Anonymous chat sessions are identified by a guest cookie that expires after one year.
+- **Guest data:** The website's guest cookie expires after one year. Guest MCP questions use separate request identifiers and have no automatic transcript expiry. To ask about deletion, use the contact below.
 - **Performance analytics:** Retained according to Vercel's data retention policies.
 - **Feature activity records.** Deleting an individual conversation or journal entry leaves a record of the activity for usage reporting. These records contain identifiers, event types, and times. You can request deletion of data associated with your account as described below.
 
 If you wish to delete your account and all associated data, please contact us at [contact@calvinistparrotministries.org](mailto:contact@calvinistparrotministries.org).
+
+Disconnecting a client or revoking its authorization leaves existing Parrot transcripts and account memories in place. Use the chat sidebar to delete a saved account conversation, contact us about other Parrot data, and manage the client provider's copy in that client.
 
 ---
 
